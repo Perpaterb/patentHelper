@@ -1,109 +1,131 @@
 # AI to Developer - Required Information & Suggestions
 
 **Last Updated:** 2025-10-18
-**Project:** Parenting Helper App
+**Project:** Parenting Helper App + PH Messenger Companion App
 **Status:** Planning Phase - Awaiting Developer Input
+
+**Note:** This project includes TWO mobile apps sharing the same backend:
+- **Parenting Helper** (main app) - Full features
+- **PH Messenger** (companion app) - Messaging only, biometric auth
 
 ---
 
 ## 🚨 CRITICAL DECISIONS NEEDED
 
-### 1. **Database Choice - MUST DECIDE**
-**Question:** PostgreSQL on RDS or DynamoDB?
+### 1. **Database Choice** ✅ **DECIDED: PostgreSQL on RDS**
+**Decision:** PostgreSQL on RDS
 
-**Current Recommendation:** PostgreSQL on RDS
+**Why PostgreSQL:**
 - ✅ Complex relationships (groups → members → approvals)
 - ✅ Multi-table transactions for approval workflows
 - ✅ Better for complex queries (audit logs, calendar responsibility lines)
 - ✅ Easier to reason about for this use case
 
-**DynamoDB Alternative:**
-- ✅ More "serverless" (scales to zero)
-- ✅ Lower costs at small scale
-- ❌ Harder to model complex relationships
-- ❌ No native JOIN support (requires denormalization)
-- ❌ Approval voting logic would be complex
-
-**DECISION NEEDED:** Which database should we use?
+**Database Schema:** See README.md Section 4 (23 tables fully defined)
+**Schema Files:**
+- Complete schema: `README.md` Section 4
+- Standalone SQL: `database/schema.sql` (to be created)
+- Migration scripts: Will use Prisma or Knex migrations
 
 ---
 
-### 2. **ORM/Query Builder Choice**
-**Options:**
-1. **Prisma** (Recommended)
-   - ✅ Great TypeScript/JSDoc support
-   - ✅ Type-safe database access
-   - ✅ Automatic migrations
-   - ✅ Excellent developer experience
+### 2. **ORM/Query Builder Choice** ✅ **DECIDED: Prisma**
+**Decision:** Prisma
 
-2. **Knex.js**
-   - ✅ More flexible query builder
-   - ✅ Lighter weight
-   - ❌ Less type safety
+**Why Prisma:**
+- ✅ Great JSDoc support with auto-generated types
+- ✅ Type-safe database access
+- ✅ Automatic migrations
+- ✅ Excellent developer experience
+- ✅ Best for PostgreSQL
 
-3. **Raw pg (node-postgres)**
-   - ✅ Maximum control
-   - ❌ More boilerplate
-   - ❌ No type safety
-
-**DECISION NEEDED:** Which ORM/query builder?
-
----
-
-### 3. **Validation Library**
-**Options:**
-1. **Joi** (Recommended for this project)
-   - ✅ More expressive, easier to read
-   - ✅ Better error messages
-   - ✅ Mature, widely used
-
-2. **Zod**
-   - ✅ Better TypeScript integration (less relevant for JS project)
-   - ✅ Lighter weight
-   - ✅ Can infer types (not needed for pure JS)
-
-**DECISION NEEDED:** Joi or Zod?
+**Setup:**
+```bash
+npm install -D prisma
+npm install @prisma/client
+npx prisma init
+# Convert database/schema.sql to prisma/schema.prisma
+npx prisma migrate dev --name init
+```
 
 ---
 
-### 4. **Mobile App Framework**
-**Question:** React Native or Capacitor?
+### 3. **Validation Library** ✅ **DECIDED: Joi**
+**Decision:** Joi
 
-**Current Recommendation:** React Native
+**Why Joi:**
+- ✅ More expressive, easier to read
+- ✅ Better error messages
+- ✅ Mature, widely used
+- ✅ Great for complex validation rules (approval logic, finance calculations)
+
+**Setup:**
+```bash
+npm install joi
+```
+
+---
+
+### 4. **Mobile App Framework** ✅ **DECIDED: React Native with Expo**
+**Decision:** React Native using Expo framework
+
+**Why React Native:**
 - ✅ Better native performance
 - ✅ Larger community, more libraries
 - ✅ Better gesture support (critical for calendar swipes)
 - ✅ Native navigation feels better
-- ❌ Requires native build setup (Xcode, Android Studio)
 
-**Capacitor Alternative:**
-- ✅ Easier setup (web-first)
-- ✅ Can use any web framework
-- ❌ Performance not as good for complex UI
-- ❌ Gestures not as smooth
+**Why Expo:**
+- ✅ **No Xcode/Android Studio required for development!**
+- ✅ Cloud builds (EAS Build) - builds iOS/Android for you
+- ✅ Faster development iteration
+- ✅ All needed features supported (push notifications, camera, file uploads, etc.)
+- ✅ Can eject to bare React Native later if needed
+- 💰 Free tier available, EAS Build ~$29/month or pay-per-build
 
-**DECISION NEEDED:** React Native or Capacitor?
+**Setup:**
+```bash
+npx create-expo-app@latest mobile
+cd mobile
+npm install
+npm start
+# Scan QR code with Expo Go app to test on your phone
+```
+
+**Building for App Stores:**
+```bash
+# Install EAS CLI
+npm install -g eas-cli
+eas login
+eas build:configure
+
+# Build iOS (no Mac needed!)
+eas build --platform ios
+
+# Build Android
+eas build --platform android
+
+# Submit to app stores
+eas submit --platform ios
+eas submit --platform android
+```
 
 ---
 
-### 5. **State Management**
-**Options:**
-1. **Redux Toolkit** (Recommended for this project)
-   - ✅ Handles complex state (offline sync, message caching)
-   - ✅ DevTools for debugging
-   - ✅ Middleware for side effects
+### 5. **State Management** ✅ **DECIDED: Redux Toolkit**
+**Decision:** Redux Toolkit
 
-2. **Zustand**
-   - ✅ Simpler, less boilerplate
-   - ✅ Good for medium complexity
-   - ❌ Less tooling
+**Why Redux Toolkit:**
+- ✅ Handles complex state (offline sync, message caching)
+- ✅ DevTools for debugging (critical for complex approval workflows)
+- ✅ Middleware for side effects (API calls, storage)
+- ✅ Redux Persist for offline support
+- ✅ Best for apps with complex data flow (your app qualifies)
 
-3. **React Context + useReducer**
-   - ✅ Built-in, no dependencies
-   - ❌ Performance issues at scale
-   - ❌ No DevTools
-
-**DECISION NEEDED:** Which state management library?
+**Setup:**
+```bash
+npm install @reduxjs/toolkit react-redux redux-persist
+```
 
 ---
 
@@ -111,118 +133,235 @@
 
 ### Business Logic Questions
 
-#### 1. **Subscription & Storage**
-- [ ] **Q:** When storage exceeds limit, should we:
-  - A) Block all new uploads immediately?
-  - B) Allow a grace period (e.g., 7 days)?
-  - C) Automatically charge for additional storage?
-  - **Current Assumption:** Block uploads, warn at 80%
+#### 1. **Subscription & Storage** ✅ **DECIDED**
+- [✅] **Q:** When storage exceeds limit, should we:
+  - **DECISION: C) Automatically charge for additional storage + send email notification**
+  - Implementation: Charge $1 per 2GB, send email: "Your storage has been increased to XGB. You'll be charged $X on your next billing cycle."
 
-- [ ] **Q:** If an admin cancels subscription mid-month, when does access end?
-  - A) Immediately
-  - B) End of billing period (recommended for legal continuity)
-  - **Current Assumption:** End of billing period
+- [✅] **Q:** If an admin cancels subscription mid-month, when does access end?
+  - **DECISION: B) End of billing period**
+  - Ensures legal continuity for co-parenting documentation
 
-- [ ] **Q:** Can a group have zero admins temporarily?
-  - **Context:** If only admin requests to leave and it's pending approval
-  - **Current Assumption:** No, system prevents this
+- [✅] **Q:** Can a group have zero admins temporarily?
+  - **DECISION: No - Groups require at least one admin**
+  - **Special case:** If only admin unsubscribes:
+    - Show banner to all group members: "This group will be deleted on [DATE] because [ADMIN NAME]'s subscription ends then"
+    - Nothing permanently deleted from servers
+    - Resurrection possible via support ticket
+    - Ex-admin can re-subscribe to restore access
 
-#### 2. **Group Deletion & Data Retention**
-- [ ] **Q:** When the last admin leaves a group, what happens?
-  - A) Group is soft-deleted, data preserved indefinitely
-  - B) Group is marked for deletion after 30 days
-  - C) Cannot remove last admin without deleting group
-  - **Legal implication:** Co-parenting data may be needed for custody cases years later
+#### 2. **Group Deletion & Data Retention** ✅ **DECIDED**
+- [✅] **Q:** When the last admin leaves a group, what happens?
+  - **DECISION: C) Cannot remove last admin without deleting group (from user perspective)**
+  - **Server-side:** Nothing is ever permanently deleted
+  - **Implementation:**
+    - UI prevents last admin from leaving
+    - If last admin's subscription expires, group becomes "archived" for users
+    - All data remains on servers indefinitely
+    - Resurrection available via support ticket
+  - **Legal consideration:** Co-parenting data preserved for custody cases
 
-- [ ] **Q:** Can ex-admins request historical log exports after leaving?
-  - **Context:** They paid for storage during their admin period
-  - **Current Assumption:** No access after leaving, should download logs before leaving
+- [✅] **Q:** Can ex-admins request historical log exports after leaving?
+  - **DECISION: No - Must become admin again to access logs**
+  - Recommendation: Download all logs before leaving admin role
 
-#### 3. **Approval Workflow Edge Cases**
-- [ ] **Q:** If 3 admins, and votes are 1 approve, 1 reject, 1 no vote - what happens?
-  - A) Rejection wins (safer default)
-  - B) Wait for all votes
-  - C) Wait for timeout (e.g., 7 days), then reject
-  - **Current Assumption:** Rejection wins in tie
+#### 3. **Approval Workflow Edge Cases** ✅ **DECIDED**
+- [✅] **Q:** If 3 admins, and votes are 1 approve, 1 reject, 1 no vote - what happens?
+  - **DECISION: B) Wait for all votes**
+  - **Exception:** For actions requiring >50%, as soon as >50% threshold is reached, action passes immediately (no need to wait for remaining votes)
+  - **Example:** 5 admins, need >50% (3 votes)
+    - 3 approve → Action passes immediately
+    - 2 approve, 3 reject → Action rejected immediately
+    - 2 approve, 1 reject, 2 no vote yet → Wait for more votes
 
-- [ ] **Q:** Can the requesting admin vote on their own approval?
-  - **Context:** Admin A requests to add member, Admin A is part of approval pool
-  - **Current Assumption:** Yes, they can vote (but can't single-handedly approve)
+- [✅] **Q:** Can the requesting admin vote on their own approval?
+  - **DECISION: Yes - Requesting admin is part of the approval pool**
+  - They can vote approve or reject on their own request
+  - Still requires other admins to meet threshold
 
-#### 4. **Calendar & Responsibility Tracking**
-- [ ] **Q:** Can a child have overlapping responsibility events?
-  - **Example:** Child at school (9-3pm) but also "with Dad" (all day)
-  - A) Allow overlaps, show both
-  - B) Prevent overlaps, require resolution
-  - **Current Assumption:** Allow overlaps, latest event takes precedence for display
+#### 4. **Calendar & Responsibility Tracking** ✅ **DECIDED**
+- [✅] **Q:** Can a child have overlapping responsibility events?
+  - **DECISION: B) Prevent overlaps, require resolution**
+  - **Implementation:**
+    - When creating new responsibility event, check for overlaps
+    - If overlap detected, show error: "This conflicts with existing event [EVENT NAME] from [TIME] to [TIME]"
+    - User must resolve (edit existing event or choose different time)
+  - **Rationale:** Clear accountability - one person responsible at any given time
 
-- [ ] **Q:** Timezone handling for events:
-  - **Scenario:** Parent A (PST) and Parent B (EST) in same group
-  - A) Events stored in UTC, displayed in user's local time
-  - B) Events tied to a specific timezone
-  - **Current Assumption:** UTC storage, local display
+- [✅] **Q:** Timezone handling for events:
+  - **DECISION: A) Events stored in UTC, displayed in user's local time**
+  - **Implementation:**
+    - Database stores all timestamps in UTC
+    - Mobile app converts to device timezone for display
+    - Calendar event shows: "6:00 PM (your time)" vs "9:00 PM (EST)"
+  - **Example:** Custody handoff at "6pm" means 6pm in the user's local time
 
-#### 5. **Finance Matters**
-- [ ] **Q:** Can finance matters have multiple currencies?
-  - **Example:** "Vacation expenses - $500 USD + €200 EUR"
-  - A) Yes, each matter can specify currency
-  - B) No, one currency per group
-  - **Current Assumption:** One currency per matter (no multi-currency in MVP1)
+#### 5. **Finance Matters** ✅ **DECIDED**
+- [✅] **Q:** Can finance matters have multiple currencies?
+  - **DECISION: B) No, one currency per group**
+  - **Rationale:** Users can do currency conversion calculations themselves
+  - **Implementation:** Group settings has default currency, all finance matters in that group use same currency
+  - **Future:** Could add currency converter in MVP2
 
-- [ ] **Q:** What happens if someone overpays?
-  - **Example:** Expected $50, paid $100
-  - A) Track overpayment, show "+$50 credit"
-  - B) Reject payment, must match exact amount
-  - **Current Assumption:** Allow and track overpayment
+- [✅] **Q:** What happens if someone overpays?
+  - **DECISION: B) Reject payment, must match exact amount**
+  - **Error message:** "Payment amount ($100) exceeds what you owe ($50). Please enter $50 or less."
+  - **Workaround:** User can create a separate finance matter to request money back from the person they paid
+  - **Example:**
+    - Person A owes Person B $50
+    - Person A accidentally paid $100
+    - Person A creates new finance matter: "Overpayment refund - $50" where Person B owes Person A $50
 
-#### 6. **Messaging**
-- [ ] **Q:** Message edit time limit?
-  - A) Can edit anytime (logged in audit)
-  - B) 15 minutes after send
-  - C) No edits, only delete (hide)
-  - **Current Assumption:** Can edit anytime, all edits logged
+#### 6. **PH Messenger Permissions** ✅ **DECIDED**
+- [✅] **Q:** Can PH Messenger users create new message groups?
+  - **DECISION: A) Yes, if their role allows (same rules as main app)**
+  - Implementation: Check `group_settings.{role}_create_message_groups`
+  - Parents & Caregivers: Default YES
+  - Children: Default NO (can be changed by admin)
 
-- [ ] **Q:** Media retention after sender leaves group:
-  - A) Media remains available
-  - B) Media deleted with user
-  - **Legal consideration:** Evidence preservation
-  - **Current Assumption:** Media remains, user anonymized in logs
+- [✅] **Q:** Can PH Messenger users invite others to message groups?
+  - **DECISION: A) Yes, same rules as main app**
+  - Can invite any member of the parent group to message group
+  - May require admin approval depending on permissions matrix
+
+- [✅] **Q:** Can supervisors use PH Messenger?
+  - **DECISION: B) No, blocked**
+  - Supervisors cannot send messages, so PH Messenger serves no purpose
+  - If supervisor tries to open PH Messenger, show: "Supervisors cannot use PH Messenger. Please use the main Parenting Helper app for read-only access."
+
+- [✅] **Q:** If user has both apps, do they share local data?
+  - **DECISION: A) Yes, shared Redux Persist storage**
+  - Same authentication token
+  - Same message cache (offline access)
+  - Logged actions track which app was used (audit logs)
+
+#### 7. **Messaging** ✅ **DECIDED**
+- [✅] **Q:** Message edit time limit?
+  - **DECISION: C) No edits, only delete (hide)**
+  - **Rationale:** Prevents message tampering in legal/custody contexts
+  - **Implementation:**
+    - No "Edit" button on messages
+    - Only "Delete" button (which hides message, doesn't actually delete)
+    - Deleted messages remain visible to admins (greyed out)
+    - If user needs to correct message, they send a new one
+  - **Future:** Could add "Correct this message" feature that sends new message with reference to old one
+
+- [✅] **Q:** Media retention after sender leaves group:
+  - **DECISION: A) Media remains available**
+  - **Everything that happens on the app is backed up, in the logs, and tracked**
+  - **Implementation:**
+    - Media files stay in S3
+    - URLs remain valid
+    - Audit logs preserve media links
+    - Sender name anonymized in UI: "[Former Member]"
+  - **Legal consideration:** Evidence preservation for custody cases
 
 ---
 
 ## 🔧 TECHNICAL SETUP REQUIREMENTS
 
-### AWS Account Setup
-- [ ] **AWS Account ID needed** (for Terraform configuration)
-- [ ] **AWS Region preference:** us-east-1, us-west-2, eu-west-1? (affects latency for users)
-- [ ] **AWS Budget alerts:** What monthly budget? (Estimate: $50-200/month for dev)
+### AWS Account Setup ✅ **CONFIGURED**
+- [✅] **AWS Account ID:** 412527729032
+- [✅] **AWS Region:** ap-southeast-2 (Sydney, Australia)
+- [✅] **AWS Budget alerts:**
+  - Development: $100/month alert
+  - Production: $500/month alert
 
 ### Third-Party Service Accounts
-- [ ] **Kinde Account:**
-  - Sign up at https://kinde.com
-  - Create application
-  - Provide: Domain, Client ID, Client Secret
 
-- [ ] **Stripe Account:**
-  - Sign up at https://stripe.com
-  - Get: Publishable Key, Secret Key, Webhook Secret
-  - Set up: Products ($8/month admin, $1/2GB storage)
+#### Kinde Account ✅ **CONFIGURED**
+- [✅] **Kinde Domain:** https://parentinghelper.kinde.com
+- [✅] **Client ID:** 39fa7698fc83461eb065dfc850f867ee
+- [✅] **Client Secret:** [Stored in AWS Secrets Manager - DO NOT COMMIT TO GIT]
 
-- [ ] **AWS SES Email:**
-  - Verify sender domain or email address
-  - Request production access (out of sandbox)
+#### Stripe Account ✅ **CONFIGURED**
+- [✅] **Account:** Live mode credentials provided
+- [✅] **Publishable Key:** Stored in .env.local (get from Stripe Dashboard)
+- [✅] **Secret Key:** Stored in .env.local (get from Stripe Dashboard)
+- [✅] **Australian Business Number (ABN):** 88 741 861 465
+- [✅] **Keys Location:** Stripe Dashboard > Developers > API Keys > Live mode
+- [ ] **⚠️ TODO:** Create Stripe Products:
+  - Product 1: "Admin Subscription" - $8/month recurring
+  - Product 2: "Additional Storage" - $1 per 2GB/month
+- [ ] **⚠️ TODO:** Set up Stripe Webhook for subscription events (will configure after backend deployment)
 
-- [ ] **Push Notifications:**
-  - **iOS:** Apple Developer Account ($99/year)
-    - APNs certificate
-  - **Android:** Firebase account (free)
-    - FCM Server Key
+**🔒 SECURITY REMINDER:**
+- These credentials should be stored in AWS Secrets Manager or .env.local (NEVER commit to git)
+- Web app will use Publishable Key (client-side)
+- Backend Lambda will use Secret Key (server-side)
 
-### Development Environment Preferences
-- [ ] **Node.js version:** v18 LTS, v20 LTS, or latest?
-- [ ] **Package manager:** npm or yarn?
-- [ ] **Code editor:** VS Code (recommended), WebStorm, other?
-- [ ] **Local database:** Docker PostgreSQL or install locally?
+#### AWS SES Email Configuration ✅ **DECIDED**
+- [✅] **Q1:** System email address: **noreply@parentinghelperapp.com**
+  - Use for: Subscription confirmations, log exports, approval notifications, storage warnings
+
+- [✅] **Q2:** Support email address: **support@parentinghelperapp.com**
+  - Use for: App store contact, in-app support links, user inquiries
+
+- [✅] **Q3:** AWS SES Setup: **Yes, set up with guidance**
+  - **Action Items:**
+    1. Register domain (parentinghelperapp.com) with Porkbun
+    2. Verify domain in AWS SES (ap-southeast-2 region)
+    3. Request production access (move out of sandbox mode)
+    4. Configure DKIM/SPF/DMARC records
+    5. Verify both email addresses
+  - **Timeline:** During Phase 2 (Web App development) before testing subscription emails
+
+#### Push Notifications ✅ **DECIDED**
+- [✅] **Q4:** Push notification setup: **Post-launch (MVP2)**
+  - **Decision:** Use polling for messages in MVP1
+    - Poll every 5 seconds for active message groups
+    - Poll every 30 seconds for inactive groups
+    - Simpler initial architecture (KISS principle)
+  - **Benefit:** Launch faster, add push later based on user feedback
+  - **Note:** Can implement OneSignal or direct APNs/FCM in MVP2
+
+- [✅] **iOS Push (APNs):**
+  - [✅] **Q5:** Apple Developer Account: **Not yet, wait until needed**
+  - **Timeline:** Purchase ($99/year) before App Store submission (Phase 6)
+  - **Action Items:** Create account 2-3 weeks before app store launch
+
+- [✅] **Android Push (FCM):**
+  - [✅] **Q6:** Firebase account: **Yes, zcarss@gmail.com**
+  - **Timeline:** Set up during Phase 6 (pre-launch) if adding basic FCM
+  - **Action Item:** Create Firebase project when ready for Android push
+
+- [✅] **Q7:** OneSignal: **Skip for now, revisit later**
+  - Will use polling for MVP1
+  - Can add OneSignal or direct push in MVP2
+
+### Domain & DNS ✅ **PLANNED**
+- [✅] **Domain:** parentinghelperapp.com (to be registered with Porkbun)
+- [✅] **Q8:** DNS Records will be provided after domain registration
+  - **Action Items (Phase 1):**
+    1. Register domain with Porkbun
+    2. I'll provide exact DNS records for:
+       - Web app hosting (CloudFront distribution)
+       - Email verification (AWS SES TXT records)
+       - Security (DKIM/SPF/DMARC records)
+    3. You add records to Porkbun DNS settings
+    4. Wait 24-48 hours for propagation
+
+### Development Environment Preferences ✅ **DECIDED**
+- [✅] **Q9:** Node.js version: **v20 LTS**
+  - Latest long-term support release
+  - Best compatibility with all dependencies
+  - Download: https://nodejs.org/
+
+- [✅] **Q10:** Package manager: **npm**
+  - Comes with Node.js
+  - Standard, widely supported
+  - Simpler than yarn for this project
+
+- [✅] **Q11:** Code editor: **VS Code**
+  - Free, best React Native + Expo support
+  - **I'll provide recommended extensions list**
+  - Download: https://code.visualstudio.com/
+
+- [✅] **Q12:** Local database: **Docker PostgreSQL**
+  - Clean, isolated development environment
+  - Matches production exactly (PostgreSQL 15)
+  - **I'll provide docker-compose.yml**
+  - Requires Docker Desktop: https://www.docker.com/products/docker-desktop/
 
 ---
 
@@ -266,6 +405,20 @@ From appplan.md, role colors are defined:
 ## 💡 SUGGESTIONS & RECOMMENDATIONS
 
 ### High-Priority Suggestions
+
+#### 0. **PH Messenger Companion App** ✅ **CONFIRMED FEATURE**
+**Feature:** Lightweight messaging-only app for children and non-technical users
+**Benefits:**
+- Children with restricted phones can message family safely
+- Parents monitor via audit logs in main app
+- No complex navigation - just messages
+- Biometric auth for quick access
+**Implementation:**
+- Same backend (no additional infrastructure)
+- Shared React Native components
+- 2 weeks additional development time
+- Separate App Store listings
+**See:** appplan.md "PH Messenger - Companion App" section
 
 #### 1. **Add Notification Preferences**
 **Suggestion:** More granular notification settings
@@ -469,19 +622,23 @@ If building in-house:
 
 ### App Store Requirements
 
-#### iOS App Store
+#### iOS App Store (Both Apps)
 - [ ] **Apple Developer Account** ($99/year)
-- [ ] **App name available?** (check App Store)
-- [ ] **Privacy Policy URL** (required)
-- [ ] **Terms of Service URL** (required)
+- [ ] **Parenting Helper** app name available?
+- [ ] **PH Messenger** app name available?
+- [ ] **Privacy Policy URL** (required, same for both)
+- [ ] **Terms of Service URL** (required, same for both)
 - [ ] **Support email/URL** (required)
-- [ ] **App review timeline:** Plan for 1-2 weeks review time
+- [ ] **App review timeline:** Plan for 1-2 weeks review time PER APP
 
-#### Google Play Store
+#### Google Play Store (Both Apps)
 - [ ] **Google Play Developer Account** ($25 one-time)
-- [ ] **App name available?** (check Play Store)
-- [ ] **Privacy Policy URL** (required)
+- [ ] **Parenting Helper** app name available?
+- [ ] **PH Messenger** app name available?
+- [ ] **Privacy Policy URL** (required, same for both)
 - [ ] **Target SDK:** Android 13+ (API level 33+)
+
+**Note:** You'll need to submit TWO separate apps to each store. Can stagger launches (e.g., PH Messenger first as MVP).
 
 ### Legal Documents Needed
 - [ ] **Privacy Policy** (GDPR compliant)
@@ -506,26 +663,36 @@ If building in-house:
 ## 🎯 IMMEDIATE NEXT STEPS (Priority Order)
 
 ### Week 1: Foundation Setup
-1. [ ] **Make all critical decisions** (database, ORM, framework)
+1. [✅] **Make all critical decisions** (PostgreSQL, Prisma, Joi, React Native + Expo, Redux)
 2. [ ] **Set up AWS account** and create IAM users
 3. [ ] **Register domain name** (if needed for app)
 4. [ ] **Create Kinde account** and configure
 5. [ ] **Create Stripe account** and set up products
-6. [ ] **Decide on app name** (affects everything)
+6. [ ] **Decide on app names** (Parenting Helper + PH Messenger)
+7. [ ] **Check App Store availability** for both app names
 
 ### Week 2: Development Environment
-7. [ ] **Set up local dev environment:**
+8. [ ] **Set up local dev environment:**
    - Node.js, Docker, PostgreSQL
-   - React Native CLI, Xcode, Android Studio
+   - Expo CLI (no Xcode/Android Studio needed!)
    - Terraform, AWS CLI
-8. [ ] **Create project structure** (follow README.md)
-9. [ ] **Set up CI/CD pipeline** (GitHub Actions)
-10. [ ] **Database schema migration** (Prisma or Knex)
+9. [ ] **Create project structure:**
+   - `mobile-main/` (Parenting Helper)
+   - `mobile-messenger/` (PH Messenger)
+   - `backend/` (Lambda functions)
+   - `shared/` (Shared components)
+   - `infrastructure/` (Terraform)
+10. [ ] **Set up CI/CD pipeline** (GitHub Actions for both apps)
+11. [ ] **Database schema migration** (Prisma)
 
 ### Week 3: Begin Development
-11. [ ] **Authentication flow** (Kinde integration)
-12. [ ] **Basic API framework** (Lambda + API Gateway)
-13. [ ] **Mobile app shell** (navigation, screens)
+12. [ ] **Authentication flows:**
+    - Kinde integration for both apps
+    - Biometric auth for PH Messenger (Expo Local Authentication)
+13. [ ] **Basic API framework** (Lambda + API Gateway)
+14. [ ] **Main app shell** (navigation, screens)
+15. [ ] **Shared messaging components** (used by both apps)
+16. [ ] **PH Messenger shell** (minimal navigation, just message groups + messages)
 
 ---
 
@@ -594,18 +761,20 @@ If building in-house:
 ## 📝 ACTION ITEMS SUMMARY
 
 **High Priority (Answer in next 1-2 days):**
-1. ⚠️ Decide on database (PostgreSQL vs DynamoDB)
-2. ⚠️ Decide on mobile framework (React Native vs Capacitor)
-3. ⚠️ Choose app name
-4. ⚠️ AWS account setup
-5. ⚠️ Your technical background & involvement level
+1. [✅] Decide on database (PostgreSQL)
+2. [✅] Decide on mobile framework (React Native + Expo)
+3. [ ] ⚠️ Choose app names (both apps)
+4. [ ] ⚠️ AWS account setup
+5. [ ] ⚠️ Your technical background & involvement level
+6. [ ] ⚠️ PH Messenger clarifications (see questions below)
 
 **Medium Priority (Answer within 1 week):**
-6. ORM choice (Prisma, Knex, raw pg)
-7. Validation library (Joi vs Zod)
-8. State management (Redux, Zustand, Context)
-9. Clarify pending business logic questions
-10. Set up Kinde and Stripe accounts
+7. [✅] ORM choice (Prisma)
+8. [✅] Validation library (Joi)
+9. [✅] State management (Redux Toolkit)
+10. [ ] Clarify pending business logic questions
+11. [ ] Set up Kinde and Stripe accounts
+12. [ ] PH Messenger feature permissions (can they create message groups? invite others?)
 
 **Low Priority (Can decide later):**
 11. Design choices (colors, dark mode)

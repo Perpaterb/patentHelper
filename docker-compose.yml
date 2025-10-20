@@ -1,0 +1,93 @@
+# Docker Compose for Local Development
+# Provides PostgreSQL database matching production environment
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: parenting-helper-db
+    environment:
+      POSTGRES_DB: parenting_helper_dev
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist data between restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Auto-import schema on first run
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d parenting_helper_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - parenting-helper-network
+
+  # pgAdmin (Optional - Web UI for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: parenting-helper-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@parentinghelper.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - parenting-helper-network
+    profiles:
+      - tools  # Only starts with: docker-compose --profile tools up
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  parenting-helper-network:
+    driver: bridge
+
+# =============================================================================
+# USAGE INSTRUCTIONS
+# =============================================================================
+#
+# Start database:
+#   docker-compose up -d
+#
+# Start database + pgAdmin:
+#   docker-compose --profile tools up -d
+#
+# Stop services:
+#   docker-compose down
+#
+# Stop and remove data (fresh start):
+#   docker-compose down -v
+#
+# View logs:
+#   docker-compose logs -f postgres
+#
+# Access PostgreSQL CLI:
+#   docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
+#
+# Import schema manually:
+#   docker-compose exec -i postgres psql -U dev_user parenting_helper_dev < database/schema.sql
+#
+# pgAdmin Access (if started with --profile tools):
+#   URL: http://localhost:5050
+#   Email: admin@parentinghelper.local
+#   Password: admin
+#
+# Connection string for .env.local:
+#   DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/parenting_helper_dev
+#
+# =============================================================================

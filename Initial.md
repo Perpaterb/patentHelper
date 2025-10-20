@@ -2,7 +2,14 @@
 
 ## FEATURE:
 
-A cross-platform mobile application for parenting and co-parenting coordination with three core modules:
+A 3-product parenting and co-parenting coordination platform:
+1. **Admin Web App** (React) - Subscription management, payments, log exports
+2. **Parenting Helper Mobile App** (React Native) - Full features: messaging, calendar, finance
+3. **PH Messenger Mobile App** (React Native) - Messaging only
+
+All 3 products share the same backend (AWS Lambda, PostgreSQL, S3) and Kinde authentication.
+
+### Core Modules:
 
 ### 1. **Messaging System**
 - Multi-level message groups within family groups
@@ -46,11 +53,24 @@ A cross-platform mobile application for parenting and co-parenting coordination 
 - Logs stored in each admin's storage allocation
 
 ### 6. **Subscription & Storage Management**
+- **IMPORTANT**: All payment/subscription management happens on **Web App ONLY** (no in-app purchases)
+- Mobile apps link to web app for subscription management (KISS principle)
 - Free tier: Non-admin parents
 - $8/month: Group admins get 10GB storage
 - $1 per additional 2GB
-- Storage tracker in "My Account" with warnings
+- Auto-charge when exceeding storage limit + email notification
+- Storage tracker in "My Account" with warnings at 80%
 - Storage includes: group logs, images, videos (per admin, per group)
+- Stripe integration on web app only
+
+### 7. **PH Messenger - Companion App**
+- Lightweight messaging-only app
+- No login required on app open (biometric authentication)
+- Opens directly to message groups list
+- Perfect for children with restricted phones
+- Full message sync with main app
+- Cannot access calendar, finance, or admin features
+- Same backend, same database, shared UI components
 
 ---
 
@@ -131,6 +151,81 @@ Wednesday:
 
 ---
 
+### Example 6: PH Messenger Biometric Login Flow
+**Location**: `examples/ph-messenger-auth.md`
+
+**Scenario**: Child opens PH Messenger on their locked-down phone
+1. First time: Logs in with parent's help (Kinde email + MFA)
+2. App securely stores auth token in Expo SecureStore
+3. Child closes app
+4. **Next time**: Child opens PH Messenger
+5. App shows Face ID prompt (or Touch ID/PIN depending on device)
+6. Child authenticates with Face ID
+7. App instantly shows message groups list
+8. No email/password required
+9. If Face ID fails 3 times: Requires Kinde re-authentication for security
+
+**Technical flow**:
+```javascript
+// On app open
+const storedToken = await SecureStore.getItemAsync('auth_token');
+if (storedToken) {
+  const biometricResult = await LocalAuthentication.authenticateAsync({
+    promptMessage: 'Unlock PH Messenger',
+    fallbackLabel: 'Use passcode'
+  });
+
+  if (biometricResult.success) {
+    // Refresh token in background
+    // Navigate to message groups
+  } else {
+    // After 3 failures, require Kinde login
+  }
+}
+```
+
+**See appplan.md PH Messenger section for complete spec**
+
+---
+
+### Example 7: Web App Subscription Flow (Cross-Product Integration)
+**Location**: `examples/web-app-subscription-flow.md`
+
+**Scenario**: User wants to become a group admin (requires subscription)
+1. User opens Parenting Helper mobile app
+2. Tries to create a group (admin-only action)
+3. App shows: "Admin access requires subscription"
+4. "Subscribe Now" button opens https://parentinghelperapp.com/subscribe in mobile browser
+5. User logs in to web app (same Kinde account)
+6. Sees subscription plans: $8/month for 10GB
+7. Enters payment method via Stripe Elements (PCI-compliant)
+8. Completes payment
+9. Returns to mobile app
+10. App refreshes user status → now has admin access
+11. Can create group
+
+**Key Points**:
+- NO in-app purchase APIs (no Apple/Google 30% fee)
+- Web handles ALL payment logic (KISS principle)
+- Mobile just links to web
+- All 3 products share same auth/backend
+
+**Technical Flow**:
+```javascript
+// Mobile app - Subscribe button
+const handleSubscribe = () => {
+  Linking.openURL('https://parentinghelperapp.com/subscribe');
+  // When user returns, refresh user data
+};
+
+// Web app - Subscription page
+<StripeElements>
+  <PaymentMethodForm onSuccess={createSubscription} />
+</StripeElements>
+```
+
+---
+
 ### Example 5: Message "Deletion" and Admin Visibility
 **Location**: `examples/message-deletion-admin-view.md`
 
@@ -149,9 +244,13 @@ Wednesday:
 ## DOCUMENTATION:
 
 ### Official Technology Documentation
-1. **React Native**: https://reactnative.dev/docs/getting-started
+1. **React Native with Expo**: https://docs.expo.dev/
+   - React Native: https://reactnative.dev/docs/getting-started
    - Navigation: https://reactnavigation.org/docs/getting-started
    - Gestures: https://docs.swmansion.com/react-native-gesture-handler/
+   - Local Authentication: https://docs.expo.dev/versions/latest/sdk/local-authentication/
+   - Secure Store: https://docs.expo.dev/versions/latest/sdk/securestore/
+   - EAS Build: https://docs.expo.dev/build/introduction/
 
 2. **AWS Services**:
    - Lambda: https://docs.aws.amazon.com/lambda/
@@ -321,6 +420,58 @@ Wednesday:
 - **Tracking**: Track access count per link in media_log_links table
 - **Expiration**: After 1 week, links return 410 Gone, must request new export
 
+#### 17. **Messages Cannot Be Edited - Only Deleted (Hidden)**
+- ❌ **WRONG**: Allowing message editing with "edited" indicator
+- ✅ **CORRECT**: No edit button, only delete (hide) button
+- **Rationale**: Legal/custody contexts require immutable message history
+- **Implementation**:
+  - No edit functionality in message UI
+  - Delete button sets `is_hidden = true`
+  - Admins still see deleted messages (greyed out)
+  - If user needs to correct, they send new message
+- **Audit logs**: Record deletion action with original message content
+
+#### 18. **Calendar Responsibility Events Cannot Overlap**
+- ❌ **WRONG**: Allowing child to have multiple responsibility assignments at same time
+- ✅ **CORRECT**: Prevent overlaps, show error and require resolution
+- **Example**: Can't create "with Dad all day" if "at school 9-3pm" already exists
+- **Error message**: "This conflicts with existing event [NAME] from [TIME] to [TIME]"
+- **Rationale**: Clear accountability - one person responsible at any given time
+
+#### 19. **PH Messenger Shares Local Storage with Main App**
+- ❌ **WRONG**: Separate Redux Persist storage for each app
+- ✅ **CORRECT**: Both apps share same local storage on device
+- **Implementation**:
+  - Same authentication token
+  - Same message cache (offline access)
+  - Audit logs track which app was used
+- **Security**: Child using PH Messenger can't access admin features from main app (API enforces this)
+
+#### 20. **Groups Require At Least One Admin**
+- ❌ **WRONG**: Allowing last admin to leave group
+- ✅ **CORRECT**: UI prevents last admin from leaving
+- **Special case**: If last admin's subscription expires:
+  - Show banner to all users: "Group will be archived on [DATE] when [ADMIN]'s subscription ends"
+  - Group becomes read-only for users
+  - Nothing deleted from servers
+  - Resurrection via support ticket
+
+#### 21. **Finance Payments Cannot Exceed Owed Amount**
+- ❌ **WRONG**: Accepting overpayment and tracking credit
+- ✅ **CORRECT**: Reject with error "Payment amount exceeds what you owe"
+- **Workaround**: User creates new finance matter for refund
+- **Example**: Owe $50, paid $100 by mistake → Create "Overpayment refund - $50" matter going opposite direction
+
+#### 22. **Approval Voting: Wait for All, But >50% Threshold Passes Immediately**
+- ❌ **WRONG**: Passing action as soon as first admin approves
+- ✅ **CORRECT**:
+  - Default: Wait for ALL admin votes
+  - Exception: If action needs >50%, pass as soon as threshold reached
+- **Example**: 5 admins, need >50% (3 votes)
+  - 3 approve → Pass immediately, no need for remaining 2 votes
+  - 2 approve, 1 reject, 2 pending → Keep waiting
+- **Requester can vote**: Admin requesting action can vote on their own request
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:
@@ -407,14 +558,43 @@ Wednesday:
 ## Project Status
 
 **Current Phase**: Planning & Setup
-**Next Steps**:
-1. Set up project structure (mobile/, backend/, infrastructure/)
-2. Initialize Terraform for AWS infrastructure
-3. Set up Kinde authentication
-4. Create database schema in RDS
-5. Build authentication flow (login → MFA → home)
 
-**Estimated Timeline**: 18 weeks to MVP1 (see README.md Development Phases)
+**Build Order (Sequential)**:
+1. **Phase 1: Foundation** (Weeks 1-2) - Infrastructure, auth, database
+2. **Phase 2: Web App** (Weeks 3-6) - BUILT FIRST - Subscriptions, payments, logs
+3. **Phase 3-4: Main Mobile App** (Weeks 7-16) - BUILT SECOND - Full features
+4. **Phase 5: PH Messenger** (Weeks 17-18) - BUILT THIRD - Messaging only
+5. **Phase 6: Testing & Launch** (Weeks 19-24) - All 3 products
+
+**Project Structure**:
+```
+patentHelper/
+├── web-admin/          # Admin Web App (React) - PHASE 2
+├── mobile-main/        # Parenting Helper (React Native) - PHASES 3-4
+├── mobile-messenger/   # PH Messenger (React Native) - PHASE 5
+├── backend/            # AWS Lambda (shared by all) - PHASE 1+
+├── infrastructure/     # Terraform - PHASE 1
+└── shared/             # Shared components
+```
+
+**Estimated Timeline**:
+- Foundation: 2 weeks
+- Web app: 4 weeks
+- Main mobile app: 10 weeks
+- PH Messenger: 2 weeks
+- Testing & launch: 6 weeks
+- **Total: 24 weeks to all 3 products**
+
+**Deployment Targets**:
+- Web app: parentinghelperapp.com (AWS S3 + CloudFront)
+- Main mobile app: iOS App Store + Google Play Store
+- PH Messenger: iOS App Store + Google Play Store (separate listings)
+
+**Why Build Web First?**
+- Simplifies mobile development (no payment UI needed)
+- KISS principle - one place for all billing/subscription logic
+- No Apple/Google in-app purchase fees (30% vs Stripe ~3%)
+- Easier to iterate on payment flows (no app store review delays)
 
 ---
 

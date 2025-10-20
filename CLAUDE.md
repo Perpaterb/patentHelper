@@ -1,14 +1,45 @@
 # Claude Code Instructions for Parenting Helper App
 
+## 🎯 Core Guiding Principle: KISS / KASS
+
+**KISS: Keep It Simple, Stupid**
+**KASS: Keep Architecture Super Simple**
+
+This principle must guide ALL development decisions:
+- **NO over-engineering** - Build the simplest solution that works
+- **NO premature optimization** - Solve actual problems, not theoretical ones
+- **NO unnecessary abstraction** - Don't add layers unless absolutely needed
+- **NO feature creep** - Stick to requirements, resist adding "nice to haves"
+
+**Examples of KISS in this project:**
+- ✅ Web app handles ALL payments (no in-app purchases complexity)
+- ✅ Mobile apps link to web for subscriptions (simple redirect)
+- ✅ 3 products share 1 backend (no duplicated APIs)
+- ✅ PostgreSQL for all data (no mixing databases)
+- ✅ Soft deletes only (simple is_hidden flag)
+
+**Before implementing ANY feature, ask:**
+1. Is this the simplest solution?
+2. Can I remove any complexity?
+3. Am I solving a real problem or an imagined one?
+
+If you're about to build something complex, STOP and ask the user if there's a simpler way.
+
+---
+
 ## 🔄 Project Awareness & Context
 
 * Always read README.md at the start of a new conversation to understand the project's architecture, tech stack, database schema, API design, and implementation phases.
 * Check appplan.md to understand the complete feature requirements, user flows, and business logic.
 * Use consistent naming conventions, file structure, and architecture patterns as described in README.md.
-* The project is split into three main areas:
-  * `mobile/` - React Native mobile app (JavaScript with JSDoc)
-  * `backend/` - AWS Lambda functions (JavaScript/Node.js with JSDoc)
+* The project has **3 products** built in sequence, sharing 1 backend:
+  1. **`web-admin/`** - Admin Web App (React, built FIRST) - Subscriptions, payments, log exports
+  2. **`mobile-main/`** - Parenting Helper main app (React Native with Expo, built SECOND) - Messaging, calendar, finance (NO payments)
+  3. **`mobile-messenger/`** - PH Messenger companion app (React Native with Expo, built THIRD) - Messaging only
+* Supporting infrastructure:
+  * `backend/` - AWS Lambda functions (JavaScript/Node.js with JSDoc) - Shared by all 3 products
   * `infrastructure/` - Terraform IaC configurations
+  * `shared/` - Shared components and utilities between mobile apps
 
 ---
 
@@ -154,7 +185,20 @@
 * Run `npm run lint` and `npm run format` before committing
 * Configure VSCode/IDE to format on save
 
-### React/React Native Conventions
+### React (Web App) Conventions
+* Use functional components with hooks (no class components)
+* Document component props with JSDoc (same as React Native)
+* Use React Router for navigation
+* Integrate Stripe Elements for payment forms (never handle raw card data)
+* Use Material-UI or Chakra UI components for consistent admin UI
+* Web app pages:
+  * Login
+  * Dashboard (overview of subscription, storage)
+  * Subscription management (plans, payment method, billing history)
+  * My Account (storage tracker, account settings)
+  * Log Export (request logs, download previous exports)
+
+### React Native (Mobile Apps) Conventions
 * Use functional components with hooks (no class components)
 * Document component props with JSDoc:
   ```javascript
@@ -342,6 +386,31 @@ if (error) {
 
 ## 📋 Project-Specific Rules
 
+### 3-Product Architecture
+* **Always** remember there are THREE products sharing the same backend:
+  1. **Admin Web App** (web-admin/) - Subscriptions, payments, log exports (BUILT FIRST)
+  2. **Parenting Helper Mobile App** (mobile-main/) - Full features: messaging, calendar, finance (BUILT SECOND)
+  3. **PH Messenger Mobile App** (mobile-messenger/) - Messaging only, biometric auth (BUILT THIRD)
+* **IMPORTANT**: Mobile apps have NO payment/subscription UI - they link to web app
+  * Subscribe button → Opens parentinghelperapp.com/subscribe in browser
+  * My Account → Shows storage usage, link to web for billing
+  * NO Stripe integration in mobile apps
+* **All 3 products** use same Kinde authentication
+* **All 3 products** use same backend API endpoints
+* **Shared backend** - No duplicate API development
+
+### PH Messenger Companion App
+* **Messaging-only** subset of main mobile app
+* **Shared components** live in `shared/components/messaging/`
+  * Both apps import from this folder
+  * Changes to shared components affect both apps
+  * Test in both apps when modifying shared code
+* **Backend is identical** - PH Messenger uses same API endpoints, just a subset
+* **Authentication difference**:
+  * Main app: Kinde login every time
+  * PH Messenger: Biometric after first Kinde login
+* **Supervisors CANNOT use PH Messenger** (they can't send messages)
+
 ### Role-Based Access Control
 * **Always** check user role before allowing actions
 * Reference appplan.md for role permissions:
@@ -391,9 +460,23 @@ if (error) {
 ## 🚀 Development Workflow
 
 ### Local Development Setup
-1. Mobile: `cd mobile && npm install && npm run start`
-2. Backend: `cd backend && npm install && docker-compose up` (for local AWS emulation)
-3. Infrastructure: `cd infrastructure && terraform init`
+
+**Development Order (match build order):**
+1. **Web App (FIRST)**: `cd web-admin && npm install && npm start`
+   - Runs on http://localhost:3000
+   - Test subscription flows, Stripe integration, log exports
+2. **Backend**: `cd backend && npm install && docker-compose up` (for local AWS emulation)
+3. **Main Mobile App (SECOND)**: `cd mobile-main && npm install && npm start`
+   - Install Expo Go on your phone
+   - Test linking to web app for subscriptions
+4. **PH Messenger (THIRD)**: `cd mobile-messenger && npm install && npm start`
+5. **Infrastructure**: `cd infrastructure && terraform init`
+
+**Testing Multiple Products:**
+- Web app runs in browser (Chrome/Safari)
+- Both mobile apps can run simultaneously on same device (Expo Go)
+- Use different Expo accounts or development builds to test side-by-side
+- Test cross-product flow: Subscribe on web → Access features on mobile
 
 ### Before Committing
 - [ ] Run `npm run lint` in changed directories

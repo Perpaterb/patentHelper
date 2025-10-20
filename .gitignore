@@ -14,7 +14,7 @@ yarn.lock
 .env.production.local
 
 # IDE
-.vscode/
+# .vscode/ - KEEP .vscode/ for shared project settings
 .idea/
 *.swp
 *.swo
@@ -50,6 +50,7 @@ infrastructure/**/*.tfvars
 *.mobileprovision
 secrets/
 credentials/
+CREDENTIALS_SECURE.md
 
 # Test coverage
 coverage/

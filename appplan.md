@@ -1,16 +1,65 @@
-This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of $8 a month. This gets them 10GB of storage. Each 2GB of storage they need on top of that will be an extra $1 a month. 
+**3 Products, 1 Backend (KISS Principle)**
+
+This platform consists of 3 separate products sharing one backend:
+
+1. **Admin Web App** (parentinghelperapp.com) - React web application
+   - Subscription management & payments (Stripe)
+   - Storage upgrades & billing
+   - Log exports
+   - My Account management
+   - BUILT FIRST (no payments in mobile apps)
+
+2. **Parenting Helper Mobile App** - React Native (iOS + Android)
+   - Full features: messaging, calendar, finance, admin
+   - NO payment features (links to web app for subscriptions)
+   - BUILT SECOND (after web app)
+
+3. **PH Messenger Mobile App** - React Native (iOS + Android)
+   - Messaging only, biometric auth
+   - For children and restricted devices
+   - BUILT THIRD (after main app)
+
+**Pricing:**
+This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of $8 a month (managed via web app). This gets them 10GB of storage. Each 2GB of storage they need on top of that will be an extra $1 a month.
+
+**Storage Management Rules:**
+- When storage exceeds limit: Automatically charge for additional 2GB increment ($1)
+- Send email notification: "Your storage has been increased to XGB. You'll be charged $X on your next billing cycle"
+- Show warning at 80% capacity in My Account
+
+**Subscription Cancellation:**
+- Access ends at end of current billing period (not immediately)
+- Ensures legal continuity for co-parenting documentation
+
+**Group Admin Requirements:**
+- Groups require at least one admin at all times - UI prevents last admin from leaving
+- If last admin's subscription expires: Show banner "Group will be archived on [DATE] because [ADMIN]'s subscription ends"
+- Nothing permanently deleted from servers - resurrection via support ticket possible 
 
 In "my account"  there would need to be a storage tracker. to show and warn what it is costing them. It will be changed monthly.
 
-Reactjs app in a wrapper to make it work all on platforms. Only android and and IOS for MVP1
-Serviceless infrastructure.
-Storage would be on AWS. 
-Any server side function would be handled by lambda in production and a docker server in dev.
-IAC is important and terraform would be used for as much as possible.
-The app would prompt for a login and MFA using Kinde on login using an email address and email code MFA.
+**Technology Stack:**
+- Web App: React (deployed to AWS S3 + CloudFront)
+- Mobile Apps: React Native with Expo (iOS + Android for MVP1)
+- Backend: Serverless infrastructure on AWS
+- Storage: AWS S3
+- Server functions: AWS Lambda (production) + Docker (dev)
+- Infrastructure as Code: Terraform
+- Authentication: Kinde (email + MFA)
+- Payments: Stripe (web app only)
 
-This app is a Parenting and Co-Parenting Helper App with 3 main functionalities
-Messaging, calendar and financial. With and admin section and my account section also.
+**Core Functionalities:**
+Mobile apps provide 3 main features:
+1. Messaging
+2. Calendar (with child responsibility tracking)
+3. Finance (payment tracking, NOT payment processing)
+
+Web app provides admin features:
+1. Subscription management
+2. Payment processing
+3. Storage upgrades
+4. Log exports
+5. My Account settings
 
 All Accounts can have different roles in different groups but only one role per group
 
@@ -18,19 +67,19 @@ No groups or messages can ever be deleted. They can only be hidden from non grou
 
 Every change message edits,,, everything that happens on a group is logged with a timestamp of the people that did it. groups admins can download this log at any point. The log, images and videos for each group are backed up in each admin's storage and can only be deleted by a user after they have left a group. Eash admin's storage is taken up by everything put into a group. 
 
-App structure. 
+**Mobile App Structure** (Parenting Helper):
 Login screen
 \/
 Home page
 ├ App setting
-├ My Account
+├ My Account (shows storage, links to web for billing)
 └All groups list
    in each group
    ├ Group settings
    ├ Approvals list
    ├ Messages
    │    └All message groups list
-   │       in each Message group 
+   │       in each Message group
    │        ├ Message group settings
    │        └ Messages
    ├ Calendar
@@ -41,14 +90,41 @@ Home page
            in each Finance matter
             └ Finance matter
 
-All pages have the ability to go back / out a level with a button in the top left of the page and by swiping left.  
+**Web App Structure** (Admin Portal):
+Login screen (Kinde)
+\/
+Dashboard
+├ Subscription Management
+│  ├ Plans & Pricing
+│  ├ Payment Method
+│  ├ Billing History
+│  └ Storage Upgrades
+├ My Account
+│  ├ Storage Tracker
+│  └ Account Settings
+└ Log Exports
+   ├ Request Export (select timeframe)
+   └ Export History
 
-Main components pages to build
-Login screen
-Home page
-Subscription page
-App settings
-My account
+All pages have the ability to go back / out a level with a button in the top left of the page and by swiping left (mobile only).  
+
+**Main Components to Build**
+
+Web App Components:
+- Login screen (Kinde)
+- Dashboard
+- Subscription management page
+- Payment method form (Stripe Elements)
+- Storage tracker
+- Billing history
+- Log export form
+- My account settings
+
+Mobile App Components:
+- Login screen (Kinde)
+- Home page
+- App settings
+- My account (with link to web)
 All groups list
 Create group component
 Groups list view group card
@@ -90,19 +166,41 @@ Child
 Caregiver
 Supervisor (This is a family Supervisor not a child supervisor. A child supervisor is a caregiver if this option is selected when a person is being added to a group this warning should come up.) This user can only view but not interact in any other way.
 
-Login Page
+**IMPORTANT: 3-Product Architecture**
+This app consists of 3 products sharing 1 backend:
+1. **Admin Web App** (parentinghelperapp.com) - Subscriptions, payments, log exports - BUILT FIRST
+2. **Parenting Helper Mobile App** - Full features (messaging, calendar, finance) - NO payment features - BUILT SECOND
+3. **PH Messenger Mobile App** - Messaging only - BUILT THIRD
+
+**Payment/Subscription Management:**
+- ALL payment and subscription features are in the Web App ONLY (KISS principle)
+- Mobile apps have NO Stripe integration, NO payment forms, NO in-app purchases
+- Mobile apps link to web app for subscription management
+- Benefits: Simpler code, no Apple/Google 30% fee, easier payment updates
+
+---
+
+Login Page (Mobile Apps)
 Using Kinde
 Simple login with email MFA in MVP1
+After login, redirects to Home page
 
-Home page
+Home page (Mobile App)
 App setting
-My Account
+My Account (shows storage usage, links to web for billing)
 logout button
 All groups list
-Subscribe button (only if not subscribed)
+Subscribe button (only if not subscribed) → Opens parentinghelperapp.com/subscribe in browser
 
-Subscription page
-Subscription payment will happen on the same day each month  
+Subscription Management (Web App ONLY)
+ALL subscription/payment features happen on the web app at parentinghelperapp.com:
+- View subscription plans ($8/month for 10GB)
+- Enter payment method (Stripe Elements)
+- Upgrade storage ($1 per 2GB)
+- View billing history
+- Update payment method
+- Cancel subscription
+- Subscription payment happens on the same day each month  
 
 All groups list
 List of all the groups as "Groups list view group card" that user is a member of. Admins can see all groups
@@ -156,7 +254,7 @@ Add and edit and remove all relationships.
 Allocate role preferences for the group
 Select denomination for finance
 Select date format
-Button to email group logs to self. The admin must specify a timeframe that the logs are created for. Media links are only available for 1 week from the log email being generated. 
+Log Export (Web App ONLY): Admins go to parentinghelperapp.com/logs to request log exports. Admin specifies timeframe. Logs emailed as CSV with password-protected media links (valid 1 week). Mobile app shows link to web for log exports. 
 Assign a new admin (note this needs to be a subscriber)
 Settings Switches 
 Parents can create message groups and send invites to members of the group
@@ -256,6 +354,14 @@ seen by all 2 blue diamonds
 seen by some 1 blue diamond 1 grey diamond
 seen by none but delivered to server 2 grey diamonds
 sent by you but not confirmed received by server yet 1 grey diamond
+
+**CRITICAL: Messages CANNOT be edited - only deleted (hidden)**
+- No edit button on messages - editing not allowed for legal/custody context
+- Only delete button which hides message (is_hidden = true)
+- Deleted messages visible to admins (greyed out with 🚫 icon)
+- All deletions logged in audit_logs with original message content
+- If user needs to correct, they must send a new message
+
 Message creation components
 Just a standard text field that starts as one line and expanded to 10 lines and then becomes a scrollable text field.
 Word wrap is enables.
@@ -323,6 +429,14 @@ Repeating even options. repeat every x number of day, week, month, year. until d
 Note field for all other info. 
 
 Create child responsibility event component
+
+**CRITICAL: Responsibility events CANNOT overlap - validation required**
+- When creating/editing responsibility event, check for overlaps with existing events for same child
+- If overlap detected, show error: "This conflicts with existing event [EVENT NAME] from [TIME] to [TIME]"
+- User must resolve conflict (edit existing event or choose different time)
+- Rationale: Clear accountability - one person responsible for each child at any given time
+- Prevents custody disputes and scheduling conflicts
+
 Even title
 Select the children that this responsibility even applies to. scrollable list with all children in group, checkboxes for selecting multiple.
 Start time and date (nice in for selecting this) if a day or time is selected it is prefilled
@@ -390,8 +504,62 @@ Has a amount with the groups denomination
 The bar is filed with the members icon colour to the percentage (up to 100%) that is passed to if from it's parent. (If it's an "expected" bar it will be %100. If it is the "currently paid" bar it will be the % of the expected amount that is confirmed to be paid. If someone has already paid )
 
 Report payment component
-This is just a form asking for the amount paid and an image of the receipt of payment and the member payed to. 
+This is just a form asking for the amount paid and an image of the receipt of payment and the member payed to.
 
+**CRITICAL: Cannot report overpayment - validation required**
+- System validates: payment amount ≤ amount owed by paying member
+- If overpayment attempted, show error: "Payment amount ($X) exceeds what you owe ($Y). Please enter $Y or less."
+- Rationale: Prevents accounting confusion and disputes
+- Workaround: If overpaid by mistake, create separate finance matter requesting refund
+- Example: Owe $50 but paid $100 → Create new finance matter "Overpayment refund - $50" where other person owes you $50 
+
+
+PH Messenger - Companion App
+
+PH Messenger is a lightweight companion app that provides messaging-only functionality. It is designed for:
+- Children with restricted phones who only need messaging
+- Non-technical users who don't need admin features
+- Quick access to family messaging without complex navigation
+
+Key Features:
+- No login required on app open (uses device biometric authentication - Face ID, Touch ID, or PIN)
+- Opens directly to message groups list
+- Only shows message groups the user is a member of
+- Full message functionality: send text, images, videos, @mentions
+- Real-time sync with main Parenting Helper app
+- Notification badges for unread messages and @mentions
+- Users can create message groups (if their role allows)
+- Cannot access: Calendar, Finance, Admin settings, Group settings
+
+Authentication Flow:
+1. First time: User logs in with Kinde (email + MFA)
+2. App securely stores authentication token
+3. Subsequent opens: Device biometric (Face ID/Touch ID) verifies identity
+4. Token refreshed in background
+5. If biometric fails 3 times: Requires Kinde re-authentication
+
+Technical Implementation:
+- Same backend API as main app (only messaging endpoints)
+- Same database (messages table)
+- Shared React Native components for messaging UI
+- Separate Expo app with minimal navigation
+- Redux store with only message-related state
+- Expo SecureStore for token storage
+- Expo Local Authentication for biometric
+
+Permissions:
+- All roles can use PH Messenger EXCEPT Supervisors (they cannot send messages)
+- Message permissions follow the same rules as main app
+- Admins can still see hidden messages (greyed out)
+- All actions logged to audit_logs table with app identifier
+
+Use Cases:
+- Parent locks down child's phone to only allow PH Messenger
+- Child can message parents, siblings, caregivers within approved groups
+- Parent monitors communication via admin logs in main app
+- Grandparent who only wants to message family, not manage calendar/finance
+
+---
 
 User Cases
 
@@ -401,8 +569,9 @@ membership is me and my ex-wife as the parents both admins. our children, Their 
 
 
 UC2:
-Parents have locked down the phones of their children so that the children can only use this app to massage people.
-Children without a restricted phone still need to use this app to massage the children that are restricted to this app.
-Admins can monitor the children's conversations if needed.
+Parents have locked down the phones of their children so that the children can only use PH Messenger to message people.
+Children without a restricted phone can use either the main Parenting Helper app or PH Messenger.
+Admins can monitor the children's conversations via audit logs in the main app.
 The level of privacy of the children can be discussed and managed by the parents.
-Message groups can be setup for all the individual connections between children or children can have access to create new message groups including anyone in the group.  
+Message groups can be setup for all the individual connections between children or children can have access to create new message groups including anyone in the group.
+Children see the same messages whether they use PH Messenger or the main app - they are fully synced.  

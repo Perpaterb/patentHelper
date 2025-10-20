@@ -18,22 +18,53 @@ A cross-platform parenting and co-parenting helper application designed to facil
 - Storage includes group logs, images, videos, and backups
 
 **Target Platforms:**
-- iOS (MVP1)
-- Android (MVP1)
+- Web (React) - MVP1 (Built FIRST)
+- iOS (React Native) - MVP1 (Built SECOND)
+- Android (React Native) - MVP1 (Built SECOND)
+
+**3 Products, 1 Backend Architecture (KISS Principle):**
+1. **Admin Web App** (parentinghelperapp.com) - Subscription management, payments, storage upgrades, log exports
+2. **Parenting Helper Mobile App** - Full co-parenting features: messaging, calendar, finance (NO payment features)
+3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
+
+**Key Architecture Decisions:**
+- **NO in-app purchases** - All subscription/payment management via web app only
+- Mobile apps link to web for subscription management
+- All 3 products share same Kinde authentication and backend API/database
+- Web app built FIRST, then main mobile app, then messenger app
 
 ---
 
 ## 2. Tech Stack
 
 ### Frontend
-- **React** (with native wrapper: React Native or Capacitor)
-  - **Justification**: Cross-platform development, single codebase for iOS/Android, large ecosystem, mature tooling, excellent for MVP development speed
-- **React Navigation** (or equivalent)
+
+#### Web App (Admin Portal)
+- **React**
+  - **Justification**: Industry standard, large ecosystem, excellent for admin dashboards
+- **React Router**
+  - **Justification**: Standard routing for single-page applications
+- **State Management**: Redux Toolkit
+  - **Justification**: Consistent state management across all products
+- **UI Components**: Material-UI or Chakra UI
+  - **Justification**: Professional admin UI, accessible components, theme support
+- **Payment Integration**: Stripe Elements
+  - **Justification**: PCI-compliant payment forms, no card data touches our servers
+
+#### Mobile Apps (2 Apps)
+- **React Native with Expo**
+  - **Justification**: Cross-platform development, single codebase for iOS/Android, cloud builds (no Xcode/Android Studio required), large ecosystem, excellent for MVP development speed
+  - **Two Apps**: Main app (Parenting Helper) + Companion app (PH Messenger)
+- **React Navigation**
   - **Justification**: Standard routing solution for React Native apps with native gestures support
-- **State Management**: React Context API / Redux Toolkit
-  - **Justification**: Context API for simple state, Redux for complex state like offline message sync
+- **State Management**: Redux Toolkit
+  - **Justification**: Handles complex state (offline sync, message caching), DevTools for debugging, middleware for side effects
 - **UI Components**: React Native Paper / Native Base
   - **Justification**: Pre-built, accessible components that speed up development
+- **Biometric Auth**: Expo Local Authentication
+  - **Justification**: Face ID/Touch ID for PH Messenger quick access
+- **Web Integration**: React Native WebView or Linking API
+  - **Justification**: Link to web app for subscription management
 
 ### Backend
 - **AWS Lambda**
@@ -89,7 +120,56 @@ A cross-platform parenting and co-parenting helper application designed to facil
 
 ```
 patentHelper/
-├── mobile/                          # React Native mobile app
+├── web-admin/                       # Admin Web App (React) - BUILT FIRST
+│   ├── public/
+│   │   ├── index.html
+│   │   └── favicon.ico
+│   ├── src/
+│   │   ├── components/              # Reusable UI components
+│   │   │   ├── common/              # Generic components (buttons, cards, etc.)
+│   │   │   ├── subscription/
+│   │   │   │   ├── SubscriptionPlans.jsx
+│   │   │   │   ├── PaymentMethod.jsx
+│   │   │   │   ├── StorageUpgrade.jsx
+│   │   │   │   └── SubscriptionStatus.jsx
+│   │   │   ├── account/
+│   │   │   │   ├── StorageTracker.jsx
+│   │   │   │   ├── BillingHistory.jsx
+│   │   │   │   └── AccountSettings.jsx
+│   │   │   └── logs/
+│   │   │       ├── LogExportForm.jsx
+│   │   │       └── LogHistory.jsx
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── Subscription.jsx
+│   │   │   ├── MyAccount.jsx
+│   │   │   └── LogExport.jsx
+│   │   ├── services/                # API services
+│   │   │   ├── api.js
+│   │   │   ├── auth.service.js
+│   │   │   ├── subscription.service.js
+│   │   │   └── logs.service.js
+│   │   ├── store/                   # State management
+│   │   │   ├── slices/
+│   │   │   │   ├── authSlice.js
+│   │   │   │   └── subscriptionSlice.js
+│   │   │   └── store.js
+│   │   ├── hooks/                   # Custom React hooks
+│   │   │   └── useAuth.js
+│   │   ├── utils/                   # Utility functions
+│   │   │   ├── formatters.js
+│   │   │   └── validators.js
+│   │   ├── schemas/                 # Validation schemas (Joi)
+│   │   │   └── subscription.schema.js
+│   │   └── constants/               # App constants
+│   │       └── plans.js
+│   ├── .eslintrc.js
+│   ├── .prettierrc.js
+│   ├── package.json
+│   └── README.md
+│
+├── mobile-main/                     # Parenting Helper (Main App) - BUILT SECOND
 │   ├── src/
 │   │   ├── components/              # Reusable UI components
 │   │   │   ├── common/              # Generic components (buttons, inputs, etc.)
@@ -127,11 +207,9 @@ patentHelper/
 │   │   │   │   └── MessagesScreen.jsx
 │   │   │   ├── calendar/
 │   │   │   │   └── CalendarScreen.jsx
-│   │   │   ├── finance/
-│   │   │   │   ├── FinanceListScreen.jsx
-│   │   │   │   └── FinanceMatterScreen.jsx
-│   │   │   └── subscription/
-│   │   │       └── SubscriptionScreen.jsx
+│   │   │   └── finance/
+│   │   │       ├── FinanceListScreen.jsx
+│   │   │       └── FinanceMatterScreen.jsx
 │   │   ├── navigation/              # Navigation configuration
 │   │   │   └── AppNavigator.jsx
 │   │   ├── services/                # API services
@@ -168,8 +246,35 @@ patentHelper/
 │   ├── assets/                      # Images, fonts, etc.
 │   ├── android/                     # Android native code
 │   ├── ios/                         # iOS native code
+│   ├── app.json                     # Expo config
+│   ├── eas.json                     # EAS Build config
 │   ├── .eslintrc.js
 │   ├── .prettierrc.js
+│   └── package.json
+│
+├── mobile-messenger/                # PH Messenger (Companion App) - BUILT THIRD
+│   ├── src/
+│   │   ├── components/              # Shared messaging components
+│   │   │   └── messaging/           # Message components (reused from main app)
+│   │   ├── screens/
+│   │   │   ├── MessageGroupsListScreen.jsx
+│   │   │   └── MessagesScreen.jsx
+│   │   ├── services/                # API services (messaging only)
+│   │   │   ├── api.js
+│   │   │   ├── auth.service.js
+│   │   │   └── messages.service.js
+│   │   ├── store/                   # Redux (messages only)
+│   │   │   ├── slices/
+│   │   │   │   ├── authSlice.js
+│   │   │   │   └── messagesSlice.js
+│   │   │   └── store.js
+│   │   ├── hooks/
+│   │   │   └── useMessages.js
+│   │   └── constants/
+│   │       └── colors.js
+│   ├── assets/
+│   ├── App.jsx
+│   ├── app.json
 │   └── package.json
 │
 ├── backend/                         # Serverless backend
@@ -249,11 +354,15 @@ patentHelper/
 │   ├── variables.tf
 │   └── outputs.tf
 │
-├── shared/                          # Shared schemas/constants
+├── shared/                          # Shared code between apps
+│   ├── components/                  # Shared React Native components
+│   │   └── messaging/               # Message components used by both apps
 │   ├── schemas/
 │   │   └── api.schema.js
-│   └── constants/
-│       └── constants.js
+│   ├── constants/
+│   │   └── constants.js
+│   └── utils/
+│       └── messageUtils.js
 │
 ├── docs/                            # Documentation
 │   ├── api.md
@@ -1222,42 +1331,62 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ---
 
-### Development Phases
+### Development Phases (6 Phases, 24 Weeks Total)
 
-#### Phase 1: Foundation (Weeks 1-4)
+#### Phase 1: Foundation (Weeks 1-2)
 - Infrastructure setup (Terraform, AWS accounts, CI/CD)
 - Authentication integration (Kinde)
 - Database schema implementation
 - Basic API framework (API Gateway + Lambda structure)
-- Mobile app shell with navigation
+- Shared utilities and schemas
 
-#### Phase 2: Core Features (Weeks 5-10)
-- User management and subscription
+#### Phase 2: Web App - Admin Portal (Weeks 3-6)
+- **Priority: Build this FIRST before mobile apps**
+- User authentication (Kinde)
+- Subscription management UI (plans, billing)
+- Stripe payment integration
+- Storage tracking dashboard
+- Log export functionality
+- My Account page
+- Email notifications for billing/storage
+- Testing and deployment to parentinghelperapp.com
+
+#### Phase 3: Mobile - Main App Foundation (Weeks 7-10)
+- **After web app is complete**
+- React Native project setup (Expo)
+- Authentication (Kinde, link to web for subscriptions)
 - Group creation and member management
-- Messaging (text only)
 - Basic approvals system
-- Storage tracking
+- Navigation structure
+- Link to web app for subscription management
 
-#### Phase 3: Advanced Features (Weeks 11-14)
-- Media uploads (images, videos)
+#### Phase 4: Mobile - Core Features (Weeks 11-16)
+- Messaging (text + media uploads)
+- Message groups
 - Calendar implementation
+- Child responsibility tracking
 - Finance matter tracking
 - Admin permissions matrix
-- Audit logging
+- Full audit logging
 
-#### Phase 4: Polish & Testing (Weeks 15-16)
-- E2E testing
+#### Phase 5: Mobile - PH Messenger App (Weeks 17-18)
+- **After main mobile app is complete**
+- Lightweight messaging-only app
+- Biometric authentication
+- Shared messaging components
+- Simplified navigation
+- Testing on restricted devices
+
+#### Phase 6: Testing & Launch (Weeks 19-24)
+- E2E testing (all 3 products)
+- Cross-product integration testing
 - Performance optimization
 - Security audit
-- Bug fixes
-- Documentation
-
-#### Phase 5: Launch Prep (Week 17-18)
-- Production infrastructure
-- App store submissions
-- Beta testing
-- Marketing site
+- Production infrastructure hardening
+- App store submissions (iOS + Android)
+- Beta testing with real families
 - Support documentation
+- Marketing site updates
 
 ---
 

@@ -1,0 +1,56 @@
+{
+  "recommendations": [
+    // JavaScript/React Development
+    "dbaeumer.vscode-eslint",           // ESLint integration
+    "esbenp.prettier-vscode",           // Prettier code formatter
+    "christian-kohler.npm-intellisense", // NPM module autocomplete
+    "eg2.vscode-npm-script",            // NPM script runner
+
+    // React Native / Expo
+    "msjsdiag.vscode-react-native",     // React Native tools
+    "dsznajder.es7-react-js-snippets",  // React snippets
+    "burkeholland.simple-react-snippets", // Additional React snippets
+
+    // Database
+    "ckolkman.vscode-postgres",         // PostgreSQL client
+    "mtxr.sqltools",                    // SQL tools
+    "mtxr.sqltools-driver-pg",          // PostgreSQL driver for SQLTools
+
+    // AWS
+    "amazonwebservices.aws-toolkit-vscode", // AWS Toolkit
+
+    // Terraform
+    "hashicorp.terraform",              // Terraform language support
+
+    // Git
+    "eamodio.gitlens",                  // Git supercharged
+    "mhutchie.git-graph",               // Git graph visualization
+
+    // Markdown
+    "yzhang.markdown-all-in-one",       // Markdown tools
+    "davidanson.vscode-markdownlint",   // Markdown linting
+
+    // Utilities
+    "streetsidesoftware.code-spell-checker", // Spell checker
+    "wayou.vscode-todo-highlight",      // TODO highlight
+    "aaron-bond.better-comments",       // Better comment highlighting
+    "usernamehw.errorlens",             // Inline error messages
+    "mikestead.dotenv",                 // .env syntax highlighting
+
+    // Docker
+    "ms-azuretools.vscode-docker",      // Docker support
+
+    // Testing
+    "orta.vscode-jest",                 // Jest test runner
+
+    // Color & Icons
+    "pkief.material-icon-theme",        // Material icon theme
+    "github.github-vscode-theme"        // GitHub theme (optional)
+  ],
+
+  "unwantedRecommendations": [
+    // These extensions can conflict or are unnecessary for this project
+    "ms-vscode.vscode-typescript-next",
+    "hookyqr.beautify"
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  // Editor
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.tabSize": 2,
+  "editor.detectIndentation": true,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+
+  // Files
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/.expo-shared": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/.terraform": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/build/**": true,
+    "**/dist/**": true
+  },
+  "files.associations": {
+    "*.js": "javascript",
+    "*.jsx": "javascriptreact",
+    ".env*": "dotenv"
+  },
+
+  // JavaScript / JSDoc
+  "javascript.suggest.autoImports": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "javascript.validate.enable": true,
+  "js/ts.implicitProjectConfig.checkJs": true,
+
+  // ESLint
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact"
+  ],
+  "eslint.format.enable": true,
+
+  // Prettier
+  "prettier.semi": true,
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.printWidth": 100,
+
+  // Emmet
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+
+  // Search
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/.expo": true,
+    "**/coverage": true,
+    "**/.terraform": true
+  },
+
+  // Terminal
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+
+  // Git
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+
+  // TODO Highlight
+  "todohighlight.keywords": [
+    {
+      "text": "TODO:",
+      "color": "#fff",
+      "backgroundColor": "#ffab00",
+      "overviewRulerColor": "#ffab00"
+    },
+    {
+      "text": "FIXME:",
+      "color": "#fff",
+      "backgroundColor": "#f44336",
+      "overviewRulerColor": "#f44336"
+    },
+    {
+      "text": "NOTE:",
+      "color": "#fff",
+      "backgroundColor": "#2196f3",
+      "overviewRulerColor": "#2196f3"
+    }
+  ],
+
+  // Better Comments
+  "better-comments.tags": [
+    {
+      "tag": "!",
+      "color": "#FF2D00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "?",
+      "color": "#3498DB",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "//",
+      "color": "#474747",
+      "strikethrough": true,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "todo",
+      "color": "#FF8C00",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    },
+    {
+      "tag": "*",
+      "color": "#98C379",
+      "strikethrough": false,
+      "underline": false,
+      "backgroundColor": "transparent",
+      "bold": false,
+      "italic": false
+    }
+  ],
+
+  // Spell Checker
+  "cSpell.words": [
+    "appplan",
+    "Kinde",
+    "parentinghelper",
+    "Porkbun",
+    "Prisma",
+    "DKIM",
+    "DMARC",
+    "zcarss"
+  ],
+
+  // React Native specific
+  "reactNative.showUserTips": false,
+  "reactNative.packager.port": 8081,
+
+  // Terraform
+  "terraform.experimentalFeatures.validateOnSave": true,
+  "terraform.languageServer.enable": true
+}
