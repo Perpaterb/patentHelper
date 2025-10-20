@@ -123,6 +123,21 @@ This document contains every decision made during the planning phase. Use this a
   - In-app: Link to web for subscription
 - [✅] **Post-Trial:** Prompt to add payment method
 
+### Trial Group Restrictions 🔒
+- [✅] **ONE Admin Rule:** Groups created during trial can only have ONE admin
+- [✅] **Enforcement:** Cannot add additional admins until trial user subscribes
+- [✅] **UI Message:** "Upgrade to add more admins to this group"
+- [✅] **Visibility Banner (ALL group members see):**
+  - Text: "[Admin Name] needs to subscribe in X days or this group will be deleted"
+  - Colors: Yellow (20-6 days), Orange (5-2 days), Red (1 day)
+  - Location: Persistent banner at top of group screen
+  - Action: "Remind [Admin]" button sends notification to trial admin
+- [✅] **Post-Trial Behavior:**
+  - Admin subscribes: Banner removed, can add multiple admins
+  - Trial expires: Group archived (read-only), data preserved, reactivate by subscribing
+- [✅] **Database:** Add `created_by_trial_user` boolean to groups table
+- [✅] **Rationale:** Encourages conversion, prevents trial abuse
+
 ### Operating Costs
 - [✅] **Monthly Budget:** $125-500/month acceptable
   - AWS: $100-400/month

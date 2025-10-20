@@ -472,6 +472,24 @@ const handleSubscribe = () => {
   - 2 approve, 1 reject, 2 pending → Keep waiting
 - **Requester can vote**: Admin requesting action can vote on their own request
 
+#### 23. **Trial Groups Can Only Have ONE Admin**
+- ❌ **WRONG**: Allowing trial users to add multiple admins to their groups
+- ✅ **CORRECT**: Groups created during 20-day free trial restricted to ONE admin only
+- **Implementation**:
+  - Database flag: `created_by_trial_user` boolean on groups table
+  - UI check: When adding admin, if `created_by_trial_user = true`, show error
+  - Error message: "Upgrade to add more admins to this group"
+  - After subscription: Flag remains, but restriction lifted (check user subscription status)
+- **Visibility Banner (ALL group members see this):**
+  - Text: "[Admin Name] needs to subscribe in X days or this group will be deleted"
+  - Colors: Yellow (days 20-6), Orange (days 5-2), Red (day 1)
+  - Location: Persistent banner at top of group screen
+  - Action: "Remind [Admin]" button sends notification
+- **Post-trial:**
+  - Admin subscribes: Banner disappears, can add multiple admins
+  - Trial expires: Group archived (visible but read-only), data preserved, reactivate by subscribing
+- **Rationale**: Encourages trial-to-paid conversion, prevents trial abuse
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

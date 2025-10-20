@@ -666,6 +666,24 @@ Suggested:
   - **Post-trial:** Prompt to add payment method, convert to paid subscription
   - **Important:** Clear messaging that trial is for admin features only
 
+- [✅] **FREE TRIAL GROUP RESTRICTIONS** 🔒
+  - **Rule:** Groups created by trial admins can only have ONE admin
+  - **Enforcement:**
+    - Cannot add additional admins to trial-created groups
+    - UI shows "Upgrade to add more admins" message
+    - After trial admin subscribes, can add more admins normally
+  - **Visibility Banner (shown to ALL group members):**
+    - **Text:** "[Admin Name] needs to subscribe in X days or this group will be deleted"
+    - **Colors:** Yellow warning (days 20-6), Orange (days 5-2), Red (day 1)
+    - **Location:** Top of group screen (persistent until subscription)
+    - **Action button:** "Remind [Admin]" (sends notification to trial admin)
+  - **Post-Trial Behavior:**
+    - If admin subscribes: Banner removed, group continues normally, can add admins
+    - If trial expires without subscription: Group marked as "archived" (not deleted from DB)
+      - All members see: "This group has been archived because [Admin] did not subscribe"
+      - Data preserved on servers (nothing ever deleted)
+      - Admin can reactivate by subscribing
+
 ---
 
 ## 🚀 DEPLOYMENT & LAUNCH PLANNING

@@ -42,7 +42,20 @@ CREATE TABLE groups (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_hidden BOOLEAN DEFAULT FALSE,
     date_format VARCHAR(50) DEFAULT 'MM/DD/YYYY',
-    currency VARCHAR(3) DEFAULT 'USD'
+    currency VARCHAR(3) DEFAULT 'USD',
+
+    -- Trial restrictions (20-day free trial business rule)
+    created_by_trial_user BOOLEAN DEFAULT FALSE,
+    created_by_user_id UUID REFERENCES users(user_id),
+
+    -- If TRUE, group can only have ONE admin until creating user subscribes
+    -- Used to display warning banner to all group members
+    -- After subscription, restriction lifted but flag remains for history
+
+    CONSTRAINT chk_trial_creator CHECK (
+        (created_by_trial_user = FALSE) OR
+        (created_by_trial_user = TRUE AND created_by_user_id IS NOT NULL)
+    )
 );
 
 CREATE INDEX idx_groups_created_at ON groups(created_at);

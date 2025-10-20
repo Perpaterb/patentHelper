@@ -22,6 +22,21 @@ This platform consists of 3 separate products sharing one backend:
 **Pricing:**
 This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of $8 a month (managed via web app). This gets them 10GB of storage. Each 2GB of storage they need on top of that will be an extra $1 a month.
 
+**20-Day Free Trial:**
+- New users (age 16+) automatically get 20-day free trial with admin features
+- Trial users can create groups and be admin
+- **IMPORTANT RESTRICTION:** Groups created during trial can only have ONE admin (the trial user)
+  - Cannot add additional admins until trial admin subscribes
+  - UI shows "Upgrade to add more admins" message when attempting to add second admin
+- **Visibility Banner (shown to ALL group members):**
+  - Text: "[Admin Name] needs to subscribe in X days or this group will be deleted"
+  - Colors change based on urgency: Yellow (days 20-6), Orange (days 5-2), Red (day 1)
+  - Location: Top of group screen (persistent until subscription)
+  - "Remind [Admin]" button sends notification to trial admin
+- **Post-trial behavior:**
+  - Admin subscribes: Banner removed, group continues, can add multiple admins
+  - Trial expires: Group archived (not deleted), data preserved, can reactivate by subscribing
+
 **Storage Management Rules:**
 - When storage exceeds limit: Automatically charge for additional 2GB increment ($1)
 - Send email notification: "Your storage has been increased to XGB. You'll be charged $X on your next billing cycle"

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(gh auth status)",
       "Bash(git init)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"feat: Add trial group restriction - one admin only for trial groups\n\nNew business rule: Groups created during 20-day free trial can only have ONE admin.\n\nKey features:\n- Groups by trial users limited to single admin\n- Warning banner shown to ALL group members with countdown\n- Banner text: [Admin Name] needs to subscribe in X days or group deleted\n- Color-coded urgency: Yellow (20-6 days), Orange (5-2), Red (1 day)\n- Remind Admin button sends notification\n\nPost-trial:\n- Admin subscribes: Remove banner, allow multiple admins\n- Trial expires: Archive group (read-only), preserve data, reactivate by subscribing\n\nDatabase changes:\n- Added created_by_trial_user BOOLEAN to groups table\n- Added created_by_user_id UUID to track creator\n- Added constraint for trial flag validation\n\nDocumentation updates:\n- appplan.md: Trial restrictions section with banner specs\n- aiMessageToDev.md: Q18 expanded with restrictions\n- Initial.md: Added gotcha #23\n- DECISIONS_SUMMARY.md: Trial restrictions section\n- database/schema.sql: Updated groups table\n\nRationale: Encourages conversion, prevents abuse, creates urgency\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []
