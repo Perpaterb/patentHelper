@@ -365,40 +365,78 @@ npm install @reduxjs/toolkit react-redux redux-persist
 
 ---
 
-## 🎨 DESIGN & UX DECISIONS NEEDED
+## 🎨 DESIGN & UX DECISIONS
 
-### 1. **App Name - URGENT**
-**Current:** "Parenting Helper App" (placeholder)
-- [ ] **What is the actual app name?**
-- [ ] **App icon design:** Do you have a designer or need recommendations?
+### 1. **App Names** ✅ **DECIDED**
+- [✅] **Main Mobile App:** "Parenting Helper"
+- [✅] **Messenger App:** "PH Messenger"
 
-### 2. **Color Scheme**
-From appplan.md, role colors are defined:
-- Gold = Admin
-- Red = Parent
-- Yellow = Caregiver
-- Blue = Child
-- Pink = Supervisor
+### 2. **App Icons** ✅ **DECIDED**
+- [✅] **Icons Provided:**
+  - Main app: `PFicon600x600.jpg`
+  - Messenger app: `PFMicon600x600.jpg`
+- [✅] **⚠️ TODO:** Convert JPG to PNG with transparency for app stores
+  - iOS requires PNG with alpha channel
+  - Need multiple sizes: 1024x1024 (App Store), 512x512, 256x256, 128x128, 64x64
+  - Tools: Photoshop, GIMP, or online converters
 
-- [ ] **Primary brand color?** (for buttons, headers, etc.)
-- [ ] **Dark mode support in MVP1?** (adds 30% more work)
-  - Recommendation: No dark mode in MVP1, add in MVP2
+### 3. **Color Scheme** ✅ **DECIDED**
+- [✅] **Primary Brand Color:** `#D9EDF8` (Pastel Blue)
+- [✅] **Color Palette:** Pastel colors throughout the app
+- [✅] **Role Colors (from appplan.md):**
+  - Gold = Admin
+  - Red = Parent
+  - Yellow = Caregiver
+  - Blue = Child
+  - Pink = Supervisor
 
-### 3. **Onboarding Flow**
-- [ ] **First-time user experience:**
-  - A) Jump straight to "Create Group" after login?
-  - B) Tutorial/walkthrough screens?
-  - C) Video intro?
-  - **Recommendation:** Simple 3-screen tutorial in MVP1
+### 4. **Dark Mode** ✅ **DECIDED**
+- [✅] **Dark mode REQUIRED in MVP1**
+- [✅] **Implementation:** User toggle in app settings
+- [✅] **Design:** Pastel colors adjusted for dark mode (lower saturation, maintain accessibility)
+- [✅] **Testing:** Test all screens in both light and dark modes
 
-### 4. **Calendar Default View**
-- [ ] **Default calendar view:** Day, Week, or Month?
-  - **Recommendation:** Week view (best for responsibility lines)
+### 5. **Onboarding Flow** ✅ **DECIDED**
+- [✅] **First-time login behavior:**
+  - **Main App:**
+    - If user is admin OR has group invites → Show home screen (groups list)
+    - If user is non-admin AND no invites → Redirect to web app to become admin
+  - **Messenger App:**
+    - If no groups → Show message: "You are not a member of any groups"
+    - No tutorial screens (KISS principle - jump straight in)
 
-### 5. **Language & Localization**
-- [ ] **MVP1 language:** English only?
-- [ ] **Date format:** MM/DD/YYYY (US) or DD/MM/YYYY (International)?
-- [ ] **Currency:** USD only in MVP1?
+### 6. **Calendar Default View** ✅ **DECIDED**
+- [✅] **Q6:** Default view: **Week view**
+  - Best for viewing responsibility lines
+  - Users can swipe/tap to switch to Day or Month views
+
+### 7. **Language Support** ✅ **DECIDED**
+- [✅] **Q7:** **English only** for MVP1
+  - Simplifies development and testing
+  - Add more languages in MVP2 based on user demand
+  - All UI text, error messages, emails in English
+
+### 8. **Date Format** ✅ **DECIDED**
+- [✅] **Q8:** **DD-MMM-YYYY** format (e.g., 01-May-2025)
+  - Avoids US vs International confusion
+  - Clear and unambiguous
+  - **MVP2:** Add user preference toggle for format
+  - **Implementation:** Use date-fns or moment.js with format string "DD-MMM-YYYY"
+
+### 9. **Currency** ✅ **DECIDED**
+- [✅] **Q9:** **Multi-currency support**
+  - Admins select group default currency in Group Settings
+  - All finance matters in that group use the group's currency
+  - No currency conversion (users calculate themselves)
+  - **Currency options:** AUD, USD, EUR, GBP, CAD, NZD (expand as needed)
+  - **Subscription:** Always in AUD (regardless of group currency)
+
+### 10. **Timezone Display** ✅ **DECIDED**
+- [✅] **Q10:** **Always show user's local time**
+  - Events stored in UTC in database
+  - Displayed in user's device timezone automatically
+  - No timezone indicators shown (keeps UI clean)
+  - **Example:** User in Sydney sees "6:00 PM", user in London sees "8:00 AM" for same event
 
 ---
 
@@ -525,77 +563,71 @@ Suggested:
 
 ---
 
-## 📅 DEVELOPMENT TIMELINE QUESTIONS
+## 📅 DEVELOPMENT TIMELINE
 
-### MVP1 Scope Confirmation
-**Current plan:** 18 weeks to MVP1
+### Timeline & Deadline ✅ **DECIDED**
+- [✅] **Q11:** Timeline: **24 weeks (flexible, no hard deadline)**
+  - Web app: 4 weeks (Phase 2)
+  - Main mobile app: 10 weeks (Phases 3-4)
+  - PH Messenger: 2 weeks (Phase 5)
+  - Testing & launch: 6 weeks (Phase 6)
+  - **No pressure on launch date - quality over speed**
 
-- [ ] **Is this timeline acceptable?**
-- [ ] **Hard deadline?** (e.g., app store launch by specific date)
-- [ ] **Phased rollout?**
-  - A) Private beta → Public beta → Full launch
-  - B) Straight to public launch
-  - **Recommendation:** Private beta with 10-20 co-parenting families first
+### Launch Strategy ✅ **DECIDED**
+- [✅] **Q12:** **Option A - Phased rollout with extensive testing**
+  - **Private Beta:** 10-20 co-parenting families, 4 weeks minimum
+  - **Public Beta:** TestFlight (iOS) + Google Play Beta, open registration
+  - **Full Launch:** App Store + Play Store general availability
+  - **Emphasis:** Extensive testing before going live (legal/custody implications)
 
-### Feature Prioritization
-**Question:** If timeline is tight, what can be moved to MVP2?
+### Feature Flexibility ✅ **DECIDED**
+- [✅] **Q13:** **All planned features stay in MVP1**
+  - No need to cut features for timeline
+  - Flexible approach - focus on quality implementation
+  - All features in appplan.md will be built for MVP1
 
-**Candidates for MVP2:**
-- Finance matter tracking (complex, could be separate app)
-- Recurring calendar events (complex edge cases)
-- Media in messages (start with text-only)
-- Supervisor role (niche use case)
+### Beta Testing ✅ **DECIDED**
+- [✅] **Q14:** **Beta testers: Will recruit, none yet**
+  - Target: 5-10 co-parenting families
+  - Timeline: Recruit during Phases 3-4 (Weeks 7-16)
+  - Need: Mix of iOS and Android users
+  - Need: Various family structures (2 parents, 3+ parents, grandparents, etc.)
 
-**Must-have for MVP1:**
-- Groups & roles
-- Basic messaging
-- Calendar with responsibility tracking
-- Audit logging
-- Subscriptions
+### Test Devices ✅ **DECIDED**
+- [✅] **Q15:** **Device testing requirements:**
 
-- [ ] **Are you OK with moving features to MVP2 if needed?**
+**iPhone (iOS 15+):**
+  - iPhone 12 or newer (primary)
+  - iPhone SE (budget compatibility)
+  - **iPad** - Tablet support REQUIRED
 
----
+**Android (API 26+):**
+  - Samsung Galaxy S21 or newer (primary)
+  - Google Pixel 6 or newer
+  - Budget Android device (compatibility)
+  - **Android Tablets** - Tablet support REQUIRED
 
-## 🧪 TESTING REQUIREMENTS
+**⚠️ IMPORTANT:** Tablet support adds complexity to UI design
+  - Need responsive layouts for larger screens
+  - Calendar especially benefits from tablet view
+  - Messaging shows list + detail side-by-side on tablets
+  - Estimate: +10-15% development time for tablet optimization
 
-### Beta Testing
-- [ ] **Do you have beta testers lined up?**
-  - Ideal: 5-10 co-parenting families
-  - Need: iOS and Android devices
-  - Timeline: 4 weeks of beta testing recommended
-
-### Test Devices
-- [ ] **What devices should we test on?**
-  - iPhone: Which models? (Recommend: iPhone 12+, iOS 15+)
-  - Android: Which devices? (Recommend: Samsung Galaxy S21+, Pixel 6+)
-
-### Automated Testing Coverage
-- [ ] **Testing budget/priority?**
-  - High: 80%+ code coverage, full E2E suite
-  - Medium: 60% coverage, critical path E2E
-  - Low: Unit tests only
-  - **Recommendation:** Medium for MVP1
+### Automated Testing Coverage ✅ **DECIDED**
+- [✅] **Q16:** **High testing coverage (Option A)**
+  - 80%+ code coverage minimum
+  - Full E2E test suite for all critical paths
+  - Unit tests for all business logic
+  - Integration tests for API endpoints
+  - **Justification:** Legal/custody implications require thorough testing
+  - **Timeline impact:** Will add ~2-3 weeks to development, but worth it for quality
 
 ---
 
 ## 💰 COST ESTIMATES & BUDGETING
 
-### Development Costs (Estimates)
-If outsourcing development:
-- **MVP1 (18 weeks):** $80,000 - $120,000
-  - Mobile app: $40k - $60k
-  - Backend: $30k - $40k
-  - Infrastructure & DevOps: $10k - $20k
-
-If building in-house:
-- **Team needed:**
-  - 1 React Native developer (18 weeks)
-  - 1 Backend developer (12 weeks)
-  - 0.5 DevOps engineer (6 weeks)
-  - 0.5 QA engineer (8 weeks)
-
-### Operating Costs (Monthly, Post-Launch)
+### Operating Costs ✅ **DECIDED**
+- [✅] **Q17:** Monthly budget: **$125-500/month is acceptable**
 
 **AWS Costs:**
 - RDS PostgreSQL: $50-150/month (depends on size)
@@ -607,56 +639,78 @@ If building in-house:
 **Third-Party Services:**
 - Kinde: $25/month (Pro plan, up to 1,000 users)
 - Stripe: 2.9% + $0.30 per transaction
-- OneSignal (push notifications): Free up to 10k subscribers
 - **Total Services:** ~$25-100/month
 
-**Grand Total Operating:** $125-500/month (scales with usage)
+**Break-even Analysis:**
+- At $8 AUD/month per admin: Need ~20-60 paying admins to break even
+- This is achievable with targeted launch to co-parenting communities
 
-- [ ] **Is this budget acceptable?**
-- [ ] **Revenue model confirmed:** $8/month admin subscription?
-- [ ] **Break-even analysis:** Need ~20-60 paid admin users to break even
+### Revenue Model ✅ **DECIDED**
+- [✅] **Q18:** Pricing structure confirmed:
+  - **Base subscription:** $8 AUD/month (10GB storage)
+  - **Additional storage:** $1 AUD per 2GB/month
+  - **Free tier:** Non-admin parents (no subscription needed)
+  - **Market positioning:** Competitor apps charge $16/month but are "terrible" - we're offering better value
+
+- [✅] **20-DAY FREE TRIAL** ✨
+  - **Trigger:** Automatically starts when user signs up AND age > 16
+  - **Implementation:**
+    - Collect age during signup (dropdown or input)
+    - If age > 16: Start 20-day trial automatically
+    - If age ≤ 16: No trial (child/teen account)
+  - **Stripe setup:** Use Stripe trial period (no payment method required until trial ends)
+  - **Warnings & notifications:**
+    - Banner on web app: "You have X days left in your free trial"
+    - Email notifications: Day 15 ("5 days left"), Day 19 ("Trial ends tomorrow")
+    - In-app notifications on mobile (link to web for subscription)
+  - **Post-trial:** Prompt to add payment method, convert to paid subscription
+  - **Important:** Clear messaging that trial is for admin features only
 
 ---
 
 ## 🚀 DEPLOYMENT & LAUNCH PLANNING
 
-### App Store Requirements
+### Legal Documents ✅ **DECIDED**
+- [✅] **Q19:** **Standard privacy policy for now**
+  - Use template or service like iubenda.com ($50-100/year)
+  - Will upgrade to lawyer-reviewed version post-launch if needed
+  - **TODO:** Draft standard privacy policy during Phase 2
+  - **Must cover:**
+    - Data collection (messages, media, calendar, finance)
+    - Data retention (nothing ever deleted - 7+ years)
+    - User rights (access, export, anonymization)
+    - GDPR compliance
+    - Child data (special protections for users under 16)
+  - **Terms of Service:**
+    - Standard terms template
+    - Custody/legal disclaimers: "Not legal advice", "Not a substitute for court orders"
+    - Content ownership, liability limitations
 
+### Marketing & Launch ✅ **DECIDED**
+- [✅] **Q20:** **No marketing plan yet**
+  - Focus on building great product first
+  - Can add marketing strategy post-launch
+  - **Landing page:** Will build simple page with web app (Phase 2)
+    - Features overview
+    - Pricing ($8/month + 20-day free trial)
+    - Signup/login links
+  - **Social media:** Not needed for MVP1
+  - **Launch strategy:** TBD (can decide during beta testing based on feedback)
+
+### App Store Requirements ❓ **NEEDS COMPLETION**
 #### iOS App Store (Both Apps)
-- [ ] **Apple Developer Account** ($99/year)
-- [ ] **Parenting Helper** app name available?
-- [ ] **PH Messenger** app name available?
-- [ ] **Privacy Policy URL** (required, same for both)
-- [ ] **Terms of Service URL** (required, same for both)
-- [ ] **Support email/URL** (required)
+- [ ] **Apple Developer Account** - Purchase before Phase 6 ($99/year)
+- [ ] **Check app name availability:** "Parenting Helper" and "PH Messenger"
+- [✅] **Privacy Policy URL:** Will host on parentinghelperapp.com
+- [✅] **Terms of Service URL:** Will host on parentinghelperapp.com
+- [✅] **Support email:** support@parentinghelperapp.com
 - [ ] **App review timeline:** Plan for 1-2 weeks review time PER APP
 
 #### Google Play Store (Both Apps)
-- [ ] **Google Play Developer Account** ($25 one-time)
-- [ ] **Parenting Helper** app name available?
-- [ ] **PH Messenger** app name available?
-- [ ] **Privacy Policy URL** (required, same for both)
-- [ ] **Target SDK:** Android 13+ (API level 33+)
-
-**Note:** You'll need to submit TWO separate apps to each store. Can stagger launches (e.g., PH Messenger first as MVP).
-
-### Legal Documents Needed
-- [ ] **Privacy Policy** (GDPR compliant)
-  - Covers: Data collection, storage, retention, deletion
-  - Recommendation: Use a lawyer or service like iubenda.com
-
-- [ ] **Terms of Service**
-  - Covers: Liability, content ownership, disputes
-  - **Important:** Custody/legal disclaimers
-
-- [ ] **Cookie Policy** (if web version)
-
-### Marketing & Launch
-- [ ] **Landing page/website needed?**
-- [ ] **Social media accounts?** (Twitter, Facebook, Instagram)
-- [ ] **Launch marketing plan?**
-  - Target: Co-parenting support groups, family law firms
-  - Content: Blog posts, testimonials, demo videos
+- [ ] **Google Play Developer Account** - Purchase before Phase 6 ($25 one-time)
+- [ ] **Check app name availability:** "Parenting Helper" and "PH Messenger"
+- [✅] **Privacy Policy URL:** Same as iOS
+- [✅] **Target SDK:** Android 13+ (API level 33+)
 
 ---
 
@@ -698,63 +752,87 @@ If building in-house:
 
 ## 📞 COMMUNICATION & PROJECT MANAGEMENT
 
-### How Should We Work Together?
-- [ ] **Preferred communication method?**
-  - A) GitHub issues for all tasks
-  - B) Slack/Discord for quick questions
-  - C) Email for summaries
-  - D) All of the above
+### Your Role & Background ✅ **DECIDED**
+- [✅] **Q21: Technical Background:** **Full-stack developer**
+  - Can provide detailed technical explanations
+  - Familiar with both frontend and backend concepts
+  - Good foundation for serverless architecture
 
-- [ ] **Meeting cadence?**
-  - A) Daily standups (15 min)
-  - B) Weekly check-ins (1 hour)
-  - C) Bi-weekly demos
-  - **Recommendation:** Weekly check-ins + async GitHub issues
+- [✅] **Q22: Development Approach:** **Solo developer (Option A) with Claude's help**
+  - Building the application yourself
+  - Using Claude Code for technical guidance and implementation
+  - Can move quickly with focused development
 
-- [ ] **Code review process?**
-  - A) All PRs reviewed by you
-  - B) Self-review + automated tests
-  - C) Pair programming sessions
+- [✅] **Q23: Tech Stack Experience:** **Intermediate across the board, stronger in JavaScript**
+  - **JavaScript:** Intermediate+ (strongest area)
+  - **React/React Native:** Intermediate
+  - **AWS:** Intermediate
+  - **PostgreSQL:** Intermediate
+  - **Approach:** Will provide detailed guidance without being too basic, explain AWS/React Native patterns as we go
 
-### Progress Tracking
-- [ ] **Use TASKS.md?** (simple markdown task list)
-- [ ] **Use GitHub Projects?** (kanban board)
-- [ ] **Use external tool?** (Jira, Trello, Linear)
-- **Recommendation:** GitHub Projects (integrated with repo)
+### Communication Method ✅ **DECIDED**
+- [✅] **Q24: Primary communication:** **Claude Code sessions (Option D)**
+  - Continue working together like this
+  - I'll help with implementation, architecture decisions, debugging
+  - Document everything in markdown files for reference
+  - Can use GitHub Issues for tracking specific bugs/features if needed
+
+### Progress Tracking ✅ **DECIDED**
+- [✅] **Q25: GitHub Projects (Option B)**
+  - Visual kanban board
+  - Integrated with repository
+  - Track progress across all 3 products
+  - **TODO:** Create GitHub Projects board setup (see below)
 
 ---
 
-## ❓ QUESTIONS FOR YOU
+## 🎯 GITHUB PROJECTS SETUP
 
-### 1. **What is your technical background?**
-- [ ] Professional developer
-- [ ] Technical but not a developer
-- [ ] Non-technical
-**Why this matters:** Affects how we communicate, what I explain, tooling choices
+Since you haven't used GitHub Projects before, here's the setup:
 
-### 2. **Are you coding this yourself or hiring developers?**
-- [ ] I'm coding it myself
-- [ ] Hiring contractors
-- [ ] Building a team
-- [ ] Still deciding
+### Board Structure
+**Project Name:** Parenting Helper - MVP1 Development
 
-### 3. **What's your experience with the tech stack?**
-- [ ] JavaScript: Beginner / Intermediate / Expert
-- [ ] React/React Native: Beginner / Intermediate / Expert
-- [ ] AWS: Beginner / Intermediate / Expert
-- [ ] Databases: Beginner / Intermediate / Expert
+**Columns:**
+1. **📋 Backlog** - Features/tasks not yet started
+2. **🎯 Ready** - Prioritized tasks ready to work on
+3. **🚧 In Progress** - Currently working on
+4. **🧪 Testing** - Code written, needs testing
+5. **✅ Done** - Completed and merged
 
-### 4. **Do you have existing users/customers waiting?**
-- [ ] Yes, beta testers ready
-- [ ] Yes, paying customers waiting
-- [ ] No, building first
-**Why this matters:** Affects timeline urgency, MVP scope
+### Labels (for organization)
+- `web-app` - Admin web app features
+- `mobile-main` - Parenting Helper mobile app
+- `mobile-messenger` - PH Messenger app
+- `backend` - API/Lambda functions
+- `infrastructure` - AWS/Terraform
+- `bug` - Bug fixes
+- `documentation` - Docs updates
+- `high-priority` - Urgent/blocking
+- `enhancement` - Nice-to-have improvements
 
-### 5. **Is this a business or passion project?**
-- [ ] Startup/business (revenue goal)
-- [ ] Passion/side project
-- [ ] Hybrid
-**Why this matters:** Affects cost/benefit decisions, when to optimize vs. ship
+### How to Create It
+I'll create a `.github/ISSUE_TEMPLATE/` structure and initial issues for you in the next commit.
+
+---
+
+## ❓ FINAL DECISIONS
+
+### Project Nature ✅ **DECIDED**
+- [✅] **Q26:** **Startup/Business (Option A)**
+  - Revenue goal, aiming for profitability
+  - Building sustainable business with $8/month subscription model
+  - Competitive pricing ($8 vs competitors at $16)
+  - Break-even target: 20-60 paying admin users
+  - Focus on quality and user retention
+
+### User Readiness ✅ **DECIDED**
+- [✅] **Q27:** **No users yet, building first (Option C)**
+  - Will recruit beta testers during Phases 3-4 (Weeks 7-16)
+  - Target: 5-10 co-parenting families for private beta
+  - Timeline: No pressure, focus on building quality product
+  - Will gather user feedback during beta testing phase
+  - Launch strategy determined after beta testing feedback
 
 ---
 
