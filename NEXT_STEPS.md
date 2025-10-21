@@ -114,96 +114,110 @@
 
 **Goal**: Set up complete local development environment with NO AWS costs
 
-### Week 1: Local Infrastructure Setup
+### Week 1: Local Infrastructure Setup ✅ COMPLETED
 
-#### Day 1: Docker Services Setup
-- [ ] Create `docker-compose.yml` with:
+#### Day 1: Docker Services Setup ✅
+- [x] Create `docker-compose.yml` with:
   - PostgreSQL database
   - MailHog (email preview tool)
-- [ ] Start Docker services:
+- [x] Start Docker services:
   ```bash
   docker-compose up -d
   ```
-- [ ] Verify PostgreSQL connection:
+- [x] Verify PostgreSQL connection:
   ```bash
   docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
   ```
-- [ ] Access MailHog web UI: http://localhost:8025
+- [x] Access MailHog web UI: http://localhost:8025
 
-#### Day 2-3: Express.js API Server
-- [ ] Create backend directory structure:
+#### Day 2-3: Express.js API Server ✅
+- [x] Create backend directory structure:
   ```bash
   mkdir -p backend/{routes,controllers,services,middleware,utils}
   ```
-- [ ] Initialize Node.js project:
+- [x] Initialize Node.js project:
   ```bash
   cd backend
   npm init -y
-  npm install express cors dotenv joi bcrypt jsonwebtoken
+  npm install express cors dotenv joi bcrypt jsonwebtoken cookie-parser
   npm install nodemon --save-dev
   ```
-- [ ] Create Express server (`backend/server.js`)
-- [ ] Set up hot reload with nodemon
-- [ ] Create health check endpoint: `GET /health`
-- [ ] Test server runs on http://localhost:3000
+- [x] Create Express server (`backend/server.js`)
+- [x] Set up hot reload with nodemon
+- [x] Create health check endpoint: `GET /health`
+- [x] Test server runs on http://localhost:3000
 
-#### Day 4: Database Schema with Prisma
-- [ ] Install Prisma:
+#### Day 4: Database Schema with Prisma ✅
+- [x] Install Prisma:
   ```bash
   npm install prisma @prisma/client
   npx prisma init
   ```
-- [ ] Convert `database/schema.sql` to `prisma/schema.prisma`
-- [ ] Run migration on local PostgreSQL:
+- [x] Convert `database/schema.sql` to `prisma/schema.prisma`
+- [x] Run migration on local PostgreSQL:
   ```bash
   npx prisma migrate dev --name init
   ```
-- [ ] Verify all 23 tables created
-- [ ] Generate Prisma Client
-- [ ] Test database connection from Express
+- [x] Verify all 23 tables created
+- [x] Generate Prisma Client
+- [x] Test database connection from Express
 
-#### Day 5: Local File Storage
-- [ ] Create `uploads/` directory for local files
-- [ ] Install file upload middleware:
+#### Day 5: Local File Storage ✅
+- [x] Create `uploads/` directory for local files
+- [x] Install file upload middleware:
   ```bash
-  npm install multer
+  npm install multer uuid
   ```
-- [ ] Create storage service abstraction layer
+- [x] Create storage service abstraction layer
   - Interface: `uploadFile()`, `getFile()`, `deleteFile()`
   - Local implementation: Save to `uploads/`
   - Future: S3 implementation (Phase 6)
-- [ ] Create file upload endpoint: `POST /files/upload`
-- [ ] Test file upload/download locally
+- [x] Create file upload endpoint: `POST /files/upload`
+- [x] Test file upload/download locally
+- [x] Added endpoints: `/files/upload`, `/files/upload-multiple`, `/files/:fileId`, `/files/:fileId/metadata`, `/files/storage-usage/:userId`
 
 ### Week 2: Authentication & Email
 
-#### Day 1-2: Kinde Authentication
-- [ ] Install Kinde SDK:
+#### Day 1-2: Kinde Authentication ✅
+- [x] Install Kinde SDK:
   ```bash
-  npm install @kinde-oss/kinde-node-sdk
+  npm install @kinde-oss/kinde-typescript-sdk
   ```
-- [ ] Create auth routes:
-  - `POST /auth/login` - Kinde OAuth login
-  - `POST /auth/callback` - Handle Kinde callback
+- [x] Create auth routes:
+  - `GET /auth/login` - Kinde OAuth login
+  - `GET /auth/register` - Kinde registration
+  - `GET /auth/callback` - Handle Kinde callback
   - `POST /auth/refresh` - Refresh token
   - `GET /auth/verify` - Verify token
-- [ ] Create auth middleware for protected routes
-- [ ] Test authentication flow with Postman
-- [ ] Store user in database on first login
+  - `GET /auth/me` - Get user profile
+  - `POST /auth/logout` - Logout
+- [x] Create auth middleware for protected routes (`requireAuth`, `requireSubscription`, `optionalAuth`)
+- [x] Test authentication flow with JWT tokens
+- [x] Store user in database on first login
+- [x] JWT token generation (access + refresh tokens)
+- [x] HTTP-only cookie for refresh tokens
 
-#### Day 3: Email Service Abstraction
-- [ ] Create email service interface:
-  - `sendEmail(to, subject, body)`
-  - Local: Log to console + send to MailHog
-  - Future: AWS SES (Phase 6)
-- [ ] Test email sending:
+#### Day 3: Email Service Abstraction ✅
+- [x] Install nodemailer:
   ```bash
-  # Send test email, view in MailHog UI
+  npm install nodemailer
   ```
-- [ ] Create email templates for:
-  - Welcome email
-  - Trial reminder
-  - Log export
+- [x] Create email service interface:
+  - `sendEmail(to, subject, body)`
+  - `sendTemplate(template, to, data)`
+  - Local: MailHog SMTP
+  - Future: AWS SES (Phase 6)
+- [x] Test email sending:
+  ```bash
+  node utils/sendTestEmail.js
+  # View in MailHog UI: http://localhost:8025
+  ```
+- [x] Create email templates for:
+  - Welcome email (new user registration)
+  - Trial reminder (expiring trial)
+  - Log export (audit logs ready)
+- [x] Both plain text and HTML versions
+- [x] Server startup email connection verification
 
 #### Day 4-5: API Documentation & Testing
 - [ ] Document all endpoints in `backend/API.md`
