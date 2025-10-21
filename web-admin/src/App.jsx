@@ -1,12 +1,15 @@
 /**
  * Main App Component
  *
- * Sets up routing and application structure.
+ * Sets up routing and application structure with Kinde authentication.
  */
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { KindeProvider } from '@kinde-oss/kinde-auth-react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import config from './config/env';
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
@@ -17,6 +20,7 @@ import Login from './pages/Login';
 import Subscription from './pages/Subscription';
 import Account from './pages/Account';
 import Logs from './pages/Logs';
+import AuthCallback from './pages/AuthCallback';
 
 // Create Material-UI theme
 const theme = createTheme({
@@ -32,8 +36,16 @@ const theme = createTheme({
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
-  // TODO: Implement actual authentication check with Kinde
-  const isAuthenticated = true; // Placeholder
+  const { isAuthenticated, isLoading } = useKindeAuth();
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -42,7 +54,7 @@ function ProtectedRoute({ children }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
-function App() {
+function AppRoutes() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -50,6 +62,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
           {/* Protected Routes */}
           <Route
@@ -90,6 +103,22 @@ function App() {
         </Routes>
       </Router>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <KindeProvider
+      clientId={config.kinde.clientId}
+      domain={config.kinde.domain}
+      redirectUri={config.kinde.redirectUri}
+      logoutUri={config.kinde.logoutRedirectUri}
+      onRedirectCallback={(user, appState) => {
+        console.log('Kinde redirect callback:', user);
+      }}
+    >
+      <AppRoutes />
+    </KindeProvider>
   );
 }
 

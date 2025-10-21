@@ -20,6 +20,7 @@ import {
   Divider,
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
@@ -32,6 +33,7 @@ const drawerWidth = 240;
 function AppLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useKindeAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
@@ -39,9 +41,11 @@ function AppLayout({ children }) {
   };
 
   const handleLogout = () => {
-    // This will be implemented with Kinde integration
-    console.log('Logout clicked');
-    navigate('/login');
+    // Clear local storage
+    localStorage.removeItem('accessToken');
+
+    // Logout with Kinde (will redirect to logout page)
+    logout();
   };
 
   const menuItems = [
