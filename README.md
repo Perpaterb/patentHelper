@@ -870,20 +870,113 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ### Authentication API
 
-#### POST /auth/login
-- **Description**: Initiate login with Kinde
-- **Request**: `{ email: string }`
-- **Response**: `{ redirectUrl: string, sessionId: string }`
+**Implementation Status**: ✅ **IMPLEMENTED** (Phase 1, Week 2, Days 1-2)
 
-#### POST /auth/verify-mfa
-- **Description**: Verify MFA code
-- **Request**: `{ sessionId: string, code: string }`
-- **Response**: `{ token: string, user: User }`
+**Authentication Strategy**:
+- Kinde OAuth 2.0 for user authentication
+- JWT tokens (access + refresh)
+- Access tokens: 15 minute expiration (Authorization header)
+- Refresh tokens: 7 day expiration (HTTP-only cookie)
+
+#### GET /auth/login
+- **Description**: Initiate Kinde OAuth login flow
+- **Implementation**: Redirects to Kinde OAuth login page
+- **Response**: `302 Redirect` to Kinde login URL
+- **Note**: After successful login at Kinde, redirects to `/auth/callback`
+
+#### GET /auth/register
+- **Description**: Initiate Kinde OAuth registration flow
+- **Implementation**: Redirects to Kinde registration page
+- **Response**: `302 Redirect` to Kinde registration URL
+- **Note**: After successful registration at Kinde, redirects to `/auth/callback`
+
+#### GET /auth/callback
+- **Description**: Handle Kinde OAuth callback
+- **Query Parameters**:
+  - `code`: Authorization code from Kinde
+  - `state`: OAuth state parameter
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "accessToken": "eyJhbGci...",
+    "user": {
+      "userId": "uuid",
+      "email": "user@example.com",
+      "isSubscribed": false
+    }
+  }
+  ```
+- **Side Effects**:
+  - Creates user in database if first login
+  - Sets `refreshToken` HTTP-only cookie (7 days)
+- **Errors**:
+  - `401`: Authentication failed
+
+#### POST /auth/refresh
+- **Description**: Refresh access token using refresh token
+- **Cookie Required**: `refreshToken` (HTTP-only)
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "accessToken": "eyJhbGci..."
+  }
+  ```
+- **Errors**:
+  - `401`: Invalid or missing refresh token
+
+#### GET /auth/verify
+- **Description**: Verify access token validity
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "valid": true,
+    "user": {
+      "userId": "uuid",
+      "email": "user@example.com",
+      "isSubscribed": false
+    }
+  }
+  ```
+- **Errors**:
+  - `401`: Invalid or missing token
+
+#### GET /auth/me
+- **Description**: Get current user profile
+- **Headers**: `Authorization: Bearer <access_token>`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "user": {
+      "userId": "uuid",
+      "email": "user@example.com",
+      "kindeId": "kinde_xxx",
+      "isSubscribed": false,
+      "createdAt": "2025-10-21T...",
+      "updatedAt": "2025-10-21T..."
+    }
+  }
+  ```
+- **Errors**:
+  - `401`: Invalid or missing token
 
 #### POST /auth/logout
-- **Description**: Logout current user
-- **Headers**: `Authorization: Bearer <token>`
-- **Response**: `{ success: boolean }`
+- **Description**: Logout user
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "message": "Logged out successfully",
+    "logoutUrl": "https://parentinghelper.kinde.com/logout"
+  }
+  ```
+- **Side Effects**: Clears `refreshToken` cookie
+- **Note**: Client should redirect to `logoutUrl` to complete Kinde logout
 
 ---
 
