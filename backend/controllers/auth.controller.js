@@ -230,15 +230,15 @@ async function verify(req, res) {
 async function logout(req, res) {
   try {
     // Clear refresh token cookie
-    res.clearCookie('refreshToken');
-
-    // Get Kinde logout URL
-    const logoutUrl = await kindeClient.logout();
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
 
     res.status(200).json({
       success: true,
       message: 'Logged out successfully',
-      logoutUrl: logoutUrl.toString(),
     });
   } catch (error) {
     console.error('Logout error:', error);
