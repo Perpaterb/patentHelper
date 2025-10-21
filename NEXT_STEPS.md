@@ -1,7 +1,7 @@
 # Next Steps - Development Roadmap
 
 **Last Updated**: 2025-10-21
-**Current Phase**: Phase 1 Complete ✅ → Ready for Phase 2 (Web App)
+**Current Phase**: Phase 2, Week 3 (Web App Foundation) - In Progress 🚀
 
 ---
 
@@ -270,24 +270,98 @@
 
 **All development done LOCALLY - connects to local Express.js API**
 
-### Week 3: Web App Foundation
+### Week 3: Web App Foundation ✅ (In Progress)
 
-#### React App Setup
-- [ ] Create React app
+#### React App Setup ✅
+- [x] Create React app
   ```bash
   npx create-react-app web-admin
   cd web-admin
-  npm install @reduxjs/toolkit react-redux react-router-dom
+  npm install @reduxjs/toolkit react-redux react-router-dom @mui/material @mui/icons-material axios
   ```
-- [ ] Set up project structure (components, pages, services)
+  - **COMPLETED:** 2025-10-21
+  - Created in web-admin/ directory
+  - Installed all dependencies including Material-UI, React Router, Redux Toolkit, Kinde, Axios
+- [x] Set up project structure (components, pages, services)
+  - **COMPLETED:** 2025-10-21
+  - Created folders: components/, pages/, services/, config/, store/, hooks/, utils/
+  - Organized by feature: layout, auth, subscription, storage, logs
 - [ ] Configure Redux store
-- [ ] Set up React Router
-- [ ] Install UI library (Material-UI or Chakra UI)
+  - Placeholder folders created, full implementation pending
+- [x] Set up React Router
+  - **COMPLETED:** 2025-10-21
+  - 5 routes configured: /, /login, /subscription, /account, /logs
+  - Protected routes with authentication wrapper
+  - Fallback route redirects to dashboard
+- [x] Install UI library (Material-UI)
+  - **COMPLETED:** 2025-10-21
+  - Material-UI v5 installed with Emotion
+  - Custom theme created in App.jsx
+  - Material-UI icons installed
 
-#### Authentication Pages
-- [ ] Login page with Kinde integration
-- [ ] Dashboard (skeleton)
-- [ ] Protected routes (require authentication)
+#### Pages Created ✅
+- [x] Login page (skeleton - Kinde integration pending)
+  - **COMPLETED:** 2025-10-21
+  - Basic login page with "Sign In with Kinde" button
+  - Full integration with @kinde-oss/kinde-auth-react pending
+- [x] Dashboard (functional skeleton)
+  - **COMPLETED:** 2025-10-21
+  - 4 cards: Subscription, Storage, Log Exports, My Account
+  - Click-to-navigate to each section
+  - Welcome message
+- [x] Subscription page (skeleton)
+  - **COMPLETED:** 2025-10-21
+  - Feature list displayed, implementation pending
+- [x] Account page (skeleton)
+  - **COMPLETED:** 2025-10-21
+  - Storage tracker and account settings sections
+- [x] Logs page (skeleton)
+  - **COMPLETED:** 2025-10-21
+  - Log export features listed
+- [x] Protected routes (require authentication)
+  - **COMPLETED:** 2025-10-21
+  - ProtectedRoute wrapper component created
+  - Authentication check (placeholder - Kinde integration pending)
+  - Auto-redirect to /login if not authenticated
+
+#### Services Created ✅
+- [x] API service (api.js)
+  - **COMPLETED:** 2025-10-21
+  - Axios instance with baseURL http://localhost:3000
+  - Request interceptor: Adds access token from localStorage
+  - Response interceptor: Handles 401 errors, automatic token refresh
+  - withCredentials: true (sends cookies for refresh token)
+- [x] Auth service (auth.service.js)
+  - **COMPLETED:** 2025-10-21
+  - getMe(), verifyToken(), refreshToken(), logout()
+  - Token storage in localStorage
+  - isAuthenticated() check
+
+#### Configuration ✅
+- [x] Environment variables
+  - **COMPLETED:** 2025-10-21
+  - Created .env.example and .env
+  - API URL, Kinde domain/client ID, Stripe key (placeholder)
+  - Feature flags for subscriptions, log exports, storage
+- [x] Config module (config/env.js)
+  - **COMPLETED:** 2025-10-21
+  - Centralized configuration
+  - Validation on module load
+
+#### Layout ✅
+- [x] AppLayout component
+  - **COMPLETED:** 2025-10-21
+  - Navigation drawer (responsive mobile + desktop)
+  - App bar with title
+  - Menu items: Dashboard, Subscription, My Account, Log Exports, Logout
+  - Material-UI theming
+
+#### Status
+- ✅ Web app running on http://localhost:3001
+- ✅ Backend API running on http://localhost:3000
+- ✅ All routes functional
+- ✅ Navigation working
+- ⏳ Kinde authentication integration - NEXT STEP
 
 ### Week 4: Subscription Management
 
