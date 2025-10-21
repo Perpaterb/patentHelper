@@ -17,6 +17,7 @@ const app = express();
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
+const filesRoutes = require('./routes/files.routes');
 
 // Middleware
 app.use(cors({
@@ -36,6 +37,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Routes
 app.use('/health', healthRoutes);
+app.use('/files', filesRoutes);
 
 // 404 handler
 app.use((req, res) => {

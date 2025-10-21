@@ -1184,6 +1184,71 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ---
 
+### Files API
+
+#### POST /files/upload
+- **Description**: Upload a single file (image, video, or document)
+- **Headers**: `Authorization: Bearer <token>`
+- **Request**: `multipart/form-data` with fields:
+  - `file` (File, required): The file to upload
+  - `category` (string, optional): File category - `messages`, `calendar`, `finance`, `profiles` (default: `messages`)
+  - `groupId` (UUID, optional): Group ID if file is associated with a group
+- **Response**: `{ success: boolean, message: string, file: FileMetadata }`
+- **FileMetadata**: `{ fileId: UUID, fileName: string, originalName: string, mimeType: string, size: number, category: string, userId: UUID, groupId: UUID | null, url: string, uploadedAt: timestamp }`
+- **Limits**:
+  - Images: 10 MB max
+  - Videos: 100 MB max
+  - Documents: 25 MB max
+- **Allowed Types**:
+  - Images: JPEG, PNG, GIF, WebP
+  - Videos: MP4, QuickTime, AVI, WebM
+  - Documents: PDF, DOC, DOCX
+
+#### POST /files/upload-multiple
+- **Description**: Upload multiple files (up to 10 files)
+- **Headers**: `Authorization: Bearer <token>`
+- **Request**: `multipart/form-data` with fields:
+  - `files` (File[], required): Array of files to upload (max 10)
+  - `category` (string, optional): File category (applies to all files)
+  - `groupId` (UUID, optional): Group ID if files are associated with a group
+- **Response**: `{ success: boolean, message: string, files: FileMetadata[] }`
+
+#### GET /files/:fileId
+- **Description**: Retrieve file content
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: File binary data with appropriate `Content-Type` header
+- **Errors**:
+  - 404: File not found or deleted
+
+#### GET /files/:fileId/metadata
+- **Description**: Get file metadata without downloading the file
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `{ success: boolean, metadata: FileMetadata }`
+- **Errors**:
+  - 404: File not found or deleted
+
+#### DELETE /files/:fileId
+- **Description**: Delete a file (soft delete)
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `{ success: boolean, message: string }`
+- **Note**: Files are never hard deleted per audit requirements. They are soft deleted with `is_hidden` flag set to `true`. The file remains on disk for audit purposes.
+
+#### GET /files/storage-usage/:userId
+- **Description**: Get storage usage for a user
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `{ success: boolean, userId: UUID, usage: { bytes: number, megabytes: number } }`
+- **Note**: Storage usage is calculated by scanning all non-hidden files for the user across all categories.
+
+**Storage Implementation Notes:**
+- **Local Development**: Files stored in `backend/uploads/` directory organized by category
+- **Production (Phase 6)**: Files stored in AWS S3 with same abstraction layer
+- **Metadata Storage**:
+  - Local: JSON files stored alongside actual files
+  - Production: Will use database tables (`message_media`, etc.) when attached to messages/events
+- **Architecture Pattern**: Storage service abstraction allows seamless switching between local filesystem and S3 without changing application code
+
+---
+
 ## 6. Implementation Notes
 
 ### Security Considerations
