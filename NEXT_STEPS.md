@@ -1,7 +1,7 @@
 # Next Steps - Development Roadmap
 
-**Last Updated**: 2025-10-20
-**Current Phase**: Planning Complete → Ready for Phase 1 (Foundation)
+**Last Updated**: 2025-10-21
+**Current Phase**: Phase 1 Complete ✅ → Ready for Phase 2 (Web App)
 
 ---
 
@@ -230,21 +230,39 @@
 - [x] Both plain text and HTML versions
 - [x] Server startup email connection verification
 
-#### Day 4-5: API Documentation & Testing
-- [ ] Document all endpoints in `backend/API.md`
-- [ ] Create Postman/Thunder Client collection
-- [ ] Test all endpoints:
-  - Health check
-  - Authentication flow
-  - File upload/download
-  - Email sending
-- [ ] Write basic unit tests (Jest)
-- [ ] Set up environment switching:
-  ```javascript
-  // Use local services in development, AWS in production
-  const storage = process.env.NODE_ENV === 'production' ? 's3' : 'local';
-  const email = process.env.NODE_ENV === 'production' ? 'ses' : 'mailhog';
-  ```
+#### Day 4-5: API Documentation & Testing ✅
+- [x] Document all endpoints in `backend/API.md`
+  - **COMPLETED:** 2025-10-21
+  - Comprehensive documentation with request/response examples
+  - Authentication flow explained
+  - Error handling documented
+  - Testing instructions included
+- [x] Create Postman/Thunder Client collection
+  - **COMPLETED:** 2025-10-21
+  - Created `backend/API.postman_collection.json`
+  - Collection variables for tokens and test data
+  - Auto-saves access token and file IDs
+- [x] Test all endpoints:
+  - **COMPLETED:** 2025-10-21
+  - Health check: ✅ PASS
+  - Authentication flow: ✅ PASS (verify, me, logout)
+  - File upload/download: ✅ PASS (validation working)
+  - Email sending: ✅ PASS (MailHog receiving)
+  - Created `backend/TEST_RESULTS.md` with full test results
+  - **Bug Fixed:** Logout endpoint (destroySession error)
+- [x] Write basic unit tests (Jest)
+  - **COMPLETED:** 2025-10-21
+  - Installed Jest and @types/jest
+  - Created `backend/jest.config.js`
+  - Created `services/__tests__/auth.service.test.js` (16 tests)
+  - Created `services/email/__tests__/templates.test.js` (19 tests)
+  - **All 35 tests passing** ✅
+  - Coverage: auth.service (52.5%), email templates (100%)
+- [x] Set up environment switching:
+  - **COMPLETED:** Already done in Week 1
+  - Storage: local/S3 via service factory pattern
+  - Email: MailHog/SES via service factory pattern
+  - Both services use abstract interfaces
 
 ---
 
