@@ -72,30 +72,41 @@
   - **COMPLETED:** 2025-10-21
 
 #### Development Environment Setup (1-2 days)
-- [ ] Install Node.js v20 LTS
+- [x] Install Node.js v20 LTS
   - Download: https://nodejs.org/
-- [ ] Install Docker Desktop
+  - **COMPLETED:** 2025-10-21
+- [x] Install Docker Desktop
   - Download: https://www.docker.com/products/docker-desktop/
-- [ ] Install VS Code
+  - **COMPLETED:** 2025-10-21 (PostgreSQL + MailHog containers running)
+- [x] Install VS Code
   - Download: https://code.visualstudio.com/
   - Install recommended extensions (will prompt when you open project)
-- [ ] Install AWS CLI
+  - **COMPLETED:** 2025-10-21
+- [ ] Install AWS CLI *(SKIP UNTIL PHASE 6)*
   - Configure with IAM user credentials
-- [ ] Install Terraform
+  - Not needed for local development
+- [ ] Install Terraform *(SKIP UNTIL PHASE 6)*
   - Needed for infrastructure setup
+  - Not needed for local development
 
 #### Local Environment Configuration (30 mins)
-- [ ] Copy `.env.example` to `.env.local`
-- [ ] Fill in AWS credentials
+- [x] Copy `.env.example` to `.env.local`
+  - **COMPLETED:** 2025-10-21
+- [ ] Fill in AWS credentials *(SKIP UNTIL PHASE 6)*
+  - Not needed for local development
 - [ ] Fill in Kinde client secret (from Kinde dashboard)
-- [ ] Start local database:
+  - **TODO:** Get from https://parentinghelper.kinde.com dashboard
+  - Currently showing warning on server startup
+- [x] Start local database:
   ```bash
   docker-compose up -d
   ```
-- [ ] Verify database connection:
+  - **COMPLETED:** 2025-10-21 (PostgreSQL + MailHog running)
+- [x] Verify database connection:
   ```bash
   docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
   ```
+  - **COMPLETED:** 2025-10-21 (Prisma successfully connected, migrations run)
 
 #### Stripe Configuration (30 mins)
 - [ ] Log in to Stripe Dashboard
