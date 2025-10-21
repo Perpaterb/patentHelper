@@ -1,8 +1,6 @@
 # Docker Compose for Local Development
 # Provides PostgreSQL database matching production environment
 
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
