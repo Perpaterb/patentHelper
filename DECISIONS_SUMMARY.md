@@ -22,6 +22,22 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] Avoids Apple/Google 30% fees
 - [✅] Simpler codebase (KISS principle)
 
+### Development Approach: Local-First 🏠
+- [✅] **Develop everything locally FIRST** before deploying to AWS
+- [✅] **Benefits:**
+  - Faster development (no deployment wait times)
+  - Zero AWS costs during development (save $100-400/month)
+  - Easier debugging with local tools
+  - Can work offline
+  - Safer (can't break production)
+- [✅] **Local Stack:**
+  - Express.js API server (converts to Lambda later)
+  - Docker PostgreSQL database
+  - Local file storage (converts to S3 later)
+  - MailHog for email preview (converts to SES later)
+- [✅] **AWS Deployment:** Phase 6 only (after all features built and tested)
+- [✅] **Architecture Pattern:** Abstraction layers allow easy switching between local/AWS
+
 ---
 
 ## 💻 TECHNOLOGY STACK
@@ -36,16 +52,17 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Language:** JavaScript with JSDoc (NOT TypeScript)
 
 ### Backend
-- [✅] **Server:** AWS Lambda (serverless)
-- [✅] **API:** API Gateway (REST)
-- [✅] **Database:** PostgreSQL on AWS RDS
+- [✅] **Production Server:** AWS Lambda (serverless)
+- [✅] **Local Development:** Express.js (converted to Lambda in Phase 6)
+- [✅] **API:** API Gateway (REST) - production only
+- [✅] **Database:** PostgreSQL (Docker locally, AWS RDS in production)
 - [✅] **ORM:** Prisma
 - [✅] **Validation:** Joi
-- [✅] **Storage:** AWS S3 (media files)
-- [✅] **Email:** AWS SES
+- [✅] **Storage:** Local filesystem (development), AWS S3 (production)
+- [✅] **Email:** Console/MailHog (development), AWS SES (production)
 
 ### Infrastructure
-- [✅] **IaC:** Terraform
+- [✅] **IaC:** Terraform (Phase 6 deployment only)
 - [✅] **Authentication:** Kinde (OAuth/OIDC)
 - [✅] **Payments:** Stripe (web app only)
 - [✅] **Region:** ap-southeast-2 (Sydney, Australia)
@@ -55,7 +72,9 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Package Manager:** npm
 - [✅] **Code Editor:** VS Code
 - [✅] **Local Database:** Docker PostgreSQL
+- [✅] **Local Services:** Docker Compose (PostgreSQL, MailHog)
 - [✅] **Version Control:** Git + GitHub
+- [✅] **API Testing:** Postman or Thunder Client
 
 ---
 
@@ -187,12 +206,13 @@ This document contains every decision made during the planning phase. Use this a
 
 ### Development Timeline
 - [✅] **Total:** 24 weeks (flexible, no hard deadline)
-  - Phase 1: Foundation (2 weeks)
-  - Phase 2: Web App (4 weeks)
-  - Phase 3-4: Mobile Main App (10 weeks)
-  - Phase 5: PH Messenger (2 weeks)
-  - Phase 6: Testing & Launch (6 weeks)
+  - Phase 1: Local Foundation (2 weeks) - Express.js, Docker, Prisma, Kinde
+  - Phase 2: Web App (4 weeks) - Build and test locally
+  - Phase 3-4: Mobile Main App (10 weeks) - Build and test locally
+  - Phase 5: PH Messenger (2 weeks) - Build and test locally
+  - Phase 6: AWS Deployment & Launch (6 weeks) - Terraform, Lambda conversion, production testing
 - [✅] **Additional Time:** +2-3 weeks for high test coverage
+- [✅] **AWS Costs:** $0 until Phase 6 (Week 17+)
 
 ### Launch Strategy
 - [✅] **Phased Rollout:**
@@ -309,29 +329,30 @@ This document contains every decision made during the planning phase. Use this a
    - [ ] Create products in Stripe Dashboard
    - [ ] Copy Price IDs to `.env.local`
 
-5. **AWS Setup** (30 mins)
-   - [ ] Create IAM users (Terraform + Lambda)
-   - [ ] Save access keys in `.env.local`
+5. **AWS Setup** (SKIP - Not needed until Phase 6)
+   - AWS deployment happens in Week 17+ after local development complete
+   - This saves $100-400/month during development
 
 6. **GitHub Projects** (15 mins)
    - [ ] Follow `.github/GITHUB_PROJECTS_SETUP.md`
    - [ ] Create project board
    - [ ] Add labels
 
-### Start Phase 1: Foundation (Weeks 1-2)
+### Start Phase 1: Local Foundation (Weeks 1-2)
 
-7. **Week 1: Infrastructure**
-   - [ ] Create Terraform modules
-   - [ ] Deploy RDS PostgreSQL
-   - [ ] Set up S3 buckets
-   - [ ] Configure Lambda roles
-   - [ ] Set up API Gateway
+7. **Week 1: Local Infrastructure**
+   - [ ] Install Node.js v20, Docker, VS Code
+   - [ ] Set up Docker Compose (PostgreSQL + MailHog)
+   - [ ] Create Express.js API server
+   - [ ] Set up hot reload for development
+   - [ ] Create basic API routing structure
 
 8. **Week 2: Database & Auth**
    - [ ] Convert schema to Prisma
-   - [ ] Run migrations
+   - [ ] Run migrations on local PostgreSQL
    - [ ] Integrate Kinde authentication
-   - [ ] Test Lambda → RDS connection
+   - [ ] Set up local file storage
+   - [ ] Test complete local stack
 
 ---
 

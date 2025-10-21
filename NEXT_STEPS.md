@@ -104,96 +104,127 @@
 - [ ] Copy Product Price IDs to `.env.local`
 - [ ] Note: Webhook will be configured after backend deployment
 
-#### AWS IAM Setup (30 mins)
-- [ ] Create IAM user for Terraform
-  - Permissions: PowerUserAccess (or custom policy)
-  - Enable programmatic access
-- [ ] Create IAM user for Lambda functions
-  - Permissions: AWSLambdaFullAccess, AmazonS3FullAccess, AmazonRDSFullAccess, AmazonSESFullAccess
-- [ ] Save access keys in `.env.local`
+#### AWS IAM Setup
+- **SKIP UNTIL PHASE 6** - Develop locally first to save costs and time
 
 ---
 
-## 📅 Phase 1: Foundation (Weeks 1-2)
+## 📅 Phase 1: Local Foundation (Weeks 1-2)
 
-### Week 1: Infrastructure Setup
+**Goal**: Set up complete local development environment with NO AWS costs
 
-#### Day 1-2: Terraform Configuration
-- [ ] Create Terraform modules:
-  - `infrastructure/modules/networking/` - VPC, subnets, security groups
-  - `infrastructure/modules/database/` - RDS PostgreSQL
-  - `infrastructure/modules/storage/` - S3 buckets for media
-  - `infrastructure/modules/lambda/` - Lambda execution role
-  - `infrastructure/modules/api-gateway/` - API Gateway REST API
-- [ ] Create environment configs:
-  - `infrastructure/environments/dev/`
-  - `infrastructure/environments/staging/`
-  - `infrastructure/environments/production/`
-- [ ] Run Terraform apply for dev environment
+### Week 1: Local Infrastructure Setup
+
+#### Day 1: Docker Services Setup
+- [ ] Create `docker-compose.yml` with:
+  - PostgreSQL database
+  - MailHog (email preview tool)
+- [ ] Start Docker services:
   ```bash
-  cd infrastructure/environments/dev
-  terraform init
-  terraform plan
-  terraform apply
+  docker-compose up -d
   ```
+- [ ] Verify PostgreSQL connection:
+  ```bash
+  docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
+  ```
+- [ ] Access MailHog web UI: http://localhost:8025
 
-#### Day 3-4: Database Setup
-- [ ] Deploy RDS PostgreSQL instance (dev)
-- [ ] Create database schema using Prisma
+#### Day 2-3: Express.js API Server
+- [ ] Create backend directory structure:
+  ```bash
+  mkdir -p backend/{routes,controllers,services,middleware,utils}
+  ```
+- [ ] Initialize Node.js project:
   ```bash
   cd backend
-  npm install
+  npm init -y
+  npm install express cors dotenv joi bcrypt jsonwebtoken
+  npm install nodemon --save-dev
+  ```
+- [ ] Create Express server (`backend/server.js`)
+- [ ] Set up hot reload with nodemon
+- [ ] Create health check endpoint: `GET /health`
+- [ ] Test server runs on http://localhost:3000
+
+#### Day 4: Database Schema with Prisma
+- [ ] Install Prisma:
+  ```bash
+  npm install prisma @prisma/client
   npx prisma init
-  # Convert database/schema.sql to prisma/schema.prisma
+  ```
+- [ ] Convert `database/schema.sql` to `prisma/schema.prisma`
+- [ ] Run migration on local PostgreSQL:
+  ```bash
   npx prisma migrate dev --name init
   ```
 - [ ] Verify all 23 tables created
-- [ ] Test connection from Lambda
+- [ ] Generate Prisma Client
+- [ ] Test database connection from Express
 
-#### Day 5: S3 & CloudFront Setup
-- [ ] Create S3 bucket for media storage
-  - Bucket name: `parenting-helper-media-dev`
-  - Enable versioning
-  - Configure CORS for web app uploads
-  - Lifecycle policy: Move to Glacier after 1 year (for audit logs)
-- [ ] Create CloudFront distribution for media delivery
-  - Origin: S3 bucket
-  - Enable HTTPS only
-  - Configure caching headers
-
-### Week 2: Authentication & API Framework
-
-#### Day 1-2: Kinde Integration
-- [ ] Set up backend Lambda for Kinde token verification
+#### Day 5: Local File Storage
+- [ ] Create `uploads/` directory for local files
+- [ ] Install file upload middleware:
   ```bash
-  cd backend/functions/auth
-  # Create login.js, verify.js, refresh.js
+  npm install multer
   ```
-- [ ] Test authentication flow
-- [ ] Configure CORS for web and mobile apps
+- [ ] Create storage service abstraction layer
+  - Interface: `uploadFile()`, `getFile()`, `deleteFile()`
+  - Local implementation: Save to `uploads/`
+  - Future: S3 implementation (Phase 6)
+- [ ] Create file upload endpoint: `POST /files/upload`
+- [ ] Test file upload/download locally
 
-#### Day 3-4: API Gateway Setup
-- [ ] Create REST API in API Gateway
-- [ ] Configure resources and methods:
-  - `/auth/*` - Authentication endpoints
-  - `/users/*` - User management
-  - `/groups/*` - Group endpoints
-  - `/messages/*` - Messaging endpoints
-  - `/calendar/*` - Calendar endpoints
-  - `/finance/*` - Finance endpoints
-  - `/subscriptions/*` - Subscription management (web only)
-- [ ] Set up API Gateway throttling (protect against abuse)
-- [ ] Configure API Gateway custom domain (api.parentinghelperapp.com)
+### Week 2: Authentication & Email
 
-#### Day 5: Testing & Documentation
-- [ ] Write integration tests for authentication
-- [ ] Write integration tests for API Gateway
-- [ ] Document API endpoints in README.md
-- [ ] Create Postman collection for API testing
+#### Day 1-2: Kinde Authentication
+- [ ] Install Kinde SDK:
+  ```bash
+  npm install @kinde-oss/kinde-node-sdk
+  ```
+- [ ] Create auth routes:
+  - `POST /auth/login` - Kinde OAuth login
+  - `POST /auth/callback` - Handle Kinde callback
+  - `POST /auth/refresh` - Refresh token
+  - `GET /auth/verify` - Verify token
+- [ ] Create auth middleware for protected routes
+- [ ] Test authentication flow with Postman
+- [ ] Store user in database on first login
+
+#### Day 3: Email Service Abstraction
+- [ ] Create email service interface:
+  - `sendEmail(to, subject, body)`
+  - Local: Log to console + send to MailHog
+  - Future: AWS SES (Phase 6)
+- [ ] Test email sending:
+  ```bash
+  # Send test email, view in MailHog UI
+  ```
+- [ ] Create email templates for:
+  - Welcome email
+  - Trial reminder
+  - Log export
+
+#### Day 4-5: API Documentation & Testing
+- [ ] Document all endpoints in `backend/API.md`
+- [ ] Create Postman/Thunder Client collection
+- [ ] Test all endpoints:
+  - Health check
+  - Authentication flow
+  - File upload/download
+  - Email sending
+- [ ] Write basic unit tests (Jest)
+- [ ] Set up environment switching:
+  ```javascript
+  // Use local services in development, AWS in production
+  const storage = process.env.NODE_ENV === 'production' ? 's3' : 'local';
+  const email = process.env.NODE_ENV === 'production' ? 'ses' : 'mailhog';
+  ```
 
 ---
 
 ## 📅 Phase 2: Web App - Admin Portal (Weeks 3-6)
+
+**All development done LOCALLY - connects to local Express.js API**
 
 ### Week 3: Web App Foundation
 
@@ -279,6 +310,8 @@
 ---
 
 ## 📅 Phase 3-4: Mobile - Main App (Weeks 7-16)
+
+**All development done LOCALLY - connects to local Express.js API (http://localhost:3000)**
 
 ### Week 7-8: Mobile Foundation
 
@@ -391,6 +424,8 @@
 
 ## 📅 Phase 5: PH Messenger (Weeks 17-18)
 
+**All development done LOCALLY - connects to local Express.js API**
+
 ### Week 17: PH Messenger Development
 
 #### App Setup
@@ -417,18 +452,83 @@
 
 ---
 
-## 📅 Phase 6: Testing & Launch (Weeks 19-24)
+## 📅 Phase 6: AWS Deployment & Launch (Weeks 19-24)
 
-### Week 19-20: Cross-Product Testing
+**NOW we deploy to AWS - everything tested locally first!**
 
+### Week 19: AWS Infrastructure Setup
+
+#### Terraform Configuration
+- [ ] Install Terraform locally
+- [ ] Create Terraform modules:
+  - `infrastructure/modules/networking/` - VPC, subnets, security groups
+  - `infrastructure/modules/database/` - RDS PostgreSQL
+  - `infrastructure/modules/storage/` - S3 buckets for media
+  - `infrastructure/modules/lambda/` - Lambda execution role
+  - `infrastructure/modules/api-gateway/` - API Gateway REST API
+- [ ] Create environment configs:
+  - `infrastructure/environments/dev/`
+  - `infrastructure/environments/production/`
+- [ ] Run Terraform apply for dev environment
+  ```bash
+  cd infrastructure/environments/dev
+  terraform init
+  terraform plan
+  terraform apply
+  ```
+
+#### Database Migration to RDS
+- [ ] Deploy RDS PostgreSQL instance
+- [ ] Run Prisma migrations on RDS
+- [ ] Verify all 23 tables created
+- [ ] Migrate test data (if needed)
+
+### Week 20: Lambda Conversion & API Gateway
+
+#### Convert Express.js to Lambda
+- [ ] Create Lambda wrapper for existing controllers
+  ```javascript
+  // Lambda handler wraps existing Express controller
+  exports.handler = async (event) => {
+    return await userController.getUser(event);
+  };
+  ```
+- [ ] Package Lambda functions (zip with dependencies)
+- [ ] Deploy Lambda functions
+- [ ] Test each Lambda function individually
+
+#### API Gateway Setup
+- [ ] Create REST API in API Gateway
+- [ ] Configure all routes (auth, users, groups, messages, calendar, finance)
+- [ ] Link routes to Lambda functions
+- [ ] Set up CORS for web and mobile apps
+- [ ] Configure throttling (protect against abuse)
+- [ ] Set up custom domain: api.parentinghelperapp.com
+
+#### Switch from Local to S3
+- [ ] Create S3 bucket for media storage
+- [ ] Configure CORS on S3
+- [ ] Update storage service to use S3 instead of local files
+- [ ] Migrate existing test files to S3 (if any)
+
+#### Switch from MailHog to SES
+- [ ] Verify email addresses in AWS SES
+  - noreply@parentinghelperapp.com
+  - support@parentinghelperapp.com
+- [ ] Update email service to use SES instead of MailHog
+- [ ] Test email sending in production
+
+### Week 21: Testing & Security
+
+#### Cross-Product Testing (Production)
+- [ ] Update all 3 apps to use production API
 - [ ] Test subscription flow: Web → Mobile
-- [ ] Test all 3 products with same user account
+- [ ] Test all 3 products with same account
 - [ ] Test role changes propagate correctly
-- [ ] Test storage calculations across all products
+- [ ] Test storage calculations with S3
 - [ ] Test audit logs from all 3 products
 
-### Week 21: Security Audit
-
+#### Security Audit
 - [ ] Run security scans (OWASP)
 - [ ] Penetration testing
 - [ ] Review all authentication flows
@@ -436,19 +536,34 @@
 - [ ] Test SQL injection prevention
 - [ ] Test XSS prevention
 
-### Week 22: Performance Optimization
-
+#### Performance Optimization
 - [ ] Database query optimization
 - [ ] API response time optimization (target <500ms)
 - [ ] Mobile app bundle size optimization
-- [ ] CloudFront cache configuration
+- [ ] Set up CloudFront for media delivery
 - [ ] Lambda cold start optimization
+
+### Week 22: Web App Deployment
+
+#### Deploy Web App to AWS
+- [ ] Build React app for production
+  ```bash
+  cd web-admin
+  npm run build
+  ```
+- [ ] Create S3 bucket for web hosting
+- [ ] Upload build to S3
+- [ ] Configure CloudFront distribution
+- [ ] Set up custom domain: parentinghelperapp.com
+- [ ] Configure SSL certificate (ACM)
+- [ ] Test web app in production
 
 ### Week 23: App Store Preparation
 
 #### iOS App Store
 - [ ] Purchase Apple Developer Account ($99/year)
 - [ ] Create App Store Connect account
+- [ ] Build production iOS apps with Expo
 - [ ] Submit Parenting Helper for review
 - [ ] Submit PH Messenger for review
 - [ ] Prepare:
@@ -460,20 +575,32 @@
 
 #### Google Play Store
 - [ ] Create Google Play Developer Account ($25 one-time)
+- [ ] Build production Android apps with Expo
 - [ ] Submit Parenting Helper for review
 - [ ] Submit PH Messenger for review
 - [ ] Prepare same materials as iOS
 
 ### Week 24: Launch!
 
+#### Pre-Launch
+- [ ] Set up CloudWatch alerts for errors
+- [ ] Set up budget alerts for AWS costs
+- [ ] Test Stripe webhooks in production
+- [ ] Final end-to-end testing
+
+#### Launch Day
 - [ ] Monitor app store review process
 - [ ] Fix any issues flagged by reviewers
 - [ ] Publish apps when approved
 - [ ] Monitor CloudWatch logs for errors
 - [ ] Monitor Stripe for subscriptions
 - [ ] Set up customer support email monitoring
+
+#### Post-Launch
 - [ ] Create launch announcement
 - [ ] Marketing push (optional)
+- [ ] Monitor performance metrics
+- [ ] Be ready for user feedback!
 
 ---
 
@@ -537,11 +664,14 @@
 - **Total**: ~$135/year
 
 ### Monthly Operating Costs (Estimated)
-- AWS (dev): ~$50-100/month
-- AWS (production): ~$100-400/month (scales with users)
-- Kinde: $25/month (up to 1,000 users)
-- Stripe: 2.9% + $0.30 per transaction
-- **Total**: ~$175-525/month
+- **Weeks 1-18 (Local Development)**: $0/month AWS costs! 🎉
+- **Week 19+ (AWS Deployment)**:
+  - AWS (dev): ~$50-100/month
+  - AWS (production): ~$100-400/month (scales with users)
+  - Kinde: $25/month (up to 1,000 users)
+  - Stripe: 2.9% + $0.30 per transaction
+- **Total During Development**: $0/month
+- **Total After Launch**: ~$175-525/month
 
 ### Break-Even Analysis
 - Need ~20-60 paid admin users to break even

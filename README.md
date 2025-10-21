@@ -67,16 +67,28 @@ A cross-platform parenting and co-parenting helper application designed to facil
   - **Justification**: Link to web app for subscription management
 
 ### Backend
+
+**Development Approach: Local-First, Deploy Later**
+- **Local Development** (Phases 1-5): Express.js API server with local PostgreSQL, file storage, and email
+- **Production** (Phase 6): Convert to AWS Lambda + API Gateway
+- **Benefit**: Zero AWS costs during development, faster iteration, easier debugging
+
+#### Production Stack (Phase 6 Deployment)
 - **AWS Lambda**
   - **Justification**: Serverless, pay-per-use, auto-scaling, fits "serverless infrastructure" requirement
+  - **Development**: Functions written to work with both Express.js (local) and Lambda (production)
 - **API Gateway**
   - **Justification**: RESTful API management, integrates with Lambda, handles authentication
-- **Amazon DynamoDB** or **Amazon RDS (PostgreSQL)**
-  - **Justification**: DynamoDB for scalability and serverless architecture, or PostgreSQL for complex relational queries (groups, messages, approvals). Recommend PostgreSQL given complex relationships and audit requirements.
+  - **Development**: Express.js routes locally, API Gateway routes in production
+- **Amazon RDS (PostgreSQL)**
+  - **Justification**: PostgreSQL chosen for complex relational queries (groups, messages, approvals) and audit requirements
+  - **Development**: Docker PostgreSQL locally, AWS RDS in production (same Prisma schema)
 - **Amazon S3**
   - **Justification**: Object storage for images, videos, and backup files with lifecycle policies
+  - **Development**: Local filesystem during development, S3 in production (abstraction layer)
 - **Amazon CloudFront**
   - **Justification**: CDN for media delivery, reduces latency for global users
+  - **Development**: Not needed locally, added in production
 
 ### Authentication & Authorization
 - **Kinde**
@@ -87,14 +99,17 @@ A cross-platform parenting and co-parenting helper application designed to facil
   - **Justification**: Specified in requirements, cloud-agnostic, version-controlled infrastructure, supports AWS resources
 
 ### Development Environment
-- **Docker**
-  - **Justification**: Local serverless function development, consistent dev environment across team
-- **LocalStack** or **Serverless Framework Offline**
-  - **Justification**: Local AWS service emulation for development
+- **Docker & Docker Compose**
+  - **Justification**: Run PostgreSQL and MailHog locally, consistent dev environment
+  - **Services**: PostgreSQL database, MailHog email testing
+- **Express.js**
+  - **Justification**: Local API server during development, converts to Lambda in Phase 6
+  - **Benefit**: Faster development, no AWS costs until production
 
 ### Additional Services
 - **Amazon SES**
   - **Justification**: Email delivery for log exports, approval notifications, subscription confirmations
+  - **Development**: MailHog (local email preview tool) during development
 - **Amazon EventBridge**
   - **Justification**: Event-driven architecture for approval workflows, notifications
 - **Amazon CloudWatch**

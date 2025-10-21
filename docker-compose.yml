@@ -28,6 +28,21 @@ services:
     networks:
       - parenting-helper-network
 
+  # MailHog (Email Testing Tool)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: parenting-helper-mailhog
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - parenting-helper-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # pgAdmin (Optional - Web UI for database management)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -61,10 +76,10 @@ networks:
 # USAGE INSTRUCTIONS
 # =============================================================================
 #
-# Start database:
+# Start database + MailHog (recommended for development):
 #   docker-compose up -d
 #
-# Start database + pgAdmin:
+# Start all services including pgAdmin:
 #   docker-compose --profile tools up -d
 #
 # Stop services:
@@ -75,6 +90,7 @@ networks:
 #
 # View logs:
 #   docker-compose logs -f postgres
+#   docker-compose logs -f mailhog
 #
 # Access PostgreSQL CLI:
 #   docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
@@ -82,12 +98,28 @@ networks:
 # Import schema manually:
 #   docker-compose exec -i postgres psql -U dev_user parenting_helper_dev < database/schema.sql
 #
+# MailHog Email Preview (ALWAYS RUNNING):
+#   Web UI: http://localhost:8025
+#   SMTP Server: localhost:1025
+#   All emails sent to localhost:1025 appear in the web UI
+#
 # pgAdmin Access (if started with --profile tools):
 #   URL: http://localhost:5050
 #   Email: admin@parentinghelper.local
 #   Password: admin
 #
-# Connection string for .env.local:
+# Connection strings for .env.local:
 #   DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/parenting_helper_dev
+#   SMTP_HOST=localhost
+#   SMTP_PORT=1025
+#
+# =============================================================================
+#
+# LOCAL SERVICES OVERVIEW:
+# - PostgreSQL: localhost:5432 (database)
+# - MailHog SMTP: localhost:1025 (email sending)
+# - MailHog Web UI: http://localhost:8025 (view sent emails)
+# - Express API: http://localhost:3000 (you create this in Phase 1)
+# - pgAdmin: http://localhost:5050 (optional, start with --profile tools)
 #
 # =============================================================================
