@@ -1,7 +1,7 @@
 # Next Steps - Development Roadmap
 
 **Last Updated**: 2025-10-21
-**Current Phase**: Phase 2, Week 3 (Web App Foundation) - In Progress 🚀
+**Current Phase**: Phase 2, Week 4 (Subscription Management) - In Progress 🚀
 
 ---
 
@@ -387,30 +387,50 @@
 - ✅ All routes functional
 - ✅ Navigation working
 - ✅ Kinde authentication integrated
+- ✅ Stripe subscription foundation (pricing cards, checkout flow) - COMPLETED
 - ⏳ Kinde client secret configuration (for testing OAuth flow) - TODO
-- ⏳ Stripe subscription management - NEXT MAJOR STEP
+- ⏳ Stripe test configuration (API keys, price IDs) - NEXT STEP
 
-### Week 4: Subscription Management
+### Week 4: Subscription Management ✅ (In Progress)
 
-#### Stripe Integration
-- [ ] Install Stripe library
+#### Stripe Integration ✅
+- [x] Install Stripe library
   ```bash
-  npm install @stripe/stripe-js @stripe/react-stripe-js
+  npm install @stripe/stripe-js @stripe/react-stripe-js  # Frontend
+  npm install stripe  # Backend
   ```
-- [ ] Create subscription pages:
-  - Plans & Pricing
-  - Payment Method form (Stripe Elements)
-  - Billing History
-- [ ] Backend endpoints for subscriptions:
-  - `POST /subscriptions` - Create subscription
-  - `GET /subscriptions/:id` - Get subscription details
-  - `PUT /subscriptions/:id` - Update (upgrade storage)
-  - `DELETE /subscriptions/:id` - Cancel subscription
-  - `POST /subscriptions/webhook` - Handle Stripe webhooks
+  - **COMPLETED:** 2025-10-21
+  - Installed in both web-admin/ and backend/
+- [x] Create subscription pages:
+  - **COMPLETED:** 2025-10-21
+  - Pricing cards: ✅ Admin Subscription ($8/mo) and Additional Storage ($1/mo)
+  - Checkout flow: ✅ Creates Stripe session and redirects
+  - Success/cancel redirect handling: ✅
+  - ⏳ Payment Method form (Stripe Elements) - TODO (managed by Stripe Checkout)
+  - ⏳ Billing History - TODO (Phase 2 Week 5)
+- [x] Backend endpoints for subscriptions:
+  - **COMPLETED:** 2025-10-21
+  - `POST /subscriptions/checkout` - Create Stripe checkout session ✅
+  - `GET /subscriptions/pricing` - Get pricing information ✅
+  - `POST /subscriptions/webhook` - Handle Stripe webhooks (basic structure) ✅
+  - ⏳ `GET /subscriptions/:id` - Get subscription details - TODO
+  - ⏳ `PUT /subscriptions/:id` - Update (upgrade storage) - TODO
+  - ⏳ `DELETE /subscriptions/:id` - Cancel subscription - TODO
+  - Created backend/config/stripe.js with validation
+  - Created backend/controllers/subscription.controller.js
+  - Created backend/routes/subscription.routes.js
+  - Webhook handlers for: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
 
-#### Payment Testing
-- [ ] Test with Stripe test cards
-- [ ] Test subscription creation
+#### Payment Testing ⏳
+- [ ] Configure Stripe test environment:
+  - Add STRIPE_SECRET_KEY to .env.local
+  - Add STRIPE_PRICE_ADMIN_SUBSCRIPTION to .env.local
+  - Add STRIPE_PRICE_ADDITIONAL_STORAGE to .env.local
+  - Add STRIPE_WEBHOOK_SECRET to .env.local (for webhook testing)
+- [ ] Test with Stripe test cards:
+  - Success: 4242 4242 4242 4242
+  - Decline: 4000 0000 0000 0002
+- [ ] Test subscription creation flow
 - [ ] Test storage upgrade
 - [ ] Test cancellation flow
 

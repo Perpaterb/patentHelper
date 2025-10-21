@@ -18,12 +18,14 @@ const app = express();
 
 // Import configuration
 const { validateKindeConfig } = require('./config/auth');
+const { validateStripeConfig } = require('./config/stripe');
 const { emailService } = require('./services/email');
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
 const filesRoutes = require('./routes/files.routes');
 const authRoutes = require('./routes/auth.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
 
 // Middleware
 app.use(cors({
@@ -46,6 +48,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/files', filesRoutes);
+app.use('/subscriptions', subscriptionRoutes);
 
 // 404 handler
 app.use((req, res) => {
