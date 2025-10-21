@@ -85,8 +85,17 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Messenger App:** "PH Messenger"
 
 ### App Icons
-- [✅] **Provided:** PFicon600x600.jpg and PFMicon600x600.jpg
-- [✅] **TODO:** Convert to PNG with multiple sizes for app stores
+- [✅] **Parenting Helper App:** PHIcon/ folder
+  - iOS: Assets.xcassets/AppIcon.appiconset/ (all required sizes)
+  - Android: android/mipmap-* folders (hdpi, mdpi, xhdpi, xxhdpi, xxxhdpi)
+  - App Store: appstore.png (1024x1024)
+  - Play Store: playstore.png (512x512)
+- [✅] **PH Messenger App:** PHMIcons/ folder
+  - iOS: Assets.xcassets/AppIcon.appiconset/ (all required sizes)
+  - Android: android/mipmap-* folders (hdpi, mdpi, xhdpi, xxhdpi, xxxhdpi)
+  - App Store: appstore.png (1024x1024)
+  - Play Store: playstore.png (512x512)
+- [✅] **Status:** All icon sizes ready for both iOS and Android platforms
 
 ### Color Scheme
 - [✅] **Primary Color:** #D9EDF8 (Pastel Blue)

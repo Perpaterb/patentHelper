@@ -372,13 +372,18 @@ npm install @reduxjs/toolkit react-redux redux-persist
 - [✅] **Messenger App:** "PH Messenger"
 
 ### 2. **App Icons** ✅ **DECIDED**
-- [✅] **Icons Provided:**
-  - Main app: `PFicon600x600.jpg`
-  - Messenger app: `PFMicon600x600.jpg`
-- [✅] **⚠️ TODO:** Convert JPG to PNG with transparency for app stores
-  - iOS requires PNG with alpha channel
-  - Need multiple sizes: 1024x1024 (App Store), 512x512, 256x256, 128x128, 64x64
-  - Tools: Photoshop, GIMP, or online converters
+- [✅] **Icons Ready:**
+  - **Parenting Helper App:** `PHIcon/` folder
+    - iOS: `Assets.xcassets/AppIcon.appiconset/` (all required sizes)
+    - Android: `android/mipmap-*/ic_launcher.png` (5 density buckets)
+    - App Store: `appstore.png` (1024x1024)
+    - Play Store: `playstore.png` (512x512)
+  - **PH Messenger App:** `PHMIcons/` folder
+    - iOS: `Assets.xcassets/AppIcon.appiconset/` (all required sizes)
+    - Android: `android/mipmap-*/ic_launcher.png` (5 density buckets)
+    - App Store: `appstore.png` (1024x1024)
+    - Play Store: `playstore.png` (512x512)
+- [✅] **Status:** All icon sizes generated and ready for deployment to both platforms
 
 ### 3. **Color Scheme** ✅ **DECIDED**
 - [✅] **Primary Brand Color:** `#D9EDF8` (Pastel Blue)
