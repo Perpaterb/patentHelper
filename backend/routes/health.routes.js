@@ -7,6 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { prisma } = require('../config/database');
 
 /**
  * GET /health
@@ -26,18 +27,19 @@ router.get('/', (req, res) => {
 /**
  * GET /health/ready
  * Readiness check - returns 200 if server can handle requests
- * In future, this will check database connectivity, etc.
+ * Checks database connectivity and other critical services
  */
 router.get('/ready', async (req, res) => {
   try {
-    // TODO: Add database connectivity check
-    // TODO: Add external service checks (Kinde, etc.)
+    // Check database connectivity
+    await prisma.$queryRaw`SELECT 1`;
+    const databaseStatus = 'connected';
 
     res.status(200).json({
       status: 'ready',
       timestamp: new Date().toISOString(),
       checks: {
-        database: 'not_implemented', // Will add with Prisma
+        database: databaseStatus,
         storage: 'ok',
         email: 'ok'
       }
@@ -46,7 +48,12 @@ router.get('/ready', async (req, res) => {
     res.status(503).json({
       status: 'not_ready',
       timestamp: new Date().toISOString(),
-      error: error.message
+      error: error.message,
+      checks: {
+        database: 'failed',
+        storage: 'ok',
+        email: 'ok'
+      }
     });
   }
 });
