@@ -18,6 +18,7 @@ const app = express();
 
 // Import configuration
 const { validateKindeConfig } = require('./config/auth');
+const { emailService } = require('./services/email');
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
@@ -84,6 +85,9 @@ const server = app.listen(PORT, () => {
 
   // Validate Kinde configuration
   validateKindeConfig();
+
+  // Verify email service connection
+  emailService.verifyConnection();
 
   console.log('');
   console.log('Press Ctrl+C to stop');
