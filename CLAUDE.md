@@ -145,12 +145,32 @@ If you're about to build something complex, STOP and ask the user if there's a s
 * Add newly discovered sub-tasks or TODOs under a "Discovered During Work" section
 
 ### After Completing Features
-* Update README.md if:
-  * New dependencies were added
-  * Setup/installation steps changed
-  * New environment variables are required
-  * API endpoints were added/modified
-* Update appplan.md if requirements evolved during implementation
+
+**CRITICAL**: Documentation must ALWAYS be updated immediately after completing any work. This is MANDATORY, not optional.
+
+#### Documentation Update Requirements (ALWAYS DO THIS):
+
+1. **Update NEXT_STEPS.md** (REQUIRED after every task):
+   - Mark completed tasks with [x] checkbox
+   - Add implementation notes and any deviations from the plan
+   - Add completion date/timestamp
+   - Update the "Current Status" section
+
+2. **Update README.md** (REQUIRED if applicable):
+   - New dependencies were added → Update dependencies section
+   - Setup/installation steps changed → Update setup section
+   - New environment variables are required → Update environment variables section
+   - API endpoints were added/modified → Update API documentation section
+   - Database schema changed → Update database schema section
+   - Architecture patterns changed → Update architecture section
+
+3. **Update appplan.md** (REQUIRED if applicable):
+   - Requirements evolved during implementation
+   - New features were discovered
+   - Business logic changed from original plan
+   - User flows were modified
+
+**Before moving to the next task**: Verify all relevant documentation files are updated and committed.
 
 ---
 
@@ -479,12 +499,25 @@ if (error) {
 - Test cross-product flow: Subscribe on web → Access features on mobile
 
 ### Before Committing
-- [ ] Run `npm run lint` in changed directories
-- [ ] Run `npm test` to ensure all tests pass
-- [ ] Run `npm run format` to format code
-- [ ] Update tests if logic changed
-- [ ] Update documentation if API/features changed
-- [ ] Verify no secrets or .env files are staged
+
+**MANDATORY CHECKLIST** - Complete ALL items before committing:
+
+- [ ] **Documentation Updated** (CRITICAL - see "After Completing Features" section):
+  - [ ] NEXT_STEPS.md updated with completed tasks marked [x]
+  - [ ] README.md updated if API/dependencies/setup changed
+  - [ ] appplan.md updated if requirements evolved
+- [ ] **Code Quality**:
+  - [ ] Run `npm run lint` in changed directories
+  - [ ] Run `npm test` to ensure all tests pass
+  - [ ] Run `npm run format` to format code
+- [ ] **Test Coverage**:
+  - [ ] Update tests if logic changed
+  - [ ] Add new tests for new features
+- [ ] **Security**:
+  - [ ] Verify no secrets or .env files are staged
+  - [ ] No hardcoded credentials in code
+
+**If documentation is not updated, DO NOT commit. This is non-negotiable.**
 
 ### Git Commit Messages
 * Use conventional commits format:
