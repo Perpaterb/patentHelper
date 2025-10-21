@@ -198,7 +198,7 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Support Email:** support@parentinghelperapp.com
 
 ### Domain
-- [✅] **Domain:** parentinghelperapp.com (to register with Porkbun)
+- [✅] **Domain:** parentinghelperapp.com ✅ **REGISTERED** (2025-10-21)
 
 ### Firebase
 - [✅] **Account:** zcarss@gmail.com (for future Android push)
