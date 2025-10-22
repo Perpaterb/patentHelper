@@ -11,6 +11,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
+import GroupsListScreen from '../screens/groups/GroupsListScreen';
+import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
+import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -59,12 +62,24 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               {(props) => <HomeScreen {...props} onLogout={onLogout} />}
             </Stack.Screen>
 
-            {/* Placeholder screens for future implementation */}
+            {/* Groups Stack */}
             <Stack.Screen
               name="Groups"
-              component={PlaceholderScreen}
+              component={GroupsListScreen}
               options={{ title: 'Message Groups' }}
             />
+            <Stack.Screen
+              name="CreateGroup"
+              component={CreateGroupScreen}
+              options={{ title: 'Create Group' }}
+            />
+            <Stack.Screen
+              name="GroupDetail"
+              component={GroupDetailScreen}
+              options={{ title: 'Group Messages' }}
+            />
+
+            {/* Placeholder screens for future implementation */}
             <Stack.Screen
               name="Calendar"
               component={PlaceholderScreen}
