@@ -7,6 +7,7 @@
  * @module controllers/auth
  */
 
+const axios = require('axios');
 const { kindeClient } = require('../config/auth');
 const authService = require('../services/auth.service');
 
@@ -135,7 +136,6 @@ async function callbackMobile(req, res) {
     }
 
     // Exchange authorization code with Kinde for tokens
-    const axios = require('axios');
     const kindeDomain = process.env.KINDE_DOMAIN;
     const clientId = process.env.KINDE_CLIENT_ID;
     const clientSecret = process.env.KINDE_CLIENT_SECRET;
