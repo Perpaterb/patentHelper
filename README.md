@@ -1002,48 +1002,139 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ### Subscription API
 
-#### POST /subscriptions
-- **Description**: Create new subscription
-- **Headers**: `Authorization: Bearer <token>`
-- **Request**: `{ planId: string, paymentMethodId: string }`
-- **Response**: `{ subscription: Subscription }`
+**Implementation Status**: ✅ **IMPLEMENTED** (Phase 2 - Web Admin App)
 
-#### PUT /subscriptions/:id
-- **Description**: Update subscription (upgrade storage)
-- **Headers**: `Authorization: Bearer <token>`
-- **Request**: `{ storageGb: number }`
-- **Response**: `{ subscription: Subscription }`
+#### GET /subscriptions/pricing
+- **Description**: Get subscription plan pricing information
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "pricing": {
+      "adminSubscription": {
+        "name": "Admin Subscription",
+        "description": "Full admin access...",
+        "priceId": "price_xxx",
+        "amount": 800,
+        "currency": "aud",
+        "interval": "month"
+      },
+      "additionalStorage": {
+        "name": "Additional Storage",
+        "description": "Extra 2GB storage...",
+        "amount": 100,
+        "currency": "aud",
+        "interval": "month"
+      }
+    }
+  }
+  ```
 
-#### DELETE /subscriptions/:id
-- **Description**: Cancel subscription (sends email confirmation)
+#### GET /subscriptions/current
+- **Description**: Get current user's subscription status
 - **Headers**: `Authorization: Bearer <token>`
-- **Response**: `{ success: boolean, cancelAt: timestamp }`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "subscription": {
+      "userId": "uuid",
+      "isSubscribed": true,
+      "startDate": "2025-10-21T...",
+      "endDate": null,
+      "storageUsedGb": "2.50",
+      "stripe": {
+        "customerId": "cus_xxx",
+        "subscriptionId": "sub_xxx",
+        "currentPeriodEnd": "2025-11-21T..."
+      }
+    }
+  }
+  ```
+
+#### POST /subscriptions/checkout
+- **Description**: Create Stripe checkout session
+- **Headers**: `Authorization: Bearer <token>`
+- **Request**: `{ priceId: string, successUrl: string, cancelUrl: string }`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "url": "https://checkout.stripe.com/..."
+  }
+  ```
+
+#### POST /subscriptions/cancel
+- **Description**: Cancel subscription (access continues until end of billing period)
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "cancelAt": "2025-11-21T..."
+  }
+  ```
+
+#### POST /subscriptions/reactivate
+- **Description**: Reactivate a canceled subscription
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "subscription": { ... }
+  }
+  ```
 
 #### POST /subscriptions/webhook
-- **Description**: Handle payment provider webhooks
-- **Headers**: `Webhook-Signature: <signature>`
-- **Request**: `{ ...webhookData }`
+- **Description**: Handle Stripe webhooks
+- **Headers**: `stripe-signature: <signature>`
+- **Request**: Stripe webhook event data
 - **Response**: `{ received: boolean }`
 
 ---
 
 ### Group API
 
+**Implementation Status**: ⚠️ **PARTIALLY IMPLEMENTED** (Phase 2 - GET /groups only)
+
 #### GET /groups
-- **Description**: Get all groups for current user
+- **Description**: Get all groups for current user with role information
 - **Headers**: `Authorization: Bearer <token>`
-- **Response**: `{ groups: Group[] }`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "groups": [
+      {
+        "groupId": "uuid",
+        "name": "Test Family Group",
+        "icon": "👨‍👩‍👧‍👦",
+        "backgroundColor": "#4CAF50",
+        "backgroundImageUrl": null,
+        "createdAt": "2025-10-21T...",
+        "isHidden": false,
+        "role": "admin",
+        "displayName": "John Doe",
+        "isMuted": false
+      }
+    ]
+  }
+  ```
+- **Note**: Includes role information (admin, parent, child, caregiver, supervisor) for permission checks
 
 #### POST /groups
 - **Description**: Create new group (admin only)
 - **Headers**: `Authorization: Bearer <token>`
 - **Request**: `{ name: string, icon?: string, backgroundImage?: File, backgroundColor?: string }`
 - **Response**: `{ group: Group }`
+- **Implementation Status**: ❌ **NOT YET IMPLEMENTED**
 
 #### GET /groups/:groupId
 - **Description**: Get group details
 - **Headers**: `Authorization: Bearer <token>`
 - **Response**: `{ group: Group, members: GroupMember[], settings: GroupSettings }`
+- **Implementation Status**: ❌ **NOT YET IMPLEMENTED**
 
 #### PUT /groups/:groupId
 - **Description**: Update group (admin only)
@@ -1099,6 +1190,69 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 - **Headers**: `Authorization: Bearer <token>`
 - **Request**: `{ startDate: timestamp, endDate: timestamp }`
 - **Response**: `{ success: boolean, emailSent: boolean }`
+- **Implementation Status**: ❌ **NOT YET IMPLEMENTED** (replaced by /logs/exports endpoint)
+
+---
+
+### Logs API
+
+**Implementation Status**: ✅ **IMPLEMENTED** (Phase 2 - Web Admin App)
+
+#### POST /logs/exports
+- **Description**: Request audit log export for a group (admin only)
+- **Headers**: `Authorization: Bearer <token>`
+- **Request**:
+  ```json
+  {
+    "groupId": "uuid",
+    "password": "string (min 8 chars)"
+  }
+  ```
+- **Response**: `201 Created`
+  ```json
+  {
+    "success": true,
+    "exportId": "uuid",
+    "message": "Export request created. You will receive an email when it is ready."
+  }
+  ```
+- **Validation**:
+  - User must be admin of the specified group
+  - Password minimum 8 characters (used to encrypt export ZIP)
+- **Processing**: Export is processed asynchronously, email notification sent when ready
+
+#### GET /logs/exports
+- **Description**: Get all export requests for current user
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "exports": [
+      {
+        "exportId": "uuid",
+        "groupName": "Test Family Group",
+        "requestedAt": "2025-10-21T...",
+        "status": "completed",
+        "expiresAt": "2025-11-20T..."
+      }
+    ]
+  }
+  ```
+- **Status Values**: `pending`, `processing`, `completed`, `failed`
+- **Note**: Exports expire 30 days after request date
+
+#### GET /logs/exports/:id/download
+- **Description**: Download completed export file
+- **Headers**: `Authorization: Bearer <token>`
+- **Response**: `200 OK` - Binary ZIP file
+  - Content-Type: `application/zip`
+  - Content-Disposition: `attachment; filename="audit-logs-{exportId}.zip"`
+- **Validation**:
+  - Export must be owned by requesting user
+  - Export status must be `completed`
+  - Export must not be expired
+- **Security**: ZIP file is password-protected with password provided during request
 
 ---
 
@@ -1278,6 +1432,8 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 ---
 
 ### Files API
+
+**Implementation Status**: ✅ **IMPLEMENTED** (Phase 1 - Foundation)
 
 #### POST /files/upload
 - **Description**: Upload a single file (image, video, or document)
@@ -1575,6 +1731,12 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ---
 
-**Last Updated**: 2025-10-18
+**Last Updated**: 2025-10-22
 **Version**: 1.0.0
-**Status**: Planning Phase
+**Status**: 🎉 Phase 2 Complete - Web Admin App Operational
+
+**Current Phase**: Phase 3 - Mobile Main App (Next)
+
+**Completed Phases**:
+- ✅ Phase 1: Foundation (Authentication, Database, File Storage)
+- ✅ Phase 2: Web Admin App (Subscription Management, Log Exports)
