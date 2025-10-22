@@ -29,10 +29,10 @@ function Subscription() {
   const [error, setError] = useState(null);
   const [subscribing, setSubscribing] = useState(false);
   const [canceling, setCanceling] = useState(false);
-  const [reactivating, setReactivating] = useState(false);
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
