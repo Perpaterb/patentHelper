@@ -414,40 +414,26 @@ function Subscription() {
             <Grid item xs={12} md={6}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Storage Limit
-                </Typography>
-                <Typography variant="body1">
-                  {subscription.storageLimitGb} GB
-                </Typography>
-              </Box>
-
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
                   Storage Used
                 </Typography>
                 <Typography variant="body1">
-                  {subscription.storageUsedGb} GB ({subscription.storageUsedPercentage}%)
+                  {subscription.storageUsedGb} GB
                 </Typography>
-                <Box
-                  sx={{
-                    width: '100%',
-                    height: 8,
-                    bgcolor: 'grey.300',
-                    borderRadius: 1,
-                    mt: 1,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: `${Math.min(subscription.storageUsedPercentage, 100)}%`,
-                      height: '100%',
-                      bgcolor: subscription.storageUsedPercentage > 80 ? 'error.main' : 'success.main',
-                      transition: 'width 0.3s ease',
-                    }}
-                  />
-                </Box>
               </Box>
+
+              {parseFloat(subscription.storageUsedGb) > 10 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Additional Storage Charges
+                  </Typography>
+                  <Typography variant="body1">
+                    {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 2)} × $AUD 1.00/month
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ({(parseFloat(subscription.storageUsedGb) - 10).toFixed(2)} GB over base 10GB)
+                  </Typography>
+                </Box>
+              )}
             </Grid>
           </Grid>
 
