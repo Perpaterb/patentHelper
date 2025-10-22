@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
 import { Button, Title, Text, ActivityIndicator } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -32,10 +32,18 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Check for Kinde configuration
+  // Check for Kinde configuration and log for debugging
   React.useEffect(() => {
+    console.log('=== LOGIN SCREEN DEBUG ===');
+    console.log('KINDE_DOMAIN:', CONFIG.KINDE_DOMAIN);
+    console.log('KINDE_CLIENT_ID:', CONFIG.KINDE_CLIENT_ID);
+    console.log('KINDE_REDIRECT_URI:', CONFIG.KINDE_REDIRECT_URI);
+
     if (!CONFIG.KINDE_DOMAIN || !CONFIG.KINDE_CLIENT_ID || !CONFIG.KINDE_REDIRECT_URI) {
+      console.log('ERROR: Kinde configuration missing!');
       setError('Kinde configuration missing. Please check your .env file.');
+    } else {
+      console.log('Kinde configuration looks good!');
     }
   }, []);
 
@@ -53,6 +61,12 @@ export default function LoginScreen({ onLoginSuccess }) {
     },
     discovery
   );
+
+  // Log OAuth request status
+  React.useEffect(() => {
+    console.log('OAuth request status:', request ? 'READY' : 'NOT READY');
+    console.log('Discovery status:', discovery ? 'LOADED' : 'NOT LOADED');
+  }, [request, discovery]);
 
   /**
    * Handle OAuth login flow
@@ -99,10 +113,12 @@ export default function LoginScreen({ onLoginSuccess }) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* App Logo - Using emoji as fallback */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoEmoji}>👨‍👩‍👧‍👦</Text>
-        </View>
+        {/* App Logo */}
+        <Image
+          source={require('../../../assets/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
         <Title style={styles.title}>Parenting Helper</Title>
 
@@ -150,17 +166,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  logoContainer: {
+  logo: {
     width: 120,
     height: 120,
     marginBottom: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 60,
-  },
-  logoEmoji: {
-    fontSize: 60,
   },
   title: {
     fontSize: 28,
