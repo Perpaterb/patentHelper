@@ -118,6 +118,8 @@ export default function LoginScreen({ onLoginSuccess }) {
           source={require('../../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
+          onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+          onLoad={() => console.log('Image loaded successfully')}
         />
 
         <Title style={styles.title}>Parenting Helper</Title>
@@ -170,6 +172,9 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     marginBottom: 24,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
   },
   title: {
     fontSize: 28,
