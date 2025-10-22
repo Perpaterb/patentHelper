@@ -8,6 +8,14 @@
  * - Express routes → Controllers → Services → Database (Prisma)
  * - Services are written to be Lambda-compatible (pure functions)
  * - Controllers handle Express request/response (will become Lambda handlers)
+ *
+ * API Endpoints:
+ * - /health - Health check
+ * - /auth - Authentication (Kinde)
+ * - /subscriptions - Subscription management (Stripe)
+ * - /groups - Group management
+ * - /logs - Audit log exports
+ * - /files - File uploads
  */
 
 require('dotenv').config({ path: '../.env.local' });
@@ -26,6 +34,8 @@ const healthRoutes = require('./routes/health.routes');
 const filesRoutes = require('./routes/files.routes');
 const authRoutes = require('./routes/auth.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
+const groupsRoutes = require('./routes/groups.routes');
+const logsRoutes = require('./routes/logs.routes');
 
 // Middleware
 app.use(cors({
@@ -49,6 +59,8 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/files', filesRoutes);
 app.use('/subscriptions', subscriptionRoutes);
+app.use('/groups', groupsRoutes);
+app.use('/logs', logsRoutes);
 
 // 404 handler
 app.use((req, res) => {
