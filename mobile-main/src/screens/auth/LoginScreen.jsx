@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Button, Title, Text, ActivityIndicator } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -32,9 +32,16 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Check for Kinde configuration
+  React.useEffect(() => {
+    if (!CONFIG.KINDE_DOMAIN || !CONFIG.KINDE_CLIENT_ID || !CONFIG.KINDE_REDIRECT_URI) {
+      setError('Kinde configuration missing. Please check your .env file.');
+    }
+  }, []);
+
   // OAuth discovery configuration
   const discovery = AuthSession.useAutoDiscovery(
-    `https://${CONFIG.KINDE_DOMAIN}`
+    CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null
   );
 
   // OAuth request configuration
@@ -92,12 +99,10 @@ export default function LoginScreen({ onLoginSuccess }) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* App Logo */}
-        <Image
-          source={require('../../../assets/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        {/* App Logo - Using emoji as fallback */}
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoEmoji}>👨‍👩‍👧‍👦</Text>
+        </View>
 
         <Title style={styles.title}>Parenting Helper</Title>
 
@@ -118,7 +123,7 @@ export default function LoginScreen({ onLoginSuccess }) {
           style={styles.loginButton}
           contentStyle={styles.loginButtonContent}
         >
-          {loading ? 'Signing in...' : 'Sign In with Kinde'}
+          {loading ? 'Signing in...' : 'Sign In'}
         </Button>
 
         {loading && (
@@ -145,10 +150,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  logo: {
+  logoContainer: {
     width: 120,
     height: 120,
     marginBottom: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 60,
+  },
+  logoEmoji: {
+    fontSize: 60,
   },
   title: {
     fontSize: 28,
