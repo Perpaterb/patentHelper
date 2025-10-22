@@ -38,7 +38,7 @@ router.get('/register', authController.register);
 
 /**
  * GET /auth/callback
- * Handle Kinde OAuth callback
+ * Handle Kinde OAuth callback (web app)
  *
  * Receives authorization code from Kinde, exchanges for user info,
  * creates/updates user in database, and returns JWT tokens
@@ -61,6 +61,30 @@ router.get('/register', authController.register);
  * - Sets httpOnly cookie 'refreshToken' (7 day expiration)
  */
 router.get('/callback', authController.callback);
+
+/**
+ * POST /auth/callback
+ * Handle Kinde OAuth callback (mobile app)
+ *
+ * Receives authorization code from mobile app, exchanges for user info,
+ * creates/updates user in database, and returns JWT tokens
+ *
+ * Request Body:
+ * - code: Authorization code from Kinde
+ * - redirectUri: OAuth redirect URI used in the original request
+ *
+ * Response:
+ * - 200: Login successful with access token and user info
+ *   {
+ *     success: true,
+ *     accessToken: string,
+ *     refreshToken: string,
+ *     user: { userId, email, isSubscribed }
+ *   }
+ * - 401: Authentication failed
+ * - 500: Server error
+ */
+router.post('/callback', authController.callbackMobile);
 
 /**
  * POST /auth/refresh

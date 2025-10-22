@@ -35,7 +35,7 @@ async function login(req, res) {
 }
 
 /**
- * Handle Kinde OAuth callback
+ * Handle Kinde OAuth callback (web app)
  * GET /auth/callback
  *
  * Receives authorization code from Kinde and exchanges for user info
@@ -102,6 +102,126 @@ async function callback(req, res) {
     res.status(500).json({
       error: 'Authentication callback failed',
       message: error.message,
+    });
+  }
+}
+
+/**
+ * Handle Kinde OAuth callback (mobile app)
+ * POST /auth/callback
+ *
+ * Receives authorization code from mobile app, exchanges with Kinde for tokens,
+ * and returns backend JWT tokens
+ *
+ * @param {Object} req - Express request with code and redirectUri in body
+ * @param {Object} res - Express response
+ */
+async function callbackMobile(req, res) {
+  try {
+    const { code, redirectUri } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Authorization code is required',
+      });
+    }
+
+    if (!redirectUri) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Redirect URI is required',
+      });
+    }
+
+    // Exchange authorization code with Kinde for tokens
+    const axios = require('axios');
+    const kindeDomain = process.env.KINDE_DOMAIN;
+    const clientId = process.env.KINDE_CLIENT_ID;
+    const clientSecret = process.env.KINDE_CLIENT_SECRET;
+
+    if (!kindeDomain || !clientId || !clientSecret) {
+      throw new Error('Kinde configuration missing');
+    }
+
+    // Exchange code for tokens
+    const tokenResponse = await axios.post(
+      `${kindeDomain}/oauth2/token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    const { access_token, id_token } = tokenResponse.data;
+
+    if (!id_token) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'No ID token received from Kinde',
+      });
+    }
+
+    // Decode ID token to get user info
+    const jwt = require('jsonwebtoken');
+    const kindePayload = jwt.decode(id_token);
+
+    if (!kindePayload || !kindePayload.sub || !kindePayload.email) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid ID token from Kinde',
+      });
+    }
+
+    // Create user object from Kinde payload
+    const kindeUser = {
+      id: kindePayload.sub,
+      email: kindePayload.email,
+      given_name: kindePayload.given_name,
+      family_name: kindePayload.family_name,
+    };
+
+    // Find or create user in our database
+    const user = await authService.findOrCreateUser(kindeUser);
+
+    // Generate our backend JWT tokens
+    const accessToken = authService.generateAccessToken(user);
+    const refreshToken = authService.generateRefreshToken(user);
+
+    // Return tokens (mobile apps can't use httpOnly cookies easily)
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: {
+        userId: user.userId,
+        email: user.email,
+        given_name: user.given_name,
+        family_name: user.family_name,
+        isSubscribed: user.isSubscribed,
+      },
+    });
+  } catch (error) {
+    console.error('Mobile callback error:', error);
+
+    // Log more details for debugging
+    if (error.response) {
+      console.error('Kinde error response:', error.response.data);
+    }
+
+    res.status(500).json({
+      error: 'Authentication callback failed',
+      message: error.message,
+      details: error.response?.data,
     });
   }
 }
@@ -379,6 +499,7 @@ async function exchangeToken(req, res) {
 module.exports = {
   login,
   callback,
+  callbackMobile,
   register,
   refresh,
   verify,
