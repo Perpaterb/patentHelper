@@ -126,4 +126,26 @@ router.get('/me', requireAuth, authController.getMe);
  */
 router.post('/logout', authController.logout);
 
+/**
+ * POST /auth/exchange
+ * Exchange Kinde token for backend JWT
+ *
+ * Accepts a Kinde access token and returns backend JWT tokens
+ *
+ * Request Body:
+ * - kindeToken: Kinde access token
+ *
+ * Response:
+ * - 200: Token exchange successful
+ *   { success: true, accessToken: string, user: { userId, email, isSubscribed } }
+ * - 400: Missing Kinde token
+ * - 401: Invalid Kinde token
+ * - 500: Server error
+ *
+ * Side Effects:
+ * - Sets httpOnly cookie 'refreshToken' (7 day expiration)
+ * - Creates user in database if not exists
+ */
+router.post('/exchange', authController.exchangeToken);
+
 module.exports = router;

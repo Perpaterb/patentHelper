@@ -137,9 +137,10 @@ This document contains every decision made during the planning phase. Use this a
 
 ### Revenue Model
 - [✅] **Base Subscription:** $8 AUD/month (10GB storage)
-- [✅] **Additional Storage:** $1 AUD per 2GB/month
+- [✅] **Additional Storage:** $1 AUD per 2GB/month (automatically charged when needed)
 - [✅] **Free Tier:** Non-admin parents (no payment required)
 - [✅] **Market Position:** Competitors charge $16/month
+- [✅] **Price Display:** All prices shown as $AUD (e.g., "$AUD 8.00") for clarity
 
 ### 20-Day Free Trial ✨
 - [✅] **Trigger:** Automatic when user signs up AND age > 16

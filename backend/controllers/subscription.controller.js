@@ -174,19 +174,27 @@ async function handleWebhook(req, res) {
  * @param {Object} session - Stripe checkout session
  */
 async function handleCheckoutComplete(session) {
+  const { prisma } = require('../config/database');
   const userId = session.client_reference_id || session.metadata.userId;
 
-  console.log(`Checkout completed for user ${userId}`);
+  console.log(`[Webhook] Checkout completed for user ${userId}`);
 
-  // TODO: Update user subscription status in database
-  // This will be implemented when we add the subscriptions table
-  // For now, just log the event
+  try {
+    // Update user with Stripe customer ID
+    await prisma.user.update({
+      where: { userId: userId },
+      data: {
+        isSubscribed: true,
+        subscriptionStartDate: new Date(),
+        storageLimitGb: 10, // Base subscription includes 10GB
+      },
+    });
 
-  // Example:
-  // await prisma.user.update({
-  //   where: { userId: userId },
-  //   data: { isSubscribed: true, stripeCustomerId: session.customer },
-  // });
+    console.log(`✅ User ${userId} subscription activated (checkout complete)`);
+  } catch (error) {
+    console.error(`❌ Failed to update user subscription:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -194,12 +202,39 @@ async function handleCheckoutComplete(session) {
  * @param {Object} subscription - Stripe subscription object
  */
 async function handleSubscriptionUpdate(subscription) {
-  const userId = subscription.metadata.userId;
+  const { prisma } = require('../config/database');
+  const customerId = subscription.customer;
 
-  console.log(`Subscription updated for user ${userId}`);
+  console.log(`[Webhook] Subscription updated for customer ${customerId}`);
 
-  // TODO: Update subscription in database
-  // This will be implemented when we add the subscriptions table
+  try {
+    // Find user by subscription ID
+    const user = await prisma.user.findFirst({
+      where: { subscriptionId: subscription.id },
+    });
+
+    if (!user) {
+      console.log(`⚠️ User not found for subscription ${subscription.id}`);
+      return;
+    }
+
+    // Update subscription details
+    await prisma.user.update({
+      where: { userId: user.userId },
+      data: {
+        subscriptionId: subscription.id,
+        isSubscribed: subscription.status === 'active',
+        subscriptionEndDate: subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000)
+          : null,
+      },
+    });
+
+    console.log(`✅ User ${user.userId} subscription updated`);
+  } catch (error) {
+    console.error(`❌ Failed to update subscription:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -207,20 +242,313 @@ async function handleSubscriptionUpdate(subscription) {
  * @param {Object} subscription - Stripe subscription object
  */
 async function handleSubscriptionCanceled(subscription) {
-  const userId = subscription.metadata.userId;
+  const { prisma } = require('../config/database');
+  const customerId = subscription.customer;
 
-  console.log(`Subscription canceled for user ${userId}`);
+  console.log(`[Webhook] Subscription canceled for customer ${customerId}`);
 
-  // TODO: Update user subscription status in database
-  // Example:
-  // await prisma.user.update({
-  //   where: { userId: userId },
-  //   data: { isSubscribed: false },
-  // });
+  try {
+    // Find user by subscription ID
+    const user = await prisma.user.findFirst({
+      where: { subscriptionId: subscription.id },
+    });
+
+    if (!user) {
+      console.log(`⚠️ User not found for subscription ${subscription.id}`);
+      return;
+    }
+
+    // Mark subscription as canceled
+    await prisma.user.update({
+      where: { userId: user.userId },
+      data: {
+        isSubscribed: false,
+        subscriptionEndDate: new Date(),
+      },
+    });
+
+    console.log(`✅ User ${user.userId} subscription canceled`);
+  } catch (error) {
+    console.error(`❌ Failed to cancel subscription:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get current subscription status
+ * GET /subscriptions/current
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function getCurrentSubscription(req, res) {
+  try {
+    const { prisma } = require('../config/database');
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Get user with subscription details
+    const user = await prisma.user.findUnique({
+      where: { userId: userId },
+      select: {
+        userId: true,
+        email: true,
+        isSubscribed: true,
+        subscriptionId: true,
+        subscriptionStartDate: true,
+        subscriptionEndDate: true,
+        storageLimitGb: true,
+        storageUsedBytes: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found',
+      });
+    }
+
+    // If user has a Stripe subscription, get details from Stripe
+    let stripeSubscription = null;
+    if (user.subscriptionId) {
+      try {
+        stripeSubscription = await stripe.subscriptions.retrieve(user.subscriptionId);
+      } catch (error) {
+        console.error('[Get Subscription] Failed to retrieve Stripe subscription:', error.message);
+        // Continue without Stripe details - user may have subscribed but Stripe ID not synced
+      }
+    }
+
+    // Convert BigInt to Number for JSON serialization and calculations
+    const storageUsedBytes = Number(user.storageUsedBytes);
+    const storageLimitBytes = user.storageLimitGb * 1024 * 1024 * 1024;
+
+    res.status(200).json({
+      success: true,
+      subscription: {
+        isSubscribed: user.isSubscribed,
+        subscriptionId: user.subscriptionId,
+        startDate: user.subscriptionStartDate,
+        endDate: user.subscriptionEndDate,
+        createdAt: user.createdAt,
+        storageLimitGb: user.storageLimitGb,
+        storageUsedBytes: storageUsedBytes,
+        storageUsedGb: (storageUsedBytes / (1024 * 1024 * 1024)).toFixed(2),
+        storageUsedPercentage: user.storageLimitGb > 0
+          ? ((storageUsedBytes / storageLimitBytes) * 100).toFixed(1)
+          : 0,
+        stripe: stripeSubscription ? {
+          status: stripeSubscription.status,
+          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+        } : null,
+      },
+    });
+  } catch (error) {
+    console.error('Get current subscription error:', error);
+    res.status(500).json({
+      error: 'Failed to get subscription',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Cancel subscription
+ * POST /subscriptions/cancel
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function cancelSubscription(req, res) {
+  try {
+    const { prisma } = require('../config/database');
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Get user with subscription ID
+    const user = await prisma.user.findUnique({
+      where: { userId: userId },
+      select: {
+        userId: true,
+        email: true,
+        subscriptionId: true,
+        subscriptionStartDate: true,
+      },
+    });
+
+    if (!user || !user.subscriptionId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'No active subscription found',
+      });
+    }
+
+    // Check if this is a test/local subscription
+    const isTestSubscription = user.subscriptionId.startsWith('sub_test_');
+
+    let cancelAt;
+
+    if (isTestSubscription) {
+      // For local development: Cancel test subscription without calling Stripe
+      console.log(`[Local] Canceling test subscription ${user.subscriptionId}`);
+
+      // Calculate end date (30 days from start for test subscriptions)
+      const startDate = user.subscriptionStartDate || new Date();
+      cancelAt = new Date(startDate);
+      cancelAt.setDate(cancelAt.getDate() + 30); // 30 days billing period
+
+      // Update database
+      await prisma.user.update({
+        where: { userId: userId },
+        data: {
+          subscriptionEndDate: cancelAt,
+        },
+      });
+    } else {
+      // Production: Cancel subscription in Stripe (at period end)
+      const subscription = await stripe.subscriptions.update(user.subscriptionId, {
+        cancel_at_period_end: true,
+      });
+
+      cancelAt = new Date(subscription.current_period_end * 1000);
+
+      // Update database
+      await prisma.user.update({
+        where: { userId: userId },
+        data: {
+          subscriptionEndDate: cancelAt,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription canceled successfully',
+      cancelAt: cancelAt,
+    });
+  } catch (error) {
+    console.error('Cancel subscription error:', error);
+    res.status(500).json({
+      error: 'Failed to cancel subscription',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Reactivate canceled subscription
+ * POST /subscriptions/reactivate
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function reactivateSubscription(req, res) {
+  try {
+    const { prisma } = require('../config/database');
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Get user with subscription ID
+    const user = await prisma.user.findUnique({
+      where: { userId: userId },
+      select: {
+        userId: true,
+        email: true,
+        subscriptionId: true,
+        subscriptionEndDate: true,
+      },
+    });
+
+    if (!user || !user.subscriptionId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'No subscription found',
+      });
+    }
+
+    if (!user.subscriptionEndDate) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Subscription is not canceled',
+      });
+    }
+
+    // Check if subscription has already ended
+    if (new Date(user.subscriptionEndDate) < new Date()) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Subscription has already ended. Please subscribe again.',
+      });
+    }
+
+    // Check if this is a test/local subscription
+    const isTestSubscription = user.subscriptionId.startsWith('sub_test_');
+
+    if (isTestSubscription) {
+      // For local development: Reactivate test subscription without calling Stripe
+      console.log(`[Local] Reactivating test subscription ${user.subscriptionId}`);
+
+      // Remove end date
+      await prisma.user.update({
+        where: { userId: userId },
+        data: {
+          subscriptionEndDate: null,
+        },
+      });
+    } else {
+      // Production: Reactivate subscription in Stripe
+      await stripe.subscriptions.update(user.subscriptionId, {
+        cancel_at_period_end: false,
+      });
+
+      // Update database
+      await prisma.user.update({
+        where: { userId: userId },
+        data: {
+          subscriptionEndDate: null,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription reactivated successfully',
+    });
+  } catch (error) {
+    console.error('Reactivate subscription error:', error);
+    res.status(500).json({
+      error: 'Failed to reactivate subscription',
+      message: error.message,
+    });
+  }
 }
 
 module.exports = {
   createCheckoutSession,
   getPricing,
   handleWebhook,
+  getCurrentSubscription,
+  cancelSubscription,
+  reactivateSubscription,
 };

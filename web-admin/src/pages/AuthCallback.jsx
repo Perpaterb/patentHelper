@@ -12,7 +12,7 @@ import authService from '../services/auth.service';
 
 function AuthCallback() {
   const navigate = useNavigate();
-  const { getToken, isAuthenticated, isLoading } = useKindeAuth();
+  const { getToken, getUser, isAuthenticated, isLoading } = useKindeAuth();
 
   useEffect(() => {
     async function handleCallback() {
@@ -22,14 +22,49 @@ function AuthCallback() {
 
       if (isAuthenticated) {
         try {
-          // Get the access token from Kinde
+          // Get the access token and user info from Kinde
           const kindeToken = await getToken();
+          const kindeUser = await getUser();
 
-          // Store the token (we'll use Kinde's token for now)
-          // In production, you might want to exchange this for a backend token
-          if (kindeToken) {
-            authService.storeAccessToken(kindeToken);
-            console.log('Authentication successful, token stored');
+          if (!kindeToken) {
+            throw new Error('No token received from Kinde');
+          }
+
+          if (!kindeUser || !kindeUser.id || !kindeUser.email) {
+            throw new Error('No user information received from Kinde');
+          }
+
+          console.log('Kinde authentication successful, exchanging token...');
+
+          // Exchange Kinde token for backend JWT
+          const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/exchange`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include', // Include cookies
+            body: JSON.stringify({
+              kindeToken,
+              kindeUser: {
+                id: kindeUser.id,
+                email: kindeUser.email,
+                given_name: kindeUser.given_name,
+                family_name: kindeUser.family_name,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Token exchange failed');
+          }
+
+          const data = await response.json();
+
+          // Store the backend JWT token
+          if (data.accessToken) {
+            authService.storeAccessToken(data.accessToken);
+            console.log('Authentication successful, backend token stored');
           }
 
           // Redirect to dashboard
@@ -45,7 +80,7 @@ function AuthCallback() {
     }
 
     handleCallback();
-  }, [isAuthenticated, isLoading, getToken, navigate]);
+  }, [isAuthenticated, isLoading, getToken, getUser, navigate]);
 
   return (
     <Container maxWidth="sm">

@@ -38,9 +38,11 @@ This app can be used by any non-group admin parent for free. Anyone wanting to a
   - Trial expires: Group archived (not deleted), data preserved, can reactivate by subscribing
 
 **Storage Management Rules:**
-- When storage exceeds limit: Automatically charge for additional 2GB increment ($1)
-- Send email notification: "Your storage has been increased to XGB. You'll be charged $X on your next billing cycle"
+- When storage exceeds limit: Automatically charge for additional 2GB increment ($1 AUD)
+- Send email notification: "Your storage has been increased to XGB. You'll be charged $X AUD on your next billing cycle"
 - Show warning at 80% capacity in My Account
+- Additional Storage card displays "Automatically charged as needed" (no manual add storage button)
+- All prices displayed as $AUD (e.g., "$AUD 8.00/month") for currency clarity
 
 **Subscription Cancellation:**
 - Access ends at end of current billing period (not immediately)

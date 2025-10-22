@@ -108,8 +108,6 @@ async function findOrCreateUser(kindeUser) {
           isSubscribed: false, // Default to non-subscribed
         },
       });
-
-      console.log(`✅ New user created: ${user.email} (${user.userId})`);
     }
 
     return user;

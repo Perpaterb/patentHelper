@@ -55,6 +55,71 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRoutes() {
+  const { isAuthenticated, isLoading, getToken, user } = useKindeAuth();
+  const [tokenExchanged, setTokenExchanged] = React.useState(false);
+
+  // Handle token exchange when Kinde authentication completes
+  React.useEffect(() => {
+    async function exchangeToken() {
+      // Skip if still loading or not authenticated
+      if (isLoading || !isAuthenticated) {
+        return;
+      }
+
+      // Skip if we already exchanged the token in this session
+      if (tokenExchanged) {
+        return;
+      }
+
+      try {
+        // Get the Kinde access token
+        const kindeToken = await getToken();
+
+        if (!kindeToken || !user || !user.email) {
+          return;
+        }
+
+        // Send both token and user info to backend
+        const exchangePayload = {
+          kindeToken,
+          kindeUser: {
+            id: user.id,
+            email: user.email,
+            given_name: user.given_name,
+            family_name: user.family_name,
+          },
+        };
+
+        // Exchange Kinde token for backend JWT
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/exchange`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies for refresh token
+          body: JSON.stringify(exchangePayload),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Token exchange failed');
+        }
+
+        const data = await response.json();
+
+        // Store the backend JWT token
+        if (data.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+          setTokenExchanged(true);
+        }
+      } catch (error) {
+        console.error('Token exchange failed:', error.message);
+      }
+    }
+
+    exchangeToken();
+  }, [isAuthenticated, isLoading, getToken, user, tokenExchanged]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -107,15 +172,25 @@ function AppRoutes() {
 }
 
 function App() {
+  const handleRedirectCallback = async (user, appState) => {
+    console.log('Kinde redirect callback:', user);
+
+    // Get the Kinde token and exchange it for backend JWT
+    try {
+      // We need to get the token from Kinde
+      // This will be handled in a useEffect in AppRoutes
+    } catch (error) {
+      console.error('Error in redirect callback:', error);
+    }
+  };
+
   return (
     <KindeProvider
       clientId={config.kinde.clientId}
       domain={config.kinde.domain}
       redirectUri={config.kinde.redirectUri}
       logoutUri={config.kinde.logoutRedirectUri}
-      onRedirectCallback={(user, appState) => {
-        console.log('Kinde redirect callback:', user);
-      }}
+      onRedirectCallback={handleRedirectCallback}
     >
       <AppRoutes />
     </KindeProvider>

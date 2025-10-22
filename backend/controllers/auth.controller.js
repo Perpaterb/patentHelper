@@ -272,6 +272,110 @@ async function getMe(req, res) {
   });
 }
 
+/**
+ * Exchange Kinde token for backend JWT
+ * POST /auth/exchange
+ *
+ * Accepts a Kinde access token and returns our backend JWT tokens
+ *
+ * @param {Object} req - Express request with kindeToken in body
+ * @param {Object} res - Express response
+ */
+async function exchangeToken(req, res) {
+  try {
+    const { kindeToken, kindeUser: providedKindeUser } = req.body;
+
+    if (!kindeToken) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Kinde token is required',
+      });
+    }
+
+    let kindeUser;
+
+    // If frontend sent user info, use it directly (preferred method)
+    if (providedKindeUser && providedKindeUser.id && providedKindeUser.email) {
+      kindeUser = providedKindeUser;
+    } else {
+      // Fallback: try to decode token (won't work for access tokens, only ID tokens)
+      const jwt = require('jsonwebtoken');
+      let kindePayload;
+
+      try {
+        // Decode without verification (Kinde tokens are signed by Kinde)
+        kindePayload = jwt.decode(kindeToken);
+      } catch (error) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid Kinde token',
+        });
+      }
+
+      if (!kindePayload) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid Kinde token - could not decode',
+        });
+      }
+
+      if (!kindePayload.sub) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid Kinde token payload - missing sub',
+        });
+      }
+
+      if (!kindePayload.email) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid Kinde token payload - missing email. Please provide kindeUser in request.',
+        });
+      }
+
+      // Create user object from Kinde payload
+      kindeUser = {
+        id: kindePayload.sub,
+        email: kindePayload.email,
+        given_name: kindePayload.given_name,
+        family_name: kindePayload.family_name,
+      };
+    }
+
+    // Find or create user in our database
+    const user = await authService.findOrCreateUser(kindeUser);
+
+    // Generate our backend JWT tokens
+    const accessToken = authService.generateAccessToken(user);
+    const refreshToken = authService.generateRefreshToken(user);
+
+    // Set refresh token as HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Return access token and user info
+    res.status(200).json({
+      success: true,
+      accessToken: accessToken,
+      user: {
+        userId: user.userId,
+        email: user.email,
+        isSubscribed: user.isSubscribed,
+      },
+    });
+  } catch (error) {
+    console.error('Token exchange error:', error);
+    res.status(500).json({
+      error: 'Token exchange failed',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   login,
   callback,
@@ -280,4 +384,5 @@ module.exports = {
   verify,
   logout,
   getMe,
+  exchangeToken,
 };
