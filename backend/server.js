@@ -33,8 +33,10 @@ const { emailService } = require('./services/email');
 const healthRoutes = require('./routes/health.routes');
 const filesRoutes = require('./routes/files.routes');
 const authRoutes = require('./routes/auth.routes');
-const subscriptionRoutes = require('./routes/subscription.routes');
+const subscriptionRoutes = require('./routes/subscriptions.routes');
+const usersRoutes = require('./routes/users.routes');
 const groupsRoutes = require('./routes/groups.routes');
+const invitationsRoutes = require('./routes/invitations.routes');
 const logsRoutes = require('./routes/logs.routes');
 
 // Middleware
@@ -59,7 +61,9 @@ app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/files', filesRoutes);
 app.use('/subscriptions', subscriptionRoutes);
+app.use('/users', usersRoutes);
 app.use('/groups', groupsRoutes);
+app.use('/invitations', invitationsRoutes);
 app.use('/logs', logsRoutes);
 
 // 404 handler
@@ -83,39 +87,42 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log('');
-  console.log('🚀 Parenting Helper API Server');
-  console.log('================================');
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Server: http://localhost:${PORT}`);
-  console.log(`Health Check: http://localhost:${PORT}/health`);
-  console.log('');
-  console.log('Services:');
-  console.log(`- PostgreSQL: localhost:5432`);
-  console.log(`- MailHog UI: http://localhost:8025`);
-  console.log('');
+// Only start server if not running in test mode
+if (process.env.NODE_ENV !== 'test') {
+  // Start server
+  const PORT = process.env.PORT || 3000;
+  const server = app.listen(PORT, () => {
+    console.log('');
+    console.log('🚀 Parenting Helper API Server');
+    console.log('================================');
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Server: http://localhost:${PORT}`);
+    console.log(`Health Check: http://localhost:${PORT}/health`);
+    console.log('');
+    console.log('Services:');
+    console.log(`- PostgreSQL: localhost:5432`);
+    console.log(`- MailHog UI: http://localhost:8025`);
+    console.log('');
 
-  // Validate Kinde configuration
-  validateKindeConfig();
+    // Validate Kinde configuration
+    validateKindeConfig();
 
-  // Verify email service connection
-  emailService.verifyConnection();
+    // Verify email service connection
+    emailService.verifyConnection();
 
-  console.log('');
-  console.log('Press Ctrl+C to stop');
-  console.log('================================');
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+    console.log('');
+    console.log('Press Ctrl+C to stop');
+    console.log('================================');
   });
-});
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+}
 
 module.exports = app; // For testing

@@ -12,24 +12,45 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CONFIG } from './src/constants/config';
+import authEvents from './src/services/authEvents';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [navigationKey, setNavigationKey] = useState(0);
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
   /**
+   * Listen for logout events from API service
+   */
+  useEffect(() => {
+    const unsubscribe = authEvents.onLogout((reason) => {
+      console.log(`[App] Logout event received: ${reason}`);
+      handleLogout();
+    });
+
+    return unsubscribe;
+  }, []);
+
+  /**
    * Check if user is already authenticated
+   *
+   * Note: For the Full App (mobile-main), users must login every time.
+   * We clear any stored tokens on app startup to ensure fresh authentication.
+   * (PH Messenger app uses biometric auth after first login)
    */
   const checkAuthStatus = async () => {
     try {
-      const accessToken = await SecureStore.getItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-      setIsAuthenticated(!!accessToken);
+      // Clear any stored tokens - users must login every time for Full App
+      await SecureStore.deleteItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+      await SecureStore.deleteItemAsync(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+
+      setIsAuthenticated(false);
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('Error clearing tokens on startup:', error);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
@@ -41,14 +62,27 @@ export default function App() {
    */
   const handleLoginSuccess = (user) => {
     console.log('Login successful:', user.email);
+    // Force navigation reset on login to clear any stale state
+    setNavigationKey(prev => prev + 1);
     setIsAuthenticated(true);
   };
 
   /**
    * Handle logout
    */
-  const handleLogout = () => {
-    console.log('User logged out');
+  const handleLogout = async () => {
+    console.log('[App] Logging out user');
+
+    // Clear stored tokens
+    try {
+      await SecureStore.deleteItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+      await SecureStore.deleteItemAsync(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+    } catch (error) {
+      console.error('[App] Error clearing tokens:', error);
+    }
+
+    // Force navigation reset by changing key
+    setNavigationKey(prev => prev + 1);
     setIsAuthenticated(false);
   };
 
@@ -65,6 +99,7 @@ export default function App() {
     <PaperProvider>
       <StatusBar style="light" />
       <AppNavigator
+        key={navigationKey}
         isAuthenticated={isAuthenticated}
         onLoginSuccess={handleLoginSuccess}
         onLogout={handleLogout}

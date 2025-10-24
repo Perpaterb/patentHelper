@@ -7,8 +7,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Card, Title, Text, FAB, Avatar, Chip, Searchbar } from 'react-native-paper';
+import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, IconButton, Badge } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
+import { getContrastTextColor } from '../../utils/colorUtils';
 
 /**
  * @typedef {Object} GroupsListScreenProps
@@ -28,29 +30,132 @@ export default function GroupsListScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [invitationCount, setInvitationCount] = useState(0);
+  const [searchVisible, setSearchVisible] = useState(false);
 
   useEffect(() => {
-    loadGroups();
+    loadGroups(true); // Show loading spinner on initial mount
+    loadInvitationCount();
   }, []);
+
+  /**
+   * Set up header buttons (My Account left, Search + Invitations right)
+   */
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <View style={{ position: 'relative', marginRight: 0, marginTop: -3, justifyContent: 'center' }}>
+          <IconButton
+            icon="account-circle"
+            iconColor="#fff"
+            size={28}
+            onPress={() => navigation.navigate('MyAccount')}
+            style={{ margin: 0 }}
+          />
+        </View>
+      ),
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Search Toggle Button */}
+          <View style={{ position: 'relative', marginRight: 0, marginTop: -4, justifyContent: 'center' }}>
+            <IconButton
+              icon="magnify"
+              iconColor="#fff"
+              size={28}
+              onPress={() => {
+                setSearchVisible(!searchVisible);
+                if (searchVisible) {
+                  // Clear search when hiding
+                  setSearchQuery('');
+                }
+              }}
+              style={{ margin: 0 }}
+            />
+          </View>
+
+          {/* Invitations Button */}
+          <View style={{ position: 'relative', marginRight: 0, marginTop: -4, justifyContent: 'center' }}>
+            <IconButton
+              icon="email"
+              iconColor="#fff"
+              size={28}
+              onPress={() => navigation.navigate('Invites')}
+              style={{ margin: 0 }}
+            />
+            {invitationCount > 0 && (
+              <Badge
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  backgroundColor: '#d32f2f',
+                  pointerEvents: 'none',
+                }}
+                size={16}
+              >
+                {invitationCount}
+              </Badge>
+            )}
+          </View>
+        </View>
+      ),
+    });
+  }, [navigation, invitationCount, searchVisible]);
 
   useEffect(() => {
     filterGroups();
   }, [searchQuery, groups]);
 
   /**
+   * Refresh groups list when screen comes into focus
+   * This ensures newly created groups appear immediately
+   */
+  useFocusEffect(
+    useCallback(() => {
+      loadGroups();
+      loadInvitationCount();
+    }, [])
+  );
+
+  /**
    * Load groups from API
    */
-  const loadGroups = async () => {
+  const loadGroups = async (showLoader = false) => {
     try {
       setError(null);
+      // Only show loading spinner on initial load, not on focus refresh
+      if (showLoader && groups.length === 0) {
+        setLoading(true);
+      }
       const response = await api.get('/groups');
       setGroups(response.data.groups || []);
     } catch (err) {
       console.error('Load groups error:', err);
-      setError(err.response?.data?.message || 'Failed to load groups');
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[GroupsList] Auth error detected - user will be logged out');
+        return;
+      }
+
+      setError(err.response?.data?.message || err.message || 'Failed to load groups');
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  /**
+   * Load invitation count from API
+   */
+  const loadInvitationCount = async () => {
+    try {
+      const response = await api.get('/invitations/count');
+      setInvitationCount(response.data.count || 0);
+    } catch (err) {
+      console.error('Load invitation count error:', err);
+      // Don't show error, just set count to 0
+      setInvitationCount(0);
     }
   };
 
@@ -73,17 +178,16 @@ export default function GroupsListScreen({ navigation }) {
 
     const query = searchQuery.toLowerCase();
     const filtered = groups.filter(group =>
-      group.name.toLowerCase().includes(query) ||
-      group.displayName?.toLowerCase().includes(query)
+      group.name.toLowerCase().includes(query)
     );
     setFilteredGroups(filtered);
   };
 
   /**
-   * Navigate to group details
+   * Navigate to group dashboard
    */
   const handleGroupPress = (group) => {
-    navigation.navigate('GroupDetail', { groupId: group.groupId });
+    navigation.navigate('GroupDashboard', { groupId: group.groupId });
   };
 
   /**
@@ -114,6 +218,33 @@ export default function GroupsListScreen({ navigation }) {
   };
 
   /**
+   * Handle pin/unpin group
+   */
+  const handlePinToggle = async (groupId, isPinned, event) => {
+    // Stop event propagation to prevent navigating to group
+    event?.stopPropagation?.();
+
+    try {
+      if (isPinned) {
+        await api.put(`/groups/${groupId}/unpin`);
+      } else {
+        await api.put(`/groups/${groupId}/pin`);
+      }
+
+      // Reload groups to show updated pin status
+      loadGroups();
+    } catch (err) {
+      console.error('Pin toggle error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[GroupsList] Auth error detected - user will be logged out');
+        return;
+      }
+    }
+  };
+
+  /**
    * Render group item
    */
   const renderGroupItem = ({ item }) => (
@@ -130,11 +261,18 @@ export default function GroupsListScreen({ navigation }) {
             size={48}
             label={item.icon || item.name[0]}
             style={{ backgroundColor: item.backgroundColor || '#6200ee' }}
+            color={getContrastTextColor(item.backgroundColor || '#6200ee')}
           />
           <View style={styles.groupInfo}>
             <Title style={styles.groupName}>{item.name}</Title>
-            <Text style={styles.displayName}>{item.displayName}</Text>
           </View>
+          <IconButton
+            icon="pin"
+            size={20}
+            iconColor={item.isPinned ? '#6200ee' : '#ccc'}
+            onPress={(e) => handlePinToggle(item.groupId, item.isPinned, e)}
+            style={styles.pinButton}
+          />
         </View>
 
         <View style={styles.groupFooter}>
@@ -198,18 +336,23 @@ export default function GroupsListScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Searchbar
-        placeholder="Search groups..."
-        onChangeText={setSearchQuery}
-        value={searchQuery}
-        style={styles.searchBar}
-      />
+      {searchVisible && (
+        <Searchbar
+          placeholder="Search groups..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+        />
+      )}
 
       <FlatList
         data={filteredGroups}
         renderItem={renderGroupItem}
         keyExtractor={(item) => item.groupId}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: searchVisible ? 0 : 16 }
+        ]}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -242,7 +385,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingTop: 0,
     paddingBottom: 80,
   },
   groupCard: {
@@ -265,11 +407,10 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 2,
   },
-  displayName: {
-    fontSize: 14,
-    color: '#666',
+  pinButton: {
+    margin: 0,
+    marginTop: -8,
   },
   groupFooter: {
     flexDirection: 'row',

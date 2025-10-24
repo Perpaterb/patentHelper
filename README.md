@@ -35,6 +35,95 @@ A cross-platform parenting and co-parenting helper application designed to facil
 
 ---
 
+## 1.5. App Navigation Hierarchies
+
+### Parenting Helper (Full Mobile App) - `mobile-main/`
+
+**IMPORTANT**: This is the FULL app with ALL features (Messages, Calendar, Finance).
+
+```
+Login Screen
+    ↓
+Home / Groups List (LANDING SCREEN)
+    ↓
+Individual Group (Group Dashboard/Overview)
+    ├── Group Settings
+    ├── Approvals List
+    ├── Messages Section
+    │      ↓
+    │   Message Groups List
+    │      ↓
+    │   Individual Message Group
+    │      ├── Message Group Settings
+    │      └── Messages (Chat Interface)
+    ├── Calendar Section
+    │      ├── Calendar Settings
+    │      └── Calendar View
+    └── Finance Section
+           ↓
+        Finance Matters List
+           ↓
+        Individual Finance Matter
+```
+
+**Key Points:**
+- Landing screen = Groups List (NOT message groups)
+- Clicking a group opens Group Dashboard/Overview (NOT messages directly)
+- From Group Dashboard, user navigates to Messages, Calendar, or Finance
+- Messages section has its own Message Groups List
+- Each feature (Messages/Calendar/Finance) is a separate section within a Group
+
+### PH Messenger (Messaging-Only App) - `mobile-messenger/`
+
+**IMPORTANT**: This is the SIMPLIFIED messaging-only app.
+
+```
+Login Screen
+    ↓
+Home / Groups List (LANDING SCREEN)
+    ↓
+Individual Group
+    ↓
+Message Groups List
+    ↓
+Individual Message Group
+    ├── Message Group Settings
+    └── Messages (Chat Interface)
+```
+
+**Key Points:**
+- Landing screen = Groups List (same as full app)
+- Clicking a group goes DIRECTLY to Message Groups List (no Group Dashboard)
+- NO Calendar, NO Finance, NO Group Settings, NO Approvals
+- Focused ONLY on messaging functionality
+- Uses biometric auth after first login
+
+### Admin Web App - `web-admin/`
+
+```
+Login Screen
+    ↓
+Dashboard
+    ├── Subscription Management
+    │      ├── View/Change Plan
+    │      ├── Payment Method
+    │      └── Billing History
+    ├── My Account
+    │      ├── Storage Tracker
+    │      ├── Account Settings
+    │      └── Link to Subscription
+    └── Log Export
+           ├── Request New Export
+           └── Download Previous Exports
+```
+
+**Key Points:**
+- NO group management in web app
+- ONLY subscription, payments, storage, and log exports
+- Mobile apps link here for subscription changes
+
+---
+
 ## 2. Tech Stack
 
 ### Frontend

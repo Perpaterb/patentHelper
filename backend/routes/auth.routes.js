@@ -90,7 +90,12 @@ router.post('/callback', authController.callbackMobile);
  * POST /auth/refresh
  * Refresh access token using refresh token
  *
- * Requires refresh token in httpOnly cookie
+ * Accepts refresh token from:
+ * - httpOnly cookie (web apps)
+ * - request body (mobile apps)
+ *
+ * Request Body (mobile):
+ * - refreshToken: string (optional, for mobile apps)
  *
  * Response:
  * - 200: New access token

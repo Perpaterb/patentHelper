@@ -1,8 +1,8 @@
 # Next Steps - Development Roadmap
 
-**Last Updated**: 2025-10-22
-**Current Phase**: Phase 2 COMPLETE ✅ - Web Admin App Fully Functional! 🎉
-**Next Phase**: Phase 3 - Mobile Main App Development
+**Last Updated**: 2025-10-24
+**Current Phase**: Phase 3 IN PROGRESS - Mobile Main App Development
+**Focus**: Groups & Members Management
 
 ---
 
@@ -254,20 +254,43 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 - [ ] Auth context/slice
 - [ ] Protected navigation
 
-### Week 9-10: Groups & Members
+### Week 9-10: Groups & Members ✅ IN PROGRESS
 
 #### Group Management
-- [ ] Home screen (groups list)
-- [ ] Create group screen
-- [ ] Group settings screen
-- [ ] Add/edit/remove members
-- [ ] Assign roles
+- [x] Home screen (groups list)
+- [x] Create group screen
+- [x] Group settings screen
+  - [x] Role-based permissions UI (Message Groups, Finance, Approvals)
+  - [x] Admin permission management UI
+  - [x] Member note for admins (supervision guidance)
+- [x] Add/edit/remove members
+  - [x] Invite member with email
+  - [x] Placeholder display name and member icon
+  - [x] Color picker for member icon
+  - [x] Avatar preview in invite screen
+- [x] Assign roles
 - [ ] Define relationships
+- [x] Pin/unpin groups
+- [x] Reorder pinned groups
+
+#### Backend Endpoints (Groups)
+- [x] GET /groups/:groupId/settings - Get group role permissions
+- [x] PUT /groups/:groupId/settings - Update group role permissions (admin only)
+- [x] GET /groups/:groupId/admin-permissions - Get admin permissions
+- [x] PUT /groups/:groupId/admin-permissions/:targetAdminId - Update admin permissions
+- [x] POST /groups/:groupId/members/invite - Invite member with placeholder data
+- [x] PUT /groups/:groupId/members/:userId/role - Change member role
+- [x] DELETE /groups/:groupId/members/:userId - Remove member
+- [x] POST /groups/:groupId/leave - Leave group (non-admins)
 
 #### UI Components
-- [ ] Group card component
-- [ ] Member icon component (colored circles with letters)
-- [ ] Role indicator (colored dot)
+- [x] Group card component
+- [x] Member icon component (colored circles with letters)
+- [x] Role indicator (colored dot)
+- [x] Color picker modal (reusable)
+- [x] Avatar preview with color selection
+- [x] Role permission switches
+- [x] Admin permission management cards
 
 ### Week 11-12: Messaging
 
@@ -620,7 +643,46 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 
 ---
 
-**Ready for Mobile Development?** The web admin app is complete. Next step: Create the Parenting Helper Mobile App! 🚀
+## 📝 Recent Updates (October 2025)
 
-**Last Updated**: 2025-10-22
+### 2025-10-24: Group Settings & Member Management Enhancements
+
+**Frontend (Mobile-Main App)**:
+1. **GroupSettingsScreen Updates**:
+   - Added role-based permissions UI for Message Groups
+   - Added Finance permissions section with dependencies
+   - Added Admin auto-approval permissions section
+   - Added member note for admins about supervision guidance
+   - All permission changes auto-save with loading states
+
+2. **InviteMemberScreen Enhancements**:
+   - Added placeholder display name field (optional)
+   - Added placeholder member icon field (optional, 2 chars max)
+   - Added color picker for member icon background
+   - Added avatar preview showing icon/color before sending invitation
+   - Matches color picker pattern from MyAccountScreen
+
+**Backend (API) Updates**:
+1. **New Endpoints**:
+   - GET /groups/:groupId/settings - Retrieve group role permissions
+   - PUT /groups/:groupId/settings - Update group role permissions
+   - GET /groups/:groupId/admin-permissions - Get admin-specific permissions
+   - PUT /groups/:groupId/admin-permissions/:targetAdminId - Update admin permissions
+
+2. **Enhanced Endpoints**:
+   - POST /groups/:groupId/members/invite - Now accepts displayName, memberIcon, iconColor
+
+**Files Modified**:
+- `mobile-main/src/screens/groups/GroupSettingsScreen.jsx`
+- `mobile-main/src/screens/groups/InviteMemberScreen.jsx`
+- `backend/controllers/groups.controller.js`
+- `backend/routes/groups.routes.js`
+
+**Testing**: All new endpoints tested via Expo Go on iOS. Permission changes persist correctly. Color picker works smoothly.
+
+---
+
+**Ready for Mobile Development?** The web admin app is complete. Mobile app groups & members management is well underway! 🚀
+
+**Last Updated**: 2025-10-24
 **Next Review**: After completing Phase 3 (Mobile Main App)

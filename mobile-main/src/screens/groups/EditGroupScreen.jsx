@@ -1,31 +1,36 @@
 /**
- * Create Group Screen
+ * Edit Group Screen
  *
- * Form to create a new message group.
+ * Form to edit group details (name, icon, background color) and delete group.
+ * Only accessible to group admins.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
 
 /**
- * @typedef {Object} CreateGroupScreenProps
+ * @typedef {Object} EditGroupScreenProps
  * @property {Object} navigation - React Navigation navigation object
+ * @property {Object} route - React Navigation route object
  */
 
 /**
- * CreateGroupScreen component
+ * EditGroupScreen component
  *
- * @param {CreateGroupScreenProps} props
+ * @param {EditGroupScreenProps} props
  * @returns {JSX.Element}
  */
-export default function CreateGroupScreen({ navigation }) {
-  const [groupName, setGroupName] = useState('');
-  const [icon, setIcon] = useState('');
-  const [backgroundColor, setBackgroundColor] = useState('#6200ee');
+export default function EditGroupScreen({ navigation, route }) {
+  const { groupId, groupName: initialName, groupIcon: initialIcon, groupColor: initialColor } = route.params;
+
+  const [groupName, setGroupName] = useState(initialName || '');
+  const [icon, setIcon] = useState(initialIcon || '');
+  const [backgroundColor, setBackgroundColor] = useState(initialColor || '#6200ee');
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
@@ -52,7 +57,7 @@ export default function CreateGroupScreen({ navigation }) {
   };
 
   /**
-   * Handle form submission
+   * Handle form submission (update group)
    */
   const handleSubmit = async () => {
     // Validate
@@ -65,7 +70,7 @@ export default function CreateGroupScreen({ navigation }) {
       setLoading(true);
       setError(null);
 
-      const response = await api.post('/groups', {
+      await api.put(`/groups/${groupId}`, {
         name: groupName.trim(),
         icon: icon.trim() || undefined,
         backgroundColor: backgroundColor,
@@ -73,7 +78,7 @@ export default function CreateGroupScreen({ navigation }) {
 
       Alert.alert(
         'Success',
-        `Group "${groupName}" created successfully!`,
+        `Group "${groupName}" updated successfully!`,
         [
           {
             text: 'OK',
@@ -82,25 +87,88 @@ export default function CreateGroupScreen({ navigation }) {
         ]
       );
     } catch (err) {
-      console.error('Create group error:', err);
+      console.error('Update group error:', err);
 
       // Don't show error if it's an auth error - logout happens automatically
       if (err.isAuthError) {
-        console.log('[CreateGroup] Auth error detected - user will be logged out');
+        console.log('[EditGroup] Auth error detected - user will be logged out');
         return;
       }
 
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to create group';
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update group';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (errorMessage.includes('subscription')) {
+  /**
+   * Handle delete group
+   */
+  const handleDeleteGroup = () => {
+    Alert.alert(
+      'Delete Group',
+      `Are you sure you want to delete "${groupName}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: confirmDeleteGroup,
+        },
+      ]
+    );
+  };
+
+  /**
+   * Confirm delete group
+   */
+  const confirmDeleteGroup = async () => {
+    try {
+      setDeleting(true);
+      setError(null);
+
+      await api.delete(`/groups/${groupId}`);
+
+      Alert.alert(
+        'Request Sent',
+        'Request for deleting the group has been made.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to groups list
+              navigation.navigate('Groups');
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Delete group error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[EditGroup] Auth error detected - user will be logged out');
+        return;
+      }
+
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to delete group';
+
+      // Show specific error if approval is required
+      if (errorMessage.includes('Approval Required') || errorMessage.includes('approval')) {
         Alert.alert(
-          'Subscription Required',
-          'You need an active subscription to create groups. Please subscribe via the web app.',
+          'Approval Sent',
+          'Delete approval requests have been sent to all other admins. The group will be deleted if more than 75% of admins approve.',
           [
-            { text: 'Cancel' },
             {
-              text: 'Subscribe',
-              onPress: () => navigation.navigate('Home'),
+              text: 'OK',
+              onPress: () => {
+                // Navigate back to groups list
+                navigation.navigate('Groups');
+              },
             },
           ]
         );
@@ -108,16 +176,16 @@ export default function CreateGroupScreen({ navigation }) {
         setError(errorMessage);
       }
     } finally {
-      setLoading(false);
+      setDeleting(false);
     }
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Title style={styles.title}>Create a New Group</Title>
+        <Title style={styles.title}>Edit Group</Title>
         <Text style={styles.subtitle}>
-          Groups allow you to communicate and organize with family members.
+          Update group name, icon, and color. Only admins can edit groups.
         </Text>
 
         {error && (
@@ -134,7 +202,7 @@ export default function CreateGroupScreen({ navigation }) {
           style={styles.input}
           placeholder="e.g., Family Chat, Weekend Plans"
           maxLength={255}
-          disabled={loading}
+          disabled={loading || deleting}
         />
 
         <TextInput
@@ -145,7 +213,7 @@ export default function CreateGroupScreen({ navigation }) {
           style={styles.input}
           placeholder="e.g., 🏠, 👨‍👩‍👧‍👦, F"
           maxLength={2}
-          disabled={loading}
+          disabled={loading || deleting}
         />
 
         <View style={styles.colorSection}>
@@ -153,7 +221,7 @@ export default function CreateGroupScreen({ navigation }) {
           <TouchableOpacity
             style={styles.colorButton}
             onPress={handleOpenColorPicker}
-            disabled={loading}
+            disabled={loading || deleting}
           >
             <View style={[styles.colorPreview, { backgroundColor }]} />
             <Text style={styles.colorButtonText}>
@@ -181,20 +249,41 @@ export default function CreateGroupScreen({ navigation }) {
           mode="contained"
           onPress={handleSubmit}
           loading={loading}
-          disabled={loading || !groupName.trim()}
+          disabled={loading || deleting || !groupName.trim()}
           style={styles.submitButton}
         >
-          Create Group
+          Save Changes
         </Button>
 
         <Button
           mode="text"
           onPress={() => navigation.goBack()}
-          disabled={loading}
+          disabled={loading || deleting}
           style={styles.cancelButton}
         >
           Cancel
         </Button>
+
+        {/* Delete Group Section */}
+        <View style={styles.dangerZone}>
+          <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+          <Text style={styles.dangerZoneText}>
+            Deleting a group is permanent and cannot be undone. All messages, calendar events, and finance records will be hidden but preserved in audit logs.
+          </Text>
+          <Text style={styles.dangerZoneText}>
+            If there are multiple admins, approval requests will be sent to all other admins. The group will be deleted if more than 75% of admins approve.
+          </Text>
+          <Button
+            mode="outlined"
+            onPress={handleDeleteGroup}
+            loading={deleting}
+            disabled={loading || deleting}
+            style={styles.deleteButton}
+            textColor="#d32f2f"
+          >
+            Delete Group
+          </Button>
+        </View>
       </View>
 
       {/* Color Picker Modal */}
@@ -296,5 +385,28 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginTop: 8,
+  },
+  dangerZone: {
+    marginTop: 40,
+    padding: 16,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  dangerZoneTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#d32f2f',
+    marginBottom: 8,
+  },
+  dangerZoneText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  deleteButton: {
+    borderColor: '#d32f2f',
   },
 });

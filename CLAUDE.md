@@ -27,6 +27,39 @@ If you're about to build something complex, STOP and ask the user if there's a s
 
 ---
 
+## 🚨 CRITICAL: Changing Backend API Endpoints
+
+**MANDATORY PROCESS - NO EXCEPTIONS**
+
+Before changing ANY backend endpoint, you MUST follow this exact process:
+
+1. **Read `backend/ENDPOINT_CHANGE_CHECKLIST.md`** - This is mandatory
+2. **Run `backend/scripts/check-endpoint-usage.sh "/endpoint/path"`** - Find ALL consumers
+3. **Update `backend/API.md` FIRST** - Documentation before code
+4. **Make the change** - Only after completing steps 1-3
+5. **Update tests** - Make tests match API.md
+6. **Run `npm test`** - Tests must pass
+7. **Ask yourself**: "Did I check all 3 apps?" (web-admin, mobile-main, mobile-messenger)
+
+**Why this is CRITICAL:**
+- 3 products share 1 backend
+- Breaking an endpoint breaks multiple apps
+- Tests only catch what they're designed to catch
+- You MUST manually verify you didn't break other apps
+
+**Safe changes:**
+- ✅ Adding new fields (existing apps ignore them)
+- ✅ Adding new endpoints
+
+**Dangerous changes:**
+- ❌ Removing fields (apps may still use them)
+- ❌ Renaming fields (breaks all consumers)
+- ❌ Changing field types (breaks parsing)
+
+**If you're unsure, ASK THE USER before making the change.**
+
+---
+
 ## 🔄 Project Awareness & Context
 
 * Always read README.md at the start of a new conversation to understand the project's architecture, tech stack, database schema, API design, and implementation phases.
@@ -40,6 +73,30 @@ If you're about to build something complex, STOP and ask the user if there's a s
   * `backend/` - AWS Lambda functions (JavaScript/Node.js with JSDoc) - Shared by all 3 products
   * `infrastructure/` - Terraform IaC configurations
   * `shared/` - Shared components and utilities between mobile apps
+
+### ⚠️ CRITICAL: App Navigation Hierarchies
+
+**ALWAYS check `mobile-main/NAVIGATION.md` before implementing mobile features!**
+
+**Full App (mobile-main) Navigation:**
+```
+Login → Groups List → Group Dashboard → [Messages/Calendar/Finance Sections]
+                           ↓
+                    [Each section has its own sub-navigation]
+```
+
+**PH Messenger (mobile-messenger) Navigation:**
+```
+Login → Groups List → Message Groups List → Individual Message Group
+```
+
+**KEY DIFFERENCES:**
+- **Full app**: Groups List → **Group Dashboard** (with tabs for Messages, Calendar, Finance)
+- **Messenger app**: Groups List → **Directly to Message Groups** (no Group Dashboard)
+
+**DO NOT MIX THESE TWO STRUCTURES!** They are intentionally different apps.
+
+See `README.md` section 1.5 and `mobile-main/NAVIGATION.md` for complete navigation hierarchies.
 
 ---
 

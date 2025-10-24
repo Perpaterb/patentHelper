@@ -11,9 +11,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
+import MyAccountScreen from '../screens/account/MyAccountScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
-import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
+import EditGroupScreen from '../screens/groups/EditGroupScreen';
+import GroupDashboardScreen from '../screens/groups/GroupDashboardScreen';
+import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
+import InviteMemberScreen from '../screens/groups/InviteMemberScreen';
+import InvitesScreen from '../screens/groups/InvitesScreen';
+import MessageGroupsListScreen from '../screens/groups/MessageGroupsListScreen';
+import CreateMessageGroupScreen from '../screens/groups/CreateMessageGroupScreen';
+import MessagesScreen from '../screens/groups/MessagesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,11 +45,19 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
         screenOptions={{
           headerStyle: {
             backgroundColor: '#6200ee',
+            height: 60, // Reduced from default ~90px to 60px (2/3 size)
           },
-          headerTintColor: '#fff',
+          headerTintColor: '#fff', // Back button and icons are white for visibility on purple
           headerTitleStyle: {
             fontWeight: 'bold',
+            fontSize: 18, // Slightly smaller title for smaller header
+            color: '#fff', // Ensure title is white
           },
+          headerBackTitleStyle: {
+            color: '#fff', // Ensure back button text is white
+          },
+          headerBackTitleVisible: true, // Show back button text (previous screen name)
+          headerShadowVisible: true, // Keep shadow for depth
         }}
       >
         {!isAuthenticated ? (
@@ -55,18 +71,21 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
         ) : (
           // Main App Stack
           <>
-            <Stack.Screen
-              name="Home"
-              options={{ title: 'Parenting Helper' }}
-            >
-              {(props) => <HomeScreen {...props} onLogout={onLogout} />}
-            </Stack.Screen>
-
-            {/* Groups Stack */}
+            {/* Groups Stack - Default Screen */}
             <Stack.Screen
               name="Groups"
               component={GroupsListScreen}
-              options={{ title: 'Message Groups' }}
+              options={{ title: 'Groups' }}
+            />
+            <Stack.Screen
+              name="MyAccount"
+              component={MyAccountScreen}
+              options={{ title: 'My Account' }}
+            />
+            <Stack.Screen
+              name="Invites"
+              component={InvitesScreen}
+              options={{ title: 'Group Invitations' }}
             />
             <Stack.Screen
               name="CreateGroup"
@@ -74,10 +93,48 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               options={{ title: 'Create Group' }}
             />
             <Stack.Screen
-              name="GroupDetail"
-              component={GroupDetailScreen}
-              options={{ title: 'Group Messages' }}
+              name="EditGroup"
+              component={EditGroupScreen}
+              options={{ title: 'Edit Group' }}
             />
+            <Stack.Screen
+              name="GroupDashboard"
+              component={GroupDashboardScreen}
+              options={{ title: 'Group Dashboard' }}
+            />
+            <Stack.Screen
+              name="GroupSettings"
+              component={GroupSettingsScreen}
+              options={{ title: 'Group Settings' }}
+            />
+            <Stack.Screen
+              name="InviteMember"
+              component={InviteMemberScreen}
+              options={{ title: 'Invite Member' }}
+            />
+            <Stack.Screen
+              name="MessageGroupsList"
+              component={MessageGroupsListScreen}
+              options={{ title: 'Message Groups' }}
+            />
+            <Stack.Screen
+              name="CreateMessageGroup"
+              component={CreateMessageGroupScreen}
+              options={{ title: 'Create Message Group' }}
+            />
+            <Stack.Screen
+              name="GroupMessages"
+              component={MessagesScreen}
+              options={{ title: 'Messages' }}
+            />
+
+            {/* Home Screen */}
+            <Stack.Screen
+              name="Home"
+              options={{ title: 'Parenting Helper' }}
+            >
+              {(props) => <HomeScreen {...props} onLogout={onLogout} />}
+            </Stack.Screen>
 
             {/* Placeholder screens for future implementation */}
             <Stack.Screen

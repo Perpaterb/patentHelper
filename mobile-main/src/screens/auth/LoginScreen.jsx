@@ -2,7 +2,7 @@
  * Login Screen
  *
  * Entry point for user authentication via Kinde OAuth.
- * Uses Expo Auth Session for OAuth flow.
+ * Uses Expo Auth Session with PKCE for OAuth flow.
  */
 
 import React, { useState } from 'react';
@@ -23,7 +23,7 @@ WebBrowser.maybeCompleteAuthSession();
  */
 
 /**
- * LoginScreen component - Kinde OAuth authentication
+ * LoginScreen component - Kinde OAuth authentication with PKCE
  *
  * @param {LoginScreenProps} props
  * @returns {JSX.Element}
@@ -32,49 +32,35 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Check for Kinde configuration and log for debugging
-  React.useEffect(() => {
-    console.log('=== LOGIN SCREEN DEBUG ===');
-    console.log('KINDE_DOMAIN:', CONFIG.KINDE_DOMAIN);
-    console.log('KINDE_CLIENT_ID:', CONFIG.KINDE_CLIENT_ID);
-    console.log('KINDE_REDIRECT_URI:', CONFIG.KINDE_REDIRECT_URI);
-
-    if (!CONFIG.KINDE_DOMAIN || !CONFIG.KINDE_CLIENT_ID || !CONFIG.KINDE_REDIRECT_URI) {
-      console.log('ERROR: Kinde configuration missing!');
-      setError('Kinde configuration missing. Please check your .env file.');
-    } else {
-      console.log('Kinde configuration looks good!');
-    }
-  }, []);
-
   // OAuth discovery configuration
   const discovery = AuthSession.useAutoDiscovery(
     CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null
   );
 
-  // OAuth request configuration
+  // OAuth request configuration with PKCE
   const [request, , promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: CONFIG.KINDE_CLIENT_ID,
       scopes: ['openid', 'profile', 'email', 'offline'],
       redirectUri: CONFIG.KINDE_REDIRECT_URI,
+      usePKCE: true, // Enable PKCE (no client secret needed)
     },
     discovery
   );
 
-  // Log OAuth request status
-  React.useEffect(() => {
-    console.log('OAuth request status:', request ? 'READY' : 'NOT READY');
-    console.log('Discovery status:', discovery ? 'LOADED' : 'NOT LOADED');
-  }, [request, discovery]);
-
   /**
-   * Handle OAuth login flow
+   * Handle OAuth login flow with PKCE
+   * 1. Trigger OAuth flow
+   * 2. Exchange auth code for Kinde tokens (using PKCE)
+   * 3. Send Kinde token to our backend
+   * 4. Get our JWT tokens and store them
    */
   const handleLogin = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      console.log('Starting Kinde OAuth flow...');
 
       // Trigger OAuth flow
       const result = await promptAsync();
@@ -82,18 +68,64 @@ export default function LoginScreen({ onLoginSuccess }) {
       if (result.type === 'success') {
         const { code } = result.params;
 
-        // Exchange authorization code for tokens via backend
-        const response = await api.post('/auth/callback', {
-          code,
-          redirectUri: CONFIG.KINDE_REDIRECT_URI,
+        console.log('OAuth successful, exchanging code for tokens...');
+
+        // Exchange authorization code for Kinde tokens using PKCE
+        // This happens on the mobile device, no client secret needed
+        const tokenResult = await AuthSession.exchangeCodeAsync(
+          {
+            clientId: CONFIG.KINDE_CLIENT_ID,
+            code,
+            redirectUri: CONFIG.KINDE_REDIRECT_URI,
+            extraParams: {
+              code_verifier: request.codeVerifier, // PKCE verifier
+            },
+          },
+          discovery
+        );
+
+        const { accessToken: kindeToken, idToken } = tokenResult;
+
+        console.log('Kinde tokens received');
+
+        if (!kindeToken) {
+          throw new Error('No access token received from Kinde');
+        }
+
+        // Decode ID token to get user info (simple JWT decode, no verification needed)
+        const base64Url = idToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const kindeUser = JSON.parse(jsonPayload);
+
+        console.log('User info decoded from ID token:', kindeUser.email);
+        console.log('Exchanging Kinde token with backend...');
+
+        // Exchange Kinde token for our backend JWT tokens
+        const response = await api.post('/auth/exchange', {
+          kindeToken,
+          kindeUser: {
+            id: kindeUser.sub,
+            email: kindeUser.email,
+            given_name: kindeUser.given_name,
+            family_name: kindeUser.family_name,
+          },
         });
 
-        const { accessToken, refreshToken, user } = response.data;
+        const { accessToken, user } = response.data;
+
+        console.log('Backend JWT received, storing tokens...');
 
         // Store tokens securely
         await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-        await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
         await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+
+        console.log('Login successful!');
 
         // Notify parent component of successful login
         if (onLoginSuccess) {
@@ -104,7 +136,7 @@ export default function LoginScreen({ onLoginSuccess }) {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Failed to login. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to login. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -118,8 +150,6 @@ export default function LoginScreen({ onLoginSuccess }) {
           source={require('../../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
-          onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
-          onLoad={() => console.log('Image loaded successfully')}
         />
 
         <Title style={styles.title}>Parenting Helper</Title>

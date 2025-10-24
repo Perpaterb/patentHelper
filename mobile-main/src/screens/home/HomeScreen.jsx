@@ -11,6 +11,7 @@ import { Card, Title, Text, Button, Avatar, Divider } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import { CONFIG } from '../../constants/config';
 import api from '../../services/api';
+import { getContrastTextColor } from '../../utils/colorUtils';
 
 /**
  * @typedef {Object} HomeScreenProps
@@ -151,6 +152,7 @@ export default function HomeScreen({ navigation, onLogout }) {
               size={64}
               label={user?.given_name?.[0] || user?.email?.[0] || 'U'}
               style={styles.avatar}
+              color={getContrastTextColor('#6200ee')}
             />
             <Title style={styles.userName}>
               {user?.given_name} {user?.family_name}

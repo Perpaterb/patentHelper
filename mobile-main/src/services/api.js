@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import authEvents from './authEvents';
 
 // API Base URL - points to local backend during development
 const API_BASE_URL = 'http://localhost:3000';
@@ -63,13 +64,11 @@ api.interceptors.response.use(
         const refreshToken = await SecureStore.getItemAsync('refreshToken');
 
         if (refreshToken) {
+          // Send refresh token in request body (not as cookie)
           const response = await axios.post(
             `${API_BASE_URL}/auth/refresh`,
-            {},
             {
-              headers: {
-                Cookie: `refreshToken=${refreshToken}`,
-              },
+              refreshToken: refreshToken,
             }
           );
 
@@ -84,14 +83,19 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         // Refresh failed - user needs to login again
-        console.error('Token refresh failed:', refreshError);
+        console.log('[API] Token refresh failed - triggering logout');
 
         // Clear stored tokens
         await SecureStore.deleteItemAsync('accessToken');
         await SecureStore.deleteItemAsync('refreshToken');
 
-        // Redirect to login (will be handled by navigation in App.js)
-        return Promise.reject(refreshError);
+        // Emit logout event to App.js
+        authEvents.emitLogout('token_refresh_failed');
+
+        // Create user-friendly error
+        const authError = new Error('Your session has expired. Please log in again.');
+        authError.isAuthError = true;
+        return Promise.reject(authError);
       }
     }
 

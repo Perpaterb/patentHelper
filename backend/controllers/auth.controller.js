@@ -261,8 +261,8 @@ async function register(req, res) {
  */
 async function refresh(req, res) {
   try {
-    // Get refresh token from cookie
-    const refreshToken = req.cookies.refreshToken;
+    // Get refresh token from cookie (web) or request body (mobile)
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({
