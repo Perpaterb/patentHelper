@@ -504,12 +504,23 @@ Get messages for a message group with pagination.
         "iconLetters": "JD",
         "iconColor": "#6200ee",
         "role": "admin"
-      }
+      },
+      "readReceipts": [
+        {
+          "groupMemberId": "uuid",
+          "readAt": "2025-10-23T12:05:00.000Z",
+          "displayName": "John Doe",
+          "iconLetters": "JD",
+          "iconColor": "#ff5722"
+        }
+      ]
     }
   ],
   "hasMore": true
 }
 ```
+
+**Read Receipts**: Array of members who have read the message. Empty array if no one has read it yet. Sender's own messages won't have their read receipt.
 
 ---
 
@@ -562,9 +573,16 @@ Mark all messages in a message group as read.
 ```json
 {
   "success": true,
-  "message": "Marked as read"
+  "message": "Marked as read",
+  "messagesRead": 15
 }
 ```
+
+**Behavior**:
+- Creates `MessageReadReceipt` records for all unread messages
+- Creates audit log entry with message IDs (for admin exports)
+- Updates `lastReadAt` timestamp for the message group member
+- Doesn't create read receipts for user's own messages
 
 ---
 

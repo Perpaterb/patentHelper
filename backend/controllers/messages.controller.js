@@ -210,6 +210,26 @@ async function getMessageGroupMessages(req, res) {
             },
           },
         },
+        readReceipts: {
+          select: {
+            groupMemberId: true,
+            readAt: true,
+            groupMember: {
+              select: {
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     };
 
@@ -232,6 +252,13 @@ async function getMessageGroupMessages(req, res) {
         iconColor: message.sender.user?.iconColor || message.sender.iconColor,
         role: message.sender.role,
       },
+      readReceipts: message.readReceipts.map(receipt => ({
+        groupMemberId: receipt.groupMemberId,
+        readAt: receipt.readAt,
+        displayName: receipt.groupMember.user?.displayName || receipt.groupMember.displayName,
+        iconLetters: receipt.groupMember.user?.memberIcon || receipt.groupMember.iconLetters,
+        iconColor: receipt.groupMember.user?.iconColor || receipt.groupMember.iconColor,
+      })),
     }));
 
     res.status(200).json({
@@ -416,7 +443,7 @@ async function sendMessageGroupMessage(req, res) {
 async function markMessageGroupAsRead(req, res) {
   try {
     const userId = req.user?.userId;
-    const { groupId, messageGroupId } = req.params;
+    const { groupId, messageGroupId} = req.params;
 
     if (!userId) {
       return res.status(401).json({
@@ -442,6 +469,73 @@ async function markMessageGroupAsRead(req, res) {
       });
     }
 
+    // Get current lastReadAt to find unread messages
+    const messageGroupMember = await prisma.messageGroupMember.findUnique({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: groupMembership.groupMemberId,
+        },
+      },
+    });
+
+    // Find all unread messages (messages created after lastReadAt that user hasn't read yet)
+    const unreadMessages = await prisma.message.findMany({
+      where: {
+        messageGroupId: messageGroupId,
+        isHidden: false,
+        senderId: {
+          not: groupMembership.groupMemberId, // Don't create read receipts for own messages
+        },
+        createdAt: {
+          gt: messageGroupMember?.lastReadAt || new Date(0),
+        },
+        // Only get messages that don't already have a read receipt from this user
+        readReceipts: {
+          none: {
+            groupMemberId: groupMembership.groupMemberId,
+          },
+        },
+      },
+      select: {
+        messageId: true,
+        content: true,
+        senderId: true,
+      },
+    });
+
+    const now = new Date();
+
+    // Create read receipts for all unread messages
+    if (unreadMessages.length > 0) {
+      await prisma.messageReadReceipt.createMany({
+        data: unreadMessages.map(msg => ({
+          messageId: msg.messageId,
+          groupMemberId: groupMembership.groupMemberId,
+          readAt: now,
+        })),
+        skipDuplicates: true, // Skip if read receipt already exists
+      });
+
+      // Create audit log for message reads
+      const messageIds = unreadMessages.map(m => m.messageId).join(', ');
+      const messageContent = unreadMessages.length === 1
+        ? `Read message: "${unreadMessages[0].content.substring(0, 50)}${unreadMessages[0].content.length > 50 ? '...' : ''}"`
+        : `Read ${unreadMessages.length} messages`;
+
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'read_messages',
+          performedBy: groupMembership.groupMemberId,
+          performedByName: groupMembership.displayName,
+          performedByEmail: groupMembership.email || 'N/A',
+          actionLocation: 'messages',
+          messageContent: `${messageContent}. Message IDs: ${messageIds}`,
+        },
+      });
+    }
+
     // Update lastReadAt for this message group member
     await prisma.messageGroupMember.update({
       where: {
@@ -451,13 +545,14 @@ async function markMessageGroupAsRead(req, res) {
         },
       },
       data: {
-        lastReadAt: new Date(),
+        lastReadAt: now,
       },
     });
 
     res.status(200).json({
       success: true,
       message: 'Marked as read',
+      messagesRead: unreadMessages.length,
     });
   } catch (error) {
     console.error('Mark as read error:', error);
