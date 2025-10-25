@@ -287,21 +287,21 @@ export default function MessagesScreen({ navigation, route }) {
       return 'delivered';
     }
 
-    // Calculate total ACCEPTED members excluding the sender
-    // Only count members who have accepted their invite (inviteStatus === 'accepted')
-    // Members who are pending or haven't logged in don't count toward read receipts
-    const acceptedMembersExcludingSender = members.filter(
-      m => m.groupMemberId !== message.sender?.groupMemberId && m.inviteStatus === 'accepted'
+    // Calculate total REGISTERED members excluding the sender
+    // Only count members who have registered (isRegistered === true)
+    // Members created by admins who haven't logged in don't count toward read receipts
+    const registeredMembersExcludingSender = members.filter(
+      m => m.groupMemberId !== message.sender?.groupMemberId && m.isRegistered === true
     ).length;
 
     const readCount = message.readReceipts.length;
 
-    // If all accepted members have read it
-    if (readCount >= acceptedMembersExcludingSender && acceptedMembersExcludingSender > 0) {
+    // If all registered members have read it
+    if (readCount >= registeredMembersExcludingSender && registeredMembersExcludingSender > 0) {
       return 'read-all';
     }
 
-    // Some accepted members have read it
+    // Some registered members have read it
     return 'read-some';
   };
 
