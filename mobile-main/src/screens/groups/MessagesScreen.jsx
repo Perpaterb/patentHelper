@@ -272,6 +272,46 @@ export default function MessagesScreen({ navigation, route }) {
   };
 
   /**
+   * Calculate read receipt status for a message
+   * @param {Object} message - The message object
+   * @returns {'sent'|'read'|'read-by-all'} - The read status
+   */
+  const getReadReceiptStatus = (message) => {
+    if (!message.readReceipts || message.readReceipts.length === 0) {
+      return 'sent';
+    }
+
+    // Calculate total members excluding the sender
+    const totalMembersExcludingSender = members.filter(
+      m => m.groupMemberId !== message.sender?.groupMemberId
+    ).length;
+
+    const readCount = message.readReceipts.length;
+
+    if (readCount >= totalMembersExcludingSender && totalMembersExcludingSender > 0) {
+      return 'read-by-all';
+    }
+
+    return 'read';
+  };
+
+  /**
+   * Render read receipt indicator (checkmarks)
+   * @param {Object} message - The message object
+   * @returns {JSX.Element|null} - The read receipt component
+   */
+  const renderReadReceipt = (message) => {
+    const status = getReadReceiptStatus(message);
+
+    if (status === 'sent') {
+      return <Text style={styles.readReceipt}>✓</Text>;
+    }
+
+    // For 'read' or 'read-by-all', show double checkmarks in blue
+    return <Text style={[styles.readReceipt, styles.readReceiptBlue]}>✓✓</Text>;
+  };
+
+  /**
    * Render message item
    */
   const renderMessage = ({ item }) => {
@@ -290,7 +330,10 @@ export default function MessagesScreen({ navigation, route }) {
             {item.sender?.displayName || 'Unknown'}
           </Text>
           <Text style={styles.messageContent}>{item.content}</Text>
-          <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+          <View style={styles.messageFooter}>
+            <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+            {isMyMessage && renderReadReceipt(item)}
+          </View>
           {item.isHidden && (
             <Chip
               mode="outlined"
@@ -537,7 +580,19 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 10,
     color: '#999',
-    textAlign: 'right',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  readReceipt: {
+    fontSize: 12,
+    color: '#999',
+  },
+  readReceiptBlue: {
+    color: '#2196F3',
   },
   hiddenChip: {
     marginTop: 8,
