@@ -61,6 +61,7 @@ async function getMessageGroups(req, res) {
                 displayName: true,
                 iconLetters: true,
                 iconColor: true,
+                inviteStatus: true,
                 user: {
                   select: {
                     displayName: true,
@@ -133,6 +134,7 @@ async function getMessageGroups(req, res) {
               displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
               iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
               iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+              inviteStatus: member.groupMember.inviteStatus,
             },
           })),
         };
@@ -263,6 +265,7 @@ async function createMessageGroup(req, res) {
                 displayName: true,
                 iconLetters: true,
                 iconColor: true,
+                inviteStatus: true,
                 user: {
                   select: {
                     displayName: true,
@@ -353,6 +356,7 @@ async function getMessageGroupById(req, res) {
                 iconLetters: true,
                 iconColor: true,
                 role: true,
+                inviteStatus: true,
                 user: {
                   select: {
                     displayName: true,
@@ -410,6 +414,7 @@ async function getMessageGroupById(req, res) {
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
           role: member.groupMember.role,
+          inviteStatus: member.groupMember.inviteStatus,
         },
       })),
     };
