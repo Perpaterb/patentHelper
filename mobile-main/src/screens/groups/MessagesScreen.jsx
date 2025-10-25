@@ -274,11 +274,17 @@ export default function MessagesScreen({ navigation, route }) {
   /**
    * Calculate read receipt status for a message
    * @param {Object} message - The message object
-   * @returns {'sent'|'read'|'read-by-all'} - The read status
+   * @returns {'sending'|'delivered'|'read-some'|'read-all'} - The read status
    */
   const getReadReceiptStatus = (message) => {
+    // If message has messageId from server, it's at least delivered
+    if (!message.messageId) {
+      return 'sending';
+    }
+
+    // If no read receipts, message is delivered but not read
     if (!message.readReceipts || message.readReceipts.length === 0) {
-      return 'sent';
+      return 'delivered';
     }
 
     // Calculate total members excluding the sender
@@ -288,27 +294,51 @@ export default function MessagesScreen({ navigation, route }) {
 
     const readCount = message.readReceipts.length;
 
+    // If all members have read it
     if (readCount >= totalMembersExcludingSender && totalMembersExcludingSender > 0) {
-      return 'read-by-all';
+      return 'read-all';
     }
 
-    return 'read';
+    // Some members have read it
+    return 'read-some';
   };
 
   /**
-   * Render read receipt indicator (checkmarks)
+   * Render read receipt indicator (diamonds)
+   * 4 states:
+   * - sending: 1 gray diamond (◇)
+   * - delivered: 2 gray diamonds (◇◇)
+   * - read-some: 1 blue + 1 gray diamond (◆◇)
+   * - read-all: 2 blue diamonds (◆◆)
+   *
    * @param {Object} message - The message object
    * @returns {JSX.Element|null} - The read receipt component
    */
   const renderReadReceipt = (message) => {
     const status = getReadReceiptStatus(message);
 
-    if (status === 'sent') {
-      return <Text style={styles.readReceipt}>✓</Text>;
+    if (status === 'sending') {
+      // 1 gray diamond - sent but not confirmed by server
+      return <Text style={styles.readReceipt}>◇</Text>;
     }
 
-    // For 'read' or 'read-by-all', show double checkmarks in blue
-    return <Text style={[styles.readReceipt, styles.readReceiptBlue]}>✓✓</Text>;
+    if (status === 'delivered') {
+      // 2 gray diamonds - delivered to server, not read
+      return <Text style={styles.readReceipt}>◇◇</Text>;
+    }
+
+    if (status === 'read-some') {
+      // 1 blue + 1 gray diamond - read by some
+      return (
+        <Text style={styles.readReceipt}>
+          <Text style={styles.readReceiptBlue}>◆</Text>
+          <Text>◇</Text>
+        </Text>
+      );
+    }
+
+    // read-all: 2 blue diamonds - read by all
+    return <Text style={[styles.readReceipt, styles.readReceiptBlue]}>◆◆</Text>;
   };
 
   /**
