@@ -275,56 +275,56 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
-   * Render Day view with master datetime
-   * Shows current datetime in center of screen
+   * Render Day view with grid of rectangles
+   * Master datetime stays active but hidden
    * Controlled by vertical swipe gestures
    */
-  const renderDayView = () => (
-    <GestureDetector gesture={dayViewPanGesture}>
-      <View style={styles.dayViewContainer}>
-        <View style={styles.datetimeDisplay}>
-          <Text style={styles.datetimeLabel}>Master DateTime:</Text>
-          <Text style={styles.datetimeValue}>
-            {masterDayViewDateTime.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true,
-            })}
-          </Text>
-          <Text style={styles.instructionText}>
-            Swipe up/down to change time
-          </Text>
-        </View>
+  const renderDayView = () => {
+    // Generate grid items (placeholder for now)
+    const gridItems = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      label: `Item ${i + 1}`,
+    }));
 
-        {/* Day navigation buttons */}
-        <View style={styles.dayNavigation}>
-          <TouchableOpacity
-            style={styles.dayNavButton}
-            onPress={() => {
-              const newDate = new Date(masterDayViewDateTime);
-              newDate.setDate(masterDayViewDateTime.getDate() - 1);
-              setMasterDayViewDateTime(newDate);
-            }}
-          >
-            <Text style={styles.dayNavButtonText}>← Previous Day</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.dayNavButton}
-            onPress={() => {
-              const newDate = new Date(masterDayViewDateTime);
-              newDate.setDate(masterDayViewDateTime.getDate() + 1);
-              setMasterDayViewDateTime(newDate);
-            }}
-          >
-            <Text style={styles.dayNavButtonText}>Next Day →</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </GestureDetector>
-  );
+    return (
+      <GestureDetector gesture={dayViewPanGesture}>
+        <ScrollView style={styles.dayViewContainer}>
+          {/* Grid of rectangles - 50px height, 150px width */}
+          <View style={styles.gridContainer}>
+            {gridItems.map((item) => (
+              <View key={item.id} style={styles.gridRectangle}>
+                <Text style={styles.gridRectangleText}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day navigation buttons */}
+          <View style={styles.dayNavigation}>
+            <TouchableOpacity
+              style={styles.dayNavButton}
+              onPress={() => {
+                const newDate = new Date(masterDayViewDateTime);
+                newDate.setDate(masterDayViewDateTime.getDate() - 1);
+                setMasterDayViewDateTime(newDate);
+              }}
+            >
+              <Text style={styles.dayNavButtonText}>← Previous Day</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dayNavButton}
+              onPress={() => {
+                const newDate = new Date(masterDayViewDateTime);
+                newDate.setDate(masterDayViewDateTime.getDate() + 1);
+                setMasterDayViewDateTime(newDate);
+              }}
+            >
+              <Text style={styles.dayNavButtonText}>Next Day →</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </GestureDetector>
+    );
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -586,5 +586,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    paddingBottom: 100, // Space for navigation buttons
+  },
+  gridRectangle: {
+    width: 150,
+    height: 50,
+    margin: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridRectangleText: {
+    fontSize: 14,
+    color: '#333',
   },
 });
