@@ -350,21 +350,6 @@ export default function CalendarScreen({ navigation, route }) {
               <Text style={styles.modalTitle}>Select Date</Text>
 
               <View style={styles.pickersContainer}>
-                {/* Month Picker */}
-                <View style={styles.pickerColumn}>
-                  <Text style={styles.pickerLabel}>Month</Text>
-                  <Picker
-                    selectedValue={selectedMonth}
-                    onValueChange={(value) => setSelectedMonth(value)}
-                    style={styles.picker}
-                  >
-                    {['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
-                      <Picker.Item key={index} label={month} value={index} />
-                    ))}
-                  </Picker>
-                </View>
-
                 {/* Day Picker */}
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Day</Text>
@@ -372,9 +357,26 @@ export default function CalendarScreen({ navigation, route }) {
                     selectedValue={selectedDay}
                     onValueChange={(value) => setSelectedDay(value)}
                     style={styles.picker}
+                    itemStyle={styles.pickerItem}
                   >
                     {Array.from({ length: getDaysInSelectedMonth() }, (_, i) => i + 1).map((day) => (
                       <Picker.Item key={day} label={String(day)} value={day} />
+                    ))}
+                  </Picker>
+                </View>
+
+                {/* Month Picker */}
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Month</Text>
+                  <Picker
+                    selectedValue={selectedMonth}
+                    onValueChange={(value) => setSelectedMonth(value)}
+                    style={styles.picker}
+                    itemStyle={styles.pickerItem}
+                  >
+                    {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => (
+                      <Picker.Item key={index} label={month} value={index} />
                     ))}
                   </Picker>
                 </View>
@@ -386,6 +388,7 @@ export default function CalendarScreen({ navigation, route }) {
                     selectedValue={selectedYear}
                     onValueChange={(value) => setSelectedYear(value)}
                     style={styles.picker}
+                    itemStyle={styles.pickerItem}
                   >
                     {Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - 10 + i).map((year) => (
                       <Picker.Item key={year} label={String(year)} value={year} />
@@ -616,6 +619,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   picker: {
+    height: 150,
+  },
+  pickerItem: {
+    fontSize: 18,
     height: 150,
   },
   modalButtons: {
