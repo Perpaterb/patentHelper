@@ -14,9 +14,10 @@ import {
   Dimensions,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const HOURS_PER_SCREEN_SWIPE = 8; // Configurable: how many hours for full screen swipe
@@ -41,9 +42,11 @@ export default function CalendarScreen({ navigation, route }) {
   // Master datetime for Day view - controls all time-based positioning
   const [masterDayViewDateTime, setMasterDayViewDateTime] = useState(new Date());
 
-  // Date picker state
+  // Date picker modal state
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerMode, setDatePickerMode] = useState('date');
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   /**
    * Get current date text for header
@@ -90,40 +93,50 @@ export default function CalendarScreen({ navigation, route }) {
   }, [navigation, viewMode, currentMonth, masterDayViewDateTime]);
 
   /**
-   * Handle header date button click - open date picker
+   * Handle header date button click - open date picker modal
+   * Initialize picker with current date based on view mode
    */
   const handleBannerPress = () => {
-    setDatePickerMode('date');
+    const currentDate = viewMode === 'month' ? currentMonth : masterDayViewDateTime;
+    setSelectedDay(currentDate.getDate());
+    setSelectedMonth(currentDate.getMonth());
+    setSelectedYear(currentDate.getFullYear());
     setShowDatePicker(true);
   };
 
   /**
-   * Handle date picker change
-   * Month view: Update currentMonth to selected date
-   * Day view: Preserve the time component when changing date
+   * Handle Go button press in date picker modal
+   * Apply selected date to current view
    */
-  const handleDateChange = (event, selectedDate) => {
-    // On iOS, keep picker open; on Android, close it
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
+  const handleDatePickerGo = () => {
+    const newDate = new Date(selectedYear, selectedMonth, selectedDay);
+
+    if (viewMode === 'month') {
+      // For month view, just update the currentMonth
+      setCurrentMonth(newDate);
+    } else {
+      // For day view, preserve the time component from masterDayViewDateTime
+      newDate.setHours(masterDayViewDateTime.getHours());
+      newDate.setMinutes(masterDayViewDateTime.getMinutes());
+      newDate.setSeconds(masterDayViewDateTime.getSeconds());
+      setMasterDayViewDateTime(newDate);
     }
 
-    if (event.type === 'set' && selectedDate) {
-      if (viewMode === 'month') {
-        // For month view, just update the currentMonth
-        setCurrentMonth(selectedDate);
-      } else {
-        // For day view, preserve the time component from masterDayViewDateTime
-        const newDate = new Date(selectedDate);
-        newDate.setHours(masterDayViewDateTime.getHours());
-        newDate.setMinutes(masterDayViewDateTime.getMinutes());
-        newDate.setSeconds(masterDayViewDateTime.getSeconds());
-        setMasterDayViewDateTime(newDate);
-      }
-    } else if (event.type === 'dismissed') {
-      // User cancelled the picker
-      setShowDatePicker(false);
-    }
+    setShowDatePicker(false);
+  };
+
+  /**
+   * Handle Cancel button press in date picker modal
+   */
+  const handleDatePickerCancel = () => {
+    setShowDatePicker(false);
+  };
+
+  /**
+   * Get days in selected month for day picker
+   */
+  const getDaysInSelectedMonth = () => {
+    return new Date(selectedYear, selectedMonth + 1, 0).getDate();
   };
 
   /**
@@ -325,15 +338,80 @@ export default function CalendarScreen({ navigation, route }) {
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'day' && renderDayView()}
 
-        {/* Date Picker */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={viewMode === 'month' ? currentMonth : masterDayViewDateTime}
-            mode={datePickerMode}
-            display="default"
-            onChange={handleDateChange}
-          />
-        )}
+        {/* Custom Date Picker Modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleDatePickerCancel}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+
+              <View style={styles.pickersContainer}>
+                {/* Month Picker */}
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Month</Text>
+                  <Picker
+                    selectedValue={selectedMonth}
+                    onValueChange={(value) => setSelectedMonth(value)}
+                    style={styles.picker}
+                  >
+                    {['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                      <Picker.Item key={index} label={month} value={index} />
+                    ))}
+                  </Picker>
+                </View>
+
+                {/* Day Picker */}
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Day</Text>
+                  <Picker
+                    selectedValue={selectedDay}
+                    onValueChange={(value) => setSelectedDay(value)}
+                    style={styles.picker}
+                  >
+                    {Array.from({ length: getDaysInSelectedMonth() }, (_, i) => i + 1).map((day) => (
+                      <Picker.Item key={day} label={String(day)} value={day} />
+                    ))}
+                  </Picker>
+                </View>
+
+                {/* Year Picker */}
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Year</Text>
+                  <Picker
+                    selectedValue={selectedYear}
+                    onValueChange={(value) => setSelectedYear(value)}
+                    style={styles.picker}
+                  >
+                    {Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - 10 + i).map((year) => (
+                      <Picker.Item key={year} label={String(year)} value={year} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={handleDatePickerCancel}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.goButton]}
+                  onPress={handleDatePickerGo}
+                >
+                  <Text style={styles.goButtonText}>Go</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </GestureHandlerRootView>
   );
@@ -494,5 +572,78 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  pickersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  pickerColumn: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  pickerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  picker: {
+    height: 150,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goButton: {
+    backgroundColor: '#6200ee',
+  },
+  goButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
