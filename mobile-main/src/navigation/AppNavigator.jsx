@@ -61,7 +61,8 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             fontSize: 18, // Slightly smaller title for smaller header
             color: '#fff', // Ensure title is white
           },
-          headerBackTitleVisible: false, // Only show back arrow, no text
+          headerBackTitleVisible: false, // Hide back button text
+          headerBackTitle: '', // Force empty back title on iOS
           headerShadowVisible: true, // Keep shadow for depth
         }}
       >
