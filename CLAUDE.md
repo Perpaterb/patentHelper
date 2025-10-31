@@ -264,6 +264,37 @@ See `README.md` section 1.5 and `mobile-main/NAVIGATION.md` for complete navigat
 * Mark completed tasks immediately after finishing them
 * Add newly discovered sub-tasks or TODOs under a "Discovered During Work" section
 
+### 🔒 CRITICAL: Before Asking User for Next Task
+
+**MANDATORY SAFETY CHECKPOINT** - This prevents data loss and enables point-in-time recovery:
+
+Before asking the user "What would you like to work on next?" or any similar prompt, you MUST:
+
+1. **Check git status**: Run `git status` to see uncommitted changes
+2. **If there are uncommitted changes**:
+   - Run `npm test` to ensure tests pass
+   - Stage all changes: `git add -A`
+   - Commit with descriptive message following conventional commits format
+   - Push to remote: `git push`
+3. **Inform the user**: Tell them "Changes committed and pushed. Ready for next task."
+
+**Why this is critical:**
+- Enables point-in-time recovery to any previous state
+- Prevents data loss if Claude makes mistakes (like accidentally deleting files)
+- Creates clear checkpoints between different pieces of work
+- Allows easy rollback with `git reset --hard <commit-hash>`
+
+**Example workflow:**
+```
+User: "Fix the calendar date picker"
+Claude: [completes work, updates docs, runs tests]
+Claude: [runs git status, sees changes]
+Claude: [commits and pushes]
+Claude: "Calendar date picker fixed. Changes committed and pushed to main. What would you like to work on next?"
+```
+
+**Exception:** If there are NO uncommitted changes (clean working tree), you can skip the commit step.
+
 ### After Completing Features
 
 **CRITICAL**: Documentation must ALWAYS be updated immediately after completing any work. This is MANDATORY, not optional.

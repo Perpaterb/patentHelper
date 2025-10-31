@@ -1,795 +1,106 @@
-# Next Steps - Development Roadmap
-
-**Last Updated**: 2025-10-24
-**Current Phase**: Phase 3 IN PROGRESS - Mobile Main App Development
-**Focus**: Groups & Members Management
-
----
-
-## 🎉 WEB ADMIN APP - COMPLETE!
-
-**Status**: Fully functional and ready for use! All core features implemented and tested.
-
-### ✅ Frontend Pages (React + Material-UI)
-1. **Login/Auth** - Kinde authentication with OAuth callback handling
-2. **Dashboard** - Subscription overview, storage tracking, free trial countdown (20 days)
-3. **Subscription** - Stripe integration for plan management, billing, cancellation, reactivation
-4. **Account** - User profile with passwordless auth note and storage details
-5. **Logs** - Audit log export requests with password-protected ZIP downloads
-
-### ✅ Backend API Endpoints (Express.js + PostgreSQL)
-1. **Auth**:
-   - POST /auth/exchange - Exchange Kinde code for tokens
-   - POST /auth/refresh - Refresh access token
-2. **Subscriptions**:
-   - GET /subscriptions/pricing - Get pricing plans
-   - GET /subscriptions/current - Get user's subscription
-   - POST /subscriptions/checkout - Create Stripe checkout session
-   - POST /subscriptions/cancel - Cancel subscription
-   - POST /subscriptions/reactivate - Reactivate subscription
-   - POST /subscriptions/webhooks - Handle Stripe webhooks
-3. **Groups**:
-   - GET /groups - List groups where user is admin
-4. **Logs**:
-   - POST /logs/exports - Request password-protected export
-   - GET /logs/exports - List user's export history
-   - GET /logs/exports/:id/download - Download completed export as ZIP
-
-### 📊 Features Delivered
-- ✅ Free 20-day trial detection with countdown timers
-- ✅ Storage tracking with additional charges ($1 AUD/2GB over 10GB base)
-- ✅ Stripe subscription management (subscribe, cancel, reactivate)
-- ✅ Password-protected audit log exports (ZIP files, 30-day expiration)
-- ✅ File-based export storage for local development
-- ✅ Kinde passwordless authentication
-- ✅ Authorization middleware protecting all endpoints
-- ✅ Test groups created for development
-- ✅ Zero ESLint warnings
-- ✅ All components properly structured
-- ✅ Authentication flow working end-to-end
-- ✅ API endpoints tested and verified
-
-### 🚀 Services Running (DO NOT CHANGE THESE PORTS!)
-
-```
-Backend API:      http://localhost:3000  ✅ (Express.js)
-Frontend Web App: http://localhost:3001  ✅ (React)
-PostgreSQL:       localhost:5432         ✅ (Docker)
-Prisma Studio:    http://localhost:5555  ✅ (Database UI)
-MailHog:          http://localhost:8025  ✅ (Email testing)
-```
-
-**IMPORTANT**: These ports are configured throughout the codebase. DO NOT CHANGE THEM.
-- Backend: PORT=3000 (in backend/.env and all API calls)
-- Frontend: PORT=3001 (in web-admin/.env and package.json)
-
-### 📦 Test Data Available
-- **User**: test@parentinghelperapp.com
-- **Groups**:
-  - "Test Family Group" 👨‍👩‍👧‍👦
-  - "Soccer Team Group" ⚽
-- Both groups have the test user as admin
-- Ready for testing log export flow
-
-### 📝 Recent Commits
-1. `8cd0f61` - fix: Restore reactivating state variable in Subscription page
-2. `b3ec7cb` - fix: Resolve ESLint warnings in frontend pages
-3. `7b1764b` - feat: Add groups and log export API endpoints
-
-### 🎯 Next Step: Mobile App Development
-The web admin app is production-ready. Next, build the Parenting Helper Mobile App (Product #2) with React Native + Expo.
-
----
-
-## ✅ Completed Planning Tasks
-
-### Documentation
-- [x] README.md - Complete technical architecture (3 products, 1 backend)
-- [x] CLAUDE.md - AI coding guidelines with KISS principle
-- [x] Initial.md - Feature documentation with examples
-- [x] appplan.md - Complete requirements (updated for 3-product architecture)
-- [x] aiMessageToDev.md - All 22 questions answered
-- [x] SETUP.md - Development environment setup guide
-- [x] database/schema.sql - Complete PostgreSQL schema (23 tables)
-- [x] database/README.md - Database documentation
-
-### Configuration Files
-- [x] .env.example - Environment variables template with all credentials
-- [x] docker-compose.yml - Local PostgreSQL database setup
-- [x] .vscode/extensions.json - Recommended VS Code extensions
-- [x] .vscode/settings.json - Project-specific VS Code settings
-- [x] .gitignore - Properly configured for Node.js, React Native, Terraform
-
-### Technical Decisions Made
-- [x] Database: PostgreSQL on AWS RDS
-- [x] ORM: Prisma
-- [x] Validation: Joi
-- [x] Mobile Framework: React Native with Expo
-- [x] State Management: Redux Toolkit
-- [x] Web Framework: React
-- [x] Payments: Stripe (web only)
-- [x] Authentication: Kinde
-- [x] Infrastructure: AWS (Lambda, S3, RDS)
-- [x] IaC: Terraform
-- [x] Development Environment: Node.js v20 LTS, npm, Docker, VS Code
-
-### Business Requirements Clarified
-- [x] All 22 pending requirements answered
-- [x] Storage management rules defined
-- [x] Subscription cancellation flow decided
-- [x] Group deletion policy established
-- [x] Approval workflow edge cases resolved
-- [x] Calendar overlap prevention clarified
-- [x] Finance overpayment handling decided
-- [x] Message editing restrictions confirmed
-- [x] PH Messenger permissions defined
-
-### Credentials Documented
-- [x] AWS Account ID: 412527729032
-- [x] AWS Region: ap-southeast-2 (Sydney)
-- [x] Kinde Domain: https://parentinghelper.kinde.com
-- [x] Kinde Client ID: 39fa7698fc83461eb065dfc850f867ee
-- [x] Stripe Live Keys: Documented in .env.example
-- [x] ABN: 88 741 861 465
-- [x] Email Addresses: noreply@ and support@parentinghelperapp.com
-- [x] Firebase Account: zcarss@gmail.com
-
----
-
-## ✅ Phase 1: Local Foundation (COMPLETED)
-
-### Week 1: Local Infrastructure Setup ✅
-- [x] Docker services (PostgreSQL + MailHog)
-- [x] Express.js API server running on http://localhost:3000
-- [x] Health check endpoint working
-- [x] Hot reload with nodemon
-- [x] Database schema with Prisma (23 tables)
-- [x] Local file storage with abstraction layer
-- [x] File upload endpoints
-
-### Week 2: Authentication & Email ✅
-- [x] Kinde authentication fully integrated
-- [x] JWT token generation (access + refresh)
-- [x] HTTP-only cookies for refresh tokens
-- [x] Auth middleware (requireAuth, requireSubscription, optionalAuth)
-- [x] Email service with MailHog (SMTP)
-- [x] Email templates (welcome, trial reminder, log export)
-- [x] API documentation (backend/API.md)
-- [x] Postman collection created
-- [x] All endpoints tested (35 Jest tests passing)
-
----
-
-## ✅ Phase 2: Web Admin Portal (COMPLETED) 🎉
-
-### Week 3: Web App Foundation ✅
-- [x] React app created (web-admin/)
-- [x] Material-UI v5 installed
-- [x] React Router configured
-- [x] Redux Toolkit setup
-- [x] Project structure organized
-- [x] All pages created (Login, Dashboard, Subscription, Account, Logs)
-- [x] Protected routes with auth wrapper
-- [x] AppLayout with responsive navigation
-- [x] Kinde authentication integrated
-- [x] AuthCallback page handling OAuth flow
-- [x] API service with interceptors (token refresh)
-
-### Week 4: Subscription Management ✅
-- [x] Stripe integration (frontend + backend)
-- [x] Subscription checkout flow
-- [x] Stripe webhook handlers
-- [x] Cancel subscription functionality
-- [x] Reactivate subscription functionality
-- [x] Pricing cards (Admin $8/mo, Storage $1/2GB)
-- [x] Subscription status display
-- [x] Storage tracking and additional charges calculation
-- [x] Success/cancel redirect handling
-
-### Week 5: Storage & Account Management ✅
-- [x] Storage tracker component with progress visualization
-- [x] Additional charges calculation (ceil((usedGb - 10) / 2) × $1)
-- [x] Warning colors based on usage
-- [x] Account page with user profile
-- [x] Passwordless auth documentation
-- [x] Storage details on account page
-- [x] Dashboard with subscription overview
-- [x] Free trial countdown (20 days)
-- [x] Trial warning banners
-
-### Week 6: Log Export Feature ✅
-- [x] Log export request form
-- [x] Group selection dropdown (admin groups only)
-- [x] Password protection for exports (8+ characters)
-- [x] Export history table
-- [x] Download completed exports as ZIP
-- [x] Export status tracking (pending/processing/completed)
-- [x] 30-day expiration for exports
-- [x] File-based storage for local development
-- [x] Backend endpoints (POST, GET, GET with download)
-
-### Web App Testing ✅
-- [x] All pages functional
-- [x] Authentication flow working
-- [x] Subscription management tested
-- [x] Storage tracking verified
-- [x] Log export flow tested
-- [x] Zero ESLint warnings
-- [x] No compilation errors
-- [x] Cross-browser compatibility (modern browsers)
-
-**Status**: Web Admin App is PRODUCTION-READY for Phase 1! All features working locally.
-
----
-
-## 📅 Phase 3-4: Mobile - Main App (Weeks 7-16) - NEXT PHASE
-
-**All development done LOCALLY - connects to local Express.js API (http://localhost:3000)**
-
-### Week 7-8: Mobile Foundation
-
-#### Expo Setup
-- [ ] Create Expo app
-  ```bash
-  npx create-expo-app mobile-main
-  cd mobile-main
-  npm install
-  ```
-- [ ] Install dependencies:
-  ```bash
-  npm install @reduxjs/toolkit react-redux redux-persist
-  npm install @react-navigation/native @react-navigation/stack
-  npm install expo-local-authentication expo-secure-store
-  npm install axios
-  ```
-- [ ] Set up navigation (React Navigation)
-- [ ] Set up Redux store with persistence
-- [ ] Configure environment variables (Expo)
-  - **IMPORTANT**: Point to http://localhost:3000 for API calls
-  - DO NOT change backend port
-
-#### Authentication
-- [ ] Login screen (Kinde)
-- [ ] Token storage (SecureStore)
-- [ ] Auth context/slice
-- [ ] Protected navigation
-
-### Week 9-10: Groups & Members ✅ IN PROGRESS
-
-#### Group Management
-- [x] Home screen (groups list)
-- [x] Create group screen
-- [x] Group settings screen
-  - [x] Role-based permissions UI (Message Groups, Finance, Approvals)
-  - [x] Admin permission management UI
-  - [x] Member note for admins (supervision guidance)
-- [x] Add/edit/remove members
-  - [x] Invite member with email
-  - [x] Placeholder display name and member icon
-  - [x] Color picker for member icon
-  - [x] Avatar preview in invite screen
-- [x] Assign roles
-- [ ] Define relationships
-- [x] Pin/unpin groups
-- [x] Reorder pinned groups
-
-#### Backend Endpoints (Groups)
-- [x] GET /groups/:groupId/settings - Get group role permissions
-- [x] PUT /groups/:groupId/settings - Update group role permissions (admin only)
-- [x] GET /groups/:groupId/admin-permissions - Get admin permissions
-- [x] PUT /groups/:groupId/admin-permissions/:targetAdminId - Update admin permissions
-- [x] POST /groups/:groupId/members/invite - Invite member with placeholder data
-- [x] PUT /groups/:groupId/members/:userId/role - Change member role
-- [x] DELETE /groups/:groupId/members/:userId - Remove member
-- [x] POST /groups/:groupId/leave - Leave group (non-admins)
-
-#### UI Components
-- [x] Group card component
-- [x] Member icon component (colored circles with letters)
-- [x] Role indicator (colored dot)
-- [x] Color picker modal (reusable)
-- [x] Avatar preview with color selection
-- [x] Role permission switches
-- [x] Admin permission management cards
-
-### Week 11-12: Messaging ✅ COMPLETE (except settings)
-
-#### Message Groups
-- [x] Message groups list screen
-- [x] Create message group
-- [ ] Message group settings (NOT IMPLEMENTED - no settings button on cards)
-
-#### Messages Screen
-- [x] Message list (WhatsApp-like)
-- [x] Message input component
-- [x] Send text messages
-- [x] @mentions autocomplete
-- [x] Message read receipts (4-state)
-
-#### Media Upload
-- [ ] Image picker
-- [ ] Video picker
-- [ ] Upload to local storage (will switch to S3 in Phase 6)
-- [ ] Display media in messages
-
-### Week 13-14: Calendar - BACKEND COMPLETE ✅
-
-#### Backend Endpoints (Calendar) ✅
-- [x] GET /groups/:groupId/calendar/events - List events with date filtering
-- [x] POST /groups/:groupId/calendar/events - Create calendar event
-- [x] GET /groups/:groupId/calendar/events/:eventId - Get single event
-- [x] PUT /groups/:groupId/calendar/events/:eventId - Update event (updates createdAt for layering)
-- [x] DELETE /groups/:groupId/calendar/events/:eventId - Soft delete event
-- [x] POST /groups/:groupId/calendar/responsibility-events - Create responsibility event with overlap detection
-
-**Implementation Notes (2025-10-30):**
-- ✅ Layering system implemented: Later-created events override earlier ones
-- ✅ Editing an event updates `createdAt` timestamp, moving it to top of layer stack
-- ✅ Overlap detection utility returns warning data for frontend popup (Option A)
-- ✅ Profile merging: User global profile takes precedence over GroupMember profile
-- ✅ Permission checks: Supervisors blocked, children view-only
-- ✅ Audit logging for all calendar actions
-- ✅ Soft deletes preserve audit trail
-- 📝 Files modified:
-  - backend/controllers/calendar.controller.js (1322 lines)
-  - backend/routes/groups.routes.js (added 6 routes)
-
-#### Calendar Views (Frontend - Next)
-- [ ] Calendar month view
-- [ ] Calendar week view
-- [ ] Calendar day view
-- [ ] Swipe navigation
-
-#### Events (Frontend - Next)
-- [ ] Create event UI
-- [ ] Edit event UI (with approval)
-- [ ] Delete event UI (with approval)
-- [ ] Recurring events UI
-
-#### Child Responsibility (Frontend - Next)
-- [ ] Responsibility line rendering
-  - Colored lines for children
-  - Paired responsibility lines
-- [ ] Create responsibility event UI
-- [ ] Edit responsibility UI (with approval)
-- [ ] Overlap warning popup with confirmation
-
-### Week 15-16: Finance & Approvals
-
-#### Finance Matters
-- [ ] Finance matters list
-- [ ] Create finance matter
-- [ ] Finance matter detail screen
-- [ ] Finance description bar component
-- [ ] Report payment (with receipt upload)
-- [ ] Confirm payment
-- [ ] Mark as settled
-
-#### Peer-to-Peer Payments (NEW)
-- [ ] Research payment provider options (Stripe Connect vs iPayYou vs Venmo API)
-- [ ] Choose payment provider (RECOMMENDED: Stripe Connect - already using Stripe)
-- [ ] Set up payment provider account/API keys
-- [ ] Backend: Payment endpoints (initiate, confirm, track status)
-- [ ] Backend: Payment webhooks (handle success/failure)
-- [ ] Frontend: Send money UI (amount, recipient selection)
-- [ ] Frontend: Request money UI
-- [ ] Frontend: Payment history screen
-- [ ] Add payment tracking to finance matters (link payments to matters)
-- [ ] Payment notifications (push notifications when money received/sent)
-- [ ] Payment approval workflow (for large amounts? TBD)
-- [ ] Test payment flows end-to-end
-- [ ] Compliance: Terms of service for payments
-- [ ] Compliance: Transaction limits (prevent abuse)
-
-#### Approval System
-- [ ] Approvals list screen
-- [ ] Approval card component
-- [ ] Vote on approval (approve/reject)
-- [ ] Cancel approval
-- [ ] Real-time approval status updates
-
-#### Mobile App Testing
-- [ ] Test on iOS (Expo Go or TestFlight)
-- [ ] Test on Android (Expo Go or APK)
-- [ ] Test all user flows
-- [ ] Performance testing (large message groups, many calendar events)
-
----
-
-## 📅 Phase 5: PH Messenger (Weeks 17-18)
-
-**All development done LOCALLY - connects to local Express.js API**
-
-### Week 17: PH Messenger Development
-
-#### App Setup
-- [ ] Create separate Expo app
-  ```bash
-  npx create-expo-app mobile-messenger
-  ```
-- [ ] Copy/share messaging components from mobile-main
-- [ ] Simplified navigation (message groups → messages)
-
-#### Biometric Authentication
-- [ ] First-time Kinde login
-- [ ] Store token in SecureStore
-- [ ] Face ID/Touch ID for subsequent opens
-- [ ] Fallback to Kinde after 3 failed attempts
-
-### Week 18: PH Messenger Testing
-
-- [ ] Test biometric auth on iOS
-- [ ] Test biometric auth on Android
-- [ ] Test message sync between main app and messenger
-- [ ] Test on restricted devices (child's phone)
-- [ ] Verify supervisor blocking
-
----
-
-## 📅 Phase 6: AWS Deployment & Launch (Weeks 19-24)
-
-**NOW we deploy to AWS - everything tested locally first!**
-
-### Week 19: AWS Infrastructure Setup
-
-#### Terraform Configuration
-- [ ] Install Terraform locally
-- [ ] Create Terraform modules:
-  - `infrastructure/modules/networking/` - VPC, subnets, security groups
-  - `infrastructure/modules/database/` - RDS PostgreSQL
-  - `infrastructure/modules/storage/` - S3 buckets for media
-  - `infrastructure/modules/lambda/` - Lambda execution role
-  - `infrastructure/modules/api-gateway/` - API Gateway REST API
-- [ ] Create environment configs:
-  - `infrastructure/environments/dev/`
-  - `infrastructure/environments/production/`
-- [ ] Run Terraform apply for dev environment
-  ```bash
-  cd infrastructure/environments/dev
-  terraform init
-  terraform plan
-  terraform apply
-  ```
-
-#### Database Migration to RDS
-- [ ] Deploy RDS PostgreSQL instance
-- [ ] Run Prisma migrations on RDS
-- [ ] Verify all 23 tables created
-- [ ] Migrate test data (if needed)
-
-### Week 20: Lambda Conversion & API Gateway
-
-#### Convert Express.js to Lambda
-- [ ] Create Lambda wrapper for existing controllers
-  ```javascript
-  // Lambda handler wraps existing Express controller
-  exports.handler = async (event) => {
-    return await userController.getUser(event);
-  };
-  ```
-- [ ] Package Lambda functions (zip with dependencies)
-- [ ] Deploy Lambda functions
-- [ ] Test each Lambda function individually
-
-#### API Gateway Setup
-- [ ] Create REST API in API Gateway
-- [ ] Configure all routes (auth, users, groups, messages, calendar, finance)
-- [ ] Link routes to Lambda functions
-- [ ] Set up CORS for web and mobile apps
-- [ ] Configure throttling (protect against abuse)
-- [ ] Set up custom domain: api.parentinghelperapp.com
-
-#### Switch from Local to S3
-- [ ] Create S3 bucket for media storage
-- [ ] Configure CORS on S3
-- [ ] Update storage service to use S3 instead of local files
-- [ ] Migrate existing test files to S3 (if any)
-
-#### Switch from MailHog to SES
-- [ ] Verify email addresses in AWS SES
-  - noreply@parentinghelperapp.com
-  - support@parentinghelperapp.com
-- [ ] Update email service to use SES instead of MailHog
-- [ ] Test email sending in production
-
-### Week 21: Testing & Security
-
-#### Cross-Product Testing (Production)
-- [ ] Update all 3 apps to use production API
-- [ ] Test subscription flow: Web → Mobile
-- [ ] Test all 3 products with same account
-- [ ] Test role changes propagate correctly
-- [ ] Test storage calculations with S3
-- [ ] Test audit logs from all 3 products
-
-#### Security Audit
-- [ ] Run security scans (OWASP)
-- [ ] Penetration testing
-- [ ] Review all authentication flows
-- [ ] Review all permission checks
-- [ ] Test SQL injection prevention
-- [ ] Test XSS prevention
-
-#### Performance Optimization
-- [ ] Database query optimization
-- [ ] API response time optimization (target <500ms)
-- [ ] Mobile app bundle size optimization
-- [ ] Set up CloudFront for media delivery
-- [ ] Lambda cold start optimization
-
-### Week 22: Web App Deployment
-
-#### Deploy Web App to AWS
-- [ ] Build React app for production
-  ```bash
-  cd web-admin
-  npm run build
-  ```
-- [ ] Create S3 bucket for web hosting
-- [ ] Upload build to S3
-- [ ] Configure CloudFront distribution
-- [ ] Set up custom domain: parentinghelperapp.com
-- [ ] Configure SSL certificate (ACM)
-- [ ] Test web app in production
-
-### Week 23: App Store Preparation
-
-#### iOS App Store
-- [ ] Purchase Apple Developer Account ($99/year)
-- [ ] Create App Store Connect account
-- [ ] Build production iOS apps with Expo
-- [ ] Submit Parenting Helper for review
-- [ ] Submit PH Messenger for review
-- [ ] Prepare:
-  - App screenshots
-  - App description
-  - Privacy policy URL
-  - Terms of service URL
-  - Support URL
-
-#### Google Play Store
-- [ ] Create Google Play Developer Account ($25 one-time)
-- [ ] Build production Android apps with Expo
-- [ ] Submit Parenting Helper for review
-- [ ] Submit PH Messenger for review
-- [ ] Prepare same materials as iOS
-
-### Week 24: Launch!
-
-#### Pre-Launch
-- [ ] Set up CloudWatch alerts for errors
-- [ ] Set up budget alerts for AWS costs
-- [ ] Test Stripe webhooks in production
-- [ ] Final end-to-end testing
-
-#### Launch Day
-- [ ] Monitor app store review process
-- [ ] Fix any issues flagged by reviewers
-- [ ] Publish apps when approved
-- [ ] Monitor CloudWatch logs for errors
-- [ ] Monitor Stripe for subscriptions
-- [ ] Set up customer support email monitoring
-
-#### Post-Launch
-- [ ] Create launch announcement
-- [ ] Marketing push (optional)
-- [ ] Monitor performance metrics
-- [ ] Be ready for user feedback!
-
----
-
-## 🔄 Post-Launch (MVP2)
-
-### High Priority Enhancements
-- [ ] Push notifications (OneSignal or direct APNs/FCM)
-- [ ] WebSockets for real-time messaging (replace polling)
-- [ ] Offline mode improvements (queue actions when offline)
-- [ ] App analytics (Mixpanel or Amplitude)
-- [ ] Crash reporting (Sentry)
-
-### Medium Priority Enhancements
-- [ ] Social login (Google, Apple Sign-In)
-- [ ] In-app support chat
-- [ ] Advanced calendar features (reminders, notifications)
-- [ ] Finance matter currency conversion
-- [ ] Message editing (with "Edited" indicator)
-
-### Low Priority / Future Versions
-- [ ] Voice messages
-- [ ] Video calls
-- [ ] Document uploads (PDFs)
-- [ ] Custom themes
-- [ ] Dark mode
-- [ ] Accessibility improvements
-
----
-
-## 📊 Success Metrics to Track
-
-### Technical Metrics
-- API response time (p95 < 500ms)
-- App crash rate (< 1%)
-- Database query performance
-- Storage costs per admin
-- Lambda execution costs
-
-### Business Metrics
-- User registrations
-- Free to paid conversion rate
-- Subscription retention rate
-- Average storage usage per admin
-- Average message groups per user
-- Average messages per day
-
-### User Experience Metrics
-- App store ratings (target 4.5+)
-- User feedback from support emails
-- Feature request frequency
-- Bug report frequency
-
----
-
-## 💰 Estimated Costs
-
-### One-Time Costs
-- Apple Developer Account: $99/year
-- Google Play Developer Account: $25 (one-time)
-- Domain registration: ~$10-15/year
-- **Total**: ~$135/year
-
-### Monthly Operating Costs (Estimated)
-- **Weeks 1-18 (Local Development)**: $0/month AWS costs! 🎉
-- **Week 19+ (AWS Deployment)**:
-  - AWS (dev): ~$50-100/month
-  - AWS (production): ~$100-400/month (scales with users)
-  - Kinde: $25/month (up to 1,000 users)
-  - Stripe: 2.9% + $0.30 per transaction
-- **Total During Development**: $0/month
-- **Total After Launch**: ~$175-525/month
-
-### Break-Even Analysis
-- Need ~20-60 paid admin users to break even
-- At $8/month per admin subscription
-
----
-
-## 🆘 Support & Resources
-
-### Documentation
-- Architecture: `README.md`
-- Setup: `SETUP.md`
-- Features: `appplan.md`
-- Examples: `Initial.md`
-- AI Guidelines: `CLAUDE.md`
-- Q&A: `aiMessageToDev.md`
-
-### External Resources
-- **React**: https://react.dev/
-- **React Native**: https://reactnative.dev/
-- **Expo**: https://docs.expo.dev/
-- **Prisma**: https://www.prisma.io/docs/
-- **Stripe**: https://stripe.com/docs/
-- **Kinde**: https://kinde.com/docs/
-- **AWS**: https://docs.aws.amazon.com/
-
-### Getting Help
-- GitHub Issues: https://github.com/Perpaterb/patentHelper/issues
-- AWS Support: https://console.aws.amazon.com/support/
-- Stripe Support: https://support.stripe.com/
-
----
-
-## 📝 Recent Updates (October 2025)
-
-### 2025-10-30: Badge Aggregation, Mute/Unmute, & Finance Restrictions
-
-**Badge Aggregation System (Complete)**:
-1. **Hierarchical Badge Counts**:
-   - Message Groups → Group Dashboard Messages Button → Groups List Cards
-   - Approvals badge on Approvals button → Groups List Cards
-   - Finance badge on Finance button → Groups List Cards
-   - All badges properly aggregate and display at each level
-
-2. **Badge Color Scheme**:
-   - 🟡 Yellow (#f9a825): @Mentions - "Someone tagged you"
-   - 🔵 Blue (#2196f3): Unread messages - "New messages"
-   - 🩷 Pink (#e91e63): Approvals - "Action needed from admin"
-   - 🔴 Red (#d32f2f): Finance - "Money owed"
-   - 🟣 Purple (#9c27b0): Calendar - "Upcoming events" (ready for future)
-
-**Mute/Unmute Functionality (Complete)**:
-1. **Database Changes**:
-   - Added `isMuted` BOOLEAN to GroupMember table
-   - Added `isMuted` BOOLEAN to MessageGroupMember table
-   - Created migrations for both tables
-
-2. **Backend Endpoints**:
-   - PUT /groups/:groupId/mute - Mute entire group
-   - PUT /groups/:groupId/unmute - Unmute entire group
-   - PUT /groups/:groupId/message-groups/:messageGroupId/mute - Mute message group
-   - PUT /groups/:groupId/message-groups/:messageGroupId/unmute - Unmute message group
-
-3. **Frontend UI**:
-   - Ear icon toggle on Group cards (GroupsListScreen)
-   - Ear icon toggle on Message Group cards (MessageGroupsListScreen)
-   - "MUTED" chip displayed on muted groups
-   - Icon changes: hearing ear (unmuted) ↔ hearing-off ear (muted)
-
-4. **Badge Filtering Logic**:
-   - Group muted → ALL badges hidden (messages, mentions, approvals, finance)
-   - Message Group muted → Only that message group's badges filtered out
-   - Backend properly filters badge counts based on mute status
-
-**Finance Matter Restrictions (Temporary)**:
-1. **Validation Added**:
-   - Finance matters must be 100% paid when created
-   - Tolerance of 0.01 for rounding errors
-   - Clear error message: "Currently, finance matters must be fully paid when created. This restriction is temporary."
-   - Prevents creating finance matters with outstanding balances
-
-2. **Impact**:
-   - Finance badges won't appear for new finance matters (all fully paid)
-   - Existing partially-paid finance matters still work normally
-   - Easy to remove restriction later (delete 9 lines of validation code)
-
-**Files Modified**:
-- `backend/controllers/groups.controller.js` - Badge aggregation, mute filtering
-- `backend/controllers/messageGroups.controller.js` - Mute endpoints
-- `backend/controllers/finance.controller.js` - Full payment validation
-- `backend/routes/groups.routes.js` - Mute route definitions
-- `backend/routes/messageGroups.routes.js` - Message group mute routes
-- `backend/prisma/schema.prisma` - Added isMuted fields
-- `mobile-main/src/screens/groups/GroupsListScreen.jsx` - Badges, mute UI, colors
-- `mobile-main/src/screens/groups/GroupDashboardScreen.jsx` - Badge colors, finance fix
-- `mobile-main/src/screens/groups/MessageGroupsListScreen.jsx` - Mute UI
-
-**Bug Fixes**:
-- Fixed race condition in finance badge loading (GroupDashboardScreen)
-- Fixed ApprovalVote query using correct field name (adminId not groupMemberId)
-- Fixed group mute to hide ALL badge types (not just messages/mentions)
-
-**Testing**: All features tested via Expo Go on iOS. Badge aggregation working correctly. Mute functionality working at both levels. Finance validation preventing unpaid finance matters.
-
----
-
-### 2025-10-24: Group Settings & Member Management Enhancements
-
-**Frontend (Mobile-Main App)**:
-1. **GroupSettingsScreen Updates**:
-   - Added role-based permissions UI for Message Groups
-   - Added Finance permissions section with dependencies
-   - Added Admin auto-approval permissions section
-   - Added member note for admins about supervision guidance
-   - All permission changes auto-save with loading states
-
-2. **InviteMemberScreen Enhancements**:
-   - Added placeholder display name field (optional)
-   - Added placeholder member icon field (optional, 2 chars max)
-   - Added color picker for member icon background
-   - Added avatar preview showing icon/color before sending invitation
-   - Matches color picker pattern from MyAccountScreen
-
-**Backend (API) Updates**:
-1. **New Endpoints**:
-   - GET /groups/:groupId/settings - Retrieve group role permissions
-   - PUT /groups/:groupId/settings - Update group role permissions
-   - GET /groups/:groupId/admin-permissions - Get admin-specific permissions
-   - PUT /groups/:groupId/admin-permissions/:targetAdminId - Update admin permissions
-
-2. **Enhanced Endpoints**:
-   - POST /groups/:groupId/members/invite - Now accepts displayName, memberIcon, iconColor
-
-**Files Modified**:
-- `mobile-main/src/screens/groups/GroupSettingsScreen.jsx`
-- `mobile-main/src/screens/groups/InviteMemberScreen.jsx`
-- `backend/controllers/groups.controller.js`
-- `backend/routes/groups.routes.js`
-
-**Testing**: All new endpoints tested via Expo Go on iOS. Permission changes persist correctly. Color picker works smoothly.
-
----
-
-**Ready for Mobile Development?** The web admin app is complete. Mobile app messaging is nearly complete with full badge aggregation and mute functionality! 🚀
-
-**Last Updated**: 2025-10-30
-**Next Review**: After completing Phase 3 (Mobile Main App)
+# Next Steps - Parenting Helper Development
+
+## Current Status (Updated: 2025-10-31)
+
+Currently working on: **Calendar Feature - Frontend UI**
+
+## Recently Completed Tasks
+
+### Calendar Frontend - Date Picker Modal (2025-10-31)
+- [x] Fixed calendar view toggle button (Month/Day labels were backwards)
+- [x] Fixed date picker modal not appearing on banner click
+- [x] Added Previous/Next day navigation buttons to Day view
+- [x] Replaced native date picker with custom centered modal popup
+  - Centered modal with semi-transparent overlay
+  - Day/Month/Year carousel pickers (reordered from Month/Day/Year)
+  - Go and Cancel buttons at bottom of modal
+  - Fixed text truncation in month/year pickers
+- [x] Reverted to native DateTimePicker per user preference
+  - Using iOS spinner display mode
+  - Date order (Day/Month/Year vs Month/Day/Year) controlled by device locale
+- [x] Re-implemented centered modal with native DateTimePicker inside
+  - Go button applies selected date
+  - Cancel button dismisses without changes
+  - Temporary state prevents unwanted updates while scrolling
+- [x] Fixed toggle button text highlighting by removing background style
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
+**Commits:**
+1. `fix: Correct calendar view toggle logic and date picker behavior`
+2. `feat: Replace native date picker with custom modal date selector`
+3. `fix: Improve date picker display - reorder to Day/Month/Year and use abbreviations`
+4. `refactor: Switch back to native DateTimePicker with spinner display`
+5. `feat: Add centered modal date picker with Go/Cancel buttons`
+
+## Pending Calendar Tasks
+
+### High Priority
+- [ ] Test Day view scrolling and momentum
+- [ ] Fix real-time datetime updates during swipe (original issue)
+- [ ] Test and tune scroll sensitivity (HOURS_PER_SCREEN_SWIPE variable)
+
+### Feature Additions
+- [ ] Add event type selection (Child Event vs Normal Event) to create form
+- [ ] Add member tagging to events for notifications
+- [ ] Add event reminder/notification settings
+
+### Backend Integration
+- [ ] Connect calendar screens to backend API
+- [ ] Implement event CRUD operations
+- [ ] Add event approval workflows for admin-restricted groups
+- [ ] Implement event notifications
+
+## Git Commit Rules (MANDATORY)
+
+**CRITICAL**: Before ANY commit, you MUST:
+
+1. **Run Tests**: `npm test` must pass
+2. **Update Documentation** (Non-negotiable):
+   - Update NEXT_STEPS.md with completed tasks marked [x]
+   - Update README.md if API/dependencies/setup changed
+   - Update appplan.md if requirements evolved
+3. **Code Quality**:
+   - Run `npm run lint` in changed directories
+   - Run `npm run format` to format code
+4. **Security Check**:
+   - Verify no secrets or .env files are staged
+   - No hardcoded credentials in code
+
+**Commit Message Format** (Conventional Commits):
+- `feat: Add new feature`
+- `fix: Bug fix`
+- `refactor: Code refactoring`
+- `docs: Documentation updates`
+- `test: Add or update tests`
+- `chore: Maintenance tasks`
+
+**If documentation is not updated, DO NOT commit.**
+
+## Current Architecture Notes
+
+### Calendar Implementation Details
+- **CalendarScreen** has two view modes: Month and Day
+- **Master datetime variable** (`masterDayViewDateTime`) controls Day view
+- **Vertical swipe gestures** change time in Day view
+  - Swipe up = time moves forward
+  - Swipe down = time moves backward
+  - Full screen swipe = 8 hours (configurable via `HOURS_PER_SCREEN_SWIPE`)
+- **Date picker**: Native DateTimePicker wrapped in centered Modal
+  - Temporary state for preview before applying
+  - Go button applies changes
+  - Cancel button dismisses
+- **Navigation**: Previous/Next buttons for both Month and Day views
+
+### Known Issues/Gotchas
+- Device locale settings control date wheel order in native picker (not customizable in code)
+- Toggle button text can highlight on some devices (removed background styling to fix)
+- Time component must be preserved when changing dates in Day view
+
+## Next Session Priorities
+
+1. Test and refine Day view scrolling mechanics
+2. Implement real-time datetime display updates during swipe
+3. Connect to backend API for event data
+4. Add event creation functionality

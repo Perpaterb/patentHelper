@@ -80,7 +80,7 @@ export default function CalendarScreen({ navigation, route }) {
       ),
       headerRight: () => (
         <TouchableOpacity
-          style={styles.viewToggleButton}
+          style={{ marginLeft: 10, marginRight: 10 }}
           onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
         >
           <Text style={styles.viewToggleText}>
