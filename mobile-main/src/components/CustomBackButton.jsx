@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
  */
 export default function CustomBackButton({ onPress }) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.backButton}>
+    <TouchableOpacity onPress={onPress} style={styles.backButton, { marginLeft: 4 }}>
       <Ionicons name="chevron-back" size={28} color="#fff" />
     </TouchableOpacity>
   );

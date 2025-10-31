@@ -66,7 +66,7 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
-   * Configure header with date button (left) and view mode toggle (right)
+   * Configure header with date button (center) and view mode toggle (right)
    */
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -82,7 +82,7 @@ export default function CalendarScreen({ navigation, route }) {
           onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
         >
           <Text style={styles.viewToggleText}>
-            {viewMode === 'month' ? 'Day' : 'Month'}
+            {viewMode === 'day' ? 'Day' : 'Month'}
           </Text>
         </TouchableOpacity>
       ),
@@ -103,7 +103,10 @@ export default function CalendarScreen({ navigation, route }) {
    * Day view: Preserve the time component when changing date
    */
   const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
+    // On iOS, keep picker open; on Android, close it
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
 
     if (event.type === 'set' && selectedDate) {
       if (viewMode === 'month') {
@@ -117,6 +120,9 @@ export default function CalendarScreen({ navigation, route }) {
         newDate.setSeconds(masterDayViewDateTime.getSeconds());
         setMasterDayViewDateTime(newDate);
       }
+    } else if (event.type === 'dismissed') {
+      // User cancelled the picker
+      setShowDatePicker(false);
     }
   };
 
@@ -284,6 +290,30 @@ export default function CalendarScreen({ navigation, route }) {
             Swipe up/down to change time
           </Text>
         </View>
+
+        {/* Day navigation buttons */}
+        <View style={styles.dayNavigation}>
+          <TouchableOpacity
+            style={styles.dayNavButton}
+            onPress={() => {
+              const newDate = new Date(masterDayViewDateTime);
+              newDate.setDate(masterDayViewDateTime.getDate() - 1);
+              setMasterDayViewDateTime(newDate);
+            }}
+          >
+            <Text style={styles.dayNavButtonText}>← Previous Day</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.dayNavButton}
+            onPress={() => {
+              const newDate = new Date(masterDayViewDateTime);
+              newDate.setDate(masterDayViewDateTime.getDate() + 1);
+              setMasterDayViewDateTime(newDate);
+            }}
+          >
+            <Text style={styles.dayNavButtonText}>Next Day →</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </GestureDetector>
   );
@@ -438,6 +468,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   monthNavButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dayNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    marginTop: 20,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  dayNavButton: {
+    padding: 12,
+    backgroundColor: '#6200ee',
+    borderRadius: 8,
+  },
+  dayNavButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
