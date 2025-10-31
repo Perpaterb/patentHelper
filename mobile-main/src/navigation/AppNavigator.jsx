@@ -9,6 +9,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import CustomBackButton from '../components/CustomBackButton';
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import MyAccountScreen from '../screens/account/MyAccountScreen';
@@ -50,7 +51,7 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
   return (
     <NavigationContainer>
       <Stack.Navigator
-        screenOptions={{
+        screenOptions={({ navigation }) => ({
           headerStyle: {
             backgroundColor: '#6200ee',
             height: 60, // Reduced from default ~90px to 60px (2/3 size)
@@ -63,8 +64,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
           },
           headerBackTitleVisible: false, // Hide back button text
           headerBackTitle: '', // Force empty back title on iOS
+          headerLeft: navigation.canGoBack() ? () => <CustomBackButton onPress={() => navigation.goBack()} /> : undefined,
           headerShadowVisible: true, // Keep shadow for depth
-        }}
+        })}
       >
         {!isAuthenticated ? (
           // Authentication Stack
