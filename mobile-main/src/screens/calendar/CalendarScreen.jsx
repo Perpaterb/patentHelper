@@ -14,7 +14,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -197,27 +197,29 @@ export default function CalendarScreen({ navigation, route }) {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Date Banner */}
-      <TouchableOpacity style={styles.dateBanner} onPress={handleBannerPress}>
-        <Text style={styles.dateBannerText}>{getDateHeader()}</Text>
-      </TouchableOpacity>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* Date Banner */}
+        <TouchableOpacity style={styles.dateBanner} onPress={handleBannerPress}>
+          <Text style={styles.dateBannerText}>{getDateHeader()}</Text>
+        </TouchableOpacity>
 
-      {/* View Content */}
-      {viewMode === 'month' && renderMonthView()}
-      {viewMode === 'week' && renderWeekView()}
-      {viewMode === 'day' && renderDayView()}
+        {/* View Content */}
+        {viewMode === 'month' && renderMonthView()}
+        {viewMode === 'week' && renderWeekView()}
+        {viewMode === 'day' && renderDayView()}
 
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={viewMode === 'day' ? masterDayViewDateTime : new Date()}
-          mode={datePickerMode}
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-    </View>
+        {/* Date Picker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={viewMode === 'day' ? masterDayViewDateTime : new Date()}
+            mode={datePickerMode}
+            display="default"
+            onChange={handleDateChange}
+          />
+        )}
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
