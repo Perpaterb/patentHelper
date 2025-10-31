@@ -169,6 +169,7 @@ async function getMessageGroupMessages(req, res) {
     }
 
     // Check if user is a member of this message group
+    // Admins can view messages even if not a member (read-only)
     const messageGroupMembership = await prisma.messageGroupMember.findFirst({
       where: {
         messageGroupId: messageGroupId,
@@ -176,7 +177,7 @@ async function getMessageGroupMessages(req, res) {
       },
     });
 
-    if (!messageGroupMembership) {
+    if (!messageGroupMembership && groupMembership.role !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You are not a member of this message group',
@@ -187,7 +188,8 @@ async function getMessageGroupMessages(req, res) {
     const queryOptions = {
       where: {
         messageGroupId: messageGroupId,
-        isHidden: false, // Only show non-hidden messages by default
+        // Only hide hidden messages from non-admins
+        ...(groupMembership.role !== 'admin' && { isHidden: false }),
       },
       orderBy: {
         createdAt: 'asc', // Oldest first
@@ -479,6 +481,16 @@ async function markMessageGroupAsRead(req, res) {
       },
     });
 
+    // If user is not a member (admin viewing), just return success without marking as read
+    // Non-member admins should never have unread counts anyway
+    if (!messageGroupMember) {
+      return res.json({
+        success: true,
+        message: 'No action needed - not a member',
+        markedAsRead: 0,
+      });
+    }
+
     // Find all unread messages (messages created after lastReadAt that user hasn't read yet)
     const unreadMessages = await prisma.message.findMany({
       where: {
@@ -563,10 +575,233 @@ async function markMessageGroupAsRead(req, res) {
   }
 }
 
+/**
+ * Hide a message
+ * PUT /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/hide
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function hideMessage(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, messageId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const groupMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!groupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the message
+    const message = await prisma.message.findUnique({
+      where: {
+        messageId: messageId,
+      },
+      include: {
+        messageGroup: true,
+      },
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Message not found',
+      });
+    }
+
+    // Check if message belongs to this message group
+    if (message.messageGroupId !== messageGroupId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Message does not belong to this message group',
+      });
+    }
+
+    // Check permissions
+    const isAdmin = groupMembership.role === 'admin';
+    const isOwnMessage = message.senderId === groupMembership.groupMemberId;
+    const canDeleteOwnMessages = message.messageGroup.usersCanDeleteOwnMessages;
+
+    if (!isAdmin && !isOwnMessage) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only hide your own messages',
+      });
+    }
+
+    if (!isAdmin && isOwnMessage && !canDeleteOwnMessages) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Users cannot delete their own messages in this message group',
+      });
+    }
+
+    // Hide the message
+    await prisma.message.update({
+      where: {
+        messageId: messageId,
+      },
+      data: {
+        isHidden: true,
+        hiddenAt: new Date(),
+        hiddenBy: groupMembership.groupMemberId,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'hide_message',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'messages',
+        messageContent: `Hidden message: "${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}" (Message ID: ${messageId})`,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Message hidden successfully',
+    });
+  } catch (error) {
+    console.error('Hide message error:', error);
+    res.status(500).json({
+      error: 'Failed to hide message',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Unhide a message (admin only)
+ * PUT /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/unhide
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function unhideMessage(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, messageId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is an admin of this group
+    const groupMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!groupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    if (groupMembership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only admins can unhide messages',
+      });
+    }
+
+    // Get the message
+    const message = await prisma.message.findUnique({
+      where: {
+        messageId: messageId,
+      },
+    });
+
+    if (!message) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Message not found',
+      });
+    }
+
+    // Check if message belongs to this message group
+    if (message.messageGroupId !== messageGroupId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Message does not belong to this message group',
+      });
+    }
+
+    // Unhide the message
+    await prisma.message.update({
+      where: {
+        messageId: messageId,
+      },
+      data: {
+        isHidden: false,
+        hiddenAt: null,
+        hiddenBy: null,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'unhide_message',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'messages',
+        messageContent: `Unhidden message: "${message.content.substring(0, 100)}${message.content.length > 100 ? '...' : ''}" (Message ID: ${messageId})`,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Message unhidden successfully',
+    });
+  } catch (error) {
+    console.error('Unhide message error:', error);
+    res.status(500).json({
+      error: 'Failed to unhide message',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getMessages,
   sendMessage,
   getMessageGroupMessages,
   sendMessageGroupMessage,
   markMessageGroupAsRead,
+  hideMessage,
+  unhideMessage,
 };

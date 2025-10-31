@@ -36,9 +36,39 @@ router.put('/:messageGroupId', requireAuth, messageGroupsController.updateMessag
 
 /**
  * DELETE /groups/:groupId/message-groups/:messageGroupId
- * Delete a message group
+ * Delete a message group (soft delete)
  */
 router.delete('/:messageGroupId', requireAuth, messageGroupsController.deleteMessageGroup);
+
+/**
+ * POST /groups/:groupId/message-groups/:messageGroupId/undelete
+ * Undelete a message group (restore from soft delete)
+ */
+router.post('/:messageGroupId/undelete', requireAuth, messageGroupsController.undeleteMessageGroup);
+
+/**
+ * POST /groups/:groupId/message-groups/:messageGroupId/members
+ * Add members to a message group
+ */
+router.post('/:messageGroupId/members', requireAuth, messageGroupsController.addMembersToMessageGroup);
+
+/**
+ * DELETE /groups/:groupId/message-groups/:messageGroupId/members/:memberId
+ * Remove a member from a message group
+ */
+router.delete('/:messageGroupId/members/:memberId', requireAuth, messageGroupsController.removeMemberFromMessageGroup);
+
+/**
+ * PUT /groups/:groupId/message-groups/:messageGroupId/mute
+ * Mute a message group for the current user
+ */
+router.put('/:messageGroupId/mute', requireAuth, messageGroupsController.muteMessageGroup);
+
+/**
+ * PUT /groups/:groupId/message-groups/:messageGroupId/unmute
+ * Unmute a message group for the current user
+ */
+router.put('/:messageGroupId/unmute', requireAuth, messageGroupsController.unmuteMessageGroup);
 
 /**
  * GET /groups/:groupId/message-groups/:messageGroupId/messages
@@ -57,5 +87,17 @@ router.post('/:messageGroupId/messages', requireAuth, messagesController.sendMes
  * Mark message group as read
  */
 router.put('/:messageGroupId/mark-read', requireAuth, messagesController.markMessageGroupAsRead);
+
+/**
+ * PUT /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/hide
+ * Hide a message
+ */
+router.put('/:messageGroupId/messages/:messageId/hide', requireAuth, messagesController.hideMessage);
+
+/**
+ * PUT /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/unhide
+ * Unhide a message (admin only)
+ */
+router.put('/:messageGroupId/messages/:messageId/unhide', requireAuth, messagesController.unhideMessage);
 
 module.exports = router;

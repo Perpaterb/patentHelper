@@ -22,6 +22,7 @@ If an endpoint is missing or incorrect, **FIX THIS FILE FIRST**, then update cod
 - [Groups](#groups)
 - [Invitations](#invitations)
 - [Messages](#messages)
+- [Calendar](#calendar)
 - [Files](#files)
 - [Audit Logs](#audit-logs)
 
@@ -520,7 +521,17 @@ Get messages for a message group with pagination.
 }
 ```
 
-**Read Receipts**: Array of members who have read the message. Empty array if no one has read it yet. Sender's own messages won't have their read receipt.
+**Read Receipts Implementation:**
+- Array of members who have read the message
+- Empty array if no one has read it yet
+- Sender's own messages won't have their read receipt
+- **CRITICAL**: Only REGISTERED members (`isRegistered === true`) count toward read receipt calculations
+- Unregistered members (created by admins but not yet logged in) are excluded from "read by all" calculations
+- Frontend uses 4-state diamond system:
+  - `◇` (1 gray) = Sending (no messageId yet)
+  - `◇◇` (2 gray) = Delivered (messageId exists, no readReceipts)
+  - `◆◇` (blue+gray) = Read by some registered members
+  - `◆◆` (2 blue) = Read by all registered members
 
 ---
 
@@ -583,6 +594,319 @@ Mark all messages in a message group as read.
 - Creates audit log entry with message IDs (for admin exports)
 - Updates `lastReadAt` timestamp for the message group member
 - Doesn't create read receipts for user's own messages
+
+---
+
+## Calendar
+
+### GET /groups/:groupId/calendar/events
+
+Get calendar events for a group with optional date range filtering.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Query Parameters**:
+- `startDate` (optional): ISO 8601 date string (e.g., "2025-10-01T00:00:00.000Z")
+- `endDate` (optional): ISO 8601 date string (e.g., "2025-10-31T23:59:59.999Z")
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "events": [
+    {
+      "eventId": "uuid",
+      "groupId": "uuid",
+      "title": "Soccer Practice",
+      "description": "Weekly soccer practice at the park",
+      "location": "Central Park",
+      "startTime": "2025-10-25T15:00:00.000Z",
+      "endTime": "2025-10-25T17:00:00.000Z",
+      "allDay": false,
+      "isRecurring": false,
+      "recurrenceRule": null,
+      "isResponsibilityEvent": false,
+      "isHidden": false,
+      "createdAt": "2025-10-20T10:00:00.000Z",
+      "updatedAt": "2025-10-20T10:00:00.000Z",
+      "createdBy": "uuid",
+      "creator": {
+        "groupMemberId": "uuid",
+        "displayName": "Mom",
+        "iconLetters": "M",
+        "iconColor": "#6200ee"
+      },
+      "attendees": [
+        {
+          "groupMemberId": "uuid",
+          "displayName": "John",
+          "iconLetters": "J",
+          "iconColor": "#03dac6"
+        }
+      ],
+      "responsibilityEvents": []
+    }
+  ]
+}
+```
+
+**Notes**:
+- Events are sorted by `createdAt` ASC (important for layering logic)
+- Includes profile merging: User global profile takes precedence
+- Supervisors: No access to calendar
+- Children: View only
+
+---
+
+### POST /groups/:groupId/calendar/events
+
+Create a new calendar event.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "title": "Team Meeting",
+  "description": "Monthly planning meeting",
+  "location": "Conference Room A",
+  "startTime": "2025-10-30T14:00:00.000Z",
+  "endTime": "2025-10-30T15:00:00.000Z",
+  "allDay": false,
+  "isRecurring": false,
+  "recurrenceRule": null,
+  "attendeeIds": ["uuid1", "uuid2"]
+}
+```
+
+**Response** (201):
+```json
+{
+  "success": true,
+  "message": "Calendar event created successfully",
+  "event": {
+    "eventId": "uuid",
+    "title": "Team Meeting",
+    "startTime": "2025-10-30T14:00:00.000Z",
+    "endTime": "2025-10-30T15:00:00.000Z",
+    "createdBy": "uuid",
+    "creator": {
+      "displayName": "Mom"
+    },
+    "attendees": [...]
+  }
+}
+```
+
+**Permissions**:
+- Supervisors: Blocked
+- Children: Blocked
+- Parents/Caregivers/Admins: Allowed
+
+---
+
+### GET /groups/:groupId/calendar/events/:eventId
+
+Get a single calendar event by ID.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "event": {
+    "eventId": "uuid",
+    "title": "Soccer Practice",
+    "startTime": "2025-10-25T15:00:00.000Z",
+    "endTime": "2025-10-25T17:00:00.000Z",
+    "creator": {...},
+    "attendees": [...],
+    "responsibilityEvents": [...]
+  }
+}
+```
+
+---
+
+### PUT /groups/:groupId/calendar/events/:eventId
+
+Update an existing calendar event.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "title": "Updated Title",
+  "startTime": "2025-10-30T15:00:00.000Z",
+  "endTime": "2025-10-30T16:00:00.000Z",
+  "attendeeIds": ["uuid1", "uuid2", "uuid3"]
+}
+```
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Calendar event updated successfully",
+  "event": {
+    "eventId": "uuid",
+    "title": "Updated Title",
+    "createdAt": "2025-10-30T12:00:00.000Z",
+    "updatedAt": "2025-10-30T12:00:00.000Z"
+  }
+}
+```
+
+**IMPORTANT - Layering System**:
+- Editing an event updates the `createdAt` timestamp
+- This moves the event to the top of the layer stack
+- Later-created events override earlier ones in responsibility overlaps
+
+---
+
+### DELETE /groups/:groupId/calendar/events/:eventId
+
+Soft delete a calendar event (sets `isHidden` flag).
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Calendar event deleted successfully"
+}
+```
+
+**Behavior**:
+- Soft delete: Sets `isHidden = true`
+- Preserves event in database for audit trail
+- Event no longer appears in GET requests
+- Responsibility events: When deleted, previous layer automatically shows
+
+---
+
+### POST /groups/:groupId/calendar/responsibility-events
+
+Create a child responsibility event with overlap detection.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "childId": "uuid",
+  "startResponsibleMemberId": "uuid",
+  "endResponsibleMemberId": "uuid",
+  "changeTime": "2025-10-27T18:00:00.000Z",
+  "title": "Weekend with Mom",
+  "description": "Custody weekend",
+  "location": "Mom's House",
+  "startTime": "2025-10-25T18:00:00.000Z",
+  "endTime": "2025-10-27T18:00:00.000Z",
+  "allDay": false,
+  "isRecurring": false,
+  "recurrenceRule": null,
+  "checkOverlaps": true
+}
+```
+
+**Response - No Overlaps** (201):
+```json
+{
+  "success": true,
+  "message": "Responsibility event created successfully",
+  "responsibilityEvent": {
+    "responsibilityEventId": "uuid",
+    "eventId": "uuid",
+    "event": {...},
+    "child": {
+      "groupMemberId": "uuid",
+      "displayName": "John",
+      "iconLetters": "J",
+      "iconColor": "#03dac6"
+    },
+    "startResponsibleMember": {
+      "groupMemberId": "uuid",
+      "displayName": "Mom"
+    },
+    "endResponsibleMember": {
+      "groupMemberId": "uuid",
+      "displayName": "Dad"
+    },
+    "changeTime": "2025-10-27T18:00:00.000Z"
+  }
+}
+```
+
+**Response - Overlaps Detected (Warning)** (200):
+```json
+{
+  "success": false,
+  "requiresConfirmation": true,
+  "message": "Overlapping responsibility events detected",
+  "overlapInfo": {
+    "hasOverlaps": true,
+    "overlaps": [
+      {
+        "eventId": "uuid",
+        "eventTitle": "School Week with Dad",
+        "eventStartTime": "2025-10-21T18:00:00.000Z",
+        "eventEndTime": "2025-10-28T18:00:00.000Z",
+        "eventCreatedAt": "2025-10-15T10:00:00.000Z",
+        "overlapStartTime": "2025-10-25T18:00:00.000Z",
+        "overlapEndTime": "2025-10-27T18:00:00.000Z",
+        "child": {
+          "displayName": "John"
+        },
+        "startResponsibleMember": {
+          "displayName": "Dad"
+        },
+        "endResponsibleMember": null
+      }
+    ],
+    "warningMessage": "This event will override 1 existing responsibility event for John:\n\n1. \"School Week with Dad\"\n   Original: 10/21/2025, 6:00 PM → 10/28/2025, 6:00 PM\n   Overlap: 10/25/2025, 6:00 PM → 10/27/2025, 6:00 PM\n   Start Responsible: Dad\n\nThe new event will be layered on top and take priority during the overlapping times."
+  }
+}
+```
+
+**Layering System (Option A)**:
+1. **First Call** with `checkOverlaps: true`:
+   - Backend detects overlaps
+   - Returns `requiresConfirmation: true` with warning data
+   - NO event created yet
+
+2. **User Confirms** in warning popup
+
+3. **Second Call** with `checkOverlaps: false`:
+   - Backend creates event without checking
+   - Event is layered on top (by `createdAt` timestamp)
+   - Returns success with created event
+
+**Permissions**:
+- Supervisors: Blocked
+- Children: Blocked
+- Parents/Caregivers/Admins: Allowed
+
+**Behavior**:
+- Creates both `CalendarEvent` and `ChildResponsibilityEvent`
+- Sets `isResponsibilityEvent = true` on calendar event
+- Audit logs all responsibility event actions
+- Layering: Later-created events override earlier ones
 
 ---
 

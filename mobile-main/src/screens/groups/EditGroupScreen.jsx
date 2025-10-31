@@ -131,11 +131,23 @@ export default function EditGroupScreen({ navigation, route }) {
       setDeleting(true);
       setError(null);
 
-      await api.delete(`/groups/${groupId}`);
+      const response = await api.delete(`/groups/${groupId}`);
+
+      // Check if approval is required
+      if (response.data.requiresApproval) {
+        Alert.alert(
+          'Approval Requested',
+          `Your request to delete "${groupName}" requires approval from other admins. Check the Approvals screen to track its status.`,
+          [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]
+        );
+        return;
+      }
 
       Alert.alert(
-        'Request Sent',
-        'Request for deleting the group has been made.',
+        'Success',
+        'Group deleted successfully.',
         [
           {
             text: 'OK',
@@ -156,25 +168,7 @@ export default function EditGroupScreen({ navigation, route }) {
       }
 
       const errorMessage = err.response?.data?.message || err.message || 'Failed to delete group';
-
-      // Show specific error if approval is required
-      if (errorMessage.includes('Approval Required') || errorMessage.includes('approval')) {
-        Alert.alert(
-          'Approval Sent',
-          'Delete approval requests have been sent to all other admins. The group will be deleted if more than 75% of admins approve.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate back to groups list
-                navigation.navigate('Groups');
-              },
-            },
-          ]
-        );
-      } else {
-        setError(errorMessage);
-      }
+      setError(errorMessage);
     } finally {
       setDeleting(false);
     }

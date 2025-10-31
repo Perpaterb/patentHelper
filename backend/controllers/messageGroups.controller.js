@@ -42,15 +42,22 @@ async function getMessageGroups(req, res) {
       });
     }
 
-    // Get all message groups where user is a member
+    // Get message groups based on role:
+    // - Admins: ALL message groups in the group (even if not a member)
+    // - Non-admins: Only message groups they're a member of AND not hidden
     const messageGroups = await prisma.messageGroup.findMany({
       where: {
         groupId: groupId,
-        members: {
-          some: {
-            groupMemberId: userMembership.groupMemberId,
+        // Non-admins: must be a member AND message group must not be hidden
+        ...(userMembership.role !== 'admin' && {
+          members: {
+            some: {
+              groupMemberId: userMembership.groupMemberId,
+            },
           },
-        },
+          isHidden: false,
+        }),
+        // Admins: no restrictions, see everything
       },
       include: {
         members: {
@@ -99,35 +106,50 @@ async function getMessageGroups(req, res) {
         });
 
         // Count unread messages (messages created after lastReadAt)
-        const unreadCount = await prisma.message.count({
-          where: {
-            messageGroupId: messageGroup.messageGroupId,
-            isHidden: false,
-            createdAt: {
-              gt: currentUserMembership?.lastReadAt || new Date(0), // If no lastReadAt, all messages are unread
-            },
-          },
-        });
+        // Non-members (admin viewing) should always have 0 unread
+        // Exclude user's own messages from unread count
+        // If message group is muted, return 0 (no badges shown)
+        const unreadCount = currentUserMembership && !currentUserMembership.isMuted
+          ? await prisma.message.count({
+              where: {
+                messageGroupId: messageGroup.messageGroupId,
+                isHidden: false,
+                senderId: { not: userMembership.groupMemberId },
+                createdAt: {
+                  gt: currentUserMembership.lastReadAt || new Date(0),
+                },
+              },
+            })
+          : 0;
 
         // Count unread mentions (messages mentioning user created after lastReadAt)
-        const unreadMentionsCount = await prisma.message.count({
-          where: {
-            messageGroupId: messageGroup.messageGroupId,
-            isHidden: false,
-            mentions: {
-              has: userMembership.groupMemberId,
-            },
-            createdAt: {
-              gt: currentUserMembership?.lastReadAt || new Date(0),
-            },
-          },
-        });
+        // Non-members (admin viewing) should always have 0 unread mentions
+        // Exclude user's own messages from unread mentions count
+        // If message group is muted, return 0 (no badges shown)
+        const unreadMentionsCount = currentUserMembership && !currentUserMembership.isMuted
+          ? await prisma.message.count({
+              where: {
+                messageGroupId: messageGroup.messageGroupId,
+                isHidden: false,
+                senderId: { not: userMembership.groupMemberId },
+                mentions: {
+                  has: userMembership.groupMemberId,
+                },
+                createdAt: {
+                  gt: currentUserMembership.lastReadAt || new Date(0),
+                },
+              },
+            })
+          : 0;
 
         // Merge User profile data with GroupMember data (prioritize User profile)
         return {
           ...messageGroup,
           unreadCount,
           unreadMentionsCount,
+          isMember: !!currentUserMembership, // Flag indicating if current user is a member
+          isMuted: currentUserMembership?.isMuted || false, // Mute status for this message group
+          isPinned: currentUserMembership?.isPinned || false, // Pin status for this message group
           members: messageGroup.members.map(member => ({
             groupMemberId: member.groupMemberId,
             groupMember: {
@@ -356,7 +378,7 @@ async function getMessageGroupById(req, res) {
                 iconLetters: true,
                 iconColor: true,
                 role: true,
-                inviteStatus: true,
+                isRegistered: true,
                 user: {
                   select: {
                     displayName: true,
@@ -392,11 +414,12 @@ async function getMessageGroupById(req, res) {
     }
 
     // Verify user is a member of the message group
+    // Admins can view settings even if not a member
     const isMember = messageGroup.members.some(
       m => m.groupMemberId === userMembership.groupMemberId
     );
 
-    if (!isMember) {
+    if (!isMember && userMembership.role !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You are not a member of this message group',
@@ -414,7 +437,7 @@ async function getMessageGroupById(req, res) {
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
           role: member.groupMember.role,
-          inviteStatus: member.groupMember.inviteStatus,
+          isRegistered: member.groupMember.isRegistered,
         },
       })),
     };
@@ -443,7 +466,7 @@ async function updateMessageGroup(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId, messageGroupId } = req.params;
-    const { name } = req.body;
+    const { name, usersCanDeleteOwnMessages } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -452,10 +475,11 @@ async function updateMessageGroup(req, res) {
       });
     }
 
-    if (!name) {
+    // At least one field must be provided
+    if (!name && usersCanDeleteOwnMessages === undefined) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Name is required',
+        message: 'At least one field (name or usersCanDeleteOwnMessages) is required',
       });
     }
 
@@ -506,17 +530,30 @@ async function updateMessageGroup(req, res) {
       });
     }
 
+    // Build update data object
+    const updateData = {};
+    if (name) {
+      updateData.name = name.trim();
+    }
+    if (usersCanDeleteOwnMessages !== undefined) {
+      updateData.usersCanDeleteOwnMessages = usersCanDeleteOwnMessages;
+    }
+
     // Update message group
     const updatedMessageGroup = await prisma.messageGroup.update({
       where: {
         messageGroupId: messageGroupId,
       },
-      data: {
-        name: name.trim(),
-      },
+      data: updateData,
     });
 
     // Create audit log
+    const changes = [];
+    if (name) changes.push(`name to "${name}"`);
+    if (usersCanDeleteOwnMessages !== undefined) {
+      changes.push(`users can delete own messages to ${usersCanDeleteOwnMessages ? 'enabled' : 'disabled'}`);
+    }
+
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
@@ -525,7 +562,7 @@ async function updateMessageGroup(req, res) {
         performedByName: userMembership.displayName,
         performedByEmail: userMembership.email,
         actionLocation: 'message_groups',
-        messageContent: `Updated message group name to "${name}"`,
+        messageContent: `Updated message group: ${changes.join(', ')}`,
       },
     });
 
@@ -544,7 +581,7 @@ async function updateMessageGroup(req, res) {
 }
 
 /**
- * Delete message group
+ * Delete message group (soft delete - sets isHidden to true)
  * @param {Object} req - Express request
  * @param {Object} res - Express response
  */
@@ -599,18 +636,21 @@ async function deleteMessageGroup(req, res) {
       });
     }
 
-    // Only creator or admin can delete
-    if (messageGroup.createdBy !== userMembership.groupMemberId && userMembership.role !== 'admin') {
+    // Only admin can delete (soft delete)
+    if (userMembership.role !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
-        message: 'Only the creator or an admin can delete the message group',
+        message: 'Only admins can delete message groups',
       });
     }
 
-    // Delete message group (cascade will handle members and messages)
-    await prisma.messageGroup.delete({
+    // Soft delete: Set isHidden to true (makes it read-only)
+    await prisma.messageGroup.update({
       where: {
         messageGroupId: messageGroupId,
+      },
+      data: {
+        isHidden: true,
       },
     });
 
@@ -618,12 +658,12 @@ async function deleteMessageGroup(req, res) {
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
-        action: 'delete_message_group',
+        action: 'hide_message_group',
         performedBy: userMembership.groupMemberId,
         performedByName: userMembership.displayName,
         performedByEmail: userMembership.email,
         actionLocation: 'message_groups',
-        messageContent: `Deleted message group "${messageGroup.name}"`,
+        messageContent: `Soft deleted (hidden) message group "${messageGroup.name}"`,
       },
     });
 
@@ -640,10 +680,508 @@ async function deleteMessageGroup(req, res) {
   }
 }
 
+/**
+ * Undelete message group (sets isHidden to false)
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function undeleteMessageGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of the group
+    const userMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Only admin can undelete
+    if (userMembership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only admins can restore message groups',
+      });
+    }
+
+    // Get message group
+    const messageGroup = await prisma.messageGroup.findUnique({
+      where: {
+        messageGroupId: messageGroupId,
+      },
+    });
+
+    if (!messageGroup) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Message group not found',
+      });
+    }
+
+    // Verify message group belongs to the group
+    if (messageGroup.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Message group does not belong to this group',
+      });
+    }
+
+    // Undelete: Set isHidden to false
+    await prisma.messageGroup.update({
+      where: {
+        messageGroupId: messageGroupId,
+      },
+      data: {
+        isHidden: false,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'restore_message_group',
+        performedBy: userMembership.groupMemberId,
+        performedByName: userMembership.displayName,
+        performedByEmail: userMembership.email,
+        actionLocation: 'message_groups',
+        messageContent: `Restored message group "${messageGroup.name}"`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Message group restored successfully',
+    });
+  } catch (error) {
+    console.error('Undelete message group error:', error);
+    res.status(500).json({
+      error: 'Failed to restore message group',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Add members to message group
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function addMembersToMessageGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId } = req.params;
+    const { memberIds } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'memberIds array is required and must not be empty',
+      });
+    }
+
+    // Check if user is a member of the group
+    const userMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Only admin can add members
+    if (userMembership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only admins can add members to message groups',
+      });
+    }
+
+    // Get message group
+    const messageGroup = await prisma.messageGroup.findUnique({
+      where: {
+        messageGroupId: messageGroupId,
+      },
+    });
+
+    if (!messageGroup) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Message group not found',
+      });
+    }
+
+    // Verify message group belongs to the group
+    if (messageGroup.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Message group does not belong to this group',
+      });
+    }
+
+    // Verify all member IDs are valid group members
+    const validMembers = await prisma.groupMember.findMany({
+      where: {
+        groupMemberId: {
+          in: memberIds,
+        },
+        groupId: groupId,
+      },
+    });
+
+    if (validMembers.length !== memberIds.length) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Some member IDs are invalid or not in this group',
+      });
+    }
+
+    // Add members to message group
+    await prisma.messageGroupMember.createMany({
+      data: memberIds.map(memberId => ({
+        messageGroupId: messageGroupId,
+        groupMemberId: memberId,
+      })),
+      skipDuplicates: true,
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'add_message_group_members',
+        performedBy: userMembership.groupMemberId,
+        performedByName: userMembership.displayName,
+        performedByEmail: userMembership.email,
+        actionLocation: 'message_groups',
+        messageContent: `Added ${memberIds.length} member(s) to message group "${messageGroup.name}"`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Members added successfully',
+    });
+  } catch (error) {
+    console.error('Add members error:', error);
+    res.status(500).json({
+      error: 'Failed to add members',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Remove member from message group
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function removeMemberFromMessageGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, memberId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of the group
+    const userMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Only admin can remove members
+    if (userMembership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only admins can remove members from message groups',
+      });
+    }
+
+    // Get message group
+    const messageGroup = await prisma.messageGroup.findUnique({
+      where: {
+        messageGroupId: messageGroupId,
+      },
+      include: {
+        _count: {
+          select: {
+            members: true,
+          },
+        },
+      },
+    });
+
+    if (!messageGroup) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Message group not found',
+      });
+    }
+
+    // Verify message group belongs to the group
+    if (messageGroup.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Message group does not belong to this group',
+      });
+    }
+
+    // Prevent removing last member
+    if (messageGroup._count.members <= 1) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Cannot remove the last member from a message group',
+      });
+    }
+
+    // Remove member from message group
+    await prisma.messageGroupMember.delete({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: memberId,
+        },
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'remove_message_group_member',
+        performedBy: userMembership.groupMemberId,
+        performedByName: userMembership.displayName,
+        performedByEmail: userMembership.email,
+        actionLocation: 'message_groups',
+        messageContent: `Removed member from message group "${messageGroup.name}"`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Member removed successfully',
+    });
+  } catch (error) {
+    console.error('Remove member error:', error);
+    res.status(500).json({
+      error: 'Failed to remove member',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Mute a message group for the current user
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function muteMessageGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of the main group
+    const userMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Check if user is a member of the message group
+    const messageGroupMembership = await prisma.messageGroupMember.findUnique({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: userMembership.groupMemberId,
+        },
+      },
+    });
+
+    if (!messageGroupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this message group',
+      });
+    }
+
+    // Mute the message group
+    await prisma.messageGroupMember.update({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: userMembership.groupMemberId,
+        },
+      },
+      data: {
+        isMuted: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Message group muted successfully',
+    });
+  } catch (error) {
+    console.error('Mute message group error:', error);
+    res.status(500).json({
+      error: 'Failed to mute message group',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Unmute a message group for the current user
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function unmuteMessageGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of the main group
+    const userMembership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Check if user is a member of the message group
+    const messageGroupMembership = await prisma.messageGroupMember.findUnique({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: userMembership.groupMemberId,
+        },
+      },
+    });
+
+    if (!messageGroupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this message group',
+      });
+    }
+
+    // Unmute the message group
+    await prisma.messageGroupMember.update({
+      where: {
+        messageGroupId_groupMemberId: {
+          messageGroupId: messageGroupId,
+          groupMemberId: userMembership.groupMemberId,
+        },
+      },
+      data: {
+        isMuted: false,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Message group unmuted successfully',
+    });
+  } catch (error) {
+    console.error('Unmute message group error:', error);
+    res.status(500).json({
+      error: 'Failed to unmute message group',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getMessageGroups,
   createMessageGroup,
   getMessageGroupById,
   updateMessageGroup,
   deleteMessageGroup,
+  undeleteMessageGroup,
+  addMembersToMessageGroup,
+  removeMemberFromMessageGroup,
+  muteMessageGroup,
+  unmuteMessageGroup,
 };

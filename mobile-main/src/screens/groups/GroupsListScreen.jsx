@@ -245,6 +245,33 @@ export default function GroupsListScreen({ navigation }) {
   };
 
   /**
+   * Handle mute/unmute group
+   */
+  const handleMuteToggle = async (groupId, isMuted, event) => {
+    // Stop event propagation to prevent navigating to group
+    event?.stopPropagation?.();
+
+    try {
+      if (isMuted) {
+        await api.put(`/groups/${groupId}/unmute`);
+      } else {
+        await api.put(`/groups/${groupId}/mute`);
+      }
+
+      // Reload groups to show updated mute status
+      loadGroups();
+    } catch (err) {
+      console.error('Mute toggle error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[GroupsList] Auth error detected - user will be logged out');
+        return;
+      }
+    }
+  };
+
+  /**
    * Render group item
    */
   const renderGroupItem = ({ item }) => (
@@ -276,23 +303,57 @@ export default function GroupsListScreen({ navigation }) {
         </View>
 
         <View style={styles.groupFooter}>
-          <Chip
-            mode="outlined"
-            style={{ backgroundColor: getRoleBadgeColor(item.role) }}
-            textStyle={{ color: '#fff', fontSize: 12 }}
-          >
-            {item.role.toUpperCase()}
-          </Chip>
-          {item.isMuted && (
+          <View style={styles.groupFooterLeft}>
             <Chip
               mode="outlined"
-              style={{ backgroundColor: '#757575', marginLeft: 8 }}
+              style={{ backgroundColor: getRoleBadgeColor(item.role) }}
               textStyle={{ color: '#fff', fontSize: 12 }}
-              icon="bell-off"
             >
-              MUTED
+              {item.role.toUpperCase()}
             </Chip>
-          )}
+            {item.isMuted && (
+              <Chip
+                mode="outlined"
+                style={{ backgroundColor: '#757575', marginLeft: 8 }}
+                textStyle={{ color: '#fff', fontSize: 12 }}
+                icon="bell-off"
+              >
+                MUTED
+              </Chip>
+            )}
+            {/* Badge counts */}
+            {(item.unreadMentionsCount > 0 || item.unreadMessagesCount > 0 || item.pendingApprovalsCount > 0 || item.pendingFinanceCount > 0) && (
+              <View style={styles.badgesRow}>
+                {item.unreadMentionsCount > 0 && (
+                  <Badge size={20} style={styles.mentionBadge}>
+                    {item.unreadMentionsCount}
+                  </Badge>
+                )}
+                {item.unreadMessagesCount > 0 && (
+                  <Badge size={20} style={styles.unreadBadge}>
+                    {item.unreadMessagesCount}
+                  </Badge>
+                )}
+                {item.pendingApprovalsCount > 0 && (
+                  <Badge size={20} style={styles.approvalBadge}>
+                    {item.pendingApprovalsCount}
+                  </Badge>
+                )}
+                {item.pendingFinanceCount > 0 && (
+                  <Badge size={20} style={styles.financeBadge}>
+                    {item.pendingFinanceCount}
+                  </Badge>
+                )}
+              </View>
+            )}
+          </View>
+          <IconButton
+            icon={item.isMuted ? 'ear-hearing-off' : 'ear-hearing'}
+            size={20}
+            iconColor={item.isMuted ? '#ccc' : '#6200ee'}
+            onPress={(e) => handleMuteToggle(item.groupId, item.isMuted, e)}
+            style={styles.muteButton}
+          />
         </View>
       </Card.Content>
     </Card>
@@ -415,6 +476,37 @@ const styles = StyleSheet.create({
   groupFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  groupFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  muteButton: {
+    margin: 0,
+    marginTop: -8,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+  },
+  mentionBadge: {
+    backgroundColor: '#f9a825',
+  },
+  unreadBadge: {
+    backgroundColor: '#2196f3',
+  },
+  approvalBadge: {
+    backgroundColor: '#e91e63',
+  },
+  financeBadge: {
+    backgroundColor: '#d32f2f',
+  },
+  calendarBadge: {
+    backgroundColor: '#9c27b0',
   },
   emptyState: {
     flex: 1,

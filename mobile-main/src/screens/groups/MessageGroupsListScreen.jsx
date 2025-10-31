@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Card, Title, Text, FAB, Avatar, Chip } from 'react-native-paper';
+import { Card, Title, Text, FAB, Avatar, Chip, IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
@@ -30,6 +30,8 @@ export default function MessageGroupsListScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [groupInfo, setGroupInfo] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [expandedCards, setExpandedCards] = useState({}); // Track which cards are expanded
 
   useEffect(() => {
     loadGroupInfo();
@@ -49,6 +51,7 @@ export default function MessageGroupsListScreen({ navigation, route }) {
     try {
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
+      setUserRole(response.data.group?.userRole || null);
     } catch (err) {
       console.error('Load group info error:', err);
     }
@@ -98,6 +101,54 @@ export default function MessageGroupsListScreen({ navigation, route }) {
   };
 
   /**
+   * Navigate to message group settings
+   */
+  const handleMessageGroupSettings = (messageGroup) => {
+    navigation.navigate('MessageGroupSettings', {
+      groupId: groupId,
+      messageGroupId: messageGroup.messageGroupId,
+      messageGroupName: messageGroup.name,
+    });
+  };
+
+  /**
+   * Toggle expanded state for a card
+   */
+  const toggleCardExpanded = (messageGroupId) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [messageGroupId]: !prev[messageGroupId]
+    }));
+  };
+
+  /**
+   * Handle mute/unmute message group
+   */
+  const handleMuteToggle = async (messageGroupId, isMuted, event) => {
+    // Stop event propagation to prevent navigating to messages
+    event?.stopPropagation?.();
+
+    try {
+      if (isMuted) {
+        await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/unmute`);
+      } else {
+        await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/mute`);
+      }
+
+      // Reload message groups to show updated mute status
+      loadMessageGroups();
+    } catch (err) {
+      console.error('Mute toggle error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[MessageGroupsList] Auth error detected - user will be logged out');
+        return;
+      }
+    }
+  };
+
+  /**
    * Format last message time
    */
   const formatLastMessageTime = (timestamp) => {
@@ -126,16 +177,45 @@ export default function MessageGroupsListScreen({ navigation, route }) {
   const renderMessageGroup = ({ item }) => (
     <TouchableOpacity
       onPress={() => handleMessageGroupPress(item)}
+      onLongPress={() => toggleCardExpanded(item.messageGroupId)}
       activeOpacity={0.7}
     >
-      <Card style={styles.card}>
+      <Card style={[styles.card, item.isHidden && userRole === 'admin' && styles.hiddenCard]}>
         <Card.Content>
           <View style={styles.cardHeader}>
             <View style={styles.groupInfo}>
-              <Title style={styles.groupName}>{item.name}</Title>
-              <Text style={styles.memberCount}>
-                {item._count?.members || 0} members
-              </Text>
+              <View style={styles.titleRow}>
+                <View style={styles.nameWithIcon}>
+                  <Title style={styles.groupName}>{item.name}</Title>
+                  {item.isHidden && userRole === 'admin' && (
+                    <IconButton
+                      icon="eye-off"
+                      size={20}
+                      iconColor="#999"
+                      style={styles.hiddenIcon}
+                    />
+                  )}
+                </View>
+                {userRole === 'admin' && (
+                  <IconButton
+                    icon="cog"
+                    size={20}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleMessageGroupSettings(item);
+                    }}
+                    style={styles.settingsButton}
+                  />
+                )}
+              </View>
+              <View style={styles.memberInfoRow}>
+                <Text style={styles.memberCount}>
+                  {item._count?.members || 0} members
+                </Text>
+                {!item.isMember && userRole === 'admin' && (
+                  <Text style={styles.notMemberBadge}>(not a member)</Text>
+                )}
+              </View>
             </View>
             <View style={styles.badgeContainer}>
               {item.unreadMentionsCount > 0 && (
@@ -151,32 +231,64 @@ export default function MessageGroupsListScreen({ navigation, route }) {
             </View>
           </View>
 
-          <Text style={styles.lastMessage}>
-            {formatLastMessageTime(item.lastMessageAt)}
-          </Text>
-
-          <View style={styles.membersRow}>
-            {item.members?.slice(0, 5).map((member, index) => {
-              const bgColor = member.groupMember?.iconColor || '#6200ee';
-              return (
-                <Avatar.Text
-                  key={member.groupMemberId}
-                  size={32}
-                  label={member.groupMember?.iconLetters || '?'}
-                  style={{
-                    backgroundColor: bgColor,
-                    marginLeft: index > 0 ? -6 : 0,
-                  }}
-                  color={getContrastTextColor(bgColor)}
-                />
-              );
-            })}
-            {item.members?.length > 5 && (
-              <Text style={styles.moreMembersText}>
-                +{item.members.length - 5}
-              </Text>
-            )}
+          <View style={styles.footerRow}>
+            <Text style={styles.lastMessage}>
+              {formatLastMessageTime(item.lastMessageAt)}
+            </Text>
+            <IconButton
+              icon={item.isMuted ? 'ear-hearing-off' : 'ear-hearing'}
+              size={20}
+              iconColor={item.isMuted ? '#ccc' : '#6200ee'}
+              onPress={(e) => handleMuteToggle(item.messageGroupId, item.isMuted, e)}
+              style={styles.muteButton}
+            />
           </View>
+
+          {!expandedCards[item.messageGroupId] ? (
+            // Collapsed view - show first 5 avatars
+            <View style={styles.membersRow}>
+              {item.members?.slice(0, 5).map((member, index) => {
+                const bgColor = member.groupMember?.iconColor || '#6200ee';
+                return (
+                  <Avatar.Text
+                    key={member.groupMemberId}
+                    size={32}
+                    label={member.groupMember?.iconLetters || '?'}
+                    style={{
+                      backgroundColor: bgColor,
+                      marginLeft: index > 0 ? -6 : 0,
+                    }}
+                    color={getContrastTextColor(bgColor)}
+                  />
+                );
+              })}
+              {item.members?.length > 5 && (
+                <Text style={styles.moreMembersText}>
+                  +{item.members.length - 5}
+                </Text>
+              )}
+            </View>
+          ) : (
+            // Expanded view - show all members with names
+            <View style={styles.membersExpandedContainer}>
+              {item.members?.map((member) => {
+                const bgColor = member.groupMember?.iconColor || '#6200ee';
+                return (
+                  <View key={member.groupMemberId} style={styles.memberExpandedRow}>
+                    <Avatar.Text
+                      size={32}
+                      label={member.groupMember?.iconLetters || '?'}
+                      style={{ backgroundColor: bgColor }}
+                      color={getContrastTextColor(bgColor)}
+                    />
+                    <Text style={styles.memberExpandedName}>
+                      {member.groupMember?.displayName || 'Unknown'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </Card.Content>
       </Card>
     </TouchableOpacity>
@@ -257,6 +369,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
+  hiddenCard: {
+    backgroundColor: '#757575', // Lighter grey background for hidden message groups
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -266,14 +381,42 @@ const styles = StyleSheet.create({
   groupInfo: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  nameWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   groupName: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
   },
+  hiddenIcon: {
+    margin: 0,
+    marginLeft: 4,
+  },
+  settingsButton: {
+    margin: 0,
+    marginLeft: 8,
+  },
+  memberInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   memberCount: {
     fontSize: 13,
     color: '#666',
+  },
+  notMemberBadge: {
+    fontSize: 12,
+    color: '#1565c0',
+    fontStyle: 'italic',
   },
   badgeContainer: {
     flexDirection: 'row',
@@ -292,10 +435,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196f3',
     borderColor: '#1976d2',
   },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   lastMessage: {
     fontSize: 13,
     color: '#999',
-    marginBottom: 12,
+    flex: 1,
+  },
+  muteButton: {
+    margin: 0,
+    marginTop: -8,
   },
   membersRow: {
     flexDirection: 'row',
@@ -310,6 +463,21 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 13,
     color: '#666',
+  },
+  membersExpandedContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  memberExpandedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  memberExpandedName: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
   emptyState: {
     flex: 1,

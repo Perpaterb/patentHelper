@@ -18,6 +18,7 @@ import {
   IconButton,
   Divider,
   Switch,
+  Menu,
 } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -48,6 +49,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const [groupSettings, setGroupSettings] = useState(null);
   const [adminPermissions, setAdminPermissions] = useState([]);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
 
   useEffect(() => {
     loadGroupDetails();
@@ -55,6 +57,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     loadGroupSettings();
     loadAdminPermissions();
   }, [groupId]);
+
 
   /**
    * Refresh on screen focus
@@ -204,6 +207,39 @@ export default function GroupSettingsScreen({ navigation, route }) {
   };
 
   /**
+   * Handle currency change
+   */
+  const handleCurrencyChange = async (currencyCode) => {
+    setCurrencyMenuVisible(false);
+
+    try {
+      // Optimistically update UI
+      setGroupSettings(prev => ({
+        ...prev,
+        defaultCurrency: currencyCode,
+      }));
+
+      await api.put(`/groups/${groupId}/settings`, {
+        ...groupSettings,
+        defaultCurrency: currencyCode,
+      });
+
+      Alert.alert('Success', `Default currency changed to ${currencyCode}`);
+    } catch (err) {
+      console.error('Change currency error:', err);
+
+      if (err.isAuthError) {
+        console.log('[GroupSettings] Auth error detected - user will be logged out');
+        return;
+      }
+
+      // Revert on error
+      await loadGroupSettings();
+      Alert.alert('Error', err.response?.data?.message || 'Failed to change currency');
+    }
+  };
+
+  /**
    * Navigate to edit group screen
    */
   const handleEditGroup = () => {
@@ -288,9 +324,21 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const confirmChangeRole = async (member, newRole) => {
     try {
-      await api.put(`/groups/${groupId}/members/${member.userId}/role`, {
+      const response = await api.put(`/groups/${groupId}/members/${member.userId}/role`, {
         role: newRole,
       });
+
+      // Check if approval is required
+      if (response.data.requiresApproval) {
+        Alert.alert(
+          'Approval Requested',
+          `Your request to change ${member.displayName || member.email}'s role to ${newRole} requires approval from other admins. Check the Approvals screen to track its status.`,
+          [
+            { text: 'OK' },
+          ]
+        );
+        return;
+      }
 
       Alert.alert('Success', `Role changed to ${newRole}`);
       loadGroupDetails(); // Reload to show updated role
@@ -331,7 +379,19 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const confirmRemoveMember = async (member) => {
     try {
-      await api.delete(`/groups/${groupId}/members/${member.userId}`);
+      const response = await api.delete(`/groups/${groupId}/members/${member.userId}`);
+
+      // Check if approval is required
+      if (response.data.requiresApproval) {
+        Alert.alert(
+          'Approval Requested',
+          `Your request to remove ${member.displayName || member.email} from the group requires approval from other admins. Check the Approvals screen to track its status.`,
+          [
+            { text: 'OK' },
+          ]
+        );
+        return;
+      }
 
       Alert.alert('Success', 'Member removed from group');
       loadGroupDetails(); // Reload to show updated member list
@@ -459,9 +519,6 @@ export default function GroupSettingsScreen({ navigation, route }) {
             />
             <View style={styles.groupHeaderInfo}>
               <Title style={styles.groupName}>{groupInfo.name}</Title>
-              <Text style={styles.memberCount}>
-                {members.length} member{members.length !== 1 ? 's' : ''}
-              </Text>
             </View>
           </View>
 
@@ -505,7 +562,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
           {members.map((member, index) => (
             <List.Item
-              key={member.userId}
+              key={member.groupMemberId}
               title={member.email || 'No email'}
               description={member.displayName}
               onPress={() => handleMemberPress(member)}
@@ -535,6 +592,44 @@ export default function GroupSettingsScreen({ navigation, route }) {
           ))}
         </Card.Content>
       </Card>
+
+      {/* Currency Settings Section (Admin Only) */}
+      {userRole === 'admin' && groupSettings && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>Currency</Title>
+            <Text style={styles.sectionDescription}>
+              Default currency for finance matters in this group
+            </Text>
+            <Divider style={styles.divider} />
+
+            <Menu
+              visible={currencyMenuVisible}
+              onDismiss={() => setCurrencyMenuVisible(false)}
+              anchor={
+                <Button
+                  mode="outlined"
+                  onPress={() => setCurrencyMenuVisible(true)}
+                  icon="currency-usd"
+                  style={styles.currencyButton}
+                  contentStyle={styles.currencyButtonContent}
+                >
+                  {groupSettings.defaultCurrency || 'USD'}
+                </Button>
+              }
+            >
+              <Menu.Item onPress={() => handleCurrencyChange('USD')} title="USD - US Dollar" />
+              <Menu.Item onPress={() => handleCurrencyChange('EUR')} title="EUR - Euro" />
+              <Menu.Item onPress={() => handleCurrencyChange('GBP')} title="GBP - British Pound" />
+              <Menu.Item onPress={() => handleCurrencyChange('CAD')} title="CAD - Canadian Dollar" />
+              <Menu.Item onPress={() => handleCurrencyChange('AUD')} title="AUD - Australian Dollar" />
+              <Menu.Item onPress={() => handleCurrencyChange('JPY')} title="JPY - Japanese Yen" />
+              <Menu.Item onPress={() => handleCurrencyChange('CNY')} title="CNY - Chinese Yuan" />
+              <Menu.Item onPress={() => handleCurrencyChange('INR')} title="INR - Indian Rupee" />
+            </Menu>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Group Permissions Section (Admin Only) */}
       {userRole === 'admin' && groupSettings && (
@@ -653,126 +748,23 @@ export default function GroupSettingsScreen({ navigation, route }) {
         </Card>
       )}
 
-      {/* Admin Auto-Approval Permissions (Admin Only) */}
-      {userRole === 'admin' && adminPermissions.length > 0 && (
+      {/* Auto-Approve Settings (Admin Only) */}
+      {userRole === 'admin' && (
         <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.sectionTitle}>Admin Auto-Approval Permissions</Title>
+            <Title style={styles.sectionTitle}>Auto-Approve Settings</Title>
             <Text style={styles.helperText}>
-              Allow other admins to perform actions without your approval
+              Pre-approve specific actions from other admins. When more than 50% of other admins have
+              pre-approved an action type, it will execute immediately without requiring approval.
             </Text>
-            <Divider style={styles.divider} />
-
-            {adminPermissions.map((admin) => (
-              <View key={admin.userId} style={styles.adminPermissionSection}>
-                <View style={styles.adminHeader}>
-                  <Avatar.Text
-                    size={32}
-                    label={admin.displayName?.[0] || admin.email?.[0] || 'A'}
-                    style={{ backgroundColor: admin.iconColor || '#6200ee', marginRight: 8 }}
-                    color={getContrastTextColor(admin.iconColor || '#6200ee')}
-                  />
-                  <Text style={styles.adminName}>{admin.displayName || admin.email}</Text>
-                </View>
-
-                <View style={styles.permissionsList}>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Hide messages</Text>
-                    <Switch
-                      value={admin.canHideMessagesWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canHideMessagesWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Add people</Text>
-                    <Switch
-                      value={admin.canAddPeopleWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canAddPeopleWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Remove people</Text>
-                    <Switch
-                      value={admin.canRemovePeopleWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canRemovePeopleWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Assign roles (new users)</Text>
-                    <Switch
-                      value={admin.canAssignRoleWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canAssignRoleWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Change roles (non-admins)</Text>
-                    <Switch
-                      value={admin.canChangeRoleWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canChangeRoleWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Assign relationships</Text>
-                    <Switch
-                      value={admin.canAssignRelationshipWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canAssignRelationshipWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Change relationships (non-admins)</Text>
-                    <Switch
-                      value={admin.canChangeRelationshipWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canChangeRelationshipWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Create calendar entries</Text>
-                    <Switch
-                      value={admin.canMakeCalendarEntriesWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canMakeCalendarEntriesWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Assign children to calendar</Text>
-                    <Switch
-                      value={admin.canAssignChildrenToCalendarWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canAssignChildrenToCalendarWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.permissionLabel}>Assign caregivers to calendar</Text>
-                    <Switch
-                      value={admin.canAssignCaregiversToCalendarWithoutApproval ?? false}
-                      onValueChange={(value) =>
-                        handleToggleAdminPermission(admin.userId, 'canAssignCaregiversToCalendarWithoutApproval', value)
-                      }
-                    />
-                  </View>
-                </View>
-
-                {adminPermissions.indexOf(admin) < adminPermissions.length - 1 && (
-                  <Divider style={styles.sectionDivider} />
-                )}
-              </View>
-            ))}
+            <Button
+              mode="outlined"
+              icon="shield-check"
+              onPress={() => navigation.navigate('AutoApproveSettings', { groupId })}
+              style={styles.autoApproveButton}
+            >
+              Manage Auto-Approve Permissions
+            </Button>
           </Card.Content>
         </Card>
       )}
@@ -840,14 +832,12 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  memberCount: {
-    fontSize: 14,
-    color: '#666',
   },
   editButton: {
     marginTop: 8,
+  },
+  autoApproveButton: {
+    marginTop: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -934,5 +924,17 @@ const styles = StyleSheet.create({
     color: '#555',
     flex: 1,
     marginRight: 12,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+  },
+  currencyButton: {
+    marginTop: 8,
+    borderColor: '#6200ee',
+  },
+  currencyButtonContent: {
+    height: 48,
   },
 });

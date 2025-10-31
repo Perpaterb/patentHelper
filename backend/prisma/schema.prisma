@@ -47,16 +47,16 @@ model Group {
   createdByTrialUser Boolean           @default(false) @map("created_by_trial_user")
   createdByUserId    String?           @map("created_by_user_id") @db.Uuid
   adminPermissions   AdminPermission[]
-  approvals          Approval[]
-  auditLogs          AuditLog[]
-  calendarEvents     CalendarEvent[]
-  financeMatters     FinanceMatter[]
-  members            GroupMember[]
-  settings           GroupSettings?
-  createdBy          User?             @relation("GroupCreator", fields: [createdByUserId], references: [userId])
-  messageGroups      MessageGroup[]
-  relationships      Relationship[]
-  storageUsage       StorageUsage[]
+  approvals             Approval[]
+  auditLogs             AuditLog[]
+  calendarEvents        CalendarEvent[]
+  financeMatters        FinanceMatter[]
+  members               GroupMember[]
+  settings              GroupSettings?
+  createdBy             User?                   @relation("GroupCreator", fields: [createdByUserId], references: [userId])
+  messageGroups         MessageGroup[]
+  relationships         Relationship[]
+  storageUsage          StorageUsage[]
 
   @@index([createdAt])
   @@map("groups")
@@ -96,6 +96,7 @@ model GroupMember {
   financeMatterMemberships FinanceMatterMember[]
   createdFinanceMatters    FinanceMatter[]            @relation("FinanceMatterCreator")
   settledFinanceMatters    FinanceMatter[]            @relation("FinanceMatterSettler")
+  canceledFinanceMatters   FinanceMatter[]            @relation("FinanceMatterCanceler")
   paymentsFrom             FinancePayment[]           @relation("PaymentFrom")
   paymentsTo               FinancePayment[]           @relation("PaymentTo")
   group                    Group                      @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
@@ -103,10 +104,11 @@ model GroupMember {
   messageGroupMemberships  MessageGroupMember[]
   createdMessageGroups     MessageGroup[]             @relation("MessageGroupCreator")
   messageReadReceipts      MessageReadReceipt[]
-  hiddenMessages           Message[]                  @relation("MessageHider")
-  sentMessages             Message[]                  @relation("MessageSender")
-  relationshipsAsMember1   Relationship[]             @relation("Member1")
-  relationshipsAsMember2   Relationship[]             @relation("Member2")
+  hiddenMessages              Message[]                  @relation("MessageHider")
+  sentMessages                Message[]                  @relation("MessageSender")
+  sentFinanceMatterMessages   FinanceMatterMessage[]     @relation("FinanceMatterMessageSender")
+  relationshipsAsMember1      Relationship[]             @relation("Member1")
+  relationshipsAsMember2      Relationship[]             @relation("Member2")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -142,6 +144,7 @@ model GroupSettings {
   financeCreatableByCaregivers  Boolean  @default(false) @map("finance_creatable_by_caregivers")
   financeVisibleToChildren      Boolean  @default(false) @map("finance_visible_to_children")
   financeCreatableByChildren    Boolean  @default(false) @map("finance_creatable_by_children")
+  defaultCurrency               String   @default("USD") @map("default_currency") @db.VarChar(3)
   updatedAt                     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   group                         Group    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
 
@@ -163,6 +166,7 @@ model AdminPermission {
   autoApproveCalendarEntries          Boolean     @default(false) @map("auto_approve_calendar_entries")
   autoApproveAssignChildrenToEvents   Boolean     @default(false) @map("auto_approve_assign_children_to_events")
   autoApproveAssignCaregiversToEvents Boolean     @default(false) @map("auto_approve_assign_caregivers_to_events")
+  autoApproveChangeMessageDeletionSetting Boolean @default(false) @map("auto_approve_change_message_deletion_setting")
   createdAt                           DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt                           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   grantingAdmin                       GroupMember @relation("GrantingAdmin", fields: [grantingAdminId], references: [groupMemberId])
@@ -174,17 +178,19 @@ model AdminPermission {
 }
 
 model MessageGroup {
-  messageGroupId String               @id @default(uuid()) @map("message_group_id") @db.Uuid
-  groupId        String               @map("group_id") @db.Uuid
-  name           String               @db.VarChar(255)
-  createdBy      String               @map("created_by") @db.Uuid
-  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt      DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  lastMessageAt  DateTime?            @map("last_message_at") @db.Timestamp(6)
-  members        MessageGroupMember[]
-  creator        GroupMember          @relation("MessageGroupCreator", fields: [createdBy], references: [groupMemberId])
-  group          Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  messages       Message[]
+  messageGroupId           String               @id @default(uuid()) @map("message_group_id") @db.Uuid
+  groupId                  String               @map("group_id") @db.Uuid
+  name                     String               @db.VarChar(255)
+  createdBy                String               @map("created_by") @db.Uuid
+  createdAt                DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  lastMessageAt            DateTime?            @map("last_message_at") @db.Timestamp(6)
+  isHidden                 Boolean              @default(false) @map("is_hidden")
+  usersCanDeleteOwnMessages Boolean             @default(true) @map("users_can_delete_own_messages")
+  members                  MessageGroupMember[]
+  creator                  GroupMember          @relation("MessageGroupCreator", fields: [createdBy], references: [groupMemberId])
+  group                    Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  messages                 Message[]
 
   @@index([groupId])
   @@index([lastMessageAt])
@@ -196,6 +202,7 @@ model MessageGroupMember {
   groupMemberId  String       @map("group_member_id") @db.Uuid
   joinedAt       DateTime     @default(now()) @map("joined_at") @db.Timestamp(6)
   isPinned       Boolean      @default(false) @map("is_pinned")
+  isMuted        Boolean      @default(false) @map("is_muted")
   lastReadAt     DateTime?    @map("last_read_at") @db.Timestamp(6)
   groupMember    GroupMember  @relation(fields: [groupMemberId], references: [groupMemberId])
   messageGroup   MessageGroup @relation(fields: [messageGroupId], references: [messageGroupId], onDelete: Cascade)
@@ -334,14 +341,20 @@ model FinanceMatter {
   isSettled       Boolean               @default(false) @map("is_settled")
   settledAt       DateTime?             @map("settled_at") @db.Timestamp(6)
   settledBy       String?               @map("settled_by") @db.Uuid
+  isCanceled      Boolean               @default(false) @map("is_canceled")
+  canceledAt      DateTime?             @map("canceled_at") @db.Timestamp(6)
+  canceledBy      String?               @map("canceled_by") @db.Uuid
   members         FinanceMatterMember[]
   creator         GroupMember           @relation("FinanceMatterCreator", fields: [createdBy], references: [groupMemberId])
   group           Group                 @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  settler         GroupMember?          @relation("FinanceMatterSettler", fields: [settledBy], references: [groupMemberId])
+  settler         GroupMember?             @relation("FinanceMatterSettler", fields: [settledBy], references: [groupMemberId])
+  canceler        GroupMember?             @relation("FinanceMatterCanceler", fields: [canceledBy], references: [groupMemberId])
   payments        FinancePayment[]
+  messages        FinanceMatterMessage[]
 
   @@index([groupId])
   @@index([isSettled])
+  @@index([isCanceled])
   @@map("finance_matters")
 }
 
@@ -378,6 +391,22 @@ model FinancePayment {
   @@map("finance_payments")
 }
 
+model FinanceMatterMessage {
+  messageId       String        @id @default(uuid()) @map("message_id") @db.Uuid
+  financeMatterId String        @map("finance_matter_id") @db.Uuid
+  senderId        String        @map("sender_id") @db.Uuid
+  content         String        @db.Text
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  isHidden        Boolean       @default(false) @map("is_hidden")
+  financeMatter   FinanceMatter @relation(fields: [financeMatterId], references: [financeMatterId], onDelete: Cascade)
+  sender          GroupMember   @relation("FinanceMatterMessageSender", fields: [senderId], references: [groupMemberId])
+
+  @@index([financeMatterId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("finance_matter_messages")
+}
+
 model Approval {
   approvalId                 String         @id @default(uuid()) @map("approval_id") @db.Uuid
   groupId                    String         @map("group_id") @db.Uuid
@@ -402,12 +431,13 @@ model Approval {
 }
 
 model ApprovalVote {
-  approvalId String      @map("approval_id") @db.Uuid
-  adminId    String      @map("admin_id") @db.Uuid
-  vote       String      @db.VarChar(10)
-  votedAt    DateTime    @default(now()) @map("voted_at") @db.Timestamp(6)
-  admin      GroupMember @relation(fields: [adminId], references: [groupMemberId])
-  approval   Approval    @relation(fields: [approvalId], references: [approvalId], onDelete: Cascade)
+  approvalId     String      @map("approval_id") @db.Uuid
+  adminId        String      @map("admin_id") @db.Uuid
+  vote           String      @db.VarChar(10)
+  isAutoApproved Boolean     @default(false) @map("is_auto_approved")
+  votedAt        DateTime    @default(now()) @map("voted_at") @db.Timestamp(6)
+  admin          GroupMember @relation(fields: [adminId], references: [groupMemberId])
+  approval       Approval    @relation(fields: [approvalId], references: [approvalId], onDelete: Cascade)
 
   @@id([approvalId, adminId])
   @@index([adminId])

@@ -231,16 +231,22 @@ src/
 - ✅ GroupsListScreen implemented (with My Account and Invites buttons in header)
 - ✅ MyAccountScreen implemented (profile, subscription status, web admin link)
 - ✅ InvitesScreen implemented (with header button, badge, count API)
-- ❌ GroupDashboardScreen NOT YET IMPLEMENTED (currently skipped!)
-- ⚠️  GroupDetailScreen incorrectly showing messages (should be GroupDashboardScreen)
-- ❌ MessageGroupsListScreen not implemented
-- ❌ CalendarScreen not implemented
-- ❌ FinanceMattersListScreen not implemented
+- ✅ GroupDashboardScreen IMPLEMENTED (navigation hub with 5 sections)
+- ✅ MessageGroupsListScreen IMPLEMENTED (list of message threads)
+- ✅ MessageGroupDetailScreen IMPLEMENTED (MessagesScreen - WhatsApp-like chat)
+- ✅ CreateMessageGroupScreen IMPLEMENTED
+- ⚠️  MessageGroupSettingsScreen NOT IMPLEMENTED (no settings button on cards)
+- ❌ CalendarScreen not implemented (placeholder only)
+- ❌ FinanceMattersListScreen not implemented (placeholder only)
 
 ## Next Steps
 
-1. Rename `GroupDetailScreen` to `MessageGroupDetailScreen`
-2. Create new `GroupDashboardScreen` with navigation tabs
-3. Create `MessageGroupsListScreen`
-4. Update navigation to follow correct hierarchy
-5. Add placeholders for Calendar and Finance sections
+1. ~~Rename `GroupDetailScreen` to `MessageGroupDetailScreen`~~ ✅ DONE
+2. ~~Create new `GroupDashboardScreen` with navigation tabs~~ ✅ DONE
+3. ~~Create `MessageGroupsListScreen`~~ ✅ DONE
+4. ~~Update navigation to follow correct hierarchy~~ ✅ DONE
+5. ~~Add placeholders for Calendar and Finance sections~~ ✅ DONE
+6. Create MessageGroupSettingsScreen (add settings button to message group cards)
+7. Implement Calendar section
+8. Implement Finance section
+9. Implement Approvals section

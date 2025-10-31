@@ -9,6 +9,9 @@ const router = express.Router();
 const groupsController = require('../controllers/groups.controller');
 const messagesController = require('../controllers/messages.controller');
 const messageGroupsRouter = require('./messageGroups.routes');
+const approvalsController = require('../controllers/approvals.controller');
+const financeController = require('../controllers/finance.controller');
+const calendarController = require('../controllers/calendar.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
@@ -66,6 +69,18 @@ router.put('/:groupId/pin', requireAuth, groupsController.pinGroup);
 router.put('/:groupId/unpin', requireAuth, groupsController.unpinGroup);
 
 /**
+ * PUT /groups/:groupId/mute
+ * Mute a group for the current user
+ */
+router.put('/:groupId/mute', requireAuth, groupsController.muteGroup);
+
+/**
+ * PUT /groups/:groupId/unmute
+ * Unmute a group for the current user
+ */
+router.put('/:groupId/unmute', requireAuth, groupsController.unmuteGroup);
+
+/**
  * GET /groups/:groupId/messages
  * Get messages for a group
  */
@@ -118,6 +133,120 @@ router.get('/:groupId/admin-permissions', requireAuth, groupsController.getAdmin
  * Update admin permissions for specific admin (admin only)
  */
 router.put('/:groupId/admin-permissions/:targetAdminId', requireAuth, groupsController.updateAdminPermissions);
+
+/**
+ * GET /groups/:groupId/approvals
+ * Get all approvals for a group
+ */
+router.get('/:groupId/approvals', requireAuth, approvalsController.getApprovals);
+
+/**
+ * POST /groups/:groupId/approvals/:approvalId/vote
+ * Vote on an approval (approve or reject)
+ */
+router.post('/:groupId/approvals/:approvalId/vote', requireAuth, approvalsController.voteOnApproval);
+
+/**
+ * POST /groups/:groupId/approvals/:approvalId/cancel
+ * Cancel an approval (only by the requester)
+ */
+router.post('/:groupId/approvals/:approvalId/cancel', requireAuth, approvalsController.cancelApproval);
+
+/**
+ * GET /groups/:groupId/finance-matters
+ * Get all finance matters for a group (admins see all, non-admins see only their own)
+ */
+router.get('/:groupId/finance-matters', requireAuth, financeController.getFinanceMatters);
+
+/**
+ * POST /groups/:groupId/finance-matters
+ * Create a new finance matter (permissions based on role and group settings)
+ */
+router.post('/:groupId/finance-matters', requireAuth, financeController.createFinanceMatter);
+
+/**
+ * GET /groups/:groupId/finance-matters/:financeMatterId
+ * Get a single finance matter by ID
+ */
+router.get('/:groupId/finance-matters/:financeMatterId', requireAuth, financeController.getFinanceMatterById);
+
+/**
+ * PUT /groups/:groupId/finance-matters/:financeMatterId/settle
+ * Mark a finance matter as settled (admin only)
+ */
+router.put('/:groupId/finance-matters/:financeMatterId/settle', requireAuth, financeController.settleFinanceMatter);
+
+/**
+ * PUT /groups/:groupId/finance-matters/:financeMatterId/cancel
+ * Cancel a finance matter (admin or creator only)
+ */
+router.put('/:groupId/finance-matters/:financeMatterId/cancel', requireAuth, financeController.cancelFinanceMatter);
+
+/**
+ * GET /groups/:groupId/finance-matters/:financeMatterId/messages
+ * Get messages for a finance matter
+ */
+router.get('/:groupId/finance-matters/:financeMatterId/messages', requireAuth, financeController.getFinanceMatterMessages);
+
+/**
+ * POST /groups/:groupId/finance-matters/:financeMatterId/messages
+ * Send a message to a finance matter
+ */
+router.post('/:groupId/finance-matters/:financeMatterId/messages', requireAuth, financeController.sendFinanceMatterMessage);
+
+/**
+ * PUT /groups/:groupId/finance-matters/:financeMatterId/record-payment
+ * Record a payment for a finance matter member (admin or self)
+ */
+router.put('/:groupId/finance-matters/:financeMatterId/record-payment', requireAuth, financeController.recordPayment);
+
+/**
+ * POST /groups/:groupId/finance-matters/:financeMatterId/payments/:paymentId/confirm
+ * Confirm a payment (recipient only)
+ */
+router.post('/:groupId/finance-matters/:financeMatterId/payments/:paymentId/confirm', requireAuth, financeController.confirmPayment);
+
+/**
+ * POST /groups/:groupId/finance-matters/:financeMatterId/payments/:paymentId/reject
+ * Reject a payment (recipient only)
+ */
+router.post('/:groupId/finance-matters/:financeMatterId/payments/:paymentId/reject', requireAuth, financeController.rejectPayment);
+
+/**
+ * GET /groups/:groupId/calendar/events
+ * Get calendar events for a group (with date range filtering)
+ */
+router.get('/:groupId/calendar/events', requireAuth, calendarController.getCalendarEvents);
+
+/**
+ * POST /groups/:groupId/calendar/events
+ * Create a calendar event (regular or responsibility event)
+ */
+router.post('/:groupId/calendar/events', requireAuth, calendarController.createCalendarEvent);
+
+/**
+ * GET /groups/:groupId/calendar/events/:eventId
+ * Get a single calendar event by ID
+ */
+router.get('/:groupId/calendar/events/:eventId', requireAuth, calendarController.getCalendarEventById);
+
+/**
+ * PUT /groups/:groupId/calendar/events/:eventId
+ * Update a calendar event (updates createdAt timestamp)
+ */
+router.put('/:groupId/calendar/events/:eventId', requireAuth, calendarController.updateCalendarEvent);
+
+/**
+ * DELETE /groups/:groupId/calendar/events/:eventId
+ * Delete a calendar event (soft delete)
+ */
+router.delete('/:groupId/calendar/events/:eventId', requireAuth, calendarController.deleteCalendarEvent);
+
+/**
+ * POST /groups/:groupId/calendar/responsibility-events
+ * Create a child responsibility event with overlap detection
+ */
+router.post('/:groupId/calendar/responsibility-events', requireAuth, calendarController.createResponsibilityEvent);
 
 /**
  * Mount message groups router

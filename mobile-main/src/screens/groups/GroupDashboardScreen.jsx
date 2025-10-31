@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Title, Text, Avatar, Button, Chip } from 'react-native-paper';
+import { Card, Title, Text, Avatar, Button, Chip, Badge } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
@@ -33,9 +33,17 @@ export default function GroupDashboardScreen({ navigation, route }) {
   const [groupInfo, setGroupInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const [pendingFinanceCount, setPendingFinanceCount] = useState(0);
+  const [currentUserGroupMemberId, setCurrentUserGroupMemberId] = useState(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [unreadMentionsCount, setUnreadMentionsCount] = useState(0);
 
   useEffect(() => {
     loadGroupInfo();
+    loadPendingApprovalsCount();
+    loadPendingFinanceCount();
+    loadMessageBadgeCounts();
   }, [groupId]);
 
   /**
@@ -44,6 +52,9 @@ export default function GroupDashboardScreen({ navigation, route }) {
   useFocusEffect(
     React.useCallback(() => {
       loadGroupInfo();
+      loadPendingApprovalsCount();
+      loadPendingFinanceCount();
+      loadMessageBadgeCounts();
     }, [groupId])
   );
 
@@ -55,6 +66,14 @@ export default function GroupDashboardScreen({ navigation, route }) {
       setError(null);
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
+      // Store current user's groupMemberId for finance count calculation
+      const groupMemberId = response.data.group.currentUserMember?.groupMemberId || null;
+      setCurrentUserGroupMemberId(groupMemberId);
+
+      // Now load finance count after we have the groupMemberId
+      if (groupMemberId) {
+        await loadPendingFinanceCountWithMemberId(groupMemberId);
+      }
     } catch (err) {
       console.error('Load group info error:', err);
 
@@ -71,6 +90,112 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
+   * Load pending approvals count
+   */
+  const loadPendingApprovalsCount = async () => {
+    try {
+      const response = await api.get(`/groups/${groupId}/approvals`);
+      // Count approvals in awaitingYourAction category
+      const count = response.data.approvals?.awaitingYourAction?.length || 0;
+      setPendingApprovalsCount(count);
+    } catch (err) {
+      console.error('Load pending approvals count error:', err);
+      // Don't show error, just set count to 0
+      setPendingApprovalsCount(0);
+    }
+  };
+
+  /**
+   * Load pending finance matters count with a specific groupMemberId
+   * Only counts non-settled, non-canceled finance matters where user owes money
+   */
+  const loadPendingFinanceCountWithMemberId = async (groupMemberId) => {
+    try {
+      const response = await api.get(`/groups/${groupId}/finance-matters`);
+      const financeMatters = response.data.financeMatters || [];
+
+      // Count finance matters where:
+      // 1. Not settled
+      // 2. Not canceled
+      // 3. User owes money (paidAmount < expectedAmount)
+      const count = financeMatters.filter(fm => {
+        if (fm.isSettled || fm.isCanceled) return false;
+
+        // Find current user's member record in this finance matter
+        const userMember = fm.members?.find(m => m.groupMemberId === groupMemberId);
+
+        // If user is not a member of this finance matter, don't count it
+        if (!userMember) return false;
+
+        // Check if user owes money
+        const paidAmount = parseFloat(userMember.paidAmount) || 0;
+        const expectedAmount = parseFloat(userMember.expectedAmount) || 0;
+
+        return paidAmount < expectedAmount;
+      }).length;
+
+      setPendingFinanceCount(count);
+    } catch (err) {
+      console.error('Load pending finance count error:', err);
+      // Don't show error, just set count to 0
+      setPendingFinanceCount(0);
+    }
+  };
+
+  /**
+   * Load pending finance matters count (wrapper for useFocusEffect)
+   */
+  const loadPendingFinanceCount = async () => {
+    if (currentUserGroupMemberId) {
+      await loadPendingFinanceCountWithMemberId(currentUserGroupMemberId);
+    }
+  };
+
+  /**
+   * Load message badge counts (aggregated from all message groups)
+   * Sums up unread messages and mentions across all non-muted message groups
+   */
+  const loadMessageBadgeCounts = async () => {
+    try {
+      const response = await api.get(`/groups/${groupId}/message-groups`);
+      const messageGroups = response.data.messageGroups || [];
+
+      // Aggregate counts across all message groups
+      // Note: Backend already filters out muted message groups from counts
+      const totalUnreadMessages = messageGroups.reduce((sum, mg) => sum + (mg.unreadCount || 0), 0);
+      const totalUnreadMentions = messageGroups.reduce((sum, mg) => sum + (mg.unreadMentionsCount || 0), 0);
+
+      setUnreadMessagesCount(totalUnreadMessages);
+      setUnreadMentionsCount(totalUnreadMentions);
+    } catch (err) {
+      console.error('Load message badge counts error:', err);
+      // Don't show error, just set counts to 0
+      setUnreadMessagesCount(0);
+      setUnreadMentionsCount(0);
+    }
+  };
+
+  /**
+   * Check if finance section is visible for current user's role
+   */
+  const isFinanceVisible = () => {
+    if (!groupInfo || !groupInfo.settings) return false;
+
+    const role = groupInfo.userRole;
+    const settings = groupInfo.settings;
+
+    // Admins always have access
+    if (role === 'admin') return true;
+
+    // Check role-based permissions
+    if (role === 'parent') return settings.financeVisibleToParents;
+    if (role === 'caregiver') return settings.financeVisibleToCaregivers;
+    if (role === 'child') return settings.financeVisibleToChildren;
+
+    return false;
+  };
+
+  /**
    * Navigate to Message Groups List
    */
   const goToMessages = () => {
@@ -78,17 +203,17 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to Calendar section (placeholder for now)
+   * Navigate to Calendar section
    */
   const goToCalendar = () => {
-    navigation.navigate('Calendar');
+    navigation.navigate('Calendar', { groupId });
   };
 
   /**
-   * Navigate to Finance section (placeholder for now)
+   * Navigate to Finance section
    */
   const goToFinance = () => {
-    navigation.navigate('Finance');
+    navigation.navigate('Finance', { groupId });
   };
 
   /**
@@ -99,11 +224,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to Approvals (placeholder for now)
+   * Navigate to Approvals
    */
   const goToApprovals = () => {
-    // TODO: Implement ApprovalsListScreen
-    console.log('Approvals - Coming soon');
+    navigation.navigate('ApprovalsList', { groupId });
   };
 
   if (loading) {
@@ -169,11 +293,27 @@ export default function GroupDashboardScreen({ navigation, route }) {
           <Card.Content style={styles.navCardContent}>
             <View style={styles.navCardIcon}>
               <Text style={styles.navCardEmoji}>💬</Text>
+              {(unreadMentionsCount > 0 || unreadMessagesCount > 0) && (
+                <View style={styles.badgesContainer}>
+                  {unreadMentionsCount > 0 && (
+                    <Badge size={20} style={styles.mentionBadge}>
+                      {unreadMentionsCount}
+                    </Badge>
+                  )}
+                  {unreadMessagesCount > 0 && (
+                    <Badge size={20} style={styles.unreadBadge}>
+                      {unreadMessagesCount}
+                    </Badge>
+                  )}
+                </View>
+              )}
             </View>
             <View style={styles.navCardInfo}>
               <Text style={styles.navCardTitle}>Messages</Text>
               <Text style={styles.navCardDescription}>
-                Chat with group members
+                {unreadMentionsCount > 0 || unreadMessagesCount > 0
+                  ? `${unreadMentionsCount > 0 ? `${unreadMentionsCount} @mention${unreadMentionsCount !== 1 ? 's' : ''}` : ''}${unreadMentionsCount > 0 && unreadMessagesCount > 0 ? ', ' : ''}${unreadMessagesCount > 0 ? `${unreadMessagesCount} unread` : ''}`
+                  : 'Chat with group members'}
               </Text>
             </View>
           </Card.Content>
@@ -194,20 +334,32 @@ export default function GroupDashboardScreen({ navigation, route }) {
           </Card.Content>
         </Card>
 
-        {/* Finance Section */}
-        <Card style={styles.navCard} onPress={goToFinance}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>💰</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Finance</Text>
-              <Text style={styles.navCardDescription}>
-                Track expenses and payments
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Finance Section - Show based on role permissions */}
+        {isFinanceVisible() && (
+          <Card style={styles.navCard} onPress={goToFinance}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>💰</Text>
+                {pendingFinanceCount > 0 && (
+                  <Badge
+                    size={20}
+                    style={styles.financeBadge}
+                  >
+                    {pendingFinanceCount}
+                  </Badge>
+                )}
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Finance</Text>
+                <Text style={styles.navCardDescription}>
+                  {pendingFinanceCount > 0
+                    ? `${pendingFinanceCount} unsettled matter${pendingFinanceCount !== 1 ? 's' : ''}`
+                    : 'Track expenses and payments'}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Settings Section - Only for admins */}
         {groupInfo.userRole === 'admin' && (
@@ -232,11 +384,21 @@ export default function GroupDashboardScreen({ navigation, route }) {
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
                 <Text style={styles.navCardEmoji}>✅</Text>
+                {pendingApprovalsCount > 0 && (
+                  <Badge
+                    size={20}
+                    style={styles.approvalBadge}
+                  >
+                    {pendingApprovalsCount}
+                  </Badge>
+                )}
               </View>
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Approvals</Text>
                 <Text style={styles.navCardDescription}>
-                  Pending admin approvals
+                  {pendingApprovalsCount > 0
+                    ? `${pendingApprovalsCount} approval${pendingApprovalsCount !== 1 ? 's' : ''} need${pendingApprovalsCount === 1 ? 's' : ''} your action`
+                    : 'Pending admin approvals'}
                 </Text>
               </View>
             </Card.Content>
@@ -334,9 +496,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    position: 'relative',
   },
   navCardEmoji: {
     fontSize: 24,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#d32f2f',
+  },
+  approvalBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#e91e63',
+  },
+  financeBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#d32f2f',
+  },
+  badgesContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  mentionBadge: {
+    backgroundColor: '#f9a825',
+  },
+  unreadBadge: {
+    backgroundColor: '#2196f3',
   },
   navCardInfo: {
     flex: 1,

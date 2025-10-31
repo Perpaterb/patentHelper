@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
-import { TextInput, IconButton, Text, Chip, Avatar } from 'react-native-paper';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
+import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 
@@ -36,9 +36,12 @@ export default function MessagesScreen({ navigation, route }) {
   const [userRole, setUserRole] = useState(null);
   const [currentUserMemberId, setCurrentUserMemberId] = useState(null);
   const [members, setMembers] = useState([]);
+  const [isMember, setIsMember] = useState(true); // Track if user is a member of the message group
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [mentionSearchText, setMentionSearchText] = useState('');
   const [selectedMentions, setSelectedMentions] = useState([]);
+  const [longPressedMessage, setLongPressedMessage] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -63,10 +66,19 @@ export default function MessagesScreen({ navigation, route }) {
       // Get current user's group member ID for message alignment
       const memberId = response.data.currentGroupMemberId;
       setCurrentUserMemberId(memberId);
-      // Save members for @ mentions
+      // Save members for @ mentions and read receipt calculations
       const messageGroup = response.data.messageGroup;
       if (messageGroup?.members) {
-        setMembers(messageGroup.members.map(m => m.groupMember));
+        // Preserve both groupMemberId and groupMember properties
+        const membersList = messageGroup.members.map(m => ({
+          ...m.groupMember,
+          groupMemberId: m.groupMemberId
+        }));
+        setMembers(membersList);
+
+        // Check if current user is a member of this message group
+        const userIsMember = membersList.some(m => m.groupMemberId === memberId);
+        setIsMember(userIsMember);
       }
     } catch (err) {
       console.error('Load message group info error:', err);
@@ -344,39 +356,105 @@ export default function MessagesScreen({ navigation, route }) {
   };
 
   /**
+   * Handle long press on message
+   */
+  const handleLongPress = (message) => {
+    setLongPressedMessage(message);
+    setMenuVisible(true);
+  };
+
+  /**
+   * Handle hide message action
+   */
+  const handleHideMessage = async () => {
+    if (!longPressedMessage) return;
+
+    setMenuVisible(false);
+
+    try {
+      await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/messages/${longPressedMessage.messageId}/hide`);
+
+      // Update local state
+      setMessages(messages.map(msg =>
+        msg.messageId === longPressedMessage.messageId
+          ? { ...msg, isHidden: true }
+          : msg
+      ));
+
+      setLongPressedMessage(null);
+    } catch (err) {
+      console.error('Hide message error:', err);
+      if (!err.isAuthError) {
+        Alert.alert('Error', err.response?.data?.message || 'Failed to hide message');
+      }
+    }
+  };
+
+  /**
+   * Handle unhide message action (admin only)
+   */
+  const handleUnhideMessage = async () => {
+    if (!longPressedMessage) return;
+
+    setMenuVisible(false);
+
+    try {
+      await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/messages/${longPressedMessage.messageId}/unhide`);
+
+      // Update local state
+      setMessages(messages.map(msg =>
+        msg.messageId === longPressedMessage.messageId
+          ? { ...msg, isHidden: false }
+          : msg
+      ));
+
+      setLongPressedMessage(null);
+    } catch (err) {
+      console.error('Unhide message error:', err);
+      if (!err.isAuthError) {
+        Alert.alert('Error', err.response?.data?.message || 'Failed to unhide message');
+      }
+    }
+  };
+
+  /**
    * Render message item
    */
   const renderMessage = ({ item }) => {
     const isMyMessage = item.sender?.groupMemberId === currentUserMemberId;
+    const isHidden = item.isHidden || false;
 
     return (
-      <View style={[
-        styles.messageWrapper,
-        isMyMessage ? styles.messageWrapperRight : styles.messageWrapperLeft
-      ]}>
+      <TouchableOpacity
+        onLongPress={() => handleLongPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={[
-          styles.messageBubble,
-          isMyMessage ? styles.messageBubbleRight : styles.messageBubbleLeft
+          styles.messageWrapper,
+          isMyMessage ? styles.messageWrapperRight : styles.messageWrapperLeft
         ]}>
-          <Text style={styles.senderName}>
-            {item.sender?.displayName || 'Unknown'}
-          </Text>
-          <Text style={styles.messageContent}>{item.content}</Text>
-          <View style={styles.messageFooter}>
-            <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
-            {isMyMessage && renderReadReceipt(item)}
+          <View style={[
+            styles.messageBubble,
+            isMyMessage ? styles.messageBubbleRight : styles.messageBubbleLeft,
+            isHidden && styles.messageBubbleHidden
+          ]}>
+            {isHidden && userRole === 'admin' && (
+              <View style={styles.hiddenIndicator}>
+                <IconButton icon="eye-off" size={16} iconColor="#999" style={styles.hiddenIcon} />
+                <Text style={styles.hiddenText}>Hidden Message</Text>
+              </View>
+            )}
+            <Text style={styles.senderName}>
+              {item.sender?.displayName || 'Unknown'}
+            </Text>
+            <Text style={styles.messageContent}>{item.content}</Text>
+            <View style={styles.messageFooter}>
+              <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+              {isMyMessage && renderReadReceipt(item)}
+            </View>
           </View>
-          {item.isHidden && (
-            <Chip
-              mode="outlined"
-              style={styles.hiddenChip}
-              textStyle={{ fontSize: 10 }}
-            >
-              HIDDEN
-            </Chip>
-          )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -484,6 +562,17 @@ export default function MessagesScreen({ navigation, route }) {
       );
     }
 
+    // Non-members cannot send messages (admin viewing read-only)
+    if (!isMember) {
+      return (
+        <View style={styles.supervisorNotice}>
+          <Text style={styles.supervisorText}>
+            You are not a member of this message group. You have read-only access.
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.inputContainer}>
         <TextInput
@@ -519,6 +608,75 @@ export default function MessagesScreen({ navigation, route }) {
     );
   }
 
+  /**
+   * Render long-press menu
+   */
+  const renderMessageMenu = () => {
+    if (!longPressedMessage) return null;
+
+    const isMyMessage = longPressedMessage.sender?.groupMemberId === currentUserMemberId;
+    const isHidden = longPressedMessage.isHidden || false;
+
+    return (
+      <Modal
+        visible={menuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setMenuVisible(false);
+          setLongPressedMessage(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setMenuVisible(false);
+            setLongPressedMessage(null);
+          }}
+        >
+          <View style={styles.menuContainer}>
+            <Text style={styles.menuTitle}>Message Options</Text>
+            <MenuDivider />
+
+            {/* Hide/Unhide option for admins or own messages */}
+            {userRole === 'admin' && !isHidden && (
+              <TouchableOpacity style={styles.menuItem} onPress={handleHideMessage}>
+                <IconButton icon="eye-off" size={20} />
+                <Text style={styles.menuItemText}>Hide Message</Text>
+              </TouchableOpacity>
+            )}
+
+            {userRole === 'admin' && isHidden && (
+              <TouchableOpacity style={styles.menuItem} onPress={handleUnhideMessage}>
+                <IconButton icon="eye" size={20} />
+                <Text style={styles.menuItemText}>Unhide Message</Text>
+              </TouchableOpacity>
+            )}
+
+            {userRole !== 'admin' && isMyMessage && !isHidden && (
+              <TouchableOpacity style={styles.menuItem} onPress={handleHideMessage}>
+                <IconButton icon="delete" size={20} />
+                <Text style={styles.menuItemText}>Delete Message</Text>
+              </TouchableOpacity>
+            )}
+
+            <MenuDivider />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                setLongPressedMessage(null);
+              }}
+            >
+              <Text style={[styles.menuItemText, styles.cancelText]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -543,6 +701,7 @@ export default function MessagesScreen({ navigation, route }) {
       />
 
       {renderMentionPicker()}
+      {renderMessageMenu()}
       {renderInputArea()}
     </KeyboardAvoidingView>
   );
@@ -596,6 +755,28 @@ const styles = StyleSheet.create({
   },
   messageBubbleRight: {
     backgroundColor: '#e3f2fd', // Light blue
+  },
+  messageBubbleHidden: {
+    backgroundColor: '#f0f0f0', // Grey background for hidden messages
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  hiddenIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    padding: 4,
+    borderRadius: 4,
+  },
+  hiddenIcon: {
+    margin: 0,
+    padding: 0,
+  },
+  hiddenText: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
   },
   senderName: {
     fontSize: 12,
@@ -730,5 +911,41 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    minWidth: 250,
+    maxWidth: 300,
+    padding: 8,
+    elevation: 5,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    padding: 12,
+    color: '#333',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  menuItemText: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 8,
+  },
+  cancelText: {
+    color: '#999',
+    textAlign: 'center',
+    width: '100%',
+    marginLeft: 0,
   },
 });

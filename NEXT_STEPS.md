@@ -292,19 +292,19 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 - [x] Role permission switches
 - [x] Admin permission management cards
 
-### Week 11-12: Messaging
+### Week 11-12: Messaging ✅ COMPLETE (except settings)
 
 #### Message Groups
-- [ ] Message groups list screen
-- [ ] Create message group
-- [ ] Message group settings
+- [x] Message groups list screen
+- [x] Create message group
+- [ ] Message group settings (NOT IMPLEMENTED - no settings button on cards)
 
 #### Messages Screen
-- [ ] Message list (WhatsApp-like)
-- [ ] Message input component
-- [ ] Send text messages
-- [ ] @mentions autocomplete
-- [ ] Message read receipts (4-state)
+- [x] Message list (WhatsApp-like)
+- [x] Message input component
+- [x] Send text messages
+- [x] @mentions autocomplete
+- [x] Message read receipts (4-state)
 
 #### Media Upload
 - [ ] Image picker
@@ -312,27 +312,47 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 - [ ] Upload to local storage (will switch to S3 in Phase 6)
 - [ ] Display media in messages
 
-### Week 13-14: Calendar
+### Week 13-14: Calendar - BACKEND COMPLETE ✅
 
-#### Calendar Views
+#### Backend Endpoints (Calendar) ✅
+- [x] GET /groups/:groupId/calendar/events - List events with date filtering
+- [x] POST /groups/:groupId/calendar/events - Create calendar event
+- [x] GET /groups/:groupId/calendar/events/:eventId - Get single event
+- [x] PUT /groups/:groupId/calendar/events/:eventId - Update event (updates createdAt for layering)
+- [x] DELETE /groups/:groupId/calendar/events/:eventId - Soft delete event
+- [x] POST /groups/:groupId/calendar/responsibility-events - Create responsibility event with overlap detection
+
+**Implementation Notes (2025-10-30):**
+- ✅ Layering system implemented: Later-created events override earlier ones
+- ✅ Editing an event updates `createdAt` timestamp, moving it to top of layer stack
+- ✅ Overlap detection utility returns warning data for frontend popup (Option A)
+- ✅ Profile merging: User global profile takes precedence over GroupMember profile
+- ✅ Permission checks: Supervisors blocked, children view-only
+- ✅ Audit logging for all calendar actions
+- ✅ Soft deletes preserve audit trail
+- 📝 Files modified:
+  - backend/controllers/calendar.controller.js (1322 lines)
+  - backend/routes/groups.routes.js (added 6 routes)
+
+#### Calendar Views (Frontend - Next)
 - [ ] Calendar month view
 - [ ] Calendar week view
 - [ ] Calendar day view
 - [ ] Swipe navigation
 
-#### Events
-- [ ] Create event
-- [ ] Edit event (with approval)
-- [ ] Delete event (with approval)
-- [ ] Recurring events
+#### Events (Frontend - Next)
+- [ ] Create event UI
+- [ ] Edit event UI (with approval)
+- [ ] Delete event UI (with approval)
+- [ ] Recurring events UI
 
-#### Child Responsibility
+#### Child Responsibility (Frontend - Next)
 - [ ] Responsibility line rendering
   - Colored lines for children
   - Paired responsibility lines
-- [ ] Create responsibility event
-- [ ] Edit responsibility (with approval)
-- [ ] Overlap prevention validation
+- [ ] Create responsibility event UI
+- [ ] Edit responsibility UI (with approval)
+- [ ] Overlap warning popup with confirmation
 
 ### Week 15-16: Finance & Approvals
 
@@ -344,6 +364,22 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 - [ ] Report payment (with receipt upload)
 - [ ] Confirm payment
 - [ ] Mark as settled
+
+#### Peer-to-Peer Payments (NEW)
+- [ ] Research payment provider options (Stripe Connect vs iPayYou vs Venmo API)
+- [ ] Choose payment provider (RECOMMENDED: Stripe Connect - already using Stripe)
+- [ ] Set up payment provider account/API keys
+- [ ] Backend: Payment endpoints (initiate, confirm, track status)
+- [ ] Backend: Payment webhooks (handle success/failure)
+- [ ] Frontend: Send money UI (amount, recipient selection)
+- [ ] Frontend: Request money UI
+- [ ] Frontend: Payment history screen
+- [ ] Add payment tracking to finance matters (link payments to matters)
+- [ ] Payment notifications (push notifications when money received/sent)
+- [ ] Payment approval workflow (for large amounts? TBD)
+- [ ] Test payment flows end-to-end
+- [ ] Compliance: Terms of service for payments
+- [ ] Compliance: Transaction limits (prevent abuse)
 
 #### Approval System
 - [ ] Approvals list screen
@@ -645,6 +681,77 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 
 ## 📝 Recent Updates (October 2025)
 
+### 2025-10-30: Badge Aggregation, Mute/Unmute, & Finance Restrictions
+
+**Badge Aggregation System (Complete)**:
+1. **Hierarchical Badge Counts**:
+   - Message Groups → Group Dashboard Messages Button → Groups List Cards
+   - Approvals badge on Approvals button → Groups List Cards
+   - Finance badge on Finance button → Groups List Cards
+   - All badges properly aggregate and display at each level
+
+2. **Badge Color Scheme**:
+   - 🟡 Yellow (#f9a825): @Mentions - "Someone tagged you"
+   - 🔵 Blue (#2196f3): Unread messages - "New messages"
+   - 🩷 Pink (#e91e63): Approvals - "Action needed from admin"
+   - 🔴 Red (#d32f2f): Finance - "Money owed"
+   - 🟣 Purple (#9c27b0): Calendar - "Upcoming events" (ready for future)
+
+**Mute/Unmute Functionality (Complete)**:
+1. **Database Changes**:
+   - Added `isMuted` BOOLEAN to GroupMember table
+   - Added `isMuted` BOOLEAN to MessageGroupMember table
+   - Created migrations for both tables
+
+2. **Backend Endpoints**:
+   - PUT /groups/:groupId/mute - Mute entire group
+   - PUT /groups/:groupId/unmute - Unmute entire group
+   - PUT /groups/:groupId/message-groups/:messageGroupId/mute - Mute message group
+   - PUT /groups/:groupId/message-groups/:messageGroupId/unmute - Unmute message group
+
+3. **Frontend UI**:
+   - Ear icon toggle on Group cards (GroupsListScreen)
+   - Ear icon toggle on Message Group cards (MessageGroupsListScreen)
+   - "MUTED" chip displayed on muted groups
+   - Icon changes: hearing ear (unmuted) ↔ hearing-off ear (muted)
+
+4. **Badge Filtering Logic**:
+   - Group muted → ALL badges hidden (messages, mentions, approvals, finance)
+   - Message Group muted → Only that message group's badges filtered out
+   - Backend properly filters badge counts based on mute status
+
+**Finance Matter Restrictions (Temporary)**:
+1. **Validation Added**:
+   - Finance matters must be 100% paid when created
+   - Tolerance of 0.01 for rounding errors
+   - Clear error message: "Currently, finance matters must be fully paid when created. This restriction is temporary."
+   - Prevents creating finance matters with outstanding balances
+
+2. **Impact**:
+   - Finance badges won't appear for new finance matters (all fully paid)
+   - Existing partially-paid finance matters still work normally
+   - Easy to remove restriction later (delete 9 lines of validation code)
+
+**Files Modified**:
+- `backend/controllers/groups.controller.js` - Badge aggregation, mute filtering
+- `backend/controllers/messageGroups.controller.js` - Mute endpoints
+- `backend/controllers/finance.controller.js` - Full payment validation
+- `backend/routes/groups.routes.js` - Mute route definitions
+- `backend/routes/messageGroups.routes.js` - Message group mute routes
+- `backend/prisma/schema.prisma` - Added isMuted fields
+- `mobile-main/src/screens/groups/GroupsListScreen.jsx` - Badges, mute UI, colors
+- `mobile-main/src/screens/groups/GroupDashboardScreen.jsx` - Badge colors, finance fix
+- `mobile-main/src/screens/groups/MessageGroupsListScreen.jsx` - Mute UI
+
+**Bug Fixes**:
+- Fixed race condition in finance badge loading (GroupDashboardScreen)
+- Fixed ApprovalVote query using correct field name (adminId not groupMemberId)
+- Fixed group mute to hide ALL badge types (not just messages/mentions)
+
+**Testing**: All features tested via Expo Go on iOS. Badge aggregation working correctly. Mute functionality working at both levels. Finance validation preventing unpaid finance matters.
+
+---
+
 ### 2025-10-24: Group Settings & Member Management Enhancements
 
 **Frontend (Mobile-Main App)**:
@@ -682,7 +789,7 @@ The web admin app is production-ready. Next, build the Parenting Helper Mobile A
 
 ---
 
-**Ready for Mobile Development?** The web admin app is complete. Mobile app groups & members management is well underway! 🚀
+**Ready for Mobile Development?** The web admin app is complete. Mobile app messaging is nearly complete with full badge aggregation and mute functionality! 🚀
 
-**Last Updated**: 2025-10-24
+**Last Updated**: 2025-10-30
 **Next Review**: After completing Phase 3 (Mobile Main App)

@@ -31,6 +31,123 @@ function generateIconLetters(nameOrEmail) {
 }
 
 /**
+ * Clean up pending approvals when an admin leaves a group
+ *
+ * When an admin is removed from a group, this function:
+ * 1. Deletes their pending votes from all approvals
+ * 2. Recalculates approval thresholds based on remaining admins
+ * 3. Auto-approves/rejects approvals if threshold is now met
+ *
+ * @param {string} groupId - The group ID
+ * @param {string} removedAdminId - The groupMemberId of the removed admin
+ */
+async function cleanupAdminApprovals(groupId, removedAdminId) {
+  try {
+    console.log(`[cleanupAdminApprovals] Cleaning up approvals for admin ${removedAdminId} in group ${groupId}`);
+
+    // Delete all pending votes by this admin
+    const deletedVotes = await prisma.approvalVote.deleteMany({
+      where: {
+        adminId: removedAdminId,
+        approval: {
+          groupId: groupId,
+          status: 'pending',
+        },
+      },
+    });
+
+    console.log(`[cleanupAdminApprovals] Deleted ${deletedVotes.count} pending votes`);
+
+    // Get all pending approvals in this group
+    const pendingApprovals = await prisma.approval.findMany({
+      where: {
+        groupId: groupId,
+        status: 'pending',
+      },
+      include: {
+        votes: true,
+      },
+    });
+
+    // Get current admin count (after removal)
+    const currentAdmins = await prisma.groupMember.findMany({
+      where: {
+        groupId: groupId,
+        role: 'admin',
+      },
+    });
+
+    const totalAdmins = currentAdmins.length;
+
+    console.log(`[cleanupAdminApprovals] Found ${pendingApprovals.length} pending approvals, ${totalAdmins} remaining admins`);
+
+    // Recalculate each pending approval
+    for (const approval of pendingApprovals) {
+      const approveVotes = approval.votes.filter(v => v.vote === 'approve').length;
+      const rejectVotes = approval.votes.filter(v => v.vote === 'reject').length;
+
+      let newStatus = 'pending';
+
+      // Check if approval threshold is met
+      if (approval.requiresAllAdmins) {
+        // Requires 100% approval
+        if (approveVotes >= totalAdmins) {
+          newStatus = 'approved';
+        } else if (rejectVotes > 0) {
+          // Any rejection means the approval fails
+          newStatus = 'rejected';
+        }
+      } else {
+        // Requires percentage (default 50%)
+        const requiredPercentage = parseFloat(approval.requiredApprovalPercentage);
+        const approvePercentage = totalAdmins > 0 ? (approveVotes / totalAdmins) * 100 : 0;
+        const rejectPercentage = totalAdmins > 0 ? (rejectVotes / totalAdmins) * 100 : 0;
+
+        if (approvePercentage >= requiredPercentage) {
+          newStatus = 'approved';
+        } else if (rejectPercentage > (100 - requiredPercentage)) {
+          // If rejection percentage exceeds what's needed to block, reject
+          newStatus = 'rejected';
+        }
+      }
+
+      // Update approval status if it changed
+      if (newStatus !== 'pending') {
+        await prisma.approval.update({
+          where: { approvalId: approval.approvalId },
+          data: {
+            status: newStatus,
+            completedAt: new Date(),
+          },
+        });
+
+        console.log(`[cleanupAdminApprovals] Approval ${approval.approvalId} updated to ${newStatus} after admin removal`);
+
+        // Create audit log
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            action: newStatus === 'approved' ? 'auto_approve_action' : 'auto_reject_action',
+            performedBy: null,
+            performedByName: 'System',
+            performedByEmail: 'system',
+            actionLocation: 'approvals',
+            messageContent: `Approval ${approval.approvalType} automatically ${newStatus} after admin removal (${approveVotes}/${totalAdmins} votes)`,
+          },
+        });
+
+        // TODO: Execute the approved action (this will be implemented per approval type)
+      }
+    }
+
+    console.log(`[cleanupAdminApprovals] Cleanup complete`);
+  } catch (error) {
+    console.error('[cleanupAdminApprovals] Error cleaning up approvals:', error);
+    // Don't throw - this is a cleanup operation that shouldn't block member removal
+  }
+}
+
+/**
  * Get all groups where user is a member
  * GET /groups
  *
@@ -67,35 +184,168 @@ async function getGroups(req, res) {
     });
 
     // Transform to include role in group object, filter out hidden groups and pending invitations, and sort by pin status
-    const groups = groupMemberships
-      .filter(membership => !membership.group.isHidden && membership.isRegistered === true) // Filter out hidden/deleted groups and pending invitations
-      .map(membership => ({
-        groupId: membership.group.groupId,
-        name: membership.group.name,
-        icon: membership.group.icon,
-        backgroundColor: membership.group.backgroundColor,
-        backgroundImageUrl: membership.group.backgroundImageUrl,
-        createdAt: membership.group.createdAt,
-        isHidden: membership.group.isHidden,
-        role: membership.role,
-        displayName: membership.displayName,
-        isMuted: membership.isMuted,
-        isPinned: membership.isPinned,
-        pinnedOrder: membership.pinnedOrder,
-      }))
-      .sort((a, b) => {
-        // Pinned groups come first
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
+    const groups = await Promise.all(
+      groupMemberships
+        .filter(membership => !membership.group.isHidden && membership.isRegistered === true) // Filter out hidden/deleted groups and pending invitations
+        .map(async membership => {
+          // Calculate badge counts from message groups
+          // If group is muted, don't show any badges
+          let unreadMessagesCount = 0;
+          let unreadMentionsCount = 0;
+          let pendingApprovalsCount = 0;
+          let pendingFinanceCount = 0;
 
-        // Among pinned groups, sort by pinnedOrder
-        if (a.isPinned && b.isPinned) {
-          return (a.pinnedOrder || 0) - (b.pinnedOrder || 0);
-        }
+          // Only calculate badge counts if group is NOT muted
+          if (!membership.isMuted) {
+            // Get all message groups for this group
+            const messageGroups = await prisma.messageGroup.findMany({
+              where: {
+                groupId: membership.group.groupId,
+                isHidden: false,
+              },
+              include: {
+                members: {
+                  where: {
+                    groupMemberId: membership.groupMemberId,
+                  },
+                  select: {
+                    isMuted: true,
+                    lastReadAt: true,
+                  },
+                },
+              },
+            });
 
-        // Among unpinned groups, sort by createdAt (most recent first)
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      });
+            // Aggregate badge counts from non-muted message groups
+            for (const messageGroup of messageGroups) {
+              const userMembership = messageGroup.members[0];
+
+              // Skip if user is not a member or has muted this message group
+              if (!userMembership || userMembership.isMuted) {
+                continue;
+              }
+
+              // Count unread messages
+              const unreadCount = await prisma.message.count({
+                where: {
+                  messageGroupId: messageGroup.messageGroupId,
+                  isHidden: false,
+                  senderId: { not: membership.groupMemberId },
+                  createdAt: {
+                    gt: userMembership.lastReadAt || new Date(0),
+                  },
+                },
+              });
+
+              // Count unread mentions
+              const unreadMentionsCountForGroup = await prisma.message.count({
+                where: {
+                  messageGroupId: messageGroup.messageGroupId,
+                  isHidden: false,
+                  senderId: { not: membership.groupMemberId },
+                  mentions: {
+                    has: membership.groupMemberId,
+                  },
+                  createdAt: {
+                    gt: userMembership.lastReadAt || new Date(0),
+                  },
+                },
+              });
+
+              unreadMessagesCount += unreadCount;
+              unreadMentionsCount += unreadMentionsCountForGroup;
+            }
+
+            // Calculate pending approvals count (only for admins)
+            if (membership.role === 'admin') {
+              // Get all approvals for this group
+              const approvals = await prisma.approval.findMany({
+                where: {
+                  groupId: membership.group.groupId,
+                  status: 'pending',
+                },
+                include: {
+                  votes: {
+                    where: {
+                      adminId: membership.groupMemberId,
+                    },
+                  },
+                },
+              });
+
+              // Count approvals that are awaiting user's action (pending and user hasn't voted)
+              pendingApprovalsCount = approvals.filter(
+                approval => approval.votes.length === 0
+              ).length;
+            }
+
+            // Calculate pending finance matters count
+            const financeMatters = await prisma.financeMatter.findMany({
+              where: {
+                groupId: membership.group.groupId,
+                isSettled: false,
+                isCanceled: false,
+              },
+              include: {
+                members: {
+                  where: {
+                    groupMemberId: membership.groupMemberId,
+                  },
+                  select: {
+                    paidAmount: true,
+                    expectedAmount: true,
+                  },
+                },
+              },
+            });
+
+            // Count finance matters where user owes money
+            pendingFinanceCount = financeMatters.filter(fm => {
+              const userMember = fm.members[0];
+              if (!userMember) return false;
+
+              const paidAmount = parseFloat(userMember.paidAmount) || 0;
+              const expectedAmount = parseFloat(userMember.expectedAmount) || 0;
+
+              return paidAmount < expectedAmount;
+            }).length;
+          }
+
+          return {
+            groupId: membership.group.groupId,
+            name: membership.group.name,
+            icon: membership.group.icon,
+            backgroundColor: membership.group.backgroundColor,
+            backgroundImageUrl: membership.group.backgroundImageUrl,
+            createdAt: membership.group.createdAt,
+            isHidden: membership.group.isHidden,
+            role: membership.role,
+            displayName: membership.displayName,
+            isMuted: membership.isMuted,
+            isPinned: membership.isPinned,
+            pinnedOrder: membership.pinnedOrder,
+            unreadMessagesCount,
+            unreadMentionsCount,
+            pendingApprovalsCount,
+            pendingFinanceCount,
+          };
+        })
+    );
+
+    // Sort groups by pin status and creation date
+    groups.sort((a, b) => {
+      // Pinned groups come first
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+
+      // Among pinned groups, sort by pinnedOrder
+      if (a.isPinned && b.isPinned) {
+        return (a.pinnedOrder || 0) - (b.pinnedOrder || 0);
+      }
+
+      // Among unpinned groups, sort by createdAt (most recent first)
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
     res.status(200).json({
       success: true,
@@ -137,6 +387,14 @@ async function getGroupById(req, res) {
           userId: userId,
         },
       },
+      include: {
+        user: {
+          select: {
+            isSubscribed: true,
+            createdAt: true,
+          },
+        },
+      },
     });
 
     if (!membership) {
@@ -146,7 +404,7 @@ async function getGroupById(req, res) {
       });
     }
 
-    // Get group details with all members (include user profile data)
+    // Get group details with all members (include user profile data) and settings
     const group = await prisma.group.findUnique({
       where: { groupId: groupId },
       include: {
@@ -168,6 +426,16 @@ async function getGroupById(req, res) {
                 iconColor: true,
               },
             },
+          },
+        },
+        settings: {
+          select: {
+            financeVisibleToParents: true,
+            financeCreatableByParents: true,
+            financeVisibleToCaregivers: true,
+            financeCreatableByCaregivers: true,
+            financeVisibleToChildren: true,
+            financeCreatableByChildren: true,
           },
         },
       },
@@ -211,16 +479,22 @@ async function getGroupById(req, res) {
       };
     });
 
+    // Trial users get admin-level permissions (20-day trial)
+    const daysSinceCreation = membership.user ? (Date.now() - new Date(membership.user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+    const isOnTrial = membership.user && !membership.user.isSubscribed && daysSinceCreation <= 20;
+    const effectiveRole = isOnTrial ? 'admin' : membership.role;
+
     res.status(200).json({
       success: true,
       group: {
         ...group,
         members: membersWithLatestProfile,
-        userRole: membership.role,
+        memberCount: membersWithLatestProfile.length, // Add member count for dashboard display
+        userRole: effectiveRole,
         currentUserId: userId, // Include current user ID so frontend can prevent self-management
         currentUserMember: {
           groupMemberId: membership.groupMemberId,
-          role: membership.role,
+          role: effectiveRole,
           displayName: membership.displayName,
         },
       },
@@ -261,16 +535,31 @@ async function createGroup(req, res) {
       });
     }
 
-    // Check if user has active subscription (required to be admin)
+    // Check if user has active subscription or is on trial (required to be admin)
     const user = await prisma.user.findUnique({
       where: { userId: userId },
-      select: { isSubscribed: true },
+      select: {
+        isSubscribed: true,
+        createdAt: true,
+      },
     });
 
-    if (!user.isSubscribed) {
+    if (!user) {
+      return res.status(404).json({
+        error: 'User Not Found',
+        message: 'User account not found',
+      });
+    }
+
+    // Calculate if user is on trial (account created within last 20 days and not subscribed)
+    const daysSinceCreation = (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    const isOnTrial = !user.isSubscribed && daysSinceCreation <= 20;
+
+    const hasAccess = user.isSubscribed || isOnTrial;
+    if (!hasAccess) {
       return res.status(403).json({
         error: 'Subscription Required',
-        message: 'Active subscription required to create groups',
+        message: 'Active subscription or trial required to create groups',
       });
     }
 
@@ -424,6 +713,28 @@ async function inviteMember(req, res) {
       where: { email: email.toLowerCase() },
     });
 
+    // VALIDATION: Cannot add admin role unless user is registered with active subscription/trial
+    if (role === 'admin') {
+      if (!targetUser) {
+        return res.status(400).json({
+          error: 'Invalid Role',
+          message: 'Cannot add non-registered users as admin. Admins must have an account with active subscription.',
+        });
+      }
+
+      // Check if user has active subscription or trial
+      const daysSinceCreation = (Date.now() - new Date(targetUser.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      const isOnTrial = !targetUser.isSubscribed && daysSinceCreation <= 20;
+      const hasActiveSubscription = targetUser.isSubscribed || isOnTrial;
+
+      if (!hasActiveSubscription) {
+        return res.status(400).json({
+          error: 'Subscription Required',
+          message: 'User must have an active subscription or trial to be added as admin.',
+        });
+      }
+    }
+
     // Check if user/email is already a member
     if (targetUser) {
       // Check by userId for registered users
@@ -466,49 +777,237 @@ async function inviteMember(req, res) {
       : email.split('@')[0]);
     const iconLetters = memberIcon || generateIconLetters(displayName);
 
-    // Add member to group
-    // If user exists (registered), link to their userId
-    // If user doesn't exist (unregistered), create member with null userId
-    const newMembership = await prisma.groupMember.create({
-      data: {
+    // Count current admins in the group
+    const adminCount = await prisma.groupMember.count({
+      where: {
         groupId: groupId,
-        userId: targetUser ? targetUser.userId : null, // null for unregistered members
-        role: role,
-        displayName: displayName,
-        iconLetters: iconLetters,
-        iconColor: iconColor || '#6200ee', // Use provided color or default purple
-        email: email.toLowerCase(),
-        isRegistered: targetUser ? true : false, // true if user exists, false otherwise
+        role: 'admin',
       },
     });
 
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
+    // Check if ALL other admins have granted this admin auto-approve permission for adding people
+    let canAutoApprove = false;
+    let autoApproveVotes = [];
+
+    if (adminCount >= 2) {
+      // Get all other admins in the group
+      const otherAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          groupMemberId: {
+            not: requesterMembership.groupMemberId,
+          },
+        },
+        select: {
+          groupMemberId: true,
+          displayName: true,
+        },
+      });
+
+      // Check if enough other admins have granted auto-approve permission (>50%)
+      const autoApprovePermissions = await prisma.adminPermission.findMany({
+        where: {
+          groupId: groupId,
+          receivingAdminId: requesterMembership.groupMemberId,
+          autoApproveAddPeople: true,
+        },
+        select: {
+          grantingAdminId: true,
+        },
+      });
+
+      const grantorIds = new Set(autoApprovePermissions.map(p => p.grantingAdminId));
+
+      // Count votes: requester (1) + auto-approvers
+      const requesterVote = 1;
+      const autoApproveVoteCount = otherAdmins.filter(admin => grantorIds.has(admin.groupMemberId)).length;
+      const totalVotes = requesterVote + autoApproveVoteCount;
+      const totalAdmins = adminCount;
+      const approvalPercentage = (totalVotes / totalAdmins) * 100;
+
+      // Need >50% approval
+      canAutoApprove = approvalPercentage > 50;
+
+      // If can auto-approve, prepare the votes
+      if (canAutoApprove) {
+        autoApproveVotes = otherAdmins
+          .filter(admin => grantorIds.has(admin.groupMemberId))
+          .map(admin => ({
+            groupMemberId: admin.groupMemberId,
+            displayName: admin.displayName,
+          }));
+      }
+    }
+
+    // Determine status: auto-approve if only 1 admin OR if >50% admins granted permission
+    const shouldAutoApprove = adminCount < 2 || canAutoApprove;
+
+    // Get ALL current admins for snapshot in time
+    const allCurrentAdmins = await prisma.groupMember.findMany({
+      where: {
         groupId: groupId,
-        action: 'invite_member',
-        performedBy: requesterMembership.groupMemberId,
-        performedByName: requesterMembership.displayName,
-        performedByEmail: requesterMembership.email,
-        actionLocation: 'group_settings',
-        messageContent: `Invited ${email} as ${role}`,
+        role: 'admin',
+      },
+      select: {
+        groupMemberId: true,
       },
     });
 
-    // TODO: Send invitation email to the user
+    const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
 
-    res.status(201).json({
-      success: true,
-      message: `Successfully invited ${email} to the group`,
-      member: {
-        groupMemberId: newMembership.groupMemberId,
-        userId: newMembership.userId, // null if unregistered
-        role: newMembership.role,
-        displayName: newMembership.displayName,
-        email: newMembership.email,
-        isRegistered: newMembership.isRegistered,
-      },
-    });
+    if (shouldAutoApprove) {
+      // Add member immediately - approval is auto-approved
+      // Add member to group with different logic based on registration status:
+      //
+      // REGISTERED USERS (targetUser exists):
+      //   - Create pending invitation (isRegistered: false)
+      //   - User must accept via InvitesScreen to join group
+      //   - Links to userId immediately but not active member until accepted
+      //
+      // PLACEHOLDER MEMBERS (targetUser does not exist):
+      //   - Create immediate member (isRegistered: true, userId: null)
+      //   - Used for people who will never log in (e.g., Granny for calendar/finance tracking)
+      //   - Appears immediately in group, no invitation needed
+      //   - When/if they register later, invitation system handles linking
+      const newMembership = await prisma.groupMember.create({
+        data: {
+          groupId: groupId,
+          userId: targetUser ? targetUser.userId : null,
+          role: role,
+          displayName: displayName,
+          iconLetters: iconLetters,
+          iconColor: iconColor || '#6200ee',
+          email: email.toLowerCase(),
+          isRegistered: targetUser ? false : true, // Registered users get invitation, placeholders are immediate members
+        },
+      });
+
+      // Create approval record for audit trail (auto-approved)
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: requesterMembership.groupMemberId,
+          approvalType: 'add_member',
+          requiresAllAdmins: false,
+          requiredApprovalPercentage: '50.00',
+          status: 'approved',
+          approvalData: JSON.stringify({
+            targetEmail: email.toLowerCase(),
+            targetDisplayName: displayName,
+            targetRole: role,
+            targetUserId: targetUser?.userId || null,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Create requester's vote
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: requesterMembership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false,
+        },
+      });
+
+      // If auto-approved, create votes for other admins who granted permission
+      if (adminCount >= 2 && canAutoApprove) {
+        for (const voter of autoApproveVotes) {
+          await prisma.approvalVote.create({
+            data: {
+              approvalId: approval.approvalId,
+              adminId: voter.groupMemberId,
+              vote: 'approve',
+              isAutoApproved: true,
+            },
+          });
+        }
+      }
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'add_member',
+          performedBy: requesterMembership.groupMemberId,
+          performedByName: requesterMembership.displayName,
+          performedByEmail: requesterMembership.email || 'N/A',
+          actionLocation: 'group_settings',
+          messageContent: adminCount < 2
+            ? `Added ${email} as ${role} (solo admin, auto-approved)`
+            : `Added ${email} as ${role} (auto-approved by ${autoApproveVotes.length} admin${autoApproveVotes.length !== 1 ? 's' : ''})`,
+        },
+      });
+
+      // TODO: Send invitation email to the user
+
+      res.status(201).json({
+        success: true,
+        message: `Successfully invited ${email} to the group`,
+        member: {
+          groupMemberId: newMembership.groupMemberId,
+          userId: newMembership.userId, // null if unregistered
+          role: newMembership.role,
+          displayName: newMembership.displayName,
+          email: newMembership.email,
+          isRegistered: newMembership.isRegistered,
+        },
+      });
+    } else {
+      // Create approval request - needs votes from other admins
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: requesterMembership.groupMemberId,
+          approvalType: 'add_member',
+          requiresAllAdmins: false,
+          requiredApprovalPercentage: '50.00',
+          status: 'pending',
+          approvalData: JSON.stringify({
+            targetEmail: email.toLowerCase(),
+            targetDisplayName: displayName,
+            targetRole: role,
+            targetUserId: targetUser?.userId || null,
+            targetIconLetters: iconLetters,
+            targetIconColor: iconColor || '#6200ee',
+            targetIsRegistered: targetUser ? false : true,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Always create requester's vote (they automatically approve by requesting)
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: requesterMembership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false,
+        },
+      });
+
+      // Create audit log for approval request
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'request_approval',
+          performedBy: requesterMembership.groupMemberId,
+          performedByName: requesterMembership.displayName,
+          performedByEmail: requesterMembership.email || 'N/A',
+          actionLocation: 'group_settings',
+          messageContent: `Requested approval to add ${email} as ${role}`,
+        },
+      });
+
+      res.status(202).json({
+        success: true,
+        message: `Approval request created to add ${email} to the group. Waiting for other admin approvals.`,
+        requiresApproval: true,
+        approvalId: approval.approvalId,
+      });
+    }
   } catch (error) {
     console.error('Invite member error:', error);
     res.status(500).json({
@@ -670,14 +1169,100 @@ async function deleteGroup(req, res) {
       },
     });
 
-    // For now, if there's only one admin, allow deletion directly
-    // TODO: Implement approval workflow for multiple admins
+    // If multiple admins, create approval workflow (appplan.md line 297: >50% approval required)
     if (adminCount > 1) {
-      return res.status(400).json({
-        error: 'Approval Required',
-        message: 'Deleting a group with multiple admins requires approval (coming soon)',
+      // Get all other admins in the group
+      const otherAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          groupMemberId: {
+            not: membership.groupMemberId,
+          },
+        },
+        select: {
+          groupMemberId: true,
+          displayName: true,
+        },
+      });
+
+      // Check if ALL other admins have granted auto-approve permission
+      // Note: Auto-approve for delete group doesn't exist in schema, so we'll skip this check
+      // Deleting group always requires manual approval from other admins
+
+      // Get ALL current admins for snapshot in time
+      const allCurrentAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+        select: {
+          groupMemberId: true,
+        },
+      });
+
+      const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
+
+      // Create approval record (always, for audit trail)
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: membership.groupMemberId,
+          approvalType: 'delete_group',
+          requiresAllAdmins: false, // Deleting group requires >50% approval
+          requiredApprovalPercentage: '50.00',
+          status: 'pending', // Always pending for multi-admin delete
+          approvalData: JSON.stringify({
+            groupName: group.name,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Always create requester's vote (they automatically approve by requesting)
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: membership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false,
+        },
+      });
+
+      // Create audit log for approval request
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email,
+          action: 'request_approval',
+          actionLocation: 'group_settings',
+          messageContent: `Requested approval to delete group "${group.name}"`,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        requiresApproval: true,
+        approvalId: approval.approvalId,
+        message: 'Approval request created. Other admins must approve group deletion.',
       });
     }
+
+    // Single admin: Delete immediately
+    // Get ALL current admins for snapshot in time (will just be this one admin)
+    const allCurrentAdmins = await prisma.groupMember.findMany({
+      where: {
+        groupId: groupId,
+        role: 'admin',
+      },
+      select: {
+        groupMemberId: true,
+      },
+    });
+
+    const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
 
     // Soft delete the group (set isHidden = true)
     await prisma.group.update({
@@ -685,7 +1270,33 @@ async function deleteGroup(req, res) {
       data: { isHidden: true },
     });
 
-    // Create audit log before deletion
+    // Create approval record for audit trail (auto-approved)
+    const approval = await prisma.approval.create({
+      data: {
+        groupId: groupId,
+        requestedBy: membership.groupMemberId,
+        approvalType: 'delete_group',
+        requiresAllAdmins: false,
+        requiredApprovalPercentage: '50.00',
+        status: 'approved',
+        approvalData: JSON.stringify({
+          groupName: group.name,
+          allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+        }),
+      },
+    });
+
+    // Create requester's vote
+    await prisma.approvalVote.create({
+      data: {
+        approvalId: approval.approvalId,
+        adminId: membership.groupMemberId,
+        vote: 'approve',
+        isAutoApproved: false,
+      },
+    });
+
+    // Create audit log
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
@@ -694,13 +1305,15 @@ async function deleteGroup(req, res) {
         performedByName: membership.displayName,
         performedByEmail: membership.email,
         actionLocation: 'group_settings',
-        messageContent: `Deleted group "${group.name}"`,
+        messageContent: `Deleted group "${group.name}" (auto-approved: only admin)`,
       },
     });
 
     res.status(200).json({
       success: true,
-      message: 'Group deleted successfully',
+      requiresApproval: false,
+      approvalId: approval.approvalId,
+      message: 'Group deleted successfully (auto-approved: only admin)',
     });
   } catch (error) {
     console.error('Delete group error:', error);
@@ -911,6 +1524,130 @@ async function reorderPinnedGroups(req, res) {
 }
 
 /**
+ * Mute a group for the current user
+ * PUT /groups/:groupId/mute
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function muteGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Mute the group
+    await prisma.groupMember.update({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+      data: {
+        isMuted: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Group muted successfully',
+    });
+  } catch (error) {
+    console.error('Mute group error:', error);
+    res.status(500).json({
+      error: 'Failed to mute group',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Unmute a group for the current user
+ * PUT /groups/:groupId/unmute
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function unmuteGroup(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Unmute the group
+    await prisma.groupMember.update({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+      data: {
+        isMuted: false,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Group unmuted successfully',
+    });
+  } catch (error) {
+    console.error('Unmute group error:', error);
+    res.status(500).json({
+      error: 'Failed to unmute group',
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Change a member's role in a group
  * PUT /groups/:groupId/members/:userId/role
  *
@@ -936,6 +1673,14 @@ async function changeMemberRole(req, res) {
       return res.status(400).json({
         error: 'Invalid role',
         message: `Role must be one of: ${validRoles.join(', ')}`,
+      });
+    }
+
+    // Validate targetUserId is not null (member must have accepted invite)
+    if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
+      return res.status(400).json({
+        error: 'Invalid member',
+        message: 'Cannot change role for members who have not accepted their invite',
       });
     }
 
@@ -989,8 +1734,371 @@ async function changeMemberRole(req, res) {
       });
     }
 
-    // Update role
     const oldRole = targetMembership.role;
+
+    // Debug: Log target membership data
+    console.log('[DEBUG changeMemberRole] Target membership:', {
+      groupMemberId: targetMembership.groupMemberId,
+      displayName: targetMembership.displayName,
+      email: targetMembership.email,
+      userEmail: targetMembership.user?.email,
+      userDisplayName: targetMembership.user?.displayName,
+    });
+
+    // If changing role TO admin, ALWAYS create an approval card (for audit trail)
+    if (role === 'admin' && oldRole !== 'admin') {
+      // Count current admins in the group
+      const adminCount = await prisma.groupMember.count({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+      });
+
+      // Check if ALL other admins have granted this admin auto-approve permission for role changes
+      let canAutoApprove = false;
+      let autoApproveVotes = [];
+
+      if (adminCount >= 2) {
+        // Get all other admins in the group
+        const otherAdmins = await prisma.groupMember.findMany({
+          where: {
+            groupId: groupId,
+            role: 'admin',
+            groupMemberId: {
+              not: currentUserMembership.groupMemberId,
+            },
+          },
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        });
+
+        // Check if ALL other admins have granted auto-approve permission
+        const autoApprovePermissions = await prisma.adminPermission.findMany({
+          where: {
+            groupId: groupId,
+            receivingAdminId: currentUserMembership.groupMemberId,
+            autoApproveChangeRoles: true,
+          },
+          select: {
+            grantingAdminId: true,
+          },
+        });
+
+        const grantorIds = new Set(autoApprovePermissions.map(p => p.grantingAdminId));
+
+        // ALL other admins must have granted permission (100% approval requirement for adding admin)
+        canAutoApprove = otherAdmins.every(admin => grantorIds.has(admin.groupMemberId));
+
+        // If can auto-approve, prepare the votes
+        if (canAutoApprove) {
+          autoApproveVotes = otherAdmins.map(admin => ({
+            groupMemberId: admin.groupMemberId,
+            displayName: admin.displayName,
+          }));
+        }
+      }
+
+      // Determine status: auto-approve if only 1 admin OR if all admins granted permission
+      const shouldAutoApprove = adminCount < 2 || canAutoApprove;
+
+      // Get ALL current admins for snapshot in time
+      const allCurrentAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+        select: {
+          groupMemberId: true,
+        },
+      });
+
+      const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
+
+      // Create approval record (always, for audit trail)
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: currentUserMembership.groupMemberId,
+          approvalType: 'change_role_to_admin',
+          requiresAllAdmins: true, // Adding admin requires 100% approval
+          requiredApprovalPercentage: '100.00',
+          status: shouldAutoApprove ? 'approved' : 'pending',
+          approvalData: JSON.stringify({
+            targetUserId: targetUserId,
+            targetGroupMemberId: targetMembership.groupMemberId,
+            targetEmail: targetMembership.user?.email || targetMembership.displayName,
+            targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
+            oldRole: oldRole,
+            newRole: role,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Always create requester's vote (they automatically approve by requesting)
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: currentUserMembership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false, // Requester's own vote
+        },
+      });
+
+      // If auto-approving, create additional votes from other admins
+      if (shouldAutoApprove) {
+        // Create auto-approval votes from other admins (if any)
+        if (autoApproveVotes.length > 0) {
+          await prisma.approvalVote.createMany({
+            data: autoApproveVotes.map(admin => ({
+              approvalId: approval.approvalId,
+              adminId: admin.groupMemberId,
+              vote: 'approve',
+              isAutoApproved: true, // These are auto-approved via permissions
+            })),
+          });
+        }
+
+        // Execute the role change immediately
+        await prisma.groupMember.update({
+          where: {
+            groupId_userId: {
+              groupId: groupId,
+              userId: targetUserId,
+            },
+          },
+          data: {
+            role: role,
+          },
+        });
+
+        // Create audit log for successful change
+        const autoApproveReason = adminCount < 2
+          ? 'only admin'
+          : 'all admins granted auto-approve permission';
+
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'change_member_role',
+            actionLocation: 'group_settings',
+            messageContent: `Changed role of ${targetMembership.user?.displayName || targetMembership.email} from ${oldRole} to ${role} (auto-approved: ${autoApproveReason})`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: false,
+          approvalId: approval.approvalId,
+          message: `Role changed successfully (auto-approved: ${autoApproveReason}).`,
+        });
+      } else {
+        // 2+ admins without auto-approve permission: Create approval request and wait
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'request_approval',
+            actionLocation: 'group_settings',
+            messageContent: `Requested approval to change role of ${targetMembership.user?.displayName || targetMembership.email} from ${oldRole} to ${role}`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: true,
+          approvalId: approval.approvalId,
+          message: 'Approval request created. Other admins must approve this role change.',
+        });
+      }
+    }
+
+    // If changing role FROM admin, ALWAYS create an approval card (for audit trail)
+    if (oldRole === 'admin' && role !== 'admin') {
+      // Count current admins in the group
+      const adminCount = await prisma.groupMember.count({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+      });
+
+      // Check if ALL other admins have granted this admin auto-approve permission for role changes
+      let canAutoApprove = false;
+      let autoApproveVotes = [];
+
+      if (adminCount >= 2) {
+        // Get all other admins in the group (excluding the target admin being demoted)
+        const otherAdmins = await prisma.groupMember.findMany({
+          where: {
+            groupId: groupId,
+            role: 'admin',
+            groupMemberId: {
+              notIn: [currentUserMembership.groupMemberId, targetMembership.groupMemberId],
+            },
+          },
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        });
+
+        // Check if ALL other admins have granted auto-approve permission
+        const autoApprovePermissions = await prisma.adminPermission.findMany({
+          where: {
+            groupId: groupId,
+            receivingAdminId: currentUserMembership.groupMemberId,
+            autoApproveChangeRoles: true,
+          },
+          select: {
+            grantingAdminId: true,
+          },
+        });
+
+        const grantorIds = new Set(autoApprovePermissions.map(p => p.grantingAdminId));
+
+        // ALL other admins must have granted permission (>50% approval requirement for removing admin)
+        // But we auto-approve if all admins granted permission
+        canAutoApprove = otherAdmins.every(admin => grantorIds.has(admin.groupMemberId));
+
+        // If can auto-approve, prepare the votes
+        if (canAutoApprove) {
+          autoApproveVotes = otherAdmins.map(admin => ({
+            groupMemberId: admin.groupMemberId,
+            displayName: admin.displayName,
+          }));
+        }
+      }
+
+      // Determine status: auto-approve if only 1 admin OR if all admins granted permission
+      const shouldAutoApprove = adminCount < 2 || canAutoApprove;
+
+      // Get ALL current admins for snapshot in time
+      const allCurrentAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+        select: {
+          groupMemberId: true,
+        },
+      });
+
+      const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
+
+      // Create approval record (always, for audit trail)
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: currentUserMembership.groupMemberId,
+          approvalType: 'change_role_from_admin',
+          requiresAllAdmins: false, // Removing admin requires >50% approval
+          requiredApprovalPercentage: '50.00',
+          status: shouldAutoApprove ? 'approved' : 'pending',
+          approvalData: JSON.stringify({
+            targetUserId: targetUserId,
+            targetGroupMemberId: targetMembership.groupMemberId,
+            targetEmail: targetMembership.user?.email || targetMembership.displayName,
+            targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
+            oldRole: oldRole,
+            newRole: role,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Always create requester's vote (they automatically approve by requesting)
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: currentUserMembership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false, // Requester's own vote
+        },
+      });
+
+      // If auto-approving, create additional votes from other admins
+      if (shouldAutoApprove) {
+        // Create auto-approval votes from other admins (if any)
+        if (autoApproveVotes.length > 0) {
+          await prisma.approvalVote.createMany({
+            data: autoApproveVotes.map(admin => ({
+              approvalId: approval.approvalId,
+              adminId: admin.groupMemberId,
+              vote: 'approve',
+              isAutoApproved: true, // These are auto-approved via permissions
+            })),
+          });
+        }
+
+        // Execute the role change immediately
+        await prisma.groupMember.update({
+          where: {
+            groupId_userId: {
+              groupId: groupId,
+              userId: targetUserId,
+            },
+          },
+          data: {
+            role: role,
+          },
+        });
+
+        // Create audit log for successful change
+        const autoApproveReason = adminCount < 2
+          ? 'only admin'
+          : 'all admins granted auto-approve permission';
+
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'change_member_role',
+            actionLocation: 'group_settings',
+            messageContent: `Changed role of ${targetMembership.user?.displayName || targetMembership.email} from ${oldRole} to ${role} (auto-approved: ${autoApproveReason})`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: false,
+          approvalId: approval.approvalId,
+          message: `Role changed successfully (auto-approved: ${autoApproveReason}).`,
+        });
+      } else {
+        // 2+ admins without auto-approve permission: Create approval request and wait
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'request_approval',
+            actionLocation: 'group_settings',
+            messageContent: `Requested approval to change role of ${targetMembership.user?.displayName || targetMembership.email} from ${oldRole} to ${role}`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: true,
+          approvalId: approval.approvalId,
+          message: 'Approval request created. Other admins must approve this role change.',
+        });
+      }
+    }
+
+    // For non-admin role changes, execute directly without approval
     await prisma.groupMember.update({
       where: {
         groupId_userId: {
@@ -1048,6 +2156,14 @@ async function removeMember(req, res) {
       });
     }
 
+    // Validate targetUserId is not null (member must have accepted invite)
+    if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
+      return res.status(400).json({
+        error: 'Invalid member',
+        message: 'Cannot remove members who have not accepted their invite',
+      });
+    }
+
     // Check if current user is admin of the group
     const currentUserMembership = await prisma.groupMember.findUnique({
       where: {
@@ -1098,26 +2214,195 @@ async function removeMember(req, res) {
       });
     }
 
-    if (targetMembership.isHidden) {
-      return res.status(400).json({
-        error: 'Invalid operation',
-        message: 'Member has already been removed',
+    const targetRole = targetMembership.role;
+    const targetDisplayName = targetMembership.user?.displayName || targetMembership.email;
+
+    // If removing an ADMIN, create approval workflow (appplan.md line 297: >50% approval required)
+    if (targetRole === 'admin') {
+      // Count current admins in the group
+      const adminCount = await prisma.groupMember.count({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
       });
+
+      // Check if ALL other admins have granted this admin auto-approve permission
+      let canAutoApprove = false;
+      let autoApproveVotes = [];
+
+      if (adminCount >= 2) {
+        // Get all other admins (excluding requester and target)
+        const otherAdmins = await prisma.groupMember.findMany({
+          where: {
+            groupId: groupId,
+            role: 'admin',
+            groupMemberId: {
+              notIn: [currentUserMembership.groupMemberId, targetMembership.groupMemberId],
+            },
+          },
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        });
+
+        // Check if ALL other admins have granted auto-approve permission for removing members
+        const autoApprovePermissions = await prisma.adminPermission.findMany({
+          where: {
+            groupId: groupId,
+            receivingAdminId: currentUserMembership.groupMemberId,
+            autoApproveRemovePeople: true,
+          },
+          select: {
+            grantingAdminId: true,
+          },
+        });
+
+        const grantorIds = new Set(autoApprovePermissions.map(p => p.grantingAdminId));
+
+        // ALL other admins must have granted permission
+        canAutoApprove = otherAdmins.every(admin => grantorIds.has(admin.groupMemberId));
+
+        // If can auto-approve, prepare the votes
+        if (canAutoApprove) {
+          autoApproveVotes = otherAdmins.map(admin => ({
+            groupMemberId: admin.groupMemberId,
+            displayName: admin.displayName,
+          }));
+        }
+      }
+
+      // Determine status: auto-approve if only 1 admin OR if all admins granted permission
+      const shouldAutoApprove = adminCount < 2 || canAutoApprove;
+
+      // Get ALL current admins for snapshot in time
+      const allCurrentAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+        select: {
+          groupMemberId: true,
+        },
+      });
+
+      const allAdminIds = allCurrentAdmins.map(a => a.groupMemberId);
+
+      // Create approval record (always, for audit trail)
+      const approval = await prisma.approval.create({
+        data: {
+          groupId: groupId,
+          requestedBy: currentUserMembership.groupMemberId,
+          approvalType: 'remove_member',
+          requiresAllAdmins: false, // Removing admin requires >50% approval
+          requiredApprovalPercentage: '50.00',
+          status: shouldAutoApprove ? 'approved' : 'pending',
+          approvalData: JSON.stringify({
+            targetUserId: targetUserId,
+            targetGroupMemberId: targetMembership.groupMemberId,
+            targetEmail: targetMembership.user?.email || targetMembership.displayName,
+            targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
+            targetRole: targetRole,
+            allAdminIds: allAdminIds, // Snapshot of admins at approval creation time
+          }),
+        },
+      });
+
+      // Always create requester's vote (they automatically approve by requesting)
+      await prisma.approvalVote.create({
+        data: {
+          approvalId: approval.approvalId,
+          adminId: currentUserMembership.groupMemberId,
+          vote: 'approve',
+          isAutoApproved: false,
+        },
+      });
+
+      // If auto-approving, create additional votes from other admins and execute
+      if (shouldAutoApprove) {
+        // Create auto-approval votes from other admins (if any)
+        if (autoApproveVotes.length > 0) {
+          await prisma.approvalVote.createMany({
+            data: autoApproveVotes.map(admin => ({
+              approvalId: approval.approvalId,
+              adminId: admin.groupMemberId,
+              vote: 'approve',
+              isAutoApproved: true,
+            })),
+          });
+        }
+
+        // Delete the membership (hard delete as per original implementation)
+        await prisma.groupMember.delete({
+          where: {
+            groupId_userId: {
+              groupId: groupId,
+              userId: targetUserId,
+            },
+          },
+        });
+
+        // Create audit log
+        const autoApproveReason = adminCount < 2
+          ? 'only admin'
+          : 'all admins granted auto-approve permission';
+
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'remove_member',
+            actionLocation: 'group_settings',
+            messageContent: `Removed ${targetDisplayName} (admin) from group (auto-approved: ${autoApproveReason})`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: false,
+          approvalId: approval.approvalId,
+          message: `Member removed successfully (auto-approved: ${autoApproveReason}).`,
+        });
+      } else {
+        // 2+ admins without auto-approve permission: Create approval request and wait
+        await prisma.auditLog.create({
+          data: {
+            groupId: groupId,
+            performedBy: currentUserMembership.groupMemberId,
+            performedByName: currentUserMembership.displayName,
+            performedByEmail: currentUserMembership.email || req.user?.email,
+            action: 'request_approval',
+            actionLocation: 'group_settings',
+            messageContent: `Requested approval to remove ${targetDisplayName} (admin) from group`,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          requiresApproval: true,
+          approvalId: approval.approvalId,
+          message: 'Approval request created. Other admins must approve removing this admin.',
+        });
+      }
     }
 
-    // Soft delete the membership
-    await prisma.groupMember.update({
+    // For non-admin members, delete directly (no approval needed)
+    await prisma.groupMember.delete({
       where: {
         groupId_userId: {
           groupId: groupId,
           userId: targetUserId,
         },
       },
-      data: {
-        isHidden: true,
-        updatedAt: new Date(),
-      },
     });
+
+    // CRITICAL: If removed member was an admin with pending approval votes, clean up approvals
+    if (targetRole === 'admin') {
+      await cleanupAdminApprovals(groupId, targetMembership.groupMemberId);
+    }
 
     // Create audit log
     await prisma.auditLog.create({
@@ -1308,6 +2593,7 @@ async function updateGroupSettings(req, res) {
       financeCreatableByCaregivers,
       financeVisibleToChildren,
       financeCreatableByChildren,
+      defaultCurrency,
     } = req.body;
 
     // Verify user is an admin
@@ -1338,6 +2624,11 @@ async function updateGroupSettings(req, res) {
       financeVisibleToChildren,
       financeCreatableByChildren: financeVisibleToChildren ? financeCreatableByChildren : false,
     };
+
+    // Add defaultCurrency if provided
+    if (defaultCurrency !== undefined) {
+      updatedData.defaultCurrency = defaultCurrency;
+    }
 
     // Update or create settings
     const settings = await prisma.groupSettings.upsert({
@@ -1438,11 +2729,32 @@ async function getAdminPermissions(req, res) {
     // Filter out current user from other admins list
     const otherAdmins = admins.filter(admin => admin.userId !== userId);
 
+    // Merge permissions into each admin object
+    const adminsWithPermissions = otherAdmins.map(admin => {
+      // Find permissions for this admin
+      const adminPermission = permissions.find(p => p.receivingAdminId === admin.groupMemberId);
+
+      return {
+        ...admin,
+        permissions: {
+          canHideMessages: adminPermission?.autoApproveHideMessages || false,
+          canChangeMessageDeletionSetting: adminPermission?.autoApproveChangeMessageDeletionSetting || false,
+          canAddMembers: adminPermission?.autoApproveAddPeople || false,
+          canRemoveMembers: adminPermission?.autoApproveRemovePeople || false,
+          canAssignRoles: adminPermission?.autoApproveAssignRoles || false,
+          canChangeRoles: adminPermission?.autoApproveChangeRoles || false,
+          canAssignRelationships: adminPermission?.autoApproveAssignRelationships || false,
+          canChangeRelationships: adminPermission?.autoApproveChangeRelationships || false,
+          canCreateCalendarEvents: adminPermission?.autoApproveCalendarEntries || false,
+          canAssignChildrenToEvents: adminPermission?.autoApproveAssignChildrenToEvents || false,
+          canAssignCaregiversToEvents: adminPermission?.autoApproveAssignCaregiversToEvents || false,
+        },
+      };
+    });
+
     res.status(200).json({
       success: true,
-      currentAdmin: membership,
-      otherAdmins: otherAdmins,
-      permissions: permissions,
+      admins: adminsWithPermissions, // Changed from otherAdmins to admins to match frontend expectation
     });
   } catch (error) {
     console.error('Get admin permissions error:', error);
@@ -1461,18 +2773,20 @@ async function updateAdminPermissions(req, res) {
   try {
     const { groupId, targetAdminId } = req.params;
     const userId = req.user.userId;
-    const {
-      autoApproveHideMessages,
-      autoApproveAddPeople,
-      autoApproveRemovePeople,
-      autoApproveAssignRoles,
-      autoApproveChangeRoles,
-      autoApproveAssignRelationships,
-      autoApproveChangeRelationships,
-      autoApproveCalendarEntries,
-      autoApproveAssignChildrenToEvents,
-      autoApproveAssignCaregiversToEvents,
-    } = req.body;
+
+    // Map frontend field names to database field names
+    const permissions = req.body;
+    const autoApproveHideMessages = permissions.canHideMessages ?? permissions.autoApproveHideMessages;
+    const autoApproveChangeMessageDeletionSetting = permissions.canChangeMessageDeletionSetting ?? permissions.autoApproveChangeMessageDeletionSetting;
+    const autoApproveAddPeople = permissions.canAddMembers ?? permissions.autoApproveAddPeople;
+    const autoApproveRemovePeople = permissions.canRemoveMembers ?? permissions.autoApproveRemovePeople;
+    const autoApproveAssignRoles = permissions.canAssignRoles ?? permissions.autoApproveAssignRoles;
+    const autoApproveChangeRoles = permissions.canChangeRoles ?? permissions.autoApproveChangeRoles;
+    const autoApproveAssignRelationships = permissions.canAssignRelationships ?? permissions.autoApproveAssignRelationships;
+    const autoApproveChangeRelationships = permissions.canChangeRelationships ?? permissions.autoApproveChangeRelationships;
+    const autoApproveCalendarEntries = permissions.canCreateCalendarEvents ?? permissions.autoApproveCalendarEntries;
+    const autoApproveAssignChildrenToEvents = permissions.canAssignChildrenToEvents ?? permissions.autoApproveAssignChildrenToEvents;
+    const autoApproveAssignCaregiversToEvents = permissions.canAssignCaregiversToEvents ?? permissions.autoApproveAssignCaregiversToEvents;
 
     // Verify current user is an admin
     const grantingAdmin = await prisma.groupMember.findFirst({
@@ -1525,6 +2839,7 @@ async function updateAdminPermissions(req, res) {
       },
       update: {
         autoApproveHideMessages,
+        autoApproveChangeMessageDeletionSetting,
         autoApproveAddPeople,
         autoApproveRemovePeople,
         autoApproveAssignRoles,
@@ -1540,6 +2855,7 @@ async function updateAdminPermissions(req, res) {
         grantingAdminId: grantingAdmin.groupMemberId,
         receivingAdminId: targetAdminId,
         autoApproveHideMessages,
+        autoApproveChangeMessageDeletionSetting,
         autoApproveAddPeople,
         autoApproveRemovePeople,
         autoApproveAssignRoles,
@@ -1589,6 +2905,8 @@ module.exports = {
   pinGroup,
   unpinGroup,
   reorderPinnedGroups,
+  muteGroup,
+  unmuteGroup,
   changeMemberRole,
   removeMember,
   leaveGroup,

@@ -5,6 +5,7 @@
  * and renders the appropriate navigation structure.
  */
 
+import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
