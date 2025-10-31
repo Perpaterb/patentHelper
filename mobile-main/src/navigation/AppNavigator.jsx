@@ -22,6 +22,14 @@ import InvitesScreen from '../screens/groups/InvitesScreen';
 import MessageGroupsListScreen from '../screens/groups/MessageGroupsListScreen';
 import CreateMessageGroupScreen from '../screens/groups/CreateMessageGroupScreen';
 import MessagesScreen from '../screens/groups/MessagesScreen';
+import MessageGroupSettingsScreen from '../screens/groups/MessageGroupSettingsScreen';
+import ApprovalsListScreen from '../screens/groups/ApprovalsListScreen';
+import AutoApproveSettingsScreen from '../screens/groups/AutoApproveSettingsScreen';
+import CalendarScreen from '../screens/calendar/CalendarScreen';
+import CreateEventScreen from '../screens/calendar/CreateEventScreen';
+import FinanceListScreen from '../screens/groups/FinanceListScreen';
+import CreateFinanceMatterScreen from '../screens/finance/CreateFinanceMatterScreen';
+import FinanceMatterDetailsScreen from '../screens/finance/FinanceMatterDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -127,6 +135,52 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               component={MessagesScreen}
               options={{ title: 'Messages' }}
             />
+            <Stack.Screen
+              name="MessageGroupSettings"
+              component={MessageGroupSettingsScreen}
+              options={{ title: 'Message Group Settings' }}
+            />
+
+            {/* Approvals */}
+            <Stack.Screen
+              name="ApprovalsList"
+              component={ApprovalsListScreen}
+              options={{ title: 'Approvals' }}
+            />
+            <Stack.Screen
+              name="AutoApproveSettings"
+              component={AutoApproveSettingsScreen}
+              options={{ title: 'Auto-Approve Settings' }}
+            />
+
+            {/* Calendar */}
+            <Stack.Screen
+              name="Calendar"
+              component={CalendarScreen}
+              options={{ title: 'Shared Calendar' }}
+            />
+            <Stack.Screen
+              name="CreateEvent"
+              component={CreateEventScreen}
+              options={{ title: 'Create Event' }}
+            />
+
+            {/* Finance */}
+            <Stack.Screen
+              name="Finance"
+              component={FinanceListScreen}
+              options={{ title: 'Finance Tracker' }}
+            />
+            <Stack.Screen
+              name="CreateFinanceMatter"
+              component={CreateFinanceMatterScreen}
+              options={{ title: 'Create Finance Matter' }}
+            />
+            <Stack.Screen
+              name="FinanceMatterDetails"
+              component={FinanceMatterDetailsScreen}
+              options={{ title: 'Finance Matter Details' }}
+            />
 
             {/* Home Screen */}
             <Stack.Screen
@@ -135,18 +189,6 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             >
               {(props) => <HomeScreen {...props} onLogout={onLogout} />}
             </Stack.Screen>
-
-            {/* Placeholder screens for future implementation */}
-            <Stack.Screen
-              name="Calendar"
-              component={PlaceholderScreen}
-              options={{ title: 'Shared Calendar' }}
-            />
-            <Stack.Screen
-              name="Finance"
-              component={PlaceholderScreen}
-              options={{ title: 'Finance Tracker' }}
-            />
           </>
         )}
       </Stack.Navigator>
