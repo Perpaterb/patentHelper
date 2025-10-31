@@ -46,47 +46,17 @@ export default function CalendarScreen({ navigation, route }) {
   const [datePickerMode, setDatePickerMode] = useState('date');
 
   /**
-   * Configure header with view mode buttons (Month and Day only)
-   */
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerBackTitle: '', // Only show back arrow, no text
-      headerRight: () => (
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={[styles.viewButton, viewMode === 'month' && styles.viewButtonActive]}
-            onPress={() => setViewMode('month')}
-          >
-            <Text style={[styles.viewButtonText, viewMode === 'month' && styles.viewButtonTextActive]}>
-              Month
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.viewButton, viewMode === 'day' && styles.viewButtonActive]}
-            onPress={() => setViewMode('day')}
-          >
-            <Text style={[styles.viewButtonText, viewMode === 'day' && styles.viewButtonTextActive]}>
-              Day
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ),
-    });
-  }, [navigation, viewMode]);
-
-  /**
-   * Get date header string based on view mode
+   * Get current date text for header
    * Month view: "October 2025"
-   * Day view: "October 31, 2025" (no weekday)
+   * Day view: "October 31, 2025"
    */
-  const getDateHeader = () => {
+  const getHeaderDateText = () => {
     if (viewMode === 'month') {
       return currentMonth.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
       });
     }
-
     // Day view
     return masterDayViewDateTime.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -96,7 +66,31 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
-   * Handle banner click - open date picker
+   * Configure header with date button (left) and view mode toggle (right)
+   */
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerBackTitle: '', // Only show back arrow, no text
+      headerTitle: () => (
+        <TouchableOpacity onPress={handleBannerPress} style={styles.headerDateButton}>
+          <Text style={styles.headerDateText}>{getHeaderDateText()}</Text>
+        </TouchableOpacity>
+      ),
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.viewToggleButton}
+          onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
+        >
+          <Text style={styles.viewToggleText}>
+            {viewMode === 'month' ? 'Day' : 'Month'}
+          </Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, viewMode, currentMonth, masterDayViewDateTime]);
+
+  /**
+   * Handle header date button click - open date picker
    */
   const handleBannerPress = () => {
     setDatePickerMode('date');
@@ -105,14 +99,18 @@ export default function CalendarScreen({ navigation, route }) {
 
   /**
    * Handle date picker change
-   * For Day view: Preserve the time component when changing date
+   * Month view: Update currentMonth to selected date
+   * Day view: Preserve the time component when changing date
    */
   const handleDateChange = (event, selectedDate) => {
     setShowDatePicker(Platform.OS === 'ios');
 
     if (event.type === 'set' && selectedDate) {
-      if (viewMode === 'day') {
-        // Preserve the time component from masterDayViewDateTime
+      if (viewMode === 'month') {
+        // For month view, just update the currentMonth
+        setCurrentMonth(selectedDate);
+      } else {
+        // For day view, preserve the time component from masterDayViewDateTime
         const newDate = new Date(selectedDate);
         newDate.setHours(masterDayViewDateTime.getHours());
         newDate.setMinutes(masterDayViewDateTime.getMinutes());
@@ -293,11 +291,6 @@ export default function CalendarScreen({ navigation, route }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
-        {/* Date Banner */}
-        <TouchableOpacity style={styles.dateBanner} onPress={handleBannerPress}>
-          <Text style={styles.dateBannerText}>{getDateHeader()}</Text>
-        </TouchableOpacity>
-
         {/* View Content */}
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'day' && renderDayView()}
@@ -305,7 +298,7 @@ export default function CalendarScreen({ navigation, route }) {
         {/* Date Picker */}
         {showDatePicker && (
           <DateTimePicker
-            value={viewMode === 'day' ? masterDayViewDateTime : new Date()}
+            value={viewMode === 'month' ? currentMonth : masterDayViewDateTime}
             mode={datePickerMode}
             display="default"
             onChange={handleDateChange}
@@ -321,39 +314,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  headerButtons: {
-    flexDirection: 'row',
-    marginRight: 10,
-    gap: 8,
+  headerDateButton: {
+    padding: 8,
   },
-  viewButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: 'transparent',
-  },
-  viewButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  viewButtonText: {
+  headerDateText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  viewButtonTextActive: {
-    fontWeight: 'bold',
-  },
-  dateBanner: {
-    backgroundColor: '#f5f5f5',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  dateBannerText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+  },
+  viewToggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 10,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  viewToggleText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   placeholderContainer: {
     flex: 1,
