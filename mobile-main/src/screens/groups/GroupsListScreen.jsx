@@ -43,6 +43,7 @@ export default function GroupsListScreen({ navigation }) {
    */
   useEffect(() => {
     navigation.setOptions({
+      headerBackTitle: '', // Only show back arrow, no text
       headerLeft: () => (
         <View style={{ position: 'relative', marginRight: 0, marginTop: -3, justifyContent: 'center' }}>
           <IconButton

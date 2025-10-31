@@ -50,6 +50,7 @@ export default function CalendarScreen({ navigation, route }) {
    */
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerBackTitle: '', // Only show back arrow, no text
       headerRight: () => (
         <View style={styles.headerButtons}>
           <TouchableOpacity
