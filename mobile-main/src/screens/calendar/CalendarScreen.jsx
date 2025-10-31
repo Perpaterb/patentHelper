@@ -14,6 +14,7 @@ import {
   Dimensions,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -44,6 +45,7 @@ export default function CalendarScreen({ navigation, route }) {
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerValue, setDatePickerValue] = useState(new Date());
+  const [tempSelectedDate, setTempSelectedDate] = useState(new Date());
 
   /**
    * Get current date text for header
@@ -90,40 +92,46 @@ export default function CalendarScreen({ navigation, route }) {
   }, [navigation, viewMode, currentMonth, masterDayViewDateTime]);
 
   /**
-   * Handle header date button click - open native date picker
+   * Handle header date button click - open date picker modal
    */
   const handleBannerPress = () => {
     const currentDate = viewMode === 'month' ? currentMonth : masterDayViewDateTime;
     setDatePickerValue(currentDate);
+    setTempSelectedDate(currentDate);
     setShowDatePicker(true);
   };
 
   /**
-   * Handle date change from native picker
+   * Handle date change from native picker (updates temporary state)
    */
   const handleDateChange = (event, selectedDate) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
+    if (selectedDate) {
+      setTempSelectedDate(selectedDate);
     }
+  };
 
-    if (event.type === 'set' && selectedDate) {
-      if (viewMode === 'month') {
-        setCurrentMonth(selectedDate);
-      } else {
-        // Preserve time component for day view
-        const newDate = new Date(selectedDate);
-        newDate.setHours(masterDayViewDateTime.getHours());
-        newDate.setMinutes(masterDayViewDateTime.getMinutes());
-        newDate.setSeconds(masterDayViewDateTime.getSeconds());
-        setMasterDayViewDateTime(newDate);
-      }
-
-      if (Platform.OS === 'ios') {
-        setShowDatePicker(false);
-      }
-    } else if (event.type === 'dismissed') {
-      setShowDatePicker(false);
+  /**
+   * Handle Go button - apply the selected date
+   */
+  const handleGoPress = () => {
+    if (viewMode === 'month') {
+      setCurrentMonth(tempSelectedDate);
+    } else {
+      // Preserve time component for day view
+      const newDate = new Date(tempSelectedDate);
+      newDate.setHours(masterDayViewDateTime.getHours());
+      newDate.setMinutes(masterDayViewDateTime.getMinutes());
+      newDate.setSeconds(masterDayViewDateTime.getSeconds());
+      setMasterDayViewDateTime(newDate);
     }
+    setShowDatePicker(false);
+  };
+
+  /**
+   * Handle Cancel button - close modal without applying changes
+   */
+  const handleCancelPress = () => {
+    setShowDatePicker(false);
   };
 
   /**
@@ -325,14 +333,43 @@ export default function CalendarScreen({ navigation, route }) {
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'day' && renderDayView()}
 
-        {/* Native Date Picker */}
+        {/* Date Picker Modal */}
         {showDatePicker && (
-          <DateTimePicker
-            value={datePickerValue}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleDateChange}
-          />
+          <Modal
+            visible={showDatePicker}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={handleCancelPress}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Date</Text>
+
+                <DateTimePicker
+                  value={tempSelectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                  style={styles.datePicker}
+                />
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={handleCancelPress}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.goButton]}
+                    onPress={handleGoPress}
+                  >
+                    <Text style={styles.goButtonText}>Go</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         )}
       </View>
     </GestureHandlerRootView>
@@ -362,6 +399,61 @@ const styles = StyleSheet.create({
   viewToggleText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: 'bold',
+    userSelect: 'none',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+  },
+  datePicker: {
+    width: '100%',
+    height: 200,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goButton: {
+    backgroundColor: '#6200ee',
+  },
+  goButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   placeholderContainer: {
