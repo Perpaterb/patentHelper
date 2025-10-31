@@ -1,7 +1,7 @@
 /**
  * Calendar Screen
  *
- * Displays calendar with Month, Week, and Day views.
+ * Displays calendar with Month and Day views.
  * Day view uses master datetime variable controlled by vertical swipe gestures.
  */
 
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -31,8 +32,11 @@ const HOURS_PER_SCREEN_SWIPE = 8; // Configurable: how many hours for full scree
 export default function CalendarScreen({ navigation, route }) {
   const { groupId } = route.params;
 
-  // View mode: 'month', 'week', 'day'
-  const [viewMode, setViewMode] = useState('day');
+  // View mode: 'month' or 'day'
+  const [viewMode, setViewMode] = useState('month');
+
+  // Current month for Month view
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Master datetime for Day view - controls all time-based positioning
   const [masterDayViewDateTime, setMasterDayViewDateTime] = useState(new Date());
@@ -42,7 +46,7 @@ export default function CalendarScreen({ navigation, route }) {
   const [datePickerMode, setDatePickerMode] = useState('date');
 
   /**
-   * Configure header with view mode buttons
+   * Configure header with view mode buttons (Month and Day only)
    */
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -54,14 +58,6 @@ export default function CalendarScreen({ navigation, route }) {
           >
             <Text style={[styles.viewButtonText, viewMode === 'month' && styles.viewButtonTextActive]}>
               Month
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.viewButton, viewMode === 'week' && styles.viewButtonActive]}
-            onPress={() => setViewMode('week')}
-          >
-            <Text style={[styles.viewButtonText, viewMode === 'week' && styles.viewButtonTextActive]}>
-              Week
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -79,24 +75,23 @@ export default function CalendarScreen({ navigation, route }) {
 
   /**
    * Get date header string based on view mode
-   * Day view: No weekday, just "October 31, 2025"
-   * Other views: Include weekday
+   * Month view: "October 2025"
+   * Day view: "October 31, 2025" (no weekday)
    */
   const getDateHeader = () => {
-    const date = viewMode === 'day' ? masterDayViewDateTime : new Date();
+    if (viewMode === 'month') {
+      return currentMonth.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+      });
+    }
 
-    const options = {
+    // Day view
+    return masterDayViewDateTime.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    };
-
-    // Add weekday for Month and Week views only
-    if (viewMode !== 'day') {
-      options.weekday = 'long';
-    }
-
-    return date.toLocaleDateString('en-US', options);
+    });
   };
 
   /**
@@ -151,22 +146,120 @@ export default function CalendarScreen({ navigation, route }) {
     });
 
   /**
-   * Render Month view placeholder
+   * Get days in current month for calendar grid
    */
-  const renderMonthView = () => (
-    <View style={styles.placeholderContainer}>
-      <Text style={styles.placeholderText}>Month View (Coming Soon)</Text>
-    </View>
-  );
+  const getDaysInMonth = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    // First day of month
+    const firstDay = new Date(year, month, 1);
+    // Last day of month
+    const lastDay = new Date(year, month + 1, 0);
+
+    // Day of week for first day (0 = Sunday)
+    const firstDayOfWeek = firstDay.getDay();
+
+    // Total days in month
+    const daysInMonth = lastDay.getDate();
+
+    // Create array of day objects
+    const days = [];
+
+    // Add empty slots for days before month starts
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      days.push({ day: null, date: null });
+    }
+
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push({
+        day,
+        date: new Date(year, month, day),
+      });
+    }
+
+    return days;
+  };
 
   /**
-   * Render Week view placeholder
+   * Render Month view with calendar grid
    */
-  const renderWeekView = () => (
-    <View style={styles.placeholderContainer}>
-      <Text style={styles.placeholderText}>Week View (Coming Soon)</Text>
-    </View>
-  );
+  const renderMonthView = () => {
+    const days = getDaysInMonth();
+    const today = new Date();
+    const isCurrentMonth = currentMonth.getMonth() === today.getMonth() &&
+                           currentMonth.getFullYear() === today.getFullYear();
+
+    return (
+      <ScrollView style={styles.monthViewContainer}>
+        {/* Weekday headers */}
+        <View style={styles.weekdayHeader}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+            <View key={index} style={styles.weekdayCell}>
+              <Text style={styles.weekdayText}>{day}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Calendar grid */}
+        <View style={styles.calendarGrid}>
+          {days.map((dayObj, index) => {
+            const isToday = isCurrentMonth && dayObj.day === today.getDate();
+
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dayCell,
+                  dayObj.day === null && styles.emptyDayCell,
+                  isToday && styles.todayCell,
+                ]}
+                onPress={() => {
+                  if (dayObj.date) {
+                    // Switch to Day view with selected date
+                    setMasterDayViewDateTime(dayObj.date);
+                    setViewMode('day');
+                  }
+                }}
+                disabled={dayObj.day === null}
+              >
+                {dayObj.day !== null && (
+                  <Text style={[styles.dayText, isToday && styles.todayText]}>
+                    {dayObj.day}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Month navigation */}
+        <View style={styles.monthNavigation}>
+          <TouchableOpacity
+            style={styles.monthNavButton}
+            onPress={() => {
+              const newMonth = new Date(currentMonth);
+              newMonth.setMonth(currentMonth.getMonth() - 1);
+              setCurrentMonth(newMonth);
+            }}
+          >
+            <Text style={styles.monthNavButtonText}>← Previous Month</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.monthNavButton}
+            onPress={() => {
+              const newMonth = new Date(currentMonth);
+              newMonth.setMonth(currentMonth.getMonth() + 1);
+              setCurrentMonth(newMonth);
+            }}
+          >
+            <Text style={styles.monthNavButtonText}>Next Month →</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
 
   /**
    * Render Day view with master datetime
@@ -206,7 +299,6 @@ export default function CalendarScreen({ navigation, route }) {
 
         {/* View Content */}
         {viewMode === 'month' && renderMonthView()}
-        {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
 
         {/* Date Picker */}
@@ -301,5 +393,73 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic',
+  },
+  // Month view styles
+  monthViewContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  weekdayHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  weekdayCell: {
+    flex: 1,
+    padding: 10,
+    alignItems: 'center',
+  },
+  weekdayText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  emptyDayCell: {
+    backgroundColor: '#f9f9f9',
+  },
+  todayCell: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#6200ee',
+    borderWidth: 2,
+  },
+  dayText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  todayText: {
+    color: '#6200ee',
+    fontWeight: 'bold',
+  },
+  monthNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 20,
+  },
+  monthNavButton: {
+    padding: 12,
+    backgroundColor: '#6200ee',
+    borderRadius: 8,
+  },
+  monthNavButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
