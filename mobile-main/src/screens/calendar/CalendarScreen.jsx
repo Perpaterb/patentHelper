@@ -2,32 +2,28 @@
  * Calendar Screen
  *
  * Displays calendar with Month and Day views.
- * Day view implements 2-column grid with red-line probe system
+ * Day view implements 2-column grid with float-based scrolling
  * matching the HTML reference implementation.
  */
 
-import React, { useState, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  ScrollView,
   Modal,
+  PanResponder,
 } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDecay,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const HEADER_W = 80;
+const HEADER_H = 40;
+const CELL_H = 40;
 
 /**
  * CalendarScreen component
@@ -46,44 +42,45 @@ export default function CalendarScreen({ navigation, route }) {
   // Current month for Month view
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Master datetime for Day view - THIS IS THE KEY VARIABLE
-  const [masterDayViewDateTime, setMasterDayViewDateTime] = useState(new Date());
-
-  // Master absolute slot index (day * 24 + hour) - advances only with scroll
-  const [masterAbsSlotIndex, setMasterAbsSlotIndex] = useState(0);
-
-  // Constants for Day view grid
-  const HEADER_W = 80; // Left header width
-  const HEADER_H = 40; // Top header height
-  const CELL_H = 40; // Cell height
-  const CELL_W = (SCREEN_WIDTH - HEADER_W) / 2; // Exactly 2 columns in grid area
-  const HEADER_CELL_W = SCREEN_WIDTH / 6; // Top header: 1/6 screen width per day
-
-  // Scroll state for Day view grid
-  const scrollX = useSharedValue(0); // Horizontal scroll (columns)
-  const scrollY = useSharedValue(0); // Vertical scroll (rows)
-  const offsetX = useSharedValue(0); // Sub-cell horizontal offset for animation
-  const offsetY = useSharedValue(0); // Sub-cell vertical offset for animation
-  const [scrollXJS, setScrollXJS] = useState(0);
-  const [scrollYJS, setScrollYJS] = useState(0);
-  const [offsetXJS, setOffsetXJS] = useState(0);
-  const [offsetYJS, setOffsetYJS] = useState(0);
-
-  // Gesture state
-  const [dragging, setDragging] = useState(false);
-  const baseScrollX = useSharedValue(0);
-  const baseScrollY = useSharedValue(0);
-  const velocityY = useSharedValue(0);
-  // Re-anchor points for fixing cross-axis pollution bug
-  const startTranslationX = useSharedValue(0);
-  const startTranslationY = useSharedValue(0);
-
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerValue, setDatePickerValue] = useState(new Date());
   const [tempSelectedDate, setTempSelectedDate] = useState(new Date());
 
-  // Helper functions for date/time labels
+  // --- DAY VIEW: Float-based scroll state (no normalization needed!) ---
+  const [renderTick, setRenderTick] = useState(0);
+  const scrollYFloat = useRef(0); // Vertical scroll (float, not integer!)
+  const scrollXFloat = useRef(0); // Horizontal scroll (float)
+
+  // Animation state
+  const velocity = useRef({ x: 0, y: 0 });
+  const friction = 0.93;
+  const animating = useRef(false);
+  const snapAnim = useRef({
+    active: false,
+    from: 0,
+    to: 0,
+    startT: 0,
+    duration: 220,
+  }).current;
+
+  // Drag state
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const scrollStartX = useRef(0);
+  const scrollStartY = useRef(0);
+
+  // Helper functions for sizing
+  function getSizes() {
+    const cellW = (SCREEN_WIDTH - HEADER_W) / 2;
+    const headerCellW = SCREEN_WIDTH / 6;
+    const padL = cellW * 2;
+    const padT = CELL_H * 2;
+    const gridW = SCREEN_WIDTH - HEADER_W;
+    const gridH = SCREEN_HEIGHT - HEADER_H;
+    return { cellW, headerCellW, padL, padT, gridW, gridH };
+  }
+
+  // Helper functions for labels
   const hourLabel = (hour24) => {
     const h = ((hour24 % 24) + 24) % 24;
     const hour = h % 12 === 0 ? 12 : h % 12;
@@ -98,669 +95,613 @@ export default function CalendarScreen({ navigation, route }) {
     const day = date.getDate();
     const month = date.toLocaleString('default', { month: 'long' });
     const suffix =
-      day % 10 === 1 && day !== 11 ? 'st' :
-      day % 10 === 2 && day !== 12 ? 'nd' :
-      day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+      (day % 10 === 1 && day !== 11) ? 'st' :
+      (day % 10 === 2 && day !== 12) ? 'nd' :
+      (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
     return `${day}${suffix} ${month}`;
   };
 
-  /**
-   * Get current date text for header
-   * Month view: "October 2025"
-   * Day view: "October 31, 2025" (based on masterDayViewDateTime)
-   */
-  const getHeaderDateText = () => {
-    if (viewMode === 'month') {
-      return currentMonth.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-      });
+  // --- Animation Step Function ---
+  function animateStep() {
+    const { cellW } = getSizes();
+    let changed = false;
+
+    // Snap animation for horizontal
+    if (snapAnim.active) {
+      const t = Math.min(1, (Date.now() - snapAnim.startT) / snapAnim.duration);
+      scrollXFloat.current = snapAnim.from + (snapAnim.to - snapAnim.from) * (1 - Math.pow(1 - t, 2));
+      changed = true;
+      if (t >= 1) {
+        snapAnim.active = false;
+      }
     }
-    // Day view - use masterDayViewDateTime
-    return masterDayViewDateTime.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
-  /**
-   * Configure header with date button (center) and view mode toggle (right)
-   */
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerBackTitle: '', // Only show back arrow, no text
-      headerTitle: () => (
-        <TouchableOpacity onPress={handleBannerPress} style={styles.headerDateButton}>
-          <Text style={styles.headerDateText}>{getHeaderDateText()}</Text>
-        </TouchableOpacity>
-      ),
-      headerRight: () => (
-        <TouchableOpacity
-          style={{ marginLeft: 10, marginRight: 10 }}
-          onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
-        >
-          <Text style={styles.viewToggleText}>
-            {viewMode === 'day' ? 'Day' : 'Month'}
-          </Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, viewMode, currentMonth, masterDayViewDateTime]);
-
-  /**
-   * Handle header date button click - open date picker modal
-   */
-  const handleBannerPress = () => {
-    const currentDate = viewMode === 'month' ? currentMonth : masterDayViewDateTime;
-    setDatePickerValue(currentDate);
-    setTempSelectedDate(currentDate);
-    setShowDatePicker(true);
-  };
-
-  /**
-   * Handle date change from native picker (updates temporary state)
-   */
-  const handleDateChange = (event, selectedDate) => {
-    if (selectedDate) {
-      setTempSelectedDate(selectedDate);
-    }
-  };
-
-  /**
-   * Handle Go button - apply the selected date
-   */
-  const handleGoPress = () => {
-    if (viewMode === 'month') {
-      setCurrentMonth(tempSelectedDate);
+    // Vertical inertia
+    if (Math.abs(velocity.current.y) > 0.1) {
+      scrollYFloat.current += velocity.current.y / CELL_H;
+      velocity.current.y *= friction;
+      changed = true;
     } else {
-      // Preserve time component for day view
-      const newDate = new Date(tempSelectedDate);
-      newDate.setHours(masterDayViewDateTime.getHours());
-      newDate.setMinutes(masterDayViewDateTime.getMinutes());
-      newDate.setSeconds(masterDayViewDateTime.getSeconds());
-      setMasterDayViewDateTime(newDate);
+      velocity.current.y = 0;
     }
-    setShowDatePicker(false);
-  };
 
-  /**
-   * Handle Cancel button - close modal without applying changes
-   */
-  const handleCancelPress = () => {
-    setShowDatePicker(false);
-  };
-
-  // Callbacks to sync Reanimated → React state
-  const updateScrollXJS = (value) => setScrollXJS(value);
-  const updateScrollYJS = (value) => setScrollYJS(value);
-  const updateOffsetXJS = (value) => setOffsetXJS(value);
-  const updateOffsetYJS = (value) => setOffsetYJS(value);
-  const updateMasterSlot = (value) => setMasterAbsSlotIndex(value);
-
-  // Batched state update to prevent visual glitches (all updates happen in one render)
-  const updateAllScrollState = (scrollXVal, scrollYVal, offsetXVal, offsetYVal) => {
-    setScrollXJS(scrollXVal);
-    setScrollYJS(scrollYVal);
-    setOffsetXJS(offsetXVal);
-    setOffsetYJS(offsetYVal);
-  };
-
-  // Animated styles for grid movement (MUST be at component level, not inside render function)
-  const gridAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: offsetX.value },
-        { translateY: offsetY.value },
-      ],
-    };
-  });
-
-  // Animated style for left header (vertical movement only)
-  const headerYAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: offsetY.value }],
-    };
-  });
-
-  /**
-   * Calculate master slot index at the red line probe position
-   * Called during render to update masterAbsSlotIndex
-   */
-  const calculateMasterSlot = () => {
-    const PAD_LEFT = CELL_W * 2;
-    const PAD_TOP = CELL_H * 2;
-
-    // Red line position (fixed at 0.5 cell width from left edge of grid)
-    const redLineX = HEADER_W + 0.5 * CELL_W;
-
-    // Center of screen vertically (in grid area)
-    const gridScreenHeight = SCREEN_HEIGHT - HEADER_H;
-    const centerScreenY = HEADER_H + gridScreenHeight / 2;
-
-    // First visible cell indices
-    const firstGridCol = scrollXJS - Math.ceil(PAD_LEFT / CELL_W);
-    const firstGridRow = scrollYJS - Math.ceil(PAD_TOP / CELL_H);
-
-    // Position within grid (accounting for offsets and padding)
-    const xInGrid = redLineX - HEADER_W - offsetXJS + PAD_LEFT;
-    const yInGrid = centerScreenY - HEADER_H - offsetYJS + PAD_TOP;
-
-    // Calculate floating point row/col
-    const rowFloat = firstGridRow + (yInGrid / CELL_H);
-    const colFloat = firstGridCol + (xInGrid / CELL_W);
-
-    // Master hour (absolute row index)
-    const masterAbsHour = Math.round(rowFloat);
-
-    // Master day (accounts for wrap-around from hours → days)
-    const masterDayOffset = Math.floor(masterAbsHour / 24);
-    const masterDay = masterDayOffset + Math.floor(colFloat);
-
-    // Master hour of day (0-23)
-    const masterHour24 = ((masterAbsHour % 24) + 24) % 24;
-
-    // Master absolute slot index = day * 24 + hour
-    const newMasterSlot = masterDay * 24 + masterHour24;
-
-    if (newMasterSlot !== masterAbsSlotIndex) {
-      setMasterAbsSlotIndex(newMasterSlot);
-
-      // Update masterDayViewDateTime based on masterAbsSlotIndex
-      const baseDate = new Date(2023, 9, 31); // Oct 31, 2023 as base
-      const newDate = new Date(baseDate);
-      newDate.setDate(baseDate.getDate() + masterDay);
-      newDate.setHours(masterHour24, 0, 0, 0);
-      setMasterDayViewDateTime(newDate);
+    // Horizontal inertia (only if not snapping)
+    if (!snapAnim.active && Math.abs(velocity.current.x) > 0.1) {
+      scrollXFloat.current += velocity.current.x / cellW;
+      velocity.current.x *= friction;
+      changed = true;
+    } else if (!snapAnim.active) {
+      velocity.current.x = 0;
     }
-  };
 
-  /**
-   * Pan gesture for Day view
-   * - Vertical scroll: infinite with momentum
-   * - Horizontal scroll: snaps to show exactly 2 columns
-   * Matches HTML implementation exactly
-   */
-  const dayViewPanGesture = Gesture.Pan()
-    .onStart(() => {
-      'worklet';
-      runOnJS(setDragging)(true);
-      baseScrollX.value = offsetXJS;
-      baseScrollY.value = offsetYJS;
-      // Store the initial translation values (they're cumulative in RN Gesture Handler)
-      startTranslationX.value = 0;
-      startTranslationY.value = 0;
-      velocityY.value = 0;
-    })
-    .onUpdate((event) => {
-      'worklet';
-      // Calculate delta from the last re-anchor point (FIX for cross-axis pollution)
-      const dx = event.translationX - startTranslationX.value;
-      const dy = event.translationY - startTranslationY.value;
+    if (changed) {
+      setRenderTick(tick => tick + 1);
+    }
 
-      // Update offsets (exactly like HTML: offsetX = baseScrollX + dx)
-      offsetX.value = baseScrollX.value + dx;
-      offsetY.value = baseScrollY.value + dy;
+    if (snapAnim.active || Math.abs(velocity.current.y) > 0.1 || Math.abs(velocity.current.x) > 0.1) {
+      requestAnimationFrame(animateStep);
+    } else {
+      animating.current = false;
+    }
+  }
 
-      // Clamp horizontal offset to ±2 cells (exactly like HTML)
-      if (offsetX.value > 2 * CELL_W) offsetX.value = 2 * CELL_W;
-      if (offsetX.value < -2 * CELL_W) offsetX.value = -2 * CELL_W;
+  function startSnapToCol() {
+    const { cellW } = getSizes();
+    snapAnim.active = true;
+    snapAnim.from = scrollXFloat.current;
+    snapAnim.to = Math.round(scrollXFloat.current);
+    snapAnim.startT = Date.now();
+    snapAnim.duration = 220;
+  }
 
-      // Fix vertical offset (normalize to cell boundaries - LOOP until fully normalized)
-      // CRITICAL: Use WHILE loop, not IF, to handle large deltas
-      let scrollYChanged = false;
-      let newScrollY = scrollY.value;
-      let newOffsetY = offsetY.value;
+  // --- PanResponder ---
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !snapAnim.active,
+      onMoveShouldSetPanResponder: () => !snapAnim.active,
+      onPanResponderGrant: (e, gesture) => {
+        animating.current = false;
+        velocity.current.x = 0;
+        velocity.current.y = 0;
+        snapAnim.active = false;
+        dragStartX.current = gesture.x0;
+        dragStartY.current = gesture.y0;
+        scrollStartY.current = scrollYFloat.current;
+        scrollStartX.current = scrollXFloat.current;
+      },
+      onPanResponderMove: (e, gesture) => {
+        const { cellW } = getSizes();
+        const deltaY = gesture.moveY - dragStartY.current;
+        const deltaX = gesture.moveX - dragStartX.current;
+        scrollYFloat.current = scrollStartY.current - (deltaY / CELL_H);
+        scrollXFloat.current = scrollStartX.current - (deltaX / cellW);
 
-      while (newOffsetY >= CELL_H) {
-        newOffsetY -= CELL_H;
-        newScrollY -= 1;
-        scrollYChanged = true;
-      }
-      while (newOffsetY < 0) {
-        newOffsetY += CELL_H;
-        newScrollY += 1;
-        scrollYChanged = true;
-      }
-
-      // Apply the normalized values
-      offsetY.value = newOffsetY;
-      scrollY.value = newScrollY;
-
-      // CRITICAL FIX: Re-anchor drag origin after cell boundary cross
-      // This prevents horizontal/vertical movement from polluting each other
-      if (scrollYChanged) {
-        // Reset the anchor point for Y axis
-        baseScrollY.value = offsetY.value;
-        startTranslationY.value = event.translationY;
-
-        // CRITICAL: Only update JS state when scrollY actually changes (cell boundary crossed)
-        // This prevents flickering by reducing unnecessary React renders
-        runOnJS(updateAllScrollState)(scrollX.value, scrollY.value, offsetX.value, offsetY.value);
-      }
-    })
-    .onEnd((event) => {
-      'worklet';
-      runOnJS(setDragging)(false);
-
-      // Calculate velocity for vertical momentum (exactly like HTML)
-      velocityY.value = event.velocityY / 16; // Scale down velocity
-
-      // Snap horizontal to nearest column (exactly like HTML)
-      const snapMultiple = Math.round(offsetX.value / CELL_W);
-      const snapTarget = snapMultiple * CELL_W;
-
-      // Animate horizontal snap
-      offsetX.value = withTiming(snapTarget, { duration: 220 }, (finished) => {
-        'worklet';
-        if (finished) {
-          // When snap completes, normalize scroll position (exactly like HTML stopSnapX)
-          const snapMult = Math.round(offsetX.value / CELL_W);
-          scrollX.value -= snapMult;
-          offsetX.value = 0;
-          // Batched update to prevent glitches
-          runOnJS(updateAllScrollState)(scrollX.value, scrollY.value, 0, offsetY.value);
+        // Clamp horizontal to ±2 cells
+        if (scrollXFloat.current - Math.floor(scrollXFloat.current) > 2) {
+          scrollXFloat.current = Math.floor(scrollXFloat.current) + 2;
         }
-      });
-
-      // Apply vertical momentum with decay (matches HTML friction = 0.93)
-      offsetY.value = withDecay({
-        velocity: velocityY.value,
-        deceleration: 0.993, // Closer to HTML's 0.93 friction
-      }, (finished) => {
-        'worklet';
-        if (finished) {
-          // Batched update to prevent glitches
-          runOnJS(updateAllScrollState)(scrollX.value, scrollY.value, offsetX.value, offsetY.value);
+        if (scrollXFloat.current - Math.floor(scrollXFloat.current) < -2) {
+          scrollXFloat.current = Math.floor(scrollXFloat.current) - 2;
         }
-      });
-    });
 
-  /**
-   * Render Month view
-   */
-  const renderMonthView = () => {
-    return (
-      <ScrollView contentContainerStyle={styles.monthViewContainer}>
-        <Text style={styles.placeholderText}>Month View - Coming Soon</Text>
-        <Text style={styles.placeholderSubtext}>
-          Calendar month grid with events will be displayed here
-        </Text>
+        setRenderTick(t => t + 1);
+      },
+      onPanResponderRelease: (e, gesture) => {
+        velocity.current.x = -gesture.vx * 16;
+        velocity.current.y = -gesture.vy * 16;
+        startSnapToCol();
+        animating.current = true;
+        animateStep();
+      },
+      onPanResponderTerminationRequest: () => false,
+    })
+  ).current;
 
-        {/* Month navigation */}
-        <View style={styles.monthNavigation}>
+  // Set header with toggle button on right and clickable title in Day view
+  useLayoutEffect(() => {
+    if (viewMode === 'month') {
+      navigation.setOptions({
+        headerTitle: 'Calendar',
+        headerRight: () => (
           <TouchableOpacity
-            style={styles.monthNavButton}
-            onPress={() => {
-              const prev = new Date(currentMonth);
-              prev.setMonth(prev.getMonth() - 1);
-              setCurrentMonth(prev);
-            }}
+            style={{ marginLeft: 10, marginRight: 10 }}
+            onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
           >
-            <Text style={styles.monthNavButtonText}>← Previous Month</Text>
+            <Text style={styles.viewToggleText}>
+              {viewMode === 'day' ? 'Day' : 'Month'}
+            </Text>
           </TouchableOpacity>
+        ),
+      });
+    } else {
+      // Day view: header title shows current date/time and is clickable
+      const { cellW, headerCellW, padL, padT, gridW, gridH } = getSizes();
+      const redLineX = HEADER_W + 0.5 * cellW;
+      const probeScreenY = HEADER_H + gridH / 2;
+      const probeOffsetY = probeScreenY - HEADER_H;
+      const probeOffsetX = redLineX - HEADER_W;
+      const probeRow = Math.floor(scrollYFloat.current + (probeOffsetY / CELL_H));
+      const probeCol = Math.floor(scrollXFloat.current + (probeOffsetX / cellW));
+      const probeHour24 = ((probeRow % 24) + 24) % 24;
+      const probeDayOffset = Math.floor(probeRow / 24);
+      const probeDay = probeDayOffset + probeCol;
+
+      navigation.setOptions({
+        headerTitle: () => (
           <TouchableOpacity
-            style={styles.monthNavButton}
             onPress={() => {
-              const next = new Date(currentMonth);
-              next.setMonth(next.getMonth() + 1);
-              setCurrentMonth(next);
+              setTempSelectedDate(new Date());
+              setShowDatePicker(true);
             }}
+            style={styles.headerDateButton}
           >
-            <Text style={styles.monthNavButtonText}>Next Month →</Text>
+            <Text style={styles.headerDateText}>
+              {hourLabel(probeHour24)} - {dateLabel(probeDay)}
+            </Text>
+          </TouchableOpacity>
+        ),
+        headerRight: () => (
+          <TouchableOpacity
+            style={{ marginLeft: 10, marginRight: 10 }}
+            onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
+          >
+            <Text style={styles.viewToggleText}>
+              {viewMode === 'day' ? 'Day' : 'Month'}
+            </Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, viewMode, renderTick]);
+
+  // --- MONTH VIEW ---
+  const renderMonthView = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const monthName = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const weeks = [];
+    let currentWeek = [];
+    let dayCount = 1;
+    let nextMonthDay = 1;
+
+    // Fill first week with previous month days
+    for (let i = 0; i < firstDay; i++) {
+      const day = daysInPrevMonth - firstDay + i + 1;
+      currentWeek.push({ day, isCurrentMonth: false, key: `prev-${i}` });
+    }
+
+    // Fill current month days
+    while (dayCount <= daysInMonth) {
+      currentWeek.push({ day: dayCount, isCurrentMonth: true, key: `current-${dayCount}` });
+      dayCount++;
+
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+
+    // Fill last week with next month days
+    while (currentWeek.length > 0 && currentWeek.length < 7) {
+      currentWeek.push({ day: nextMonthDay, isCurrentMonth: false, key: `next-${nextMonthDay}` });
+      nextMonthDay++;
+    }
+
+    if (currentWeek.length > 0) {
+      weeks.push(currentWeek);
+    }
+
+    return (
+      <View style={styles.monthViewContainer}>
+        <View style={styles.monthHeader}>
+          <TouchableOpacity
+            onPress={() => setCurrentMonth(new Date(year, month - 1, 1))}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.monthTitle}>{monthName}</Text>
+          <TouchableOpacity
+            onPress={() => setCurrentMonth(new Date(year, month + 1, 1))}
+            style={styles.monthNavButton}
+          >
+            <Text style={styles.monthNavButtonText}>→</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+
+        <View style={styles.weekDaysRow}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <Text key={day} style={styles.weekDayText}>{day}</Text>
+          ))}
+        </View>
+
+        {weeks.map((week, weekIndex) => (
+          <View key={`week-${weekIndex}`} style={styles.weekRow}>
+            {week.map((dayObj) => (
+              <TouchableOpacity
+                key={dayObj.key}
+                style={[
+                  styles.dayCell,
+                  !dayObj.isCurrentMonth && styles.dayCellInactive,
+                ]}
+                onPress={() => {
+                  if (dayObj.isCurrentMonth) {
+                    // Could navigate to day view here
+                  }
+                }}
+              >
+                <Text style={[
+                  styles.dayCellText,
+                  !dayObj.isCurrentMonth && styles.dayCellTextInactive,
+                ]}>
+                  {dayObj.day}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
+      </View>
     );
   };
 
-  /**
-   * Render Day view with 2-column grid and red-line probe system
-   * Master datetime is calculated based on what's at the red line position
-   */
+  // --- DAY VIEW ---
   const renderDayView = () => {
-    // Calculate master slot on every render
-    calculateMasterSlot();
+    const { cellW, headerCellW, padL, padT, gridW, gridH } = getSizes();
 
-    const PAD_LEFT = CELL_W * 2;
-    const PAD_TOP = CELL_H * 2;
+    // Red line probe position
+    const redLineX = HEADER_W + 0.5 * cellW;
+    const probeScreenY = HEADER_H + gridH / 2;
 
-    // Calculate visible cells (using JS state for cell generation)
-    const gridWidth = SCREEN_WIDTH - HEADER_W;
-    const gridHeight = SCREEN_HEIGHT - HEADER_H;
-    const visibleCols = Math.ceil((gridWidth + PAD_LEFT) / CELL_W) + 2;
-    const visibleRows = Math.ceil((gridHeight + PAD_TOP) / CELL_H) + 4; // +4 for extra buffer rows
+    // Visible cell range (using Math.floor for logical position)
+    const firstCol = Math.floor(scrollXFloat.current - Math.ceil(padL / cellW));
+    const firstRow = Math.floor(scrollYFloat.current - Math.ceil(padT / CELL_H));
+    const visibleCols = Math.ceil(gridW / cellW) + 4;
+    const visibleRows = Math.ceil(gridH / CELL_H) + 4;
 
-    const firstCol = scrollXJS - Math.ceil(PAD_LEFT / CELL_W);
-    const firstRow = scrollYJS - Math.ceil(PAD_TOP / CELL_H) - 1; // -1 to render one extra row above
+    // Calculate probe cell (what's under the red line)
+    const probeOffsetY = probeScreenY - HEADER_H;
+    const probeOffsetX = redLineX - HEADER_W;
+    const probeRow = Math.floor(scrollYFloat.current + (probeOffsetY / CELL_H));
+    const probeCol = Math.floor(scrollXFloat.current + (probeOffsetX / cellW));
+    const probeHour24 = ((probeRow % 24) + 24) % 24;
+    const probeDayOffset = Math.floor(probeRow / 24);
+    const probeDay = probeDayOffset + probeCol;
 
-    // Generate grid cells (positions are static relative to container)
-    const gridCells = [];
+    // --- Main Grid Cells ---
+    const cells = [];
     for (let dx = 0; dx < visibleCols; dx++) {
       for (let dy = 0; dy < visibleRows; dy++) {
-        // CRITICAL FIX: Calculate hour based on VISUAL position accounting for offsetY
-        // This prevents flicker by ensuring labels are always correct for the visual position
-        const visualOffsetRows = Math.round(offsetYJS / CELL_H);
-        const gridHour = firstRow + dy + visualOffsetRows;
-        const hour24 = ((gridHour % 24) + 24) % 24;
-        const dayShift = Math.floor(gridHour / 24);
-        const gridDateCol = firstCol + dx + dayShift;
+        const rowIdx = firstRow + dy;
+        const colIdx = firstCol + dx;
 
-        gridCells.push({
-          key: `cell-${dx}-${dy}`,
-          left: (dx * CELL_W) - PAD_LEFT,
-          top: (dy * CELL_H) - PAD_TOP,
-          hour: hourLabel(hour24),
-          date: dateLabel(gridDateCol),
-        });
+        // Calculate hour and date for this cell
+        const hour24 = ((rowIdx % 24) + 24) % 24;
+        const dayShift = Math.floor(rowIdx / 24);
+        const cellDayCol = colIdx + dayShift;
+
+        // Position using fractional part of scroll
+        const left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
+        const top = dy * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+
+        cells.push(
+          <View
+            key={`c_${dx}_${dy}`}
+            style={[
+              styles.gridCell,
+              {
+                width: cellW,
+                height: CELL_H,
+                left,
+                top,
+              },
+            ]}
+          >
+            <Text style={styles.gridCellText}>
+              {hourLabel(hour24)} {dateLabel(cellDayCol)}
+            </Text>
+          </View>
+        );
       }
     }
 
-    // Generate top header (dates) - centered on master day
-    const headerCells = [];
+    // --- Header X (Date) Cells ---
     const headerW = SCREEN_WIDTH - HEADER_W;
-    const daysShown = Math.ceil(headerW / HEADER_CELL_W) + 4;
-    const masterDayIdx = Math.floor(masterAbsSlotIndex / 24);
-    const masterHourFrac = ((masterAbsSlotIndex % 24) + 24) % 24 / 24;
-    const nEachSide = Math.ceil(daysShown / 2);
-    const headerStartX = HEADER_W + 0.5 * CELL_W - masterHourFrac * HEADER_CELL_W - nEachSide * HEADER_CELL_W;
+    const headerDaysShown = Math.ceil(headerW / headerCellW) + 4;
+    const masterDayIdx = probeDay;
+    const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
+    const headerNumEachSide = Math.ceil(headerDaysShown / 2);
+    const headerStartX = HEADER_W + 0.5 * cellW - masterHourFrac * headerCellW - headerNumEachSide * headerCellW;
 
-    for (let i = -nEachSide; i < daysShown - nEachSide; i++) {
-      headerCells.push({
-        key: `header-x-${i}`,
-        left: headerStartX + (i + nEachSide) * HEADER_CELL_W,
-        date: dateLabel(masterDayIdx + i),
-      });
+    const headerXCells = [];
+    for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; i++) {
+      const dayIdx = masterDayIdx + i;
+      const left = headerStartX + (i + headerNumEachSide) * headerCellW;
+      headerXCells.push(
+        <View
+          key={`hx${i}`}
+          style={[
+            styles.headerXCell,
+            {
+              left,
+              width: headerCellW,
+            },
+          ]}
+        >
+          <Text numberOfLines={1} style={styles.headerCellText}>
+            {dateLabel(dayIdx)}
+          </Text>
+        </View>
+      );
     }
 
-    // Generate left header (hours) - static positions
-    const leftHeaderCells = [];
+    // --- Header Y (Hour) Cells ---
+    const headerYCells = [];
     for (let dy = 0; dy < visibleRows; dy++) {
-      // CRITICAL FIX: Same as grid cells - account for visual offset
-      const visualOffsetRows = Math.round(offsetYJS / CELL_H);
-      const gridHour = firstRow + dy + visualOffsetRows;
-      const hour24 = ((gridHour % 24) + 24) % 24;
-      leftHeaderCells.push({
-        key: `header-y-${dy}`,
-        top: (dy * CELL_H) - PAD_TOP,
-        hour: hourLabel(hour24),
-      });
-    }
+      const rowIdx = firstRow + dy;
+      const hour24 = ((rowIdx % 24) + 24) % 24;
+      const top = dy * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
 
-    // Red line position
-    const redLineX = HEADER_W + 0.5 * CELL_W;
+      headerYCells.push(
+        <View
+          key={`hy${dy}`}
+          style={[
+            styles.headerYCell,
+            {
+              top,
+            },
+          ]}
+        >
+          <Text style={styles.headerCellText}>{hourLabel(hour24)}</Text>
+        </View>
+      );
+    }
 
     return (
-      <GestureDetector gesture={dayViewPanGesture}>
-        <View style={styles.dayViewContainer}>
-          {/* Corner */}
-          <View style={styles.corner} />
+      <View style={styles.dayViewContainer} {...panResponder.panHandlers}>
+        {/* Corner */}
+        <View style={styles.corner} />
 
-          {/* Top Header (Dates) */}
-          <View style={styles.headerX}>
-            {headerCells.map((cell) => (
-              <View
-                key={cell.key}
-                style={[styles.headerXCell, { left: cell.left }]}
-              >
-                <Text style={styles.headerXText}>{cell.date}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Left Header (Hours) */}
-          <Animated.View style={[styles.headerY, headerYAnimatedStyle]}>
-            {leftHeaderCells.map((cell) => (
-              <View
-                key={cell.key}
-                style={[styles.headerYCell, { top: cell.top }]}
-              >
-                <Text style={styles.headerYText}>{cell.hour}</Text>
-              </View>
-            ))}
-          </Animated.View>
-
-          {/* Main Grid */}
-          <Animated.View style={[styles.grid, gridAnimatedStyle]}>
-            {gridCells.map((cell) => (
-              <View
-                key={cell.key}
-                style={[
-                  styles.gridCell,
-                  {
-                    left: cell.left,
-                    top: cell.top,
-                    width: CELL_W,
-                    height: CELL_H,
-                  },
-                ]}
-              >
-                <Text style={styles.gridCellText}>
-                  {cell.hour} {cell.date}
-                </Text>
-              </View>
-            ))}
-          </Animated.View>
-
-          {/* Red Line Probe */}
-          <View style={[styles.redLine, { left: redLineX - 1 }]} />
+        {/* Top Header (Dates) */}
+        <View style={styles.headerX}>
+          {headerXCells}
         </View>
-      </GestureDetector>
+
+        {/* Left Header (Hours) */}
+        <View style={styles.headerY}>
+          {headerYCells}
+        </View>
+
+        {/* Main Grid */}
+        <View style={styles.grid}>
+          {cells}
+        </View>
+
+        {/* Red Line Probe */}
+        <View style={[styles.redLine, { left: redLineX - 1 }]} />
+      </View>
     );
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
-        {/* View Content */}
-        {viewMode === 'month' && renderMonthView()}
-        {viewMode === 'day' && renderDayView()}
+    <View style={styles.container}>
+      {/* Render current view */}
+      {viewMode === 'month' ? renderMonthView() : renderDayView()}
 
-        {/* Date Picker Modal */}
-        {showDatePicker && (
-          <Modal
-            visible={showDatePicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={handleCancelPress}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Select Date</Text>
-
-                <DateTimePicker
-                  value={tempSelectedDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  style={styles.datePicker}
-                />
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={handleCancelPress}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.goButton]}
-                    onPress={handleGoPress}
-                  >
-                    <Text style={styles.goButtonText}>Go</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <DateTimePicker
+              value={tempSelectedDate}
+              mode="date"
+              display="spinner"
+              onChange={(event, selectedDate) => {
+                if (selectedDate) {
+                  setTempSelectedDate(selectedDate);
+                }
+              }}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonGo]}
+                onPress={() => {
+                  // Apply the selected date
+                  // For now just close the modal
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Go</Text>
+              </TouchableOpacity>
             </View>
-          </Modal>
-        )}
-      </View>
-    </GestureHandlerRootView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eee',
+    backgroundColor: '#fff',
   },
+
+  // --- HEADER BUTTON STYLES ---
   headerDateButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    padding: 8,
   },
   headerDateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
     color: '#fff',
-  },
-  viewToggleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-
-  // Month View Styles
-  monthViewContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  placeholderText: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 100,
-    color: '#666',
   },
-  placeholderSubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  monthNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    marginTop: 20,
-  },
-  monthNavButton: {
-    padding: 12,
-    backgroundColor: '#6200ee',
-    borderRadius: 8,
-  },
-  monthNavButtonText: {
+  viewToggleText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    userSelect: 'none',
   },
 
-  // Day View Styles
+  // --- MONTH VIEW STYLES ---
+  monthViewContainer: {
+    flex: 1,
+    padding: 10,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  monthTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  monthNavButton: {
+    padding: 10,
+  },
+  monthNavButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#6200ee',
+  },
+  weekDaysRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  weekDayText: {
+    flex: 1,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  weekRow: {
+    flexDirection: 'row',
+  },
+  dayCell: {
+    flex: 1,
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  dayCellInactive: {
+    backgroundColor: '#f5f5f5',
+  },
+  dayCellText: {
+    fontSize: 16,
+  },
+  dayCellTextInactive: {
+    color: '#aaa',
+  },
+
+  // --- DAY VIEW STYLES ---
   dayViewContainer: {
     flex: 1,
-    position: 'relative',
     backgroundColor: '#eee',
   },
   corner: {
     position: 'absolute',
-    width: 80,
-    height: 40,
+    width: HEADER_W,
+    height: HEADER_H,
     top: 0,
     left: 0,
     backgroundColor: '#ccc',
     zIndex: 20,
     borderBottomWidth: 2,
+    borderBottomColor: '#888',
     borderRightWidth: 2,
-    borderColor: '#888',
+    borderRightColor: '#888',
   },
   headerX: {
     position: 'absolute',
-    left: 80,
+    left: HEADER_W,
     top: 0,
     right: 0,
-    height: 40,
+    height: HEADER_H,
     backgroundColor: '#f7c',
     zIndex: 10,
     borderBottomWidth: 2,
-    borderColor: '#888',
-    overflow: 'visible',
+    borderBottomColor: '#888',
   },
   headerXCell: {
     position: 'absolute',
-    height: 40,
+    height: HEADER_H,
     borderWidth: 1,
     borderColor: '#bbb',
     backgroundColor: '#f7c',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
-  },
-  headerXText: {
-    fontSize: 14,
-    fontFamily: 'System',
-    color: '#000',
   },
   headerY: {
     position: 'absolute',
-    top: 40,
+    top: HEADER_H,
     left: 0,
     bottom: 0,
-    width: 80,
-    backgroundColor: '#acf',
+    width: HEADER_W,
     zIndex: 10,
-    borderRightWidth: 2,
-    borderColor: '#888',
-    overflow: 'hidden',
   },
   headerYCell: {
     position: 'absolute',
-    width: 80,
-    height: 40,
+    width: HEADER_W,
+    height: CELL_H,
     borderWidth: 1,
     borderColor: '#bbb',
     backgroundColor: '#acf',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerYText: {
+  headerCellText: {
     fontSize: 14,
-    fontFamily: 'System',
-    color: '#000',
   },
   grid: {
     position: 'absolute',
-    left: 80,
-    top: 40,
+    left: HEADER_W,
+    top: HEADER_H,
     right: 0,
     bottom: 0,
     zIndex: 1,
-    backgroundColor: 'transparent',
-    overflow: 'visible',
   },
   gridCell: {
     position: 'absolute',
     borderWidth: 1,
     borderColor: '#ccc',
     backgroundColor: '#fff',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   gridCellText: {
     fontSize: 14,
-    fontFamily: 'System',
-    color: '#000',
   },
   redLine: {
     position: 'absolute',
     top: 0,
     width: 2,
-    height: 40,
+    height: HEADER_H,
     backgroundColor: 'red',
     zIndex: 100,
     pointerEvents: 'none',
   },
 
-  // Modal Styles
+  // --- MODAL STYLES ---
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -769,48 +710,29 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 20,
     width: '80%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  datePicker: {
-    height: 200,
-    width: '100%',
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
+    justifyContent: 'space-around',
+    marginTop: 20,
   },
   modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 8,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 5,
   },
-  cancelButton: {
-    backgroundColor: '#ccc',
+  modalButtonCancel: {
+    backgroundColor: '#999',
   },
-  goButton: {
+  modalButtonGo: {
     backgroundColor: '#6200ee',
   },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  goButtonText: {
+  modalButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });

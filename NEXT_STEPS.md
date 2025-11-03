@@ -77,6 +77,32 @@ Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
+### Calendar Frontend - Float-Based Scrolling Rewrite (2025-11-03)
+- [x] Replaced Reanimated implementation with float-based scrolling
+  - Removed React Native Reanimated and GestureHandler dependencies
+  - Added PanResponder for gesture handling
+  - Used `useRef` for float scroll values (`scrollYFloat`, `scrollXFloat`)
+  - Direct position calculation from fractional part of float
+  - Eliminated timing issues between UI thread and JS thread
+- [x] Restored original button styling from CalendarScreen_OLD.jsx
+  - Added `styles.headerDateButton`, `styles.headerDateText`, `styles.viewToggleText`
+  - Fixed button toggle logic to use ternary operator
+  - Button shows current view mode and toggles correctly
+
+**Technical Changes:**
+- Lines 49-70: Added float-based scroll state with `useRef`
+- Lines 157-198: Implemented PanResponder for gesture handling
+- Lines 200-255: Updated header with named styles and fixed toggle logic
+- Lines 337-340: Direct cell position calculation using fractional scroll
+- Lines 546-559: Added header button style definitions
+
+**Commits:**
+1. `refactor: Replace Reanimated with float-based scrolling for calendar Day view`
+2. `fix: Restore original button styling and fix toggle logic` (pending)
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
 ## Pending Calendar Tasks
 
 ### High Priority
