@@ -1,8 +1,8 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-10-31)
+## Current Status (Updated: 2025-11-03)
 
-Currently working on: **Calendar Feature - Frontend UI**
+Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
 
 ## Recently Completed Tasks
 
@@ -46,7 +46,36 @@ Currently working on: **Calendar Feature - Frontend UI**
 3. `fix: Improve date picker display - reorder to Day/Month/Year and use abbreviations`
 4. `refactor: Switch back to native DateTimePicker with spinner display`
 5. `feat: Add centered modal date picker with Go/Cancel buttons`
-6. `feat: Transform Day view to grid layout with hidden datetime` (pending)
+6. `feat: Transform Day view to grid layout with hidden datetime`
+7. `fix: Implement virtual grid with cross-axis pollution fix and visual offset compensation` (pending)
+
+### Calendar Frontend - 2-Column Virtual Grid Day View (2025-11-03)
+- [x] Implemented 2-column infinite virtual scrolling grid
+  - Left column: Hour labels (12am, 1am, etc.)
+  - Right column: Event slots (Today, Tomorrow, Yesterday calculated dynamically)
+  - Virtual rendering: Only renders visible cells + buffer rows
+  - Smooth 60fps pan gesture handling with React Native Reanimated
+- [x] Fixed cross-axis pollution bug in drag gestures
+  - Added re-anchoring of drag origins after cell boundary crosses
+  - Prevents horizontal movement from affecting vertical scroll and vice versa
+  - Uses `startTranslationX` and `startTranslationY` shared values
+- [x] Fixed visual glitch showing wrong hour labels during scroll
+  - Implemented visual offset compensation
+  - Hour labels calculated from both logical scroll position AND visual offset
+  - Added extra buffer rows (+4) and render one row above viewport
+  - Ensures labels are always correct regardless of animation timing
+
+**Technical Implementation:**
+- Lines 77-79: Added re-anchor shared values for cross-axis fix
+- Lines 201-207: Batched state update function to reduce React renders
+- Lines 283-340: Pan gesture handler with normalization and re-anchoring
+- Lines 360, 372: Animation callbacks using batched updates
+- Lines 431-435: Buffer rows calculation and extra top row rendering
+- Lines 441-447: Visual offset compensation for grid cells
+- Lines 479-482: Visual offset compensation for left header cells
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
 ## Pending Calendar Tasks
 
