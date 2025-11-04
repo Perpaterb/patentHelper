@@ -14,29 +14,78 @@ A cross-platform parenting and co-parenting helper application designed to facil
 - Multi-tenancy with group isolation
 
 **Business Model:**
-- Free tier: Non-admin parents
-- Premium tier: $8/month for group admins (10GB storage, $1/2GB additional)
-- Storage includes group logs, images, videos, and backups
+- 100% FREE - No subscriptions, no ads, no in-app purchases
+- Optional donations to keep servers running (Stripe, PayPal)
+- Storage: Each user's own Google Drive (app-created files only)
+- Privacy-focused: You own your data in your Google Drive, not on our servers
 
 **Target Platforms:**
-- Web (React) - MVP1 (Built FIRST)
-- iOS (React Native) - MVP1 (Built SECOND)
-- Android (React Native) - MVP1 (Built SECOND)
+- Web (React) - Full app experience in browser
+- iOS (React Native) - Full app on iPhone/iPad
+- Android (React Native) - Full app on Android devices
 
 **3 Products, 1 Backend Architecture (KISS Principle):**
-1. **Admin Web App** (parentinghelperapp.com) - Subscription management, payments, storage upgrades, log exports
-2. **Parenting Helper Mobile App** - Full co-parenting features: messaging, calendar, finance (NO payment features)
+1. **Parenting Helper Web App** (parentinghelperapp.com) - Full features: messaging, calendar, finance, gift registry, etc.
+2. **Parenting Helper Mobile App** - Full features (same as web, optimized for mobile)
 3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
-- **NO in-app purchases** - All subscription/payment management via web app only
-- Mobile apps link to web for subscription management
-- All 3 products share same Kinde authentication and backend API/database
-- Web app built FIRST, then main mobile app, then messenger app
+- **100% FREE** - No subscriptions, no payments needed
+- **Dual Authentication**: Kinde (identity) + Google OAuth (storage)
+- Storage in each user's own Google Drive (app-created files only, private from personal files)
+- Optional donations via landing page (parentinghelperapp.com/donate)
+- All 3 products share same backend API/database
+- Web app and mobile apps have identical features (just different UI frameworks)
+- Files stored in hidden `.parentinghelper/` folder in user's Drive (15GB free per user)
 
 ---
 
 ## 1.5. App Navigation Hierarchies
+
+### Parenting Helper Web App - `web-app/`
+
+**IMPORTANT**: Full-featured web application with ALL features (Messages, Calendar, Finance, Gift Registry, etc.).
+
+```
+Login Screen (Kinde + Google Drive)
+    ↓
+Home / Groups List (LANDING SCREEN)
+    ↓
+Individual Group (Group Dashboard/Overview)
+    ├── Group Settings
+    ├── Approvals List
+    ├── Messages Section
+    │      ↓
+    │   Message Groups List
+    │      ↓
+    │   Individual Message Group
+    │      ├── Message Group Settings
+    │      └── Messages (Chat Interface)
+    ├── Calendar Section
+    │      ├── Calendar Settings
+    │      └── Calendar View
+    ├── Finance Section
+    │      ↓
+    │   Finance Matters List
+    │      ↓
+    │   Individual Finance Matter
+    ├── Gift Registry Section
+    │      ↓
+    │   Wish Lists
+    │      ↓
+    │   Individual Wish List
+    └── Kris Kringle Section
+           ↓
+        Kris Kringle Events
+           ↓
+        Individual Event
+```
+
+**Key Points:**
+- Identical features to mobile app (just different UI framework)
+- React web app with responsive design
+- Can be used on desktop/laptop browsers
+- Same navigation hierarchy as mobile app
 
 ### Parenting Helper (Full Mobile App) - `mobile-main/`
 
@@ -99,29 +148,31 @@ Individual Message Group
 - Focused ONLY on messaging functionality
 - Uses biometric auth after first login
 
-### Admin Web App - `web-admin/`
+### Google Drive Connection Flow
+
+**IMPORTANT**: All users must connect Google Drive for storage.
 
 ```
-Login Screen
+Login Screen (Kinde)
     ↓
-Dashboard
-    ├── Subscription Management
-    │      ├── View/Change Plan
-    │      ├── Payment Method
-    │      └── Billing History
-    ├── My Account
-    │      ├── Storage Tracker
-    │      ├── Account Settings
-    │      └── Link to Subscription
-    └── Log Export
-           ├── Request New Export
-           └── Download Previous Exports
+Check: user.googleDriveConnected?
+    ↓
+If false:
+    Google Drive Connect Screen
+    → Google OAuth Consent
+    → Create .parentinghelper/ folder
+    → Save encrypted refresh token
+    ↓
+If true:
+    Home / Groups List
 ```
 
 **Key Points:**
-- NO group management in web app
-- ONLY subscription, payments, storage, and log exports
-- Mobile apps link here for subscription changes
+- Google Drive connection required for app usage
+- Uses OAuth scope: `drive.file` (app-created files only)
+- Files stored in hidden `.parentinghelper/` folder
+- User can disconnect anytime (makes their uploads unavailable)
+- Each user gets 15GB free from Google (not from us)
 
 ---
 
@@ -129,17 +180,19 @@ Dashboard
 
 ### Frontend
 
-#### Web App (Admin Portal)
-- **React**
-  - **Justification**: Industry standard, large ecosystem, excellent for admin dashboards
-- **React Router**
+#### Web App (Full-Featured) - `web-app/`
+- **React 18+**
+  - **Justification**: Industry standard, large ecosystem, identical component structure to React Native
+- **React Router v6**
   - **Justification**: Standard routing for single-page applications
 - **State Management**: Redux Toolkit
-  - **Justification**: Consistent state management across all products
+  - **Justification**: Consistent state management across all 3 products
 - **UI Components**: Material-UI or Chakra UI
-  - **Justification**: Professional admin UI, accessible components, theme support
-- **Payment Integration**: Stripe Elements
-  - **Justification**: PCI-compliant payment forms, no card data touches our servers
+  - **Justification**: Professional UI, accessible components, responsive design, theme support
+- **Google OAuth**: `@react-oauth/google`
+  - **Justification**: Handle Google Drive OAuth flow in browser
+- **File Uploads**: React Dropzone
+  - **Justification**: Drag-and-drop file uploads, previews
 
 #### Mobile Apps (2 Apps)
 - **React Native with Expo**
@@ -153,8 +206,8 @@ Dashboard
   - **Justification**: Pre-built, accessible components that speed up development
 - **Biometric Auth**: Expo Local Authentication
   - **Justification**: Face ID/Touch ID for PH Messenger quick access
-- **Web Integration**: React Native WebView or Linking API
-  - **Justification**: Link to web app for subscription management
+- **Google OAuth**: `@react-native-google-signin/google-signin`
+  - **Justification**: Handle Google Drive OAuth flow on mobile
 
 ### Backend
 
@@ -173,16 +226,20 @@ Dashboard
 - **Amazon RDS (PostgreSQL)**
   - **Justification**: PostgreSQL chosen for complex relational queries (groups, messages, approvals) and audit requirements
   - **Development**: Docker PostgreSQL locally, AWS RDS in production (same Prisma schema)
-- **Amazon S3**
-  - **Justification**: Object storage for images, videos, and backup files with lifecycle policies
-  - **Development**: Local filesystem during development, S3 in production (abstraction layer)
-- **Amazon CloudFront**
-  - **Justification**: CDN for media delivery, reduces latency for global users
-  - **Development**: Not needed locally, added in production
+- **Google Drive API**
+  - **Justification**: Each user stores files in their own Google Drive (15GB free per user), eliminates S3 costs, better privacy
+  - **Development**: Google Drive API locally and in production (same implementation)
+  - **Scope**: `drive.file` (app-created files only, cannot see user's personal files)
+  - **Storage**: Hidden `.parentinghelper/` folder in user's Drive
 
 ### Authentication & Authorization
-- **Kinde**
-  - **Justification**: Specified in requirements, provides email MFA, user management, OAuth support for future social login
+- **Kinde** (Identity Provider)
+  - **Justification**: Email MFA, user management, OAuth support
+  - **Purpose**: Who you are in the app (identity, roles, permissions)
+- **Google OAuth 2.0** (Storage Provider)
+  - **Justification**: Required for Google Drive API access
+  - **Purpose**: Where your files live (storage, file access)
+  - **Tokens**: Encrypted refresh tokens stored in database
 
 ### Infrastructure as Code (IaC)
 - **Terraform**
@@ -198,14 +255,16 @@ Dashboard
 
 ### Additional Services
 - **Amazon SES**
-  - **Justification**: Email delivery for log exports, approval notifications, subscription confirmations
+  - **Justification**: Email delivery for notifications, approval alerts
   - **Development**: MailHog (local email preview tool) during development
 - **Amazon EventBridge**
   - **Justification**: Event-driven architecture for approval workflows, notifications
 - **Amazon CloudWatch**
   - **Justification**: Logging, monitoring, alerting for Lambda functions
-- **Stripe** or **AWS Marketplace**
-  - **Justification**: Subscription payment processing, PCI compliance
+- **Google Cloud Console**
+  - **Justification**: Manage Google Drive API credentials, OAuth consent screen, API quotas
+- **Stripe Checkout** (Optional donations)
+  - **Justification**: One-time donation processing (no recurring subscriptions)
 
 ### Development Tools
 - **JavaScript (ES6+)** with **JSDoc**
@@ -496,19 +555,26 @@ CREATE TABLE users (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     kinde_id VARCHAR(255) UNIQUE NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    member_icon VARCHAR(3),  -- Global icon letters
+    icon_color VARCHAR(7),   -- Global icon color
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_subscribed BOOLEAN DEFAULT FALSE,
-    subscription_id VARCHAR(255),
-    subscription_start_date TIMESTAMP,
-    subscription_end_date TIMESTAMP,
-    storage_limit_gb INTEGER DEFAULT 0,
-    storage_used_bytes BIGINT DEFAULT 0,
-    last_login TIMESTAMP
+    last_login TIMESTAMP,
+
+    -- Google Drive Integration (NEW)
+    google_account_email VARCHAR(255),
+    google_refresh_token TEXT,  -- Encrypted!
+    google_token_expiry TIMESTAMP,
+    google_drive_connected BOOLEAN DEFAULT FALSE,
+    google_drive_app_folder_id VARCHAR(255),
+    google_drive_connected_at TIMESTAMP,
+    google_drive_last_sync_at TIMESTAMP
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_kinde_id ON users(kinde_id);
+CREATE INDEX idx_users_google_email ON users(google_account_email);
 ```
 
 ### Groups Table
