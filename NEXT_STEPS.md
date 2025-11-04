@@ -98,7 +98,40 @@ Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
 
 **Commits:**
 1. `refactor: Replace Reanimated with float-based scrolling for calendar Day view`
-2. `fix: Restore original button styling and fix toggle logic` (pending)
+2. `fix: Restore original button styling and fix toggle logic`
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
+### Calendar Frontend - Externally Controlled Grid with Probe Highlight (2025-11-04)
+- [x] Implemented externally-controlled infinite grid
+  - `externalXYFloat` state drives the grid position
+  - `onXYFloatChange` callback updates parent state
+  - Grid watches external state via `useEffect`
+- [x] Added probe cell highlighting
+  - Yellow highlight fades out over 400ms when probe cell changes
+  - Uses Animated API for smooth fade animation
+  - Highlight positioned at exact probe cell location
+- [x] Restored `masterDayTimeDate` variable
+  - Calculated from probe position (hour + day)
+  - Displayed in header banner button
+  - Updates in real-time as grid scrolls
+- [x] Implemented date picker integration
+  - Banner button opens date picker modal
+  - `handleDatePickerConfirm` converts selected date to scroll floats
+  - Uses `getXYFloatForProbeTarget` to calculate target position
+  - Grid jumps to selected date/time when confirmed
+- [x] Updated grid sizing
+  - `headerCellW = width / 3` (was /6)
+  - `velocity.current.x = 0` in `onPanResponderGrant` (was removed)
+
+**Technical Implementation:**
+- Lines 62-73: `getXYFloatForProbeTarget` function converts date/time to scroll floats
+- Lines 78-394: `InfiniteGrid` component with external control
+- Lines 109-113: `useEffect` watches external XY float changes
+- Lines 217-227: Probe cell highlight animation with fade effect
+- Lines 418-429: `masterDayTimeDate` calculation in CalendarScreen
+- Lines 432-444: `handleDatePickerConfirm` converts date picker to scroll position
 
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
