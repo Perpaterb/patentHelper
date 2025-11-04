@@ -621,8 +621,7 @@ export default function CalendarScreen({ navigation, route }) {
               style={styles.eventTypeButton}
               onPress={() => {
                 setShowEventTypeModal(false);
-                // TODO: Navigate to regular event creation screen
-                alert('Regular Event creation - Coming soon!');
+                navigation.navigate('CreateEvent', { groupId });
               }}
             >
               <Text style={styles.eventTypeIcon}>📅</Text>

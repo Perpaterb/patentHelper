@@ -14,8 +14,10 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import API from '../../services/api';
 
 /**
  * CreateEventScreen component
@@ -35,6 +37,7 @@ export default function CreateEventScreen({ navigation, route }) {
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   /**
    * Handle start date/time change
@@ -68,18 +71,48 @@ export default function CreateEventScreen({ navigation, route }) {
   /**
    * Handle form submission
    */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validation
     if (!title.trim()) {
       Alert.alert('Validation Error', 'Please enter an event title');
       return;
     }
 
-    // TODO: Call backend API to create event
-    Alert.alert('Coming Soon', 'Event creation will be implemented soon');
+    if (endDate <= startDate) {
+      Alert.alert('Validation Error', 'End time must be after start time');
+      return;
+    }
 
-    // For now, just go back
-    // navigation.goBack();
+    setLoading(true);
+
+    try {
+      // Call backend API to create event
+      const response = await API.post(`/groups/${groupId}/calendar/events`, {
+        title: title.trim(),
+        description: description.trim() || null,
+        startTime: startDate.toISOString(),
+        endTime: endDate.toISOString(),
+        allDay: false,
+        isRecurring: false,
+      });
+
+      if (response.data.success) {
+        Alert.alert('Success', 'Event created successfully', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to create event');
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create event. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -168,8 +201,16 @@ export default function CreateEventScreen({ navigation, route }) {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Create Event</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Create Event</Text>
+          )}
         </TouchableOpacity>
 
         {/* Cancel Button */}
@@ -230,6 +271,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9d7ddb',
+    opacity: 0.7,
   },
   submitButtonText: {
     color: '#fff',
