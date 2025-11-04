@@ -252,14 +252,16 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
           width: headerCellW,
           height: HEADER_H,
           borderWidth: 1,
-          borderColor: '#bbb',
-          backgroundColor: '#f7c',
+          borderColor: '#ddd',
+          backgroundColor: '#f8f9fa',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
-        <Text numberOfLines={1}>{dateLabel(dayIdx)}</Text>
+        <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
+          {dateLabel(dayIdx)}
+        </Text>
       </View>
     );
   }
@@ -311,13 +313,15 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
           width: HEADER_W,
           height: CELL_H,
           borderWidth: 1,
-          borderColor: '#bbb',
-          backgroundColor: '#acf',
+          borderColor: '#ddd',
+          backgroundColor: '#f8f9fa',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text>{hourLabel(hour24)}</Text>
+        <Text style={{ color: '#495057', fontSize: 12, fontWeight: '500' }}>
+          {hourLabel(hour24)}
+        </Text>
       </View>
     );
   }
@@ -369,9 +373,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
           width: '100%',
           height: HEADER_H,
           zIndex: 16,
-          backgroundColor: '#f7c',
-          borderBottomWidth: 2,
-          borderBottomColor: '#888',
+          backgroundColor: '#f8f9fa',
+          borderBottomWidth: 1,
+          borderBottomColor: '#ddd',
           alignItems: 'flex-start',
           justifyContent: 'flex-start',
         }}
