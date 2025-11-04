@@ -57,6 +57,8 @@ model Group {
   messageGroups         MessageGroup[]
   relationships         Relationship[]
   storageUsage          StorageUsage[]
+  wishLists             WishList[]
+  krisKringles          KrisKringle[]
 
   @@index([createdAt])
   @@map("groups")
@@ -109,6 +111,11 @@ model GroupMember {
   sentFinanceMatterMessages   FinanceMatterMessage[]     @relation("FinanceMatterMessageSender")
   relationshipsAsMember1      Relationship[]             @relation("Member1")
   relationshipsAsMember2      Relationship[]             @relation("Member2")
+  wishListsForMember          WishList[]                 @relation("WishListForMember")
+  wishListsCreated            WishList[]                 @relation("WishListCreator")
+  purchasedWishListItems      WishListItem[]
+  krisKringlesCreated         KrisKringle[]
+  krisKringleParticipants     KrisKringleParticipant[]
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -509,4 +516,134 @@ model PinnedItem {
   @@unique([userId, itemType, itemId])
   @@index([userId, itemType, pinOrder])
   @@map("pinned_items")
+}
+
+// ============================================
+// GIFT REGISTRY MODELS
+// ============================================
+
+model WishList {
+  wishListId  String       @id @default(uuid()) @map("wish_list_id") @db.Uuid
+  groupId     String       @map("group_id") @db.Uuid
+  name        String       @db.VarChar(255)
+  description String?      @db.Text
+  forMemberId String       @map("for_member_id") @db.Uuid
+  createdBy   String       @map("created_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden    Boolean      @default(false) @map("is_hidden")
+  items       WishListItem[]
+  group       Group        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  forMember   GroupMember  @relation("WishListForMember", fields: [forMemberId], references: [groupMemberId])
+  creator     GroupMember  @relation("WishListCreator", fields: [createdBy], references: [groupMemberId])
+  krisKringleParticipants KrisKringleParticipant[]
+
+  @@index([groupId])
+  @@index([forMemberId])
+  @@map("wish_lists")
+}
+
+model WishListItem {
+  itemId       String      @id @default(uuid()) @map("item_id") @db.Uuid
+  wishListId   String      @map("wish_list_id") @db.Uuid
+  name         String      @db.VarChar(255)
+  description  String?     @db.Text
+  url          String?     @db.Text
+  imageUrl     String?     @map("image_url") @db.Text
+  price        Decimal?    @db.Decimal(12, 2)
+  priority     String      @default("medium") @db.VarChar(20)
+  isPurchased  Boolean     @default(false) @map("is_purchased")
+  purchasedBy  String?     @map("purchased_by") @db.Uuid
+  purchasedAt  DateTime?   @map("purchased_at") @db.Timestamp(6)
+  notes        String?     @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden     Boolean     @default(false) @map("is_hidden")
+  wishList     WishList    @relation(fields: [wishListId], references: [wishListId], onDelete: Cascade)
+  purchaser    GroupMember? @relation(fields: [purchasedBy], references: [groupMemberId])
+
+  @@index([wishListId])
+  @@index([isPurchased])
+  @@map("wish_list_items")
+}
+
+// ============================================
+// KRIS KRINGLE / SECRET SANTA MODELS
+// ============================================
+
+model KrisKringle {
+  krisKringleId String               @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
+  groupId       String               @map("group_id") @db.Uuid
+  name          String               @db.VarChar(255)
+  description   String?              @db.Text
+  priceLimit    Decimal?             @map("price_limit") @db.Decimal(12, 2)
+  revealDate    DateTime?            @map("reveal_date") @db.Timestamp(6)
+  exchangeDate  DateTime?            @map("exchange_date") @db.Timestamp(6)
+  createdBy     String               @map("created_by") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  status        String               @default("draft") @db.VarChar(20)
+  isHidden      Boolean              @default(false) @map("is_hidden")
+  participants  KrisKringleParticipant[]
+  matches       KrisKringleMatch[]
+  exclusions    KrisKringleExclusion[]
+  group         Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator       GroupMember          @relation(fields: [createdBy], references: [groupMemberId])
+
+  @@index([groupId])
+  @@index([status])
+  @@map("kris_kringles")
+}
+
+model KrisKringleParticipant {
+  participantId String      @id @default(uuid()) @map("participant_id") @db.Uuid
+  krisKringleId String      @map("kris_kringle_id") @db.Uuid
+  groupMemberId String?     @map("group_member_id") @db.Uuid
+  email         String?     @db.VarChar(255)
+  name          String      @db.VarChar(255)
+  hasJoined     Boolean     @default(false) @map("has_joined")
+  wishListId    String?     @map("wish_list_id") @db.Uuid
+  joinedAt      DateTime?   @map("joined_at") @db.Timestamp(6)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle   KrisKringle @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  groupMember   GroupMember? @relation(fields: [groupMemberId], references: [groupMemberId])
+  wishList      WishList?   @relation(fields: [wishListId], references: [wishListId])
+  givingTo      KrisKringleMatch[] @relation("GivingMatches")
+  receivingFrom KrisKringleMatch[] @relation("ReceivingMatches")
+  exclusionsFrom KrisKringleExclusion[] @relation("ExclusionPerson1")
+  exclusionsTo   KrisKringleExclusion[] @relation("ExclusionPerson2")
+
+  @@index([krisKringleId])
+  @@index([groupMemberId])
+  @@map("kris_kringle_participants")
+}
+
+model KrisKringleMatch {
+  matchId       String                  @id @default(uuid()) @map("match_id") @db.Uuid
+  krisKringleId String                  @map("kris_kringle_id") @db.Uuid
+  giverId       String                  @map("giver_id") @db.Uuid
+  receiverId    String                  @map("receiver_id") @db.Uuid
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle   KrisKringle             @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  giver         KrisKringleParticipant  @relation("GivingMatches", fields: [giverId], references: [participantId])
+  receiver      KrisKringleParticipant  @relation("ReceivingMatches", fields: [receiverId], references: [participantId])
+
+  @@unique([krisKringleId, giverId])
+  @@index([krisKringleId])
+  @@map("kris_kringle_matches")
+}
+
+model KrisKringleExclusion {
+  exclusionId   String                  @id @default(uuid()) @map("exclusion_id") @db.Uuid
+  krisKringleId String                  @map("kris_kringle_id") @db.Uuid
+  participant1Id String                 @map("participant1_id") @db.Uuid
+  participant2Id String                 @map("participant2_id") @db.Uuid
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle   KrisKringle             @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  participant1  KrisKringleParticipant  @relation("ExclusionPerson1", fields: [participant1Id], references: [participantId])
+  participant2  KrisKringleParticipant  @relation("ExclusionPerson2", fields: [participant2Id], references: [participantId])
+
+  @@unique([krisKringleId, participant1Id, participant2Id])
+  @@index([krisKringleId])
+  @@map("kris_kringle_exclusions")
 }

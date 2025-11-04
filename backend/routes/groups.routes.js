@@ -9,6 +9,8 @@ const router = express.Router();
 const groupsController = require('../controllers/groups.controller');
 const messagesController = require('../controllers/messages.controller');
 const messageGroupsRouter = require('./messageGroups.routes');
+const wishListsRouter = require('./wishLists.routes');
+const krisKringleRouter = require('./krisKringle.routes');
 const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
@@ -253,5 +255,17 @@ router.post('/:groupId/calendar/responsibility-events', requireAuth, calendarCon
  * All routes under /groups/:groupId/message-groups
  */
 router.use('/:groupId/message-groups', messageGroupsRouter);
+
+/**
+ * Mount wish lists router
+ * All routes under /groups/:groupId/wish-lists
+ */
+router.use('/:groupId/wish-lists', wishListsRouter);
+
+/**
+ * Mount Kris Kringle router
+ * All routes under /groups/:groupId/kris-kringle
+ */
+router.use('/:groupId/kris-kringle', krisKringleRouter);
 
 module.exports = router;
