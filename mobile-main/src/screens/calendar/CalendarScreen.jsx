@@ -417,6 +417,9 @@ export default function CalendarScreen({ navigation, route }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempSelectedDate, setTempSelectedDate] = useState(new Date());
 
+  // Event creation modal state
+  const [showEventTypeModal, setShowEventTypeModal] = useState(false);
+
   // Calculate masterDayTimeDate from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
@@ -567,6 +570,16 @@ export default function CalendarScreen({ navigation, route }) {
         />
       )}
 
+      {/* Floating Action Button (only in Day view) */}
+      {viewMode === 'day' && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowEventTypeModal(true)}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Date Picker Modal */}
       <Modal visible={showDatePicker} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
@@ -595,6 +608,53 @@ export default function CalendarScreen({ navigation, route }) {
                 <Text style={styles.goButtonText}>Go</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Event Type Choice Modal */}
+      <Modal visible={showEventTypeModal} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Create New...</Text>
+            <TouchableOpacity
+              style={styles.eventTypeButton}
+              onPress={() => {
+                setShowEventTypeModal(false);
+                // TODO: Navigate to regular event creation screen
+                alert('Regular Event creation - Coming soon!');
+              }}
+            >
+              <Text style={styles.eventTypeIcon}>📅</Text>
+              <View style={styles.eventTypeTextContainer}>
+                <Text style={styles.eventTypeTitle}>Event</Text>
+                <Text style={styles.eventTypeDescription}>
+                  Meetings, appointments, reminders
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.eventTypeButton}
+              onPress={() => {
+                setShowEventTypeModal(false);
+                // TODO: Navigate to child responsibility creation screen
+                alert('Child Responsibility creation - Coming soon!');
+              }}
+            >
+              <Text style={styles.eventTypeIcon}>👶</Text>
+              <View style={styles.eventTypeTextContainer}>
+                <Text style={styles.eventTypeTitle}>Child Responsibility</Text>
+                <Text style={styles.eventTypeDescription}>
+                  Who's responsible for a child at this time
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton, { marginTop: 20 }]}
+              onPress={() => setShowEventTypeModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -710,6 +770,13 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignItems: 'center',
   },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    alignSelf: 'flex-start',
+  },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -738,5 +805,57 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Floating Action Button
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#6200ee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  fabText: {
+    fontSize: 32,
+    color: '#fff',
+    fontWeight: '300',
+    marginTop: -2,
+  },
+
+  // Event Type Choice Modal
+  eventTypeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  eventTypeIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  eventTypeTextContainer: {
+    flex: 1,
+  },
+  eventTypeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  eventTypeDescription: {
+    fontSize: 14,
+    color: '#666',
   },
 });
