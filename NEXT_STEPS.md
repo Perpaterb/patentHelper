@@ -136,6 +136,46 @@ Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
+### Calendar Frontend - Date Picker Modal Restoration (2025-11-04)
+- [x] Fixed date picker modal to use Day/Month/Year wheels
+  - Changed `mode="datetime"` to `mode="date"`
+  - Only shows date wheels (no time selector)
+- [x] Restored Go/Cancel button functionality
+  - Go button sets time to 12pm (noon) and updates grid position
+  - Cancel button closes modal without applying changes
+  - Buttons update `externalXYFloat` to jump to selected date
+- [x] Applied proper styling from CalendarScreen_OLD.jsx
+  - Restored `modalContent`, `modalButtons`, `cancelButton`, `goButton` styles
+  - Gray Cancel button (`#f5f5f5`) with dark gray text
+  - Purple Go button (`#6200ee`) with white text
+  - Buttons are properly sized and spaced
+
+**Technical Implementation:**
+- Lines 431-447: `handleGoPress` sets `targetHour = 12` (noon)
+- Lines 572-595: Date picker modal with Go/Cancel buttons
+- Lines 697-739: Complete modal styles matching original design
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
+### Calendar Frontend - Fix Grid Position and Probe Positioning (2025-11-04)
+- [x] Fixed grid position offset by adjusting scroll calculation
+  - Problem: Grid was positioned half a cell to the right when master time was set
+  - Solution: Added `-0.5` offset to `scrollXFloat` calculation in `getXYFloatForProbeTarget`
+  - Line 71: `scrollXFloat: targetDay - probeXInGrid + padL / cellW - 0.5 + 0.0001`
+- [x] Adjusted probe vertical positioning for better alignment
+  - Changed `probeScreenY` from `HEADER_H + gridH / 2` to `HEADER_H + gridH / 2.5`
+  - Applied consistently at lines 65, 204, and 421
+  - Moves the probe higher up on screen for better visibility and interaction
+
+**Technical Details:**
+- The `-0.5` offset in scrollXFloat compensates for the grid column alignment
+- The `/ 2.5` divisor for probeScreenY positions the probe at 40% from top instead of 50%
+- Both changes ensure the date picker jumps to the correct grid position
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
 ## Pending Calendar Tasks
 
 ### High Priority

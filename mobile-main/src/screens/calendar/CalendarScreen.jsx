@@ -62,13 +62,13 @@ function getSizes() {
 function getXYFloatForProbeTarget(targetHour, targetDay) {
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2;
+  const probeScreenY = HEADER_H + gridH / 2.5;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
 
   return {
     scrollYFloat: targetHour - probeYInGrid + padT / CELL_H + 0.0001,
-    scrollXFloat: targetDay - probeXInGrid + padL / cellW + 0.0001,
+    scrollXFloat: targetDay - probeXInGrid + padL / cellW -0.5 + 0.0001,
   };
 }
 
@@ -201,7 +201,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
   const { width: winW, height: winH, cellW, headerCellW, padL, padT, gridW, gridH } = getSizes();
 
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2;
+  const probeScreenY = HEADER_H + gridH / 2.5;
   const firstCol = Math.floor(scrollXFloat.current - Math.ceil(padL / cellW));
   const firstRow = Math.floor(scrollYFloat.current - Math.ceil(padT / CELL_H));
   const visibleCols = Math.ceil(gridW / cellW) + 4;
@@ -418,7 +418,7 @@ export default function CalendarScreen({ navigation, route }) {
   // Calculate masterDayTimeDate from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2;
+  const probeScreenY = HEADER_H + gridH / 2.5;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeCol = Math.floor(externalXYFloat.scrollXFloat + probeXInGrid - padL / cellW);
@@ -428,18 +428,21 @@ export default function CalendarScreen({ navigation, route }) {
   const probeDay = probeCol + probeDayOffset;
   const masterDayTimeDate = `${hourLabel(probeHour24)} - ${dateLabel(probeDay)}`;
 
-  // Handle date picker confirm
-  const handleDatePickerConfirm = (event, selectedDate) => {
-    if (event.type === 'set' && selectedDate) {
-      // Convert selected date to day offset and hour
-      const baseDate = new Date(2023, 9, 31);
-      const daysDiff = Math.floor((selectedDate - baseDate) / (1000 * 60 * 60 * 24));
-      const targetHour = selectedDate.getHours();
+  // Handle Go button - apply the selected date at 12pm
+  const handleGoPress = () => {
+    // Convert selected date to day offset, set hour to 12 (noon)
+    const baseDate = new Date(2023, 9, 31);
+    const daysDiff = Math.floor((tempSelectedDate - baseDate) / (1000 * 60 * 60 * 24));
+    const targetHour = 12; // Always go to 12pm (noon)
 
-      // Convert to scroll floats
-      const newXYFloat = getXYFloatForProbeTarget(targetHour, daysDiff);
-      setExternalXYFloat(newXYFloat);
-    }
+    // Convert to scroll floats
+    const newXYFloat = getXYFloatForProbeTarget(targetHour, daysDiff);
+    setExternalXYFloat(newXYFloat);
+    setShowDatePicker(false);
+  };
+
+  // Handle Cancel button - close modal without applying changes
+  const handleCancelPress = () => {
     setShowDatePicker(false);
   };
 
@@ -565,19 +568,29 @@ export default function CalendarScreen({ navigation, route }) {
       {/* Date Picker Modal */}
       <Modal visible={showDatePicker} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
             <DateTimePicker
               value={tempSelectedDate}
-              mode="datetime"
+              mode="date"
               display="spinner"
-              onChange={handleDatePickerConfirm}
+              onChange={(event, selectedDate) => {
+                if (selectedDate) {
+                  setTempSelectedDate(selectedDate);
+                }
+              }}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowDatePicker(false)}
+                onPress={handleCancelPress}
               >
-                <Text style={styles.modalButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.goButton]}
+                onPress={handleGoPress}
+              >
+                <Text style={styles.goButtonText}>Go</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -687,29 +700,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
+  modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    width: '80%',
+    width: '85%',
+    maxWidth: 400,
     alignItems: 'center',
   },
   modalButtons: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
     marginTop: 20,
-    gap: 10,
+    gap: 12,
   },
   modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    flex: 1,
+    paddingVertical: 14,
     borderRadius: 8,
-    minWidth: 100,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#999',
+    backgroundColor: '#f5f5f5',
   },
-  modalButtonText: {
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goButton: {
+    backgroundColor: '#6200ee',
+  },
+  goButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
