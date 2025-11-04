@@ -21,7 +21,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-const HEADER_W = 80;
+const HEADER_W = 50;
 const HEADER_H = 40;
 const CELL_H = 40;
 const HIGHLIGHT_MS = 400;
@@ -49,7 +49,7 @@ function dateLabel(dayIdx) {
 
 function getSizes() {
   const { width, height } = Dimensions.get('window');
-  const cellW = (width - HEADER_W) / 2;
+  const cellW = (width - HEADER_W) / 1.6;
   const headerCellW = width / 3;
   const padL = cellW * 2;
   const padT = CELL_H * 2;

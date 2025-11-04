@@ -1,5 +1,6 @@
 # Parenting Helper App - Technical Planning Document
 
+
 ## 1. Overview
 
 A cross-platform parenting and co-parenting helper application designed to facilitate communication, scheduling, and financial coordination between parents, children, caregivers, and supervisors. The app provides three core functionalities: messaging, calendar management, and financial tracking, with comprehensive logging and approval systems for administrative oversight.
