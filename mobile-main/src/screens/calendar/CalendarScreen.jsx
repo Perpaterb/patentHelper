@@ -289,9 +289,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
             { width: cellW, height: CELL_H, left: HEADER_W + left, top: HEADER_H + top },
           ]}
         >
-          <Text>
-            {hourLabel(hour24)} {dateLabel(cellDayCol)}
-          </Text>
+          {/* Cell data (invisible but probe can still read hour24 and cellDayCol) */}
         </View>
       );
     }
