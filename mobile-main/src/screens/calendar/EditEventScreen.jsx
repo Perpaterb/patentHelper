@@ -1,7 +1,7 @@
 /**
- * Create Event Screen
+ * Edit Event Screen
  *
- * Form for creating calendar events.
+ * Form for editing calendar events with delete functionality.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,18 +21,18 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 
 /**
- * CreateEventScreen component
+ * EditEventScreen component
  *
  * @param {Object} props
  * @param {Object} props.navigation - React Navigation object
- * @param {Object} props.route - Route params including groupId
+ * @param {Object} props.route - Route params including groupId, eventId
  * @returns {JSX.Element}
  */
-export default function CreateEventScreen({ navigation, route }) {
-  const { groupId, defaultStartDate } = route.params;
+export default function EditEventScreen({ navigation, route }) {
+  const { groupId, eventId } = route.params;
 
-  // Initialize dates from params or defaults
-  const initialStartDate = defaultStartDate ? new Date(defaultStartDate) : new Date();
+  // Initialize dates - will be loaded from API
+  const initialStartDate = new Date();
   const initialEndDate = new Date(initialStartDate.getTime() + 60 * 60 * 1000); // +1 hour
 
   // Form state
@@ -63,12 +63,81 @@ export default function CreateEventScreen({ navigation, route }) {
   const [notificationMinutes, setNotificationMinutes] = useState(15); // Default 15 minutes before
   const [showNotificationModal, setShowNotificationModal] = useState(false);
 
+  // Event loading state
+  const [eventLoading, setEventLoading] = useState(true);
+  const [eventData, setEventData] = useState(null);
+
   /**
-   * Fetch group members on mount
+   * Fetch event data on mount
    */
   useEffect(() => {
+    fetchEventData();
     fetchGroupMembers();
-  }, [groupId]);
+  }, [groupId, eventId]);
+
+  /**
+   * Fetch existing event data from API
+   */
+  const fetchEventData = async () => {
+    try {
+      setEventLoading(true);
+      const response = await API.get(`/groups/${groupId}/calendar/events/${eventId}`);
+      if (response.data.success) {
+        const event = response.data.event;
+        setEventData(event);
+
+        // Populate form with existing data
+        setTitle(event.title || '');
+        setDescription(event.description || '');
+        setStartDate(new Date(event.startTime));
+        setEndDate(new Date(event.endTime));
+        setTempStartDate(new Date(event.startTime));
+        setTempEndDate(new Date(event.endTime));
+        setIsRecurring(event.isRecurring || false);
+
+        // Parse recurrence rule if exists
+        if (event.recurrenceRule) {
+          const freqMatch = event.recurrenceRule.match(/FREQ=(\w+)/);
+          const intervalMatch = event.recurrenceRule.match(/INTERVAL=(\d+)/);
+
+          if (freqMatch) {
+            const baseFreq = freqMatch[1];
+            const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
+
+            // Detect special frequencies
+            if (baseFreq === 'WEEKLY' && interval === 2) {
+              setRecurrenceFrequency('FORTNIGHTLY');
+            } else if (baseFreq === 'MONTHLY' && interval === 3) {
+              setRecurrenceFrequency('QUARTERLY');
+            } else {
+              setRecurrenceFrequency(baseFreq);
+            }
+          }
+
+          const untilMatch = event.recurrenceRule.match(/UNTIL=(\d{8})/);
+          if (untilMatch) {
+            const dateStr = untilMatch[1]; // YYYYMMDD
+            const year = parseInt(dateStr.substring(0, 4));
+            const month = parseInt(dateStr.substring(4, 6)) - 1;
+            const day = parseInt(dateStr.substring(6, 8));
+            setRecurrenceEndDate(new Date(year, month, day));
+          }
+        }
+
+        setNotificationMinutes(event.notificationMinutes || 15);
+        // Note: attendeeIds will be loaded separately if needed
+      }
+    } catch (error) {
+      console.error('Error fetching event:', error);
+      Alert.alert('Error', 'Failed to load event data');
+    } finally {
+      setEventLoading(false);
+    }
+  };
+
+  /**
+   * Fetch group members on mount (keep original function)
+   */
 
   /**
    * Fetch group members from API
@@ -220,7 +289,7 @@ export default function CreateEventScreen({ navigation, route }) {
   };
 
   /**
-   * Handle form submission
+   * Handle form submission (UPDATE event)
    */
   const handleSubmit = async () => {
     // Validation
@@ -260,8 +329,8 @@ export default function CreateEventScreen({ navigation, route }) {
         // If no end date, it repeats forever (no UNTIL clause)
       }
 
-      // Call backend API to create event
-      const response = await API.post(`/groups/${groupId}/calendar/events`, {
+      // Call backend API to UPDATE event
+      const response = await API.put(`/groups/${groupId}/calendar/events/${eventId}`, {
         title: title.trim(),
         description: description.trim() || null,
         startTime: startDate.toISOString(),
@@ -274,22 +343,94 @@ export default function CreateEventScreen({ navigation, route }) {
       });
 
       if (response.data.success) {
-        Alert.alert('Success', 'Event created successfully', [
+        Alert.alert('Success', 'Event updated successfully', [
           {
             text: 'OK',
             onPress: () => navigation.goBack(),
           },
         ]);
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to create event');
+        Alert.alert('Error', response.data.message || 'Failed to update event');
       }
     } catch (error) {
-      console.error('Error creating event:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create event. Please try again.';
+      console.error('Error updating event:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update event. Please try again.';
       Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Handle delete event
+   */
+  const handleDelete = async () => {
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const response = await API.delete(`/groups/${groupId}/calendar/events/${eventId}`);
+              if (response.data.success) {
+                Alert.alert('Success', 'Event deleted successfully', [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]);
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to delete event');
+              }
+            } catch (error) {
+              console.error('Error deleting event:', error);
+              Alert.alert('Error', 'Failed to delete event');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle delete recurring series (all future events)
+   */
+  const handleDeleteSeries = async () => {
+    Alert.alert(
+      'Delete Recurring Series',
+      'Delete all future events in this recurring series?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All Future',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const response = await API.delete(
+                `/groups/${groupId}/calendar/events/${eventId}?deleteSeries=true&fromDate=${new Date().toISOString()}`
+              );
+              if (response.data.success) {
+                Alert.alert('Success', 'Recurring series deleted successfully', [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]);
+              } else {
+                Alert.alert('Error', response.data.message || 'Failed to delete series');
+              }
+            } catch (error) {
+              console.error('Error deleting series:', error);
+              Alert.alert('Error', 'Failed to delete series');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -476,16 +617,41 @@ export default function CreateEventScreen({ navigation, route }) {
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (loading || eventLoading) && styles.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={loading || eventLoading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>Create Event</Text>
+            <Text style={styles.submitButtonText}>Update Event</Text>
           )}
         </TouchableOpacity>
+
+        {/* Delete Buttons */}
+        {!eventLoading && (
+          <>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDelete}
+              disabled={loading}
+            >
+              <Text style={styles.deleteButtonText}>Delete This Event</Text>
+            </TouchableOpacity>
+
+            {eventData?.isRecurring && (
+              <TouchableOpacity
+                style={styles.deleteSeriesButton}
+                onPress={handleDeleteSeries}
+                disabled={loading}
+              >
+                <Text style={styles.deleteSeriesButtonText}>
+                  Delete All Future Events in Series
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
 
         {/* Cancel Button */}
         <TouchableOpacity
@@ -809,6 +975,30 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#f44336',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deleteSeriesButton: {
+    backgroundColor: '#d32f2f',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  deleteSeriesButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   selectButton: {
     borderWidth: 1,

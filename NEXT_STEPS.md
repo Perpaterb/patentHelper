@@ -1,8 +1,8 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-11-04)
+## Current Status (Updated: 2025-11-06)
 
-Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
+Currently working on: **Next mobile app feature (TBD)**
 
 ## Recently Completed Tasks
 
@@ -176,23 +176,85 @@ Currently working on: **Calendar Feature - 2-Column Virtual Grid Day View**
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
+### Calendar Frontend - Event Creation & Editing (2025-11-06)
+- [x] Created event creation screen with all fields
+  - Title, description, start date/time, end date/time
+  - Recurring event toggle with 6 frequency options (Daily, Weekly, Fortnightly, Monthly, Quarterly, Yearly)
+  - Recurrence end date picker with "Forever" option
+  - Modal carousel-style date/time pickers with OK/Cancel buttons
+  - Default start date from probe position (masterDateTime)
+  - Default end date = start + 1 hour
+- [x] Created event editing screen with delete functionality
+  - Fetch and populate existing event data
+  - Parse recurrence rules to detect FORTNIGHTLY/QUARTERLY
+  - Update event via PUT request
+  - Delete single event or entire recurring series
+  - Delete future events in series option
+- [x] Registered navigation routes for Create/Edit screens
+- [x] Implemented FAB (Floating Action Button) in Day view
+  - Opens event type modal (Event vs Child Responsibility)
+  - Passes masterDateTime to CreateEventScreen
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CreateEventScreen.jsx` (created)
+- `mobile-main/src/screens/calendar/EditEventScreen.jsx` (created)
+- `mobile-main/src/navigation/AppNavigator.jsx` (lines 164-172)
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx` (lines 636-730)
+
+### Calendar Frontend - Event Rendering with Scan-Line Algorithm (2025-11-06)
+- [x] Implemented scan-line algorithm for optimal event overlap layout
+  - **Phase 1**: Column assignment using interval graph scan-line algorithm
+  - **Phase 2**: Expansion calculation (events take rightmost available space)
+  - **Phase 3**: Hourly segment rendering with pre-calculated layout
+- [x] Event positioning and styling
+  - Events occupy RIGHT HALF of day column (left reserved for child responsibilities)
+  - Split into 1-hour segments (prevents text cutoff when scrolling)
+  - Title shown only on first segment
+  - Description shown only if event uses >1 column
+  - Sharp corners (no border-radius) for clean grid alignment
+  - Light blue background (#e3f2fd) with blue left border
+  - zIndex: 5 (renders below sticky headers)
+- [x] Smart overlap handling
+  - Minimal column usage (optimal packing)
+  - Events expand rightward when space available
+  - 50/50 split for 2 overlapping events
+  - Equal division for 3+ overlapping events
+  - Consistent layout regardless of scroll position
+- [x] Auto-refresh on navigation
+  - Calendar refreshes when returning from Create/Edit screens
+  - Fetches ALL events (no date range filter) for consistent layout
+  - Scroll position preserved (doesn't reset)
+  - Uses React Navigation `focus` listener
+
+**Technical Implementation:**
+- Lines 366-452: Scan-line algorithm (column assignment + expansion)
+- Lines 454-559: Hourly segment rendering loop
+- Lines 596-607: Auto-refresh on navigation focus
+- Lines 641-657: Fetch all events (removed date range filtering)
+
+**Algorithm Complexity:**
+- Scan-line sorting: O(n log n)
+- Expansion calculation: O(n²) worst case
+- Rendering: O(visible cells × events) per frame
+
+**Documentation:**
+- Created `mobile-main/CALENDAR_EVENT_RENDERING.md` (comprehensive technical documentation)
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+- `mobile-main/CALENDAR_EVENT_RENDERING.md` (created)
+
 ## Pending Calendar Tasks
 
 ### High Priority
-- [ ] Test Day view scrolling and momentum
-- [ ] Fix real-time datetime updates during swipe (original issue)
-- [ ] Test and tune scroll sensitivity (HOURS_PER_SCREEN_SWIPE variable)
-
-### Feature Additions
-- [ ] Add event type selection (Child Event vs Normal Event) to create form
+- [ ] Implement child responsibility lines (left half of day column)
+- [ ] Add event color coding by category/member
 - [ ] Add member tagging to events for notifications
 - [ ] Add event reminder/notification settings
 
-### Backend Integration
-- [ ] Connect calendar screens to backend API
-- [ ] Implement event CRUD operations
+### Backend Integration (Deferred to Phase 6)
 - [ ] Add event approval workflows for admin-restricted groups
-- [ ] Implement event notifications
+- [ ] Implement event notifications (push/email)
 
 ## Git Commit Rules (MANDATORY)
 

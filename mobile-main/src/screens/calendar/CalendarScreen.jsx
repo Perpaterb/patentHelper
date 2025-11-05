@@ -5,7 +5,7 @@
  * Day view implements externally-controlled infinite grid with probe highlight.
  */
 
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   Animated,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import API from '../../services/api';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -75,7 +76,7 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
 /**
  * InfiniteGrid - Externally controlled infinite scrolling grid
  */
-function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
+function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, groupId }) {
   const [renderTick, setRenderTick] = useState(0);
   const scrollYFloat = useRef(externalXYFloat.scrollYFloat);
   const scrollXFloat = useRef(externalXYFloat.scrollXFloat);
@@ -362,6 +363,201 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
     />
   );
 
+  // Render events - split into hourly segments with scan-line algorithm for overlap layout
+  let eventViews = [];
+  if (events && events.length > 0) {
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+
+    // STEP 1: Use scan-line algorithm to calculate slot assignments
+    // This processes events at start/end points to find optimal column layout
+    const eventLayouts = new Map(); // eventId -> {column, maxColumns}
+
+    // Create scan events (start and end points)
+    const scanEvents = [];
+    events.forEach((event) => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      scanEvents.push({ time: eventStart, type: 'start', event });
+      scanEvents.push({ time: eventEnd, type: 'end', event });
+    });
+
+    // Sort scan events by time (start before end if same time)
+    scanEvents.sort((a, b) => {
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time - b.time;
+      }
+      return a.type === 'start' ? -1 : 1;
+    });
+
+    // Track active events and their columns
+    const activeEvents = []; // Array of {event, column}
+    const eventColumns = new Map(); // eventId -> column
+
+    // Process scan events
+    scanEvents.forEach((scanEvent) => {
+      if (scanEvent.type === 'start') {
+        // Find the first available column (leftmost)
+        const usedColumns = new Set(activeEvents.map(e => e.column));
+        let column = 0;
+        while (usedColumns.has(column)) {
+          column++;
+        }
+
+        // Assign this event to the column
+        eventColumns.set(scanEvent.event.eventId, column);
+        activeEvents.push({ event: scanEvent.event, column });
+
+      } else { // type === 'end'
+        // Remove this event from active events
+        const index = activeEvents.findIndex(e => e.event.eventId === scanEvent.event.eventId);
+        if (index !== -1) {
+          activeEvents.splice(index, 1);
+        }
+      }
+    });
+
+    // STEP 2: Calculate max columns and expansion for each event
+    // For each event, determine the maximum number of simultaneous events during its duration
+    events.forEach((event) => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      const eventColumn = eventColumns.get(event.eventId);
+
+      // Find all events that overlap with this one
+      const overlappingEvents = events.filter((other) => {
+        const otherStart = new Date(other.startTime);
+        const otherEnd = new Date(other.endTime);
+        return otherStart < eventEnd && otherEnd > eventStart;
+      });
+
+      // Calculate max columns needed during this event's lifetime
+      const maxColumns = Math.max(...overlappingEvents.map(e => eventColumns.get(e.eventId) + 1));
+
+      // Check if columns to the right are free (can this event expand?)
+      const overlappingColumns = new Set(overlappingEvents.map(e => eventColumns.get(e.eventId)));
+      let columnsToUse = 1;
+      for (let col = eventColumn + 1; col < maxColumns; col++) {
+        if (!overlappingColumns.has(col)) {
+          columnsToUse++;
+        } else {
+          break; // Stop at first occupied column
+        }
+      }
+
+      eventLayouts.set(event.eventId, {
+        column: eventColumn,
+        maxColumns,
+        columnsToUse,
+      });
+    });
+
+    // STEP 3: Render hour segments using pre-calculated layouts
+    for (let dx = 0; dx < visibleCols; ++dx) {
+      for (let dy = 0; dy < visibleRows; ++dy) {
+        const rowIdx = firstRow + dy;
+        const colIdx = firstCol + dx;
+        const hour24 = ((rowIdx % 24) + 24) % 24;
+        const dayShift = Math.floor(rowIdx / 24);
+        const cellDayCol = colIdx + dayShift;
+
+        // Calculate the actual date/time for this cell (1 hour slot)
+        const cellDate = new Date(baseDate);
+        cellDate.setDate(baseDate.getDate() + cellDayCol);
+        cellDate.setHours(hour24, 0, 0, 0);
+        const cellEndTime = new Date(cellDate.getTime() + 60 * 60 * 1000);
+
+        // Find events that overlap with this hour
+        events.forEach((event) => {
+          const eventStart = new Date(event.startTime);
+          const eventEnd = new Date(event.endTime);
+          const overlaps = eventStart < cellEndTime && eventEnd > cellDate;
+
+          if (overlaps) {
+            const layout = eventLayouts.get(event.eventId);
+            if (!layout) return;
+
+            // Calculate the visible portion of the event in this hour slot
+            const segmentStart = eventStart > cellDate ? eventStart : cellDate;
+            const segmentEnd = eventEnd < cellEndTime ? eventEnd : cellEndTime;
+
+            const startMinuteFraction = (segmentStart - cellDate) / (1000 * 60 * 60);
+            const durationHours = (segmentEnd - segmentStart) / (1000 * 60 * 60);
+
+            // Check if this is the first segment
+            const isFirstSegment = eventStart >= cellDate && eventStart < cellEndTime;
+
+            // Calculate position
+            const left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
+            const top = (dy + startMinuteFraction) * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+
+            // Layout within right half of column
+            const availableWidth = cellW / 2;
+            const columnWidth = availableWidth / layout.maxColumns;
+            const eventWidth = columnWidth * layout.columnsToUse;
+            const eventOffsetX = columnWidth * layout.column;
+
+            const eventLeft = HEADER_W + left + (cellW / 2) + eventOffsetX;
+            const eventTop = HEADER_H + top;
+            const eventHeight = durationHours * CELL_H;
+
+            const eventKey = `${event.eventId}_${rowIdx}_${colIdx}`;
+
+            eventViews.push(
+              <TouchableOpacity
+                key={eventKey}
+                style={{
+                  position: 'absolute',
+                  left: eventLeft,
+                  top: eventTop,
+                  width: eventWidth,
+                  height: eventHeight,
+                  backgroundColor: '#e3f2fd',
+                  borderLeftWidth: 3,
+                  borderLeftColor: '#2196f3',
+                  padding: 2,
+                  zIndex: 5,
+                }}
+                onPress={() => {
+                  navigation.navigate('EditEvent', {
+                    groupId: groupId,
+                    eventId: event.eventId,
+                  });
+                }}
+              >
+                {isFirstSegment && (
+                  <>
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        color: '#1976d2',
+                      }}
+                    >
+                      {event.title}
+                    </Text>
+                    {layout.columnsToUse > 1 && event.description && (
+                      <Text
+                        numberOfLines={2}
+                        style={{
+                          fontSize: 9,
+                          color: '#555',
+                          marginTop: 1,
+                        }}
+                      >
+                        {event.description}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          }
+        });
+      }
+    }
+  }
+
   return (
     <View style={styles.gridRoot} {...(!snapAnim.active && panResponder.panHandlers)}>
       {/* Top bar & header cells */}
@@ -391,6 +587,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange }) {
       {probeHighlightView}
       {/* Main grid */}
       <View style={{ flex: 1 }}>{cells}</View>
+      {/* Event rectangles */}
+      {eventViews}
     </View>
   );
 }
@@ -407,11 +605,24 @@ export default function CalendarScreen({ navigation, route }) {
   // Current month for Month view
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // Calculate initial position based on current date/time
+  const getInitialPosition = () => {
+    const now = new Date();
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+
+    // Calculate day offset from base date
+    const diffMs = now - baseDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Get current hour (round to nearest hour)
+    const currentHour = now.getHours();
+
+    // Use the helper function to get proper scroll position
+    return getXYFloatForProbeTarget(currentHour, diffDays);
+  };
+
   // Day view: External XY float state that drives the grid
-  const [externalXYFloat, setExternalXYFloat] = useState({
-    scrollYFloat: 0,
-    scrollXFloat: 0,
-  });
+  const [externalXYFloat, setExternalXYFloat] = useState(getInitialPosition());
 
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -419,6 +630,53 @@ export default function CalendarScreen({ navigation, route }) {
 
   // Event creation modal state
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
+
+  // Events state
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  /**
+   * Fetch events for a date range
+   */
+  const fetchEvents = async () => {
+    try {
+      setEventsLoading(true);
+
+      // Fetch ALL events for this group (no date range filter)
+      // This ensures consistent layout calculation across all scrolling positions
+      const response = await API.get(`/groups/${groupId}/calendar/events`);
+
+      if (response.data.success) {
+        setEvents(response.data.events || []);
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  /**
+   * Fetch events when view mode changes to day or when scrolling significantly
+   */
+  useEffect(() => {
+    if (viewMode === 'day') {
+      fetchEvents();
+    }
+  }, [viewMode, groupId]);
+
+  /**
+   * Refresh events when returning from CreateEvent or EditEvent screens
+   */
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (viewMode === 'day') {
+        fetchEvents();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, viewMode]);
 
   // Calculate masterDayTimeDate from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
@@ -567,6 +825,9 @@ export default function CalendarScreen({ navigation, route }) {
         <InfiniteGrid
           externalXYFloat={externalXYFloat}
           onXYFloatChange={setExternalXYFloat}
+          events={events}
+          navigation={navigation}
+          groupId={groupId}
         />
       )}
 
@@ -621,7 +882,15 @@ export default function CalendarScreen({ navigation, route }) {
               style={styles.eventTypeButton}
               onPress={() => {
                 setShowEventTypeModal(false);
-                navigation.navigate('CreateEvent', { groupId });
+                // Calculate masterDateTime from probe position
+                const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+                const masterDateTime = new Date(baseDate);
+                masterDateTime.setDate(baseDate.getDate() + probeDay);
+                masterDateTime.setHours(probeHour24, 0, 0, 0);
+                navigation.navigate('CreateEvent', {
+                  groupId,
+                  defaultStartDate: masterDateTime.toISOString()
+                });
               }}
             >
               <Text style={styles.eventTypeIcon}>📅</Text>
