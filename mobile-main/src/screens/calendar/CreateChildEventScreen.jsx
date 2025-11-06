@@ -89,9 +89,9 @@ export default function CreateChildEventScreen({ navigation, route }) {
 
   const fetchGroupMembers = async () => {
     try {
-      const response = await API.get(`/groups/${groupId}/members`);
+      const response = await API.get(`/groups/${groupId}`);
       if (response.data.success) {
-        const allMembers = response.data.members || [];
+        const allMembers = response.data.group.members || [];
         setMembers(allMembers);
 
         // Filter children
