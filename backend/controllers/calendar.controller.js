@@ -1041,26 +1041,21 @@ async function createResponsibilityEvent(req, res) {
   try {
     const { groupId } = req.params;
     const {
-      childId,
-      startResponsibleMemberId,
-      endResponsibleMemberId,
-      changeTime,
       title,
-      description,
-      location,
+      notes,
       startTime,
       endTime,
-      allDay,
       isRecurring,
       recurrenceRule,
-      checkOverlaps = true, // Option to skip overlap check (frontend handles warning)
+      recurrenceEndDate,
+      responsibilityEvents = [], // Array of {childId, startResponsibilityType, startResponsibleMemberId, ...}
     } = req.body;
 
     // Validate required fields
-    if (!childId || !startResponsibleMemberId || !title || !startTime || !endTime) {
+    if (!title || !startTime || !endTime || responsibilityEvents.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: childId, startResponsibleMemberId, title, startTime, endTime',
+        message: 'Missing required fields: title, startTime, endTime, and at least one responsibility event',
       });
     }
 
@@ -1105,88 +1100,41 @@ async function createResponsibilityEvent(req, res) {
       });
     }
 
-    // Validate that child exists in group
-    const childMember = await prisma.groupMember.findUnique({
-      where: { groupMemberId: childId },
-    });
-
-    if (!childMember || childMember.groupId !== groupId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Child does not exist in this group',
-      });
-    }
-
-    // Validate that start responsible member exists in group
-    const startResponsibleMember = await prisma.groupMember.findUnique({
-      where: { groupMemberId: startResponsibleMemberId },
-    });
-
-    if (!startResponsibleMember || startResponsibleMember.groupId !== groupId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start responsible member does not exist in this group',
-      });
-    }
-
-    // Validate end responsible member if provided
-    if (endResponsibleMemberId) {
-      const endResponsibleMember = await prisma.groupMember.findUnique({
-        where: { groupMemberId: endResponsibleMemberId },
-      });
-
-      if (!endResponsibleMember || endResponsibleMember.groupId !== groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'End responsible member does not exist in this group',
-        });
-      }
-    }
-
-    // Check for overlaps if requested (Option A: warning popup)
-    let overlapInfo = null;
-    if (checkOverlaps) {
-      overlapInfo = await detectResponsibilityOverlaps(groupId, childId, start, end);
-
-      // If overlaps exist, return warning data to frontend for popup
-      if (overlapInfo.hasOverlaps) {
-        return res.status(200).json({
-          success: false,
-          requiresConfirmation: true,
-          message: 'Overlapping responsibility events detected',
-          overlapInfo: overlapInfo,
-        });
-      }
-    }
-
-    // Create the calendar event and responsibility event in a transaction
+    // Create the calendar event and responsibility events in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create the calendar event
       const event = await tx.calendarEvent.create({
         data: {
           groupId: groupId,
           title: title,
-          description: description || null,
-          location: location || null,
+          notes: notes || null,
           startTime: start,
           endTime: end,
-          allDay: allDay || false,
           isRecurring: isRecurring || false,
-          recurrenceRule: recurrenceRule || null,
+          recurrencePattern: recurrenceRule || null,
           isResponsibilityEvent: true,
           createdBy: membership.groupMemberId,
         },
       });
 
-      // Create the responsibility event
-      const responsibilityEvent = await tx.childResponsibilityEvent.create({
-        data: {
-          eventId: event.eventId,
-          childId: childId,
-          startResponsibleMemberId: startResponsibleMemberId,
-          endResponsibleMemberId: endResponsibleMemberId || null,
-          changeTime: changeTime ? new Date(changeTime) : null,
-        },
+      // Create responsibility events for each child
+      const createdResponsibilityEvents = await Promise.all(
+        responsibilityEvents.map(async (re) => {
+          return await tx.childResponsibilityEvent.create({
+            data: {
+              eventId: event.eventId,
+              childId: re.childId,
+              startResponsibilityType: re.startResponsibilityType || 'member',
+              startResponsibleMemberId: re.startResponsibleMemberId || null,
+              startResponsibleOtherName: re.startResponsibleOtherName || null,
+              startResponsibleOtherIconLetters: re.startResponsibleOtherIconLetters || null,
+              startResponsibleOtherColor: re.startResponsibleOtherColor || null,
+              endResponsibilityType: re.endResponsibilityType || re.startResponsibilityType || 'member',
+              endResponsibleMemberId: re.endResponsibleMemberId || null,
+              endResponsibleOtherName: re.endResponsibleOtherName || null,
+              endResponsibleOtherIconLetters: re.endResponsibleOtherIconLetters || null,
+              endResponsibleOtherColor: re.endResponsibleOtherColor || null,
+            },
         include: {
           event: true,
           child: {
@@ -1219,7 +1167,7 @@ async function createResponsibilityEvent(req, res) {
               },
             },
           },
-          endResponsibleMember: endResponsibleMemberId ? {
+          endResponsibleMember: re.endResponsibleMemberId ? {
             select: {
               groupMemberId: true,
               displayName: true,
@@ -1235,9 +1183,12 @@ async function createResponsibilityEvent(req, res) {
             },
           } : undefined,
         },
-      });
+          });
+        })
+      );
 
       // Create audit log
+      const childrenNames = responsibilityEvents.map(re => re.childId).join(', ');
       await tx.auditLog.create({
         data: {
           groupId: groupId,
@@ -1246,53 +1197,18 @@ async function createResponsibilityEvent(req, res) {
           performedByName: membership.displayName,
           performedByEmail: membership.email || 'N/A',
           actionLocation: 'calendar',
-          messageContent: `Created responsibility event "${title}" for child ${childMember.displayName} from ${startTime} to ${endTime}. Start responsible: ${startResponsibleMember.displayName}${endResponsibleMemberId ? `, End responsible: ${(await tx.groupMember.findUnique({ where: { groupMemberId: endResponsibleMemberId } })).displayName}` : ''}`,
+          messageContent: `Created responsibility event "${title}" for ${responsibilityEvents.length} child(ren) from ${startTime} to ${endTime}`,
         },
       });
 
-      return responsibilityEvent;
+      return { event, responsibilityEvents: createdResponsibilityEvents };
     });
-
-    // Profile merging for response
-    const childDisplayName = result.child.user?.displayName || result.child.displayName;
-    const childIconLetters = result.child.user?.memberIcon || result.child.iconLetters;
-    const childIconColor = result.child.user?.iconColor || result.child.iconColor;
-
-    const startResponsibleDisplayName = result.startResponsibleMember.user?.displayName || result.startResponsibleMember.displayName;
-    const startResponsibleIconLetters = result.startResponsibleMember.user?.memberIcon || result.startResponsibleMember.iconLetters;
-    const startResponsibleIconColor = result.startResponsibleMember.user?.iconColor || result.startResponsibleMember.iconColor;
-
-    const endResponsibleDisplayName = result.endResponsibleMember?.user?.displayName || result.endResponsibleMember?.displayName;
-    const endResponsibleIconLetters = result.endResponsibleMember?.user?.memberIcon || result.endResponsibleMember?.iconLetters;
-    const endResponsibleIconColor = result.endResponsibleMember?.user?.iconColor || result.endResponsibleMember?.iconColor;
 
     return res.status(201).json({
       success: true,
-      message: 'Responsibility event created successfully',
-      responsibilityEvent: {
-        responsibilityEventId: result.responsibilityEventId,
-        eventId: result.eventId,
-        event: result.event,
-        child: {
-          groupMemberId: result.child.groupMemberId,
-          displayName: childDisplayName,
-          iconLetters: childIconLetters,
-          iconColor: childIconColor,
-        },
-        startResponsibleMember: {
-          groupMemberId: result.startResponsibleMember.groupMemberId,
-          displayName: startResponsibleDisplayName,
-          iconLetters: startResponsibleIconLetters,
-          iconColor: startResponsibleIconColor,
-        },
-        endResponsibleMember: result.endResponsibleMember ? {
-          groupMemberId: result.endResponsibleMember.groupMemberId,
-          displayName: endResponsibleDisplayName,
-          iconLetters: endResponsibleIconLetters,
-          iconColor: endResponsibleIconColor,
-        } : null,
-        changeTime: result.changeTime,
-      },
+      message: 'Child responsibility event created successfully',
+      event: result.event,
+      responsibilityEvents: result.responsibilityEvents,
     });
 
   } catch (err) {
