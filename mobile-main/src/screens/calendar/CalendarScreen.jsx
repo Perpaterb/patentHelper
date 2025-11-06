@@ -368,13 +368,16 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   if (events && events.length > 0) {
     const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
 
+    // Filter out child responsibility events (they render as lines, not rectangles)
+    const regularEvents = events.filter(event => !event.isResponsibilityEvent);
+
     // STEP 1: Use scan-line algorithm to calculate slot assignments
     // This processes events at start/end points to find optimal column layout
     const eventLayouts = new Map(); // eventId -> {column, maxColumns}
 
     // Create scan events (start and end points)
     const scanEvents = [];
-    events.forEach((event) => {
+    regularEvents.forEach((event) => {
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       scanEvents.push({ time: eventStart, type: 'start', event });
@@ -418,13 +421,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
     // STEP 2: Calculate max columns and expansion for each event
     // For each event, determine the maximum number of simultaneous events during its duration
-    events.forEach((event) => {
+    regularEvents.forEach((event) => {
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       const eventColumn = eventColumns.get(event.eventId);
 
       // Find all events that overlap with this one
-      const overlappingEvents = events.filter((other) => {
+      const overlappingEvents = regularEvents.filter((other) => {
         const otherStart = new Date(other.startTime);
         const otherEnd = new Date(other.endTime);
         return otherStart < eventEnd && otherEnd > eventStart;
@@ -467,7 +470,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         const cellEndTime = new Date(cellDate.getTime() + 60 * 60 * 1000);
 
         // Find events that overlap with this hour
-        events.forEach((event) => {
+        regularEvents.forEach((event) => {
           const eventStart = new Date(event.startTime);
           const eventEnd = new Date(event.endTime);
           const overlaps = eventStart < cellEndTime && eventEnd > cellDate;
@@ -702,47 +705,46 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             // Layout within LEFT half of column
             const availableWidth = cellW / 2;
             const columnWidth = availableWidth / layout.maxColumns;
-            const lineWidth = columnWidth * layout.columnsToUse;
-            const lineOffsetX = columnWidth * layout.column;
+            const lineThickness = 4; // Thin lines, not rectangles
+            const lineSpacing = 1; // Gap between child and adult lines
+            const totalPairWidth = (lineThickness * 2) + lineSpacing; // 2 lines + gap
+            const lineOffsetX = (columnWidth * layout.column) + ((columnWidth * layout.columnsToUse - totalPairWidth) / 2);
 
-            const lineLeft = HEADER_W + left + lineOffsetX;
             const lineTop = HEADER_H + top;
             const lineHeight = durationHours * CELL_H;
 
-            // Each child/adult pair = 2 lines stacked vertically
-            // Line 1: Child color (top half)
-            // Line 2: Adult color (bottom half)
-            const childLineHeight = lineHeight / 2;
-
+            // Each child/adult pair = 2 thin vertical lines side by side
+            // Line 1: Child color (left)
+            // Line 2: Adult color (right, with small gap)
             const childLineKey = `${line.responsibilityEventId}_child_${rowIdx}_${colIdx}`;
             const adultLineKey = `${line.responsibilityEventId}_adult_${rowIdx}_${colIdx}`;
 
-            // Child line (top half)
+            // Child line (left)
             childEventViews.push(
               <View
                 key={childLineKey}
                 style={{
                   position: 'absolute',
-                  left: lineLeft,
+                  left: HEADER_W + left + lineOffsetX,
                   top: lineTop,
-                  width: lineWidth,
-                  height: childLineHeight,
+                  width: lineThickness,
+                  height: lineHeight,
                   backgroundColor: line.childColor,
                   zIndex: 4, // Below normal events (zIndex: 5)
                 }}
               />
             );
 
-            // Adult line (bottom half)
+            // Adult line (right, with gap)
             childEventViews.push(
               <View
                 key={adultLineKey}
                 style={{
                   position: 'absolute',
-                  left: lineLeft,
-                  top: lineTop + childLineHeight,
-                  width: lineWidth,
-                  height: childLineHeight,
+                  left: HEADER_W + left + lineOffsetX + lineThickness + lineSpacing,
+                  top: lineTop,
+                  width: lineThickness,
+                  height: lineHeight,
                   backgroundColor: line.startAdultColor,
                   zIndex: 4,
                 }}
