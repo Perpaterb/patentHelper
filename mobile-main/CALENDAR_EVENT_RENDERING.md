@@ -351,12 +351,16 @@ Backend uses the `ChildResponsibilityEvent` model with the following fields:
   - Rendered at zIndex: 4 (below normal events)
   - Consistent layout across all scroll positions
 
+**✅ Completed:**
+- ✅ Make bars tappable (navigate to edit screen)
+- ✅ Edit child event screen (EditChildEventScreen.jsx)
+- ✅ Delete child event functionality (single, series, or from date)
+- ✅ Tappable bars with TouchableOpacity overlay (zIndex: 7)
+- ✅ View child/adult assignments in edit screen
+
 **📋 TODO:**
-- Make lines tappable (navigate to edit screen)
-- Edit child event screen
-- Delete child event functionality
-- Handoff indicator at end time
-- Show line details on tap (child name, adult name)
+- Handoff indicator at end time (visual marker on bar)
+- Show tooltip/details on long-press (child name, adult name)
 
 ## Known Limitations
 

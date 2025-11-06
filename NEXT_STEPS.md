@@ -2,7 +2,13 @@
 
 ## Current Status (Updated: 2025-11-06)
 
-Currently working on: **Next mobile app feature (TBD)**
+Currently working on: **Child event edit and delete functionality - COMPLETED**
+
+**Just completed:**
+- ✅ Child event bars are now tappable (navigate to edit screen)
+- ✅ EditChildEventScreen created with full functionality
+- ✅ Delete options: single event, series, or from date
+- ✅ View child/adult assignments in read-only summary
 
 ## Recently Completed Tasks
 
@@ -307,12 +313,42 @@ Currently working on: **Next mobile app feature (TBD)**
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
+### Calendar Frontend - Child Event Edit & Delete (2025-11-06)
+- [x] Made child event bars tappable with TouchableOpacity
+  - Bars navigate to EditChildEventScreen on press
+  - TouchableOpacity overlay at zIndex: 7 captures all taps
+  - Visual feedback with activeOpacity: 0.7
+- [x] Created EditChildEventScreen with full edit functionality
+  - Fetch and display event details (title, notes, dates, recurrence)
+  - Show child responsibility assignments (read-only summary)
+  - Update event metadata (title, notes, dates, recurrence)
+  - Note: Child assignments cannot be edited (must delete and recreate)
+- [x] Implemented delete functionality for child events
+  - Delete single event
+  - Delete entire recurring series
+  - Delete this and future events (from date)
+  - Uses same API as normal events
+- [x] Registered EditChildEventScreen route in navigation
+
+**Technical Implementation:**
+- Lines 728-806: TouchableOpacity wrapper for child event bars (CalendarScreen.jsx)
+- Lines 775-780: Navigation to EditChildEvent with groupId and eventId params
+- EditChildEventScreen.jsx: Complete edit/delete screen (550+ lines)
+  - Displays responsibility events summary (child, adult, handoff)
+  - Helper text explains assignments can't be edited
+  - Delete options for single/series/from date
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+- `mobile-main/src/screens/calendar/EditChildEventScreen.jsx` (created)
+- `mobile-main/src/navigation/AppNavigator.jsx`
+
 ## Pending Calendar Tasks
 
 ### High Priority
-- [ ] Make child event lines tappable (navigate to edit screen)
+- [x] Make child event lines tappable (navigate to edit screen)
 - [ ] Implement handoff indicator at event end time
-- [ ] Create EditChildEventScreen with delete functionality
+- [x] Create EditChildEventScreen with delete functionality
 - [ ] Add event color coding by category/member
 - [ ] Add member tagging to events for notifications
 - [ ] Add event reminder/notification settings

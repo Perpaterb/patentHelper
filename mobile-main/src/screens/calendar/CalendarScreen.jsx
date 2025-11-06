@@ -725,6 +725,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             const adultLineKey = `${line.responsibilityEventId}_adult_${rowIdx}_${colIdx}`;
             const textKey = `${line.responsibilityEventId}_text_${rowIdx}_${colIdx}`;
 
+            // Wrapper key for the entire child event bar (both halves + text)
+            const wrapperKey = `${line.responsibilityEventId}_wrapper_${rowIdx}_${colIdx}`;
+
             // Child half (left)
             childEventViews.push(
               <View
@@ -757,36 +760,50 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
               />
             );
 
-            // Event title (only on first segment)
-            if (isFirstSegment && line.title) {
-              childEventViews.push(
-                <View
-                  key={textKey}
-                  style={{
-                    position: 'absolute',
-                    left: eventLeft,
-                    top: eventTop,
-                    width: eventWidth,
-                    height: eventHeight,
-                    padding: 2,
-                    zIndex: 6, // Above the colored backgrounds
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text
-                    numberOfLines={2}
+            // Touchable overlay for the entire bar (makes it tappable)
+            childEventViews.push(
+              <TouchableOpacity
+                key={wrapperKey}
+                style={{
+                  position: 'absolute',
+                  left: eventLeft,
+                  top: eventTop,
+                  width: eventWidth,
+                  height: eventHeight,
+                  zIndex: 7, // Above everything to capture taps
+                }}
+                onPress={() => {
+                  navigation.navigate('EditChildEvent', {
+                    groupId: groupId,
+                    eventId: line.eventId,
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                {/* Event title (only on first segment) */}
+                {isFirstSegment && line.title && (
+                  <View
                     style={{
-                      fontSize: 9,
-                      fontWeight: 'bold',
-                      color: '#000',
-                      textAlign: 'center',
+                      padding: 2,
+                      justifyContent: 'center',
+                      height: '100%',
                     }}
                   >
-                    {line.title}
-                  </Text>
-                </View>
-              );
-            }
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 'bold',
+                        color: '#000',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {line.title}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
           }
         });
       }

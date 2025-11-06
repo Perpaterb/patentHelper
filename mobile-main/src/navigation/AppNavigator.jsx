@@ -30,6 +30,7 @@ import CalendarScreen from '../screens/calendar/CalendarScreen';
 import CreateEventScreen from '../screens/calendar/CreateEventScreen';
 import CreateChildEventScreen from '../screens/calendar/CreateChildEventScreen';
 import EditEventScreen from '../screens/calendar/EditEventScreen';
+import EditChildEventScreen from '../screens/calendar/EditChildEventScreen';
 import FinanceListScreen from '../screens/groups/FinanceListScreen';
 import CreateFinanceMatterScreen from '../screens/finance/CreateFinanceMatterScreen';
 import FinanceMatterDetailsScreen from '../screens/finance/FinanceMatterDetailsScreen';
@@ -175,6 +176,11 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               name="EditEvent"
               component={EditEventScreen}
               options={{ title: 'Edit Event', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="EditChildEvent"
+              component={EditChildEventScreen}
+              options={{ title: 'Edit Child Event', headerBackTitle: '' }}
             />
 
             {/* Finance */}
