@@ -176,7 +176,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
         endResponsibleOtherColor: hasHandoff && handoffType === 'other' ? handoffOtherColor : (hasHandoff ? null : (responsibleType === 'other' ? responsibleOtherColor : null)),
       }));
 
-      const response = await API.post(`/groups/${groupId}/calendar/events`, {
+      const response = await API.post(`/groups/${groupId}/calendar/responsibility-events`, {
         title,
         notes,
         startTime: startDate.toISOString(),
@@ -184,7 +184,6 @@ export default function CreateChildEventScreen({ navigation, route }) {
         isRecurring,
         recurrenceRule,
         recurrenceEndDate: recurrenceEndDate ? recurrenceEndDate.toISOString() : null,
-        isResponsibilityEvent: true,
         responsibilityEvents,
       });
 
