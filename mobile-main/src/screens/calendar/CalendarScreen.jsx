@@ -856,9 +856,6 @@ export default function CalendarScreen({ navigation, route }) {
   // View mode: 'month' or 'day'
   const [viewMode, setViewMode] = useState('month');
 
-  // Current month for Month view
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
   // Calculate initial position based on current date/time
   const getInitialPosition = () => {
     const now = new Date();
@@ -932,7 +929,7 @@ export default function CalendarScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation, viewMode]);
 
-  // Calculate masterDayTimeDate from current probe position
+  // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
   const probeScreenY = HEADER_H + gridH / 2.5;
@@ -943,6 +940,14 @@ export default function CalendarScreen({ navigation, route }) {
   const probeHour24 = ((probeRow % 24) + 24) % 24;
   const probeDayOffset = Math.floor(probeRow / 24);
   const probeDay = probeCol + probeDayOffset;
+
+  // Create a Date object for the master datetime (used by both Month and Day views)
+  const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+  const masterDateTime = new Date(baseDate);
+  masterDateTime.setDate(baseDate.getDate() + probeDay);
+  masterDateTime.setHours(probeHour24, 0, 0, 0);
+
+  // Format for banner display
   const masterDayTimeDate = `${hourLabel(probeHour24)} - ${dateLabel(probeDay)}`;
 
   // Handle Go button - apply the selected date at 12pm
@@ -963,49 +968,67 @@ export default function CalendarScreen({ navigation, route }) {
     setShowDatePicker(false);
   };
 
-  // Set header with toggle button
+  // Set header with banner button and toggle (same for both Month and Day views)
   useLayoutEffect(() => {
-    if (viewMode === 'month') {
-      navigation.setOptions({
-        headerTitle: 'Calendar',
-        headerRight: () => (
-          <TouchableOpacity
-            style={{ marginLeft: 10, marginRight: 10 }}
-            onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
-          >
-            <Text style={styles.viewToggleText}>{viewMode === 'day' ? 'Day' : 'Month'}</Text>
-          </TouchableOpacity>
-        ),
-      });
-    } else {
-      navigation.setOptions({
-        headerTitle: () => (
-          <TouchableOpacity
-            onPress={() => {
-              setTempSelectedDate(new Date());
-              setShowDatePicker(true);
-            }}
-            style={styles.headerDateButton}
-          >
-            <Text style={styles.headerDateText}>{masterDayTimeDate}</Text>
-          </TouchableOpacity>
-        ),
-        headerRight: () => (
-          <TouchableOpacity
-            style={{ marginLeft: 10, marginRight: 10 }}
-            onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
-          >
-            <Text style={styles.viewToggleText}>{viewMode === 'day' ? 'Day' : 'Month'}</Text>
-          </TouchableOpacity>
-        ),
-      });
-    }
-  }, [navigation, viewMode, masterDayTimeDate]);
+    navigation.setOptions({
+      headerTitle: () => (
+        <TouchableOpacity
+          onPress={() => {
+            setTempSelectedDate(masterDateTime);
+            setShowDatePicker(true);
+          }}
+          style={styles.headerDateButton}
+        >
+          <Text style={styles.headerDateText}>{masterDayTimeDate}</Text>
+        </TouchableOpacity>
+      ),
+      headerRight: () => (
+        <TouchableOpacity
+          style={{ marginLeft: 10, marginRight: 10 }}
+          onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
+        >
+          <Text style={styles.viewToggleText}>{viewMode === 'day' ? 'Day' : 'Month'}</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, viewMode, masterDayTimeDate, masterDateTime]);
+
+  // Navigate to previous month
+  const handlePreviousMonth = () => {
+    const newDate = new Date(masterDateTime);
+    newDate.setMonth(newDate.getMonth() - 1);
+    newDate.setHours(12, 0, 0, 0); // Set to noon
+
+    // Calculate day offset from base date
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+    const diffMs = newDate - baseDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Update external XY float to jump to new month
+    const newPosition = getXYFloatForProbeTarget(12, diffDays);
+    setExternalXYFloat(newPosition);
+  };
+
+  // Navigate to next month
+  const handleNextMonth = () => {
+    const newDate = new Date(masterDateTime);
+    newDate.setMonth(newDate.getMonth() + 1);
+    newDate.setHours(12, 0, 0, 0); // Set to noon
+
+    // Calculate day offset from base date
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+    const diffMs = newDate - baseDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Update external XY float to jump to new month
+    const newPosition = getXYFloatForProbeTarget(12, diffDays);
+    setExternalXYFloat(newPosition);
+  };
 
   // Month view rendering
   const renderMonthView = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
+    const year = masterDateTime.getFullYear();
+    const month = masterDateTime.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -1041,21 +1064,13 @@ export default function CalendarScreen({ navigation, route }) {
     return (
       <View style={styles.monthViewContainer}>
         <View style={styles.monthHeader}>
-          <TouchableOpacity onPress={() => {
-            const newMonth = new Date(currentMonth);
-            newMonth.setMonth(newMonth.getMonth() - 1);
-            setCurrentMonth(newMonth);
-          }}>
+          <TouchableOpacity onPress={handlePreviousMonth}>
             <Text style={styles.monthNavButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.monthTitle}>
-            {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            {masterDateTime.toLocaleString('default', { month: 'long', year: 'numeric' })}
           </Text>
-          <TouchableOpacity onPress={() => {
-            const newMonth = new Date(currentMonth);
-            newMonth.setMonth(newMonth.getMonth() + 1);
-            setCurrentMonth(newMonth);
-          }}>
+          <TouchableOpacity onPress={handleNextMonth}>
             <Text style={styles.monthNavButtonText}>→</Text>
           </TouchableOpacity>
         </View>

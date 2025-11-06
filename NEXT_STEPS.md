@@ -2,13 +2,14 @@
 
 ## Current Status (Updated: 2025-11-06)
 
-Currently working on: **Child event edit and delete functionality - COMPLETED**
+Currently working on: **Month view with unified datetime state - COMPLETED**
 
 **Just completed:**
-- ✅ Child event bars are now tappable (navigate to edit screen)
-- ✅ EditChildEventScreen created with full functionality
-- ✅ Delete options: single event, series, or from date
-- ✅ View child/adult assignments in read-only summary
+- ✅ Unified masterDateTime state between Month and Day views
+- ✅ Added banner button to Month view (same as Day view)
+- ✅ View switching maintains datetime (seamless transition)
+- ✅ Month navigation arrows update shared datetime state
+- ✅ Date picker works for both Month and Day views
 
 ## Recently Completed Tasks
 
@@ -342,6 +343,38 @@ Currently working on: **Child event edit and delete functionality - COMPLETED**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 - `mobile-main/src/screens/calendar/EditChildEventScreen.jsx` (created)
 - `mobile-main/src/navigation/AppNavigator.jsx`
+
+### Calendar Frontend - Unified Month/Day View State (2025-11-06)
+- [x] Removed separate `currentMonth` state
+- [x] Created `masterDateTime` Date object from `externalXYFloat` probe position
+- [x] Added banner button to Month view (same as Day view)
+  - Shows current datetime in banner
+  - Tap to open date picker
+  - Works in both Month and Day views
+- [x] Updated Month view to use `masterDateTime` instead of `currentMonth`
+- [x] Month navigation arrows (← →) update shared datetime state
+  - Previous month: Sets date to 1st of previous month at 12pm
+  - Next month: Sets date to 1st of next month at 12pm
+  - Updates `externalXYFloat` using `getXYFloatForProbeTarget`
+- [x] Seamless view switching
+  - Toggle between Month/Day maintains exact datetime
+  - No separate state management per view
+  - Single source of truth: `externalXYFloat`
+
+**Technical Implementation:**
+- Lines 944-951: Calculate masterDateTime Date object from probe position (CalendarScreen.jsx)
+- Lines 972-994: Unified header with banner button for both views
+- Lines 996-1026: handlePreviousMonth and handleNextMonth functions
+- Lines 1028-1087: renderMonthView uses masterDateTime
+
+**User Experience:**
+- User can view current datetime in banner on both Month and Day views
+- Switching between views preserves the exact date/time
+- Month navigation updates the shared datetime state
+- Date picker works consistently in both views
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
 ## Pending Calendar Tasks
 
