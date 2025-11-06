@@ -337,16 +337,26 @@ Backend uses the `ChildResponsibilityEvent` model with the following fields:
   - Optional handoff support
   - Recurrence support
 - Navigation routes registered
-
-**🚧 In Progress:**
-- Line rendering on left half of day column
-- Scan-line algorithm for child event overlaps
+- **Line rendering on left half of day column** (CalendarScreen.jsx lines 561-755)
+  - Flattens `responsibilityEvents` from calendar events
+  - Each child/adult pair = 2 stacked lines (50/50 split)
+  - Child color (top), adult color (bottom)
+  - Supports member colors AND manual entry colors
+- **Scan-line algorithm for child event overlaps** (CalendarScreen.jsx lines 585-664)
+  - Column assignment using interval graph scan-line
+  - Expansion calculation for optimal width usage
+  - Independent layout from normal events (left half only)
+- **Hourly segment rendering** (CalendarScreen.jsx lines 666-754)
+  - Lines split into 1-hour segments (prevents cutoff during scroll)
+  - Rendered at zIndex: 4 (below normal events)
+  - Consistent layout across all scroll positions
 
 **📋 TODO:**
+- Make lines tappable (navigate to edit screen)
 - Edit child event screen
 - Delete child event functionality
 - Handoff indicator at end time
-- Tap to view child event details
+- Show line details on tap (child name, adult name)
 
 ## Known Limitations
 

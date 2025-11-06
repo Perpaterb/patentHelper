@@ -558,6 +558,202 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     }
   }
 
+  // Render child responsibility event lines (left half of day column)
+  let childEventViews = [];
+  if (events && events.length > 0) {
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+
+    // Flatten responsibility events into a single array with parent event timing
+    const allResponsibilityLines = [];
+    events.forEach((event) => {
+      if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
+        event.responsibilityEvents.forEach((re) => {
+          allResponsibilityLines.push({
+            responsibilityEventId: re.responsibilityEventId,
+            eventId: event.eventId,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            childColor: re.child.iconColor,
+            startAdultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
+            endAdultColor: re.endResponsibleMember?.iconColor || re.endResponsibleOtherColor,
+            hasHandoff: !!re.endResponsibleMember || !!re.endResponsibleOtherName,
+          });
+        });
+      }
+    });
+
+    // STEP 1: Use scan-line algorithm to calculate slot assignments for child events
+    const childEventLayouts = new Map(); // responsibilityEventId -> {column, maxColumns, columnsToUse}
+
+    // Create scan events (start and end points)
+    const childScanEvents = [];
+    allResponsibilityLines.forEach((line) => {
+      const eventStart = new Date(line.startTime);
+      const eventEnd = new Date(line.endTime);
+      childScanEvents.push({ time: eventStart, type: 'start', line });
+      childScanEvents.push({ time: eventEnd, type: 'end', line });
+    });
+
+    // Sort scan events by time (start before end if same time)
+    childScanEvents.sort((a, b) => {
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time - b.time;
+      }
+      return a.type === 'start' ? -1 : 1;
+    });
+
+    // Track active lines and their columns
+    const activeLines = []; // Array of {line, column}
+    const lineColumns = new Map(); // responsibilityEventId -> column
+
+    // Process scan events
+    childScanEvents.forEach((scanEvent) => {
+      if (scanEvent.type === 'start') {
+        // Find the first available column (leftmost)
+        const usedColumns = new Set(activeLines.map(l => l.column));
+        let column = 0;
+        while (usedColumns.has(column)) {
+          column++;
+        }
+
+        // Assign this line to the column
+        lineColumns.set(scanEvent.line.responsibilityEventId, column);
+        activeLines.push({ line: scanEvent.line, column });
+
+      } else { // type === 'end'
+        // Remove this line from active lines
+        const index = activeLines.findIndex(l => l.line.responsibilityEventId === scanEvent.line.responsibilityEventId);
+        if (index !== -1) {
+          activeLines.splice(index, 1);
+        }
+      }
+    });
+
+    // STEP 2: Calculate max columns and expansion for each line
+    allResponsibilityLines.forEach((line) => {
+      const lineStart = new Date(line.startTime);
+      const lineEnd = new Date(line.endTime);
+      const lineColumn = lineColumns.get(line.responsibilityEventId);
+
+      // Find all lines that overlap with this one
+      const overlappingLines = allResponsibilityLines.filter((other) => {
+        const otherStart = new Date(other.startTime);
+        const otherEnd = new Date(other.endTime);
+        return otherStart < lineEnd && otherEnd > lineStart;
+      });
+
+      // Calculate max columns needed during this line's lifetime
+      const maxColumns = Math.max(...overlappingLines.map(l => lineColumns.get(l.responsibilityEventId) + 1));
+
+      // Check if columns to the right are free (can this line expand?)
+      const overlappingColumns = new Set(overlappingLines.map(l => lineColumns.get(l.responsibilityEventId)));
+      let columnsToUse = 1;
+      for (let col = lineColumn + 1; col < maxColumns; col++) {
+        if (!overlappingColumns.has(col)) {
+          columnsToUse++;
+        } else {
+          break; // Stop at first occupied column
+        }
+      }
+
+      childEventLayouts.set(line.responsibilityEventId, {
+        column: lineColumn,
+        maxColumns,
+        columnsToUse,
+      });
+    });
+
+    // STEP 3: Render child event lines using pre-calculated layouts
+    for (let dx = 0; dx < visibleCols; ++dx) {
+      for (let dy = 0; dy < visibleRows; ++dy) {
+        const rowIdx = firstRow + dy;
+        const colIdx = firstCol + dx;
+        const hour24 = ((rowIdx % 24) + 24) % 24;
+        const dayShift = Math.floor(rowIdx / 24);
+        const cellDayCol = colIdx + dayShift;
+
+        // Calculate the actual date/time for this cell (1 hour slot)
+        const cellDate = new Date(baseDate);
+        cellDate.setDate(baseDate.getDate() + cellDayCol);
+        cellDate.setHours(hour24, 0, 0, 0);
+        const cellEndTime = new Date(cellDate.getTime() + 60 * 60 * 1000);
+
+        // Find child lines that overlap with this hour
+        allResponsibilityLines.forEach((line) => {
+          const lineStart = new Date(line.startTime);
+          const lineEnd = new Date(line.endTime);
+          const overlaps = lineStart < cellEndTime && lineEnd > cellDate;
+
+          if (overlaps) {
+            const layout = childEventLayouts.get(line.responsibilityEventId);
+            if (!layout) return;
+
+            // Calculate the visible portion of the line in this hour slot
+            const segmentStart = lineStart > cellDate ? lineStart : cellDate;
+            const segmentEnd = lineEnd < cellEndTime ? lineEnd : cellEndTime;
+
+            const startMinuteFraction = (segmentStart - cellDate) / (1000 * 60 * 60);
+            const durationHours = (segmentEnd - segmentStart) / (1000 * 60 * 60);
+
+            // Calculate position
+            const left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
+            const top = (dy + startMinuteFraction) * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+
+            // Layout within LEFT half of column
+            const availableWidth = cellW / 2;
+            const columnWidth = availableWidth / layout.maxColumns;
+            const lineWidth = columnWidth * layout.columnsToUse;
+            const lineOffsetX = columnWidth * layout.column;
+
+            const lineLeft = HEADER_W + left + lineOffsetX;
+            const lineTop = HEADER_H + top;
+            const lineHeight = durationHours * CELL_H;
+
+            // Each child/adult pair = 2 lines stacked vertically
+            // Line 1: Child color (top half)
+            // Line 2: Adult color (bottom half)
+            const childLineHeight = lineHeight / 2;
+
+            const childLineKey = `${line.responsibilityEventId}_child_${rowIdx}_${colIdx}`;
+            const adultLineKey = `${line.responsibilityEventId}_adult_${rowIdx}_${colIdx}`;
+
+            // Child line (top half)
+            childEventViews.push(
+              <View
+                key={childLineKey}
+                style={{
+                  position: 'absolute',
+                  left: lineLeft,
+                  top: lineTop,
+                  width: lineWidth,
+                  height: childLineHeight,
+                  backgroundColor: line.childColor,
+                  zIndex: 4, // Below normal events (zIndex: 5)
+                }}
+              />
+            );
+
+            // Adult line (bottom half)
+            childEventViews.push(
+              <View
+                key={adultLineKey}
+                style={{
+                  position: 'absolute',
+                  left: lineLeft,
+                  top: lineTop + childLineHeight,
+                  width: lineWidth,
+                  height: childLineHeight,
+                  backgroundColor: line.startAdultColor,
+                  zIndex: 4,
+                }}
+              />
+            );
+          }
+        });
+      }
+    }
+  }
+
   return (
     <View style={styles.gridRoot} {...(!snapAnim.active && panResponder.panHandlers)}>
       {/* Top bar & header cells */}
@@ -587,7 +783,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       {probeHighlightView}
       {/* Main grid */}
       <View style={{ flex: 1 }}>{cells}</View>
-      {/* Event rectangles */}
+      {/* Child responsibility lines (left half) */}
+      {childEventViews}
+      {/* Event rectangles (right half) */}
       {eventViews}
     </View>
   );

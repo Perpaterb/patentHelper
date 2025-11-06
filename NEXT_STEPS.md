@@ -276,10 +276,43 @@ Currently working on: **Next mobile app feature (TBD)**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx` (lines 906-917)
 - `mobile-main/CALENDAR_EVENT_RENDERING.md` (child events section added)
 
+### Calendar Frontend - Child Event Line Rendering (2025-11-06)
+- [x] Implemented child event line rendering on left half of day column
+  - Fetches child events from `responsibilityEvents` nested in calendar events
+  - Flattens responsibility events into single array with parent event timing
+  - Each child/adult pairing = 2 lines stacked vertically (50/50 split)
+    - Line 1: Child's member color (top half)
+    - Line 2: Adult's color from member profile OR manual entry color (bottom half)
+  - Applied scan-line algorithm independently to child events for overlap handling
+  - Lines render at zIndex: 4 (below normal events at zIndex: 5)
+  - Lines occupy LEFT HALF of day column (0-50% width)
+  - Normal events occupy RIGHT HALF (50-100% width)
+- [x] Layout calculation uses same 3-phase process as normal events:
+  - Phase 1: Scan-line algorithm assigns columns to overlapping lines
+  - Phase 2: Expansion calculation (lines take rightmost available space)
+  - Phase 3: Hourly segment rendering with pre-calculated layout
+- [x] Child lines support same overlap features as normal events:
+  - Minimal column usage (optimal packing)
+  - Lines expand rightward when space available
+  - Consistent layout regardless of scroll position
+
+**Technical Implementation:**
+- Lines 561-755: Child event line rendering logic
+- Lines 567-583: Flatten responsibilityEvents into allResponsibilityLines array
+- Lines 585-664: Scan-line algorithm for child event column assignment
+- Lines 666-754: Hourly segment rendering loop
+- Lines 712-750: Render 2 lines per child/adult pair (stacked vertically)
+- Line 787: Render childEventViews before eventViews
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
 ## Pending Calendar Tasks
 
 ### High Priority
-- [ ] Implement child responsibility lines (left half of day column)
+- [ ] Make child event lines tappable (navigate to edit screen)
+- [ ] Implement handoff indicator at event end time
+- [ ] Create EditChildEventScreen with delete functionality
 - [ ] Add event color coding by category/member
 - [ ] Add member tagging to events for notifications
 - [ ] Add event reminder/notification settings
