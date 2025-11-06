@@ -905,8 +905,15 @@ export default function CalendarScreen({ navigation, route }) {
               style={styles.eventTypeButton}
               onPress={() => {
                 setShowEventTypeModal(false);
-                // TODO: Navigate to child responsibility creation screen
-                alert('Child Responsibility creation - Coming soon!');
+                // Calculate masterDateTime from probe position
+                const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+                const masterDateTime = new Date(baseDate);
+                masterDateTime.setDate(baseDate.getDate() + probeDay);
+                masterDateTime.setHours(probeHour24, 0, 0, 0);
+                navigation.navigate('CreateChildEvent', {
+                  groupId,
+                  defaultStartDate: masterDateTime.toISOString()
+                });
               }}
             >
               <Text style={styles.eventTypeIcon}>👶</Text>

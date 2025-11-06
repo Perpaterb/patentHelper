@@ -247,13 +247,113 @@ Events support 6 recurrence frequencies:
 - Events with same start time but different durations
 - Events starting/ending at non-hour boundaries (e.g., 2:30pm)
 
+## Child Responsibility Events
+
+### Overview
+
+Child responsibility events track which adult is responsible for which child during a specific time period. These render as **lines** (not rectangles) on the **LEFT HALF** of the day column.
+
+### Data Structure
+
+Backend uses the `ChildResponsibilityEvent` model with the following fields:
+
+**Per Child/Adult Pairing:**
+- `childId`: Reference to child group member
+- `startResponsibilityType`: Either "member" or "other"
+- `startResponsibleMemberId`: Group member ID (if type = "member")
+- `startResponsibleOtherName`: Manual entry name (if type = "other", e.g., "School")
+- `startResponsibleOtherIconLetters`: Icon letters for manual entry
+- `startResponsibleOtherColor`: Color for manual entry
+- `endResponsibilityType`: Same options as start (for handoff)
+- `endResponsibleMemberId`, `endResponsibleOtherName`, etc.: Handoff person
+
+**Code Location**: `backend/prisma/schema.prisma` - `ChildResponsibilityEvent` model
+
+### UI Requirements
+
+**Creation Screen** (`CreateChildEventScreen.jsx`):
+1. **Children Selection**: Multi-select checkboxes for all children in group
+   - Validation: At least 1 child required
+2. **Responsible Adult**: Two options
+   - Group Member: Dropdown of Admin/Parent/Caregiver roles
+   - Manual Entry: Text input + color picker (e.g., "School", "Afterschool Care")
+   - Validation: Exactly 1 required
+3. **Optional Handoff**: Checkbox to enable handoff at end time
+   - Same options as responsible adult (member or manual entry)
+   - Handoff occurs exactly at event end time
+4. **Recurrence Support**: Same as normal events (6 frequencies)
+
+**Color Picker**: 16 predefined colors for manual entries
+- Ensures consistent, visible colors across the app
+- Used for both responsible adult and handoff person
+
+### Line Rendering (Left Half)
+
+**Structure:**
+- Each child/adult pairing = **2 lines** stacked vertically
+  - Line 1: Child's member color
+  - Line 2: Adult's color (from member profile or manual entry)
+- Small gap between different child/adult groups
+- Lines span full height of event duration
+- Use LEFT HALF of day column (0-50% width)
+
+**Example Layout:**
+```
+├─ Left Half (Child Events) ─┤ ├─ Right Half (Normal Events) ─┤
+│ Child1 color ──────────────│ │                              │
+│ Adult1 color ──────────────│ │    Normal Event             │
+│ (gap)                      │ │                              │
+│ Child2 color ──────────────│ ├──────────────────────────────┤
+│ Adult1 color ──────────────│ │    Normal Event             │
+│ (gap)                      │ │                              │
+│ Child3 color ──────────────│ └──────────────────────────────┘
+│ Adult2 color ──────────────│
+└────────────────────────────┘
+```
+
+**Overlap Handling:**
+- Use same scan-line algorithm as normal events
+- Applied independently to left half
+- Lines can be subdivided into columns if overlapping
+
+**Color Sources:**
+- Child color: From `GroupMember.iconColor` field
+- Adult color (member): From `GroupMember.iconColor` field
+- Adult color (manual): From `startResponsibleOtherColor` field
+
+**No Text Labels:**
+- Lines are purely color-coded (no names displayed)
+- Users identify children/adults by memorizing colors
+- Tap line to see details in edit screen
+
+### Implementation Status
+
+**✅ Completed:**
+- Backend schema already supports child events (no changes needed)
+- `CreateChildEventScreen.jsx` with full UI
+  - Children multi-select
+  - Responsible adult picker (member or manual)
+  - Manual entry with color picker
+  - Optional handoff support
+  - Recurrence support
+- Navigation routes registered
+
+**🚧 In Progress:**
+- Line rendering on left half of day column
+- Scan-line algorithm for child event overlaps
+
+**📋 TODO:**
+- Edit child event screen
+- Delete child event functionality
+- Handoff indicator at end time
+- Tap to view child event details
+
 ## Known Limitations
 
-1. **Child Responsibilities Not Implemented**: Left half of day column currently unused
-2. **No Color Coding**: All events use same blue color (future: event types/categories)
-3. **No Drag-and-Drop**: Events not draggable (future: quick reschedule)
-4. **Single Group Only**: Layout calculated per-group, not across groups
-5. **No Touch Target Expansion**: Touch area = visual size (may be small for narrow events)
+1. **No Color Coding for Normal Events**: All normal events use same blue color (future: event types/categories)
+2. **No Drag-and-Drop**: Events not draggable (future: quick reschedule)
+3. **Single Group Only**: Layout calculated per-group, not across groups
+4. **No Touch Target Expansion**: Touch area = visual size (may be small for narrow lines/events)
 
 ## Future Enhancements
 

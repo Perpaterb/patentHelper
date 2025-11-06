@@ -28,6 +28,7 @@ import ApprovalsListScreen from '../screens/groups/ApprovalsListScreen';
 import AutoApproveSettingsScreen from '../screens/groups/AutoApproveSettingsScreen';
 import CalendarScreen from '../screens/calendar/CalendarScreen';
 import CreateEventScreen from '../screens/calendar/CreateEventScreen';
+import CreateChildEventScreen from '../screens/calendar/CreateChildEventScreen';
 import EditEventScreen from '../screens/calendar/EditEventScreen';
 import FinanceListScreen from '../screens/groups/FinanceListScreen';
 import CreateFinanceMatterScreen from '../screens/finance/CreateFinanceMatterScreen';
@@ -164,6 +165,11 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               name="CreateEvent"
               component={CreateEventScreen}
               options={{ title: 'Create Event', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="CreateChildEvent"
+              component={CreateChildEventScreen}
+              options={{ title: 'Create Child Event', headerBackTitle: '' }}
             />
             <Stack.Screen
               name="EditEvent"

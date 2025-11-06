@@ -244,6 +244,38 @@ Currently working on: **Next mobile app feature (TBD)**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 - `mobile-main/CALENDAR_EVENT_RENDERING.md` (created)
 
+### Calendar Frontend - Child Responsibility Events UI (2025-11-06)
+- [x] Created child event creation screen
+  - Multi-select checkboxes for children (at least 1 required)
+  - Responsible adult: Group member (Admin/Parent/Caregiver) OR manual entry
+  - Manual entry: Text input + color picker (16 predefined colors)
+  - Icon letter generation from manual entry name (e.g., "School" → "SC")
+  - Optional handoff at end time (same options as responsible adult)
+  - Full recurrence support (same 6 frequencies as normal events)
+  - Validation: Requires at least 1 child and exactly 1 responsible adult
+- [x] Registered navigation route for CreateChildEventScreen
+- [x] Updated FAB modal to navigate to child event creation
+  - Passes masterDateTime from probe position
+- [x] Updated documentation with child event architecture
+  - Data structure (ChildResponsibilityEvent model)
+  - UI requirements and validation rules
+  - Line rendering specification (2 lines per child/adult pairing)
+  - Color sources (member colors vs manual entry colors)
+
+**Technical Details:**
+- Backend schema already supports child events (no changes needed)
+- Data posted as `responsibilityEvents` array (one entry per child)
+- Each entry includes start/end responsibility type and person details
+- Manual entries store name, icon letters, and color
+
+**Files created:**
+- `mobile-main/src/screens/calendar/CreateChildEventScreen.jsx`
+
+**Files modified:**
+- `mobile-main/src/navigation/AppNavigator.jsx` (line 31, lines 169-173)
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx` (lines 906-917)
+- `mobile-main/CALENDAR_EVENT_RENDERING.md` (child events section added)
+
 ## Pending Calendar Tasks
 
 ### High Priority
