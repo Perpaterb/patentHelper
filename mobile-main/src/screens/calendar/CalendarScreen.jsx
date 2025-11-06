@@ -574,6 +574,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           allResponsibilityLines.push({
             responsibilityEventId: re.responsibilityEventId,
             eventId: event.eventId,
+            title: event.title, // Event title for display
             startTime: event.startTime,
             endTime: event.endTime,
             childColor: re.child.iconColor,
@@ -705,51 +706,87 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             // Layout within LEFT half of column
             const availableWidth = cellW / 2;
             const columnWidth = availableWidth / layout.maxColumns;
-            const lineThickness = 8; // Thicker lines for better visibility
-            const lineSpacing = 0; // No gap - lines touching
-            const totalPairWidth = (lineThickness * 2) + lineSpacing; // 2 lines together
-            const lineOffsetX = (columnWidth * layout.column) + ((columnWidth * layout.columnsToUse - totalPairWidth) / 2);
+            const eventWidth = columnWidth * layout.columnsToUse;
+            const eventOffsetX = columnWidth * layout.column;
 
-            const lineTop = HEADER_H + top;
-            const lineHeight = durationHours * CELL_H;
+            const eventLeft = HEADER_W + left + eventOffsetX;
+            const eventTop = HEADER_H + top;
+            const eventHeight = durationHours * CELL_H;
 
-            // Each child/adult pair = 2 thin vertical lines side by side
-            // Line 1: Child color (left)
-            // Line 2: Adult color (right, with small gap)
+            // Check if this is the first segment
+            const isFirstSegment = lineStart >= cellDate && lineStart < cellEndTime;
+
+            // Each child/adult pair = 2 halves side by side (50/50 split)
+            // Left half: Child color
+            // Right half: Adult color
+            const halfWidth = eventWidth / 2;
+
             const childLineKey = `${line.responsibilityEventId}_child_${rowIdx}_${colIdx}`;
             const adultLineKey = `${line.responsibilityEventId}_adult_${rowIdx}_${colIdx}`;
+            const textKey = `${line.responsibilityEventId}_text_${rowIdx}_${colIdx}`;
 
-            // Child line (left)
+            // Child half (left)
             childEventViews.push(
               <View
                 key={childLineKey}
                 style={{
                   position: 'absolute',
-                  left: HEADER_W + left + lineOffsetX,
-                  top: lineTop,
-                  width: lineThickness,
-                  height: lineHeight,
+                  left: eventLeft,
+                  top: eventTop,
+                  width: halfWidth,
+                  height: eventHeight,
                   backgroundColor: line.childColor,
                   zIndex: 4, // Below normal events (zIndex: 5)
                 }}
               />
             );
 
-            // Adult line (right, with gap)
+            // Adult half (right)
             childEventViews.push(
               <View
                 key={adultLineKey}
                 style={{
                   position: 'absolute',
-                  left: HEADER_W + left + lineOffsetX + lineThickness + lineSpacing,
-                  top: lineTop,
-                  width: lineThickness,
-                  height: lineHeight,
+                  left: eventLeft + halfWidth,
+                  top: eventTop,
+                  width: halfWidth,
+                  height: eventHeight,
                   backgroundColor: line.startAdultColor,
                   zIndex: 4,
                 }}
               />
             );
+
+            // Event title (only on first segment)
+            if (isFirstSegment && line.title) {
+              childEventViews.push(
+                <View
+                  key={textKey}
+                  style={{
+                    position: 'absolute',
+                    left: eventLeft,
+                    top: eventTop,
+                    width: eventWidth,
+                    height: eventHeight,
+                    padding: 2,
+                    zIndex: 6, // Above the colored backgrounds
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    numberOfLines={2}
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 'bold',
+                      color: '#000',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {line.title}
+                  </Text>
+                </View>
+              );
+            }
           }
         });
       }
