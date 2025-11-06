@@ -998,8 +998,9 @@ export default function CalendarScreen({ navigation, route }) {
   const ROWS = 6;
   const COLS = 7;
   const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const CELL_SIZE = Math.floor((SCREEN_WIDTH - 6) / 7);
-  const CALENDAR_HEIGHT = 24 + ROWS * CELL_SIZE;
+  const CELL_WIDTH = Math.floor((SCREEN_WIDTH - 6) / 7);
+  const CELL_HEIGHT = CELL_WIDTH * 2; // 2x the height
+  const CALENDAR_HEIGHT = 24 + ROWS * CELL_HEIGHT;
 
   // Month swipe state
   const monthDragX = useRef(0);
@@ -1353,13 +1354,13 @@ const styles = StyleSheet.create({
   },
   weekRow: {
     flexDirection: 'row',
-    height: Math.floor((SCREEN_WIDTH - 6) / 7),
+    height: Math.floor((SCREEN_WIDTH - 6) / 7) * 2, // 2x height
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthCell: {
     flex: 1,
-    height: Math.floor((SCREEN_WIDTH - 6) / 7),
+    height: Math.floor((SCREEN_WIDTH - 6) / 7) * 2, // 2x height
     padding: 2,
     borderRadius: 5,
     borderWidth: 1,
