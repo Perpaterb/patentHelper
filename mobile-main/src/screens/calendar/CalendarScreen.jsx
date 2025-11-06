@@ -1123,7 +1123,7 @@ export default function CalendarScreen({ navigation, route }) {
               </View>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton, { marginTop: 20 }]}
+              style={[styles.cancelButton, { marginTop: 20 }]}
               onPress={() => setShowEventTypeModal(false)}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -1265,6 +1265,10 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: '#f5f5f5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
   },
   cancelButtonText: {
     color: '#666',

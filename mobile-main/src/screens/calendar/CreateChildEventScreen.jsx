@@ -590,8 +590,8 @@ export default function CreateChildEventScreen({ navigation, route }) {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              <TouchableOpacity style={styles.doneButton} onPress={() => setShowChildrenPicker(false)}>
-                <Text style={styles.doneButtonText}>Done</Text>
+              <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowChildrenPicker(false)}>
+                <Text style={styles.cancelModalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
