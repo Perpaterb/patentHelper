@@ -1137,8 +1137,11 @@ export default function CalendarScreen({ navigation, route }) {
     setViewMode('day');
   };
 
-  // Render single month view - simplified (no numbers, just grid)
+  // Render single month view - with numbers and highlighting
   const renderSingleMonthView = (year, month) => {
+    const matrix = getMonthMatrix(year, month);
+    const today = new Date();
+
     return (
       <View style={[styles.monthView, { height: CALENDAR_HEIGHT }]}>
         <View style={styles.headerRow}>
@@ -1148,14 +1151,40 @@ export default function CalendarScreen({ navigation, route }) {
             </Text>
           ))}
         </View>
-        {Array.from({ length: ROWS }).map((_, r) => (
+        {matrix.map((week, r) => (
           <View key={r} style={styles.weekRow}>
-            {Array.from({ length: COLS }).map((_, c) => (
-              <View
-                key={`${r}-${c}`}
-                style={styles.monthCell}
-              />
-            ))}
+            {week.map((day, c) => {
+              const isToday =
+                day.date.getDate() === today.getDate() &&
+                day.date.getMonth() === today.getMonth() &&
+                day.date.getFullYear() === today.getFullYear();
+
+              const isMasterDate =
+                day.date.getDate() === masterDateTime.getDate() &&
+                day.date.getMonth() === masterDateTime.getMonth() &&
+                day.date.getFullYear() === masterDateTime.getFullYear();
+
+              return (
+                <View
+                  key={day.key}
+                  style={[
+                    styles.monthCell,
+                    !day.isCurrentMonth && styles.monthCellOutside,
+                    isToday && styles.monthTodayCell,
+                    isMasterDate && styles.monthMasterDateCell,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.monthCellText,
+                      !day.isCurrentMonth && styles.monthCellTextOutside,
+                    ]}
+                  >
+                    {day.date.getDate()}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         ))}
       </View>
@@ -1365,29 +1394,30 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#f0f0f0',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Position content at top
     alignItems: 'center',
     backgroundColor: '#fff',
   },
   monthCellOutside: {
-    backgroundColor: '#fafafa',
+    backgroundColor: '#f5f5f5', // Light gray for outside days
   },
   monthTodayCell: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#e3f2fd', // Light blue for today
     borderColor: '#90caf9',
     borderWidth: 2,
   },
   monthMasterDateCell: {
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#f3e5f5', // Light purple for masterDateTime
     borderColor: '#6200ee',
     borderWidth: 2,
   },
   monthCellText: {
-    fontSize: 16,
+    fontSize: 12, // Small text
     color: '#222',
+    marginTop: 2, // Small margin from top
   },
   monthCellTextOutside: {
-    color: '#bbb',
+    color: '#bbb', // Gray text for outside days
   },
   monthTodayText: {
     color: '#1976d2',
