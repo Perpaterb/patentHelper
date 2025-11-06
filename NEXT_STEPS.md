@@ -2,14 +2,20 @@
 
 ## Current Status (Updated: 2025-11-06)
 
-Currently working on: **Month view with unified datetime state - COMPLETED**
+Currently working on: **Swipeable Month View - COMPLETED (Basic)**
 
 **Just completed:**
-- ✅ Unified masterDateTime state between Month and Day views
-- ✅ Added banner button to Month view (same as Day view)
-- ✅ View switching maintains datetime (seamless transition)
-- ✅ Month navigation arrows update shared datetime state
-- ✅ Date picker works for both Month and Day views
+- ✅ Implemented swipeable month calendar with PanResponder
+- ✅ Always shows 6 rows (matches example code)
+- ✅ Smooth momentum scrolling with snap-to-month
+- ✅ masterDateTime highlighting (purple border/background)
+- ✅ Current day highlighting (blue border/background - different from masterDateTime)
+- ✅ Tappable day cells navigate to Day view at 12pm
+- ✅ Swipe left/right to navigate between months
+
+**TODO:**
+- Add event dots at bottom of cells
+- Add child event lines in top 70% of cells
 
 ## Recently Completed Tasks
 
@@ -372,6 +378,50 @@ Currently working on: **Month view with unified datetime state - COMPLETED**
 - Switching between views preserves the exact date/time
 - Month navigation updates the shared datetime state
 - Date picker works consistently in both views
+
+**Files modified:**
+- `mobile-main/src/screens/calendar/CalendarScreen.jsx`
+
+### Calendar Frontend - Swipeable Month View (2025-11-06)
+- [x] Replaced static month view with swipeable calendar
+- [x] Implemented PanResponder for horizontal swipe gestures
+- [x] Always renders 6 rows (matches standard calendar layout)
+- [x] Smooth momentum scrolling with friction (0.93)
+- [x] Snap-to-month animation (220ms duration with cubic easing)
+- [x] Renders 5 months simultaneously (center ± 2)
+- [x] Updates masterDateTime when swiping to new month
+- [x] Two-level highlighting system:
+  - Today: Light blue background (#e3f2fd) with blue border
+  - MasterDateTime: Light purple background (#f3e5f5) with purple border
+- [x] Tappable day cells navigate to Day view at 12pm
+- [x] Outside month days shown in light gray
+
+**Technical Implementation:**
+- Lines 996-1009: Month view constants and state
+- Lines 1011-1031: getMonthMatrix (always 6 rows)
+- Lines 1033-1039: getAdjacentMonths helper
+- Lines 1041-1046: useMemo for 5 months array
+- Lines 1048-1088: Month swipe animation loop
+- Lines 1090-1107: Snap animation with cubic easing
+- Lines 1109-1129: PanResponder for swipe gestures
+- Lines 1131-1143: handleDayTap navigation
+- Lines 1145-1201: renderSingleMonthView with highlighting
+- Lines 1203-1225: renderMonthView with transform
+
+**Animation Details:**
+- Same approach as Day view (PanResponder + requestAnimationFrame)
+- Velocity multiplier: 18 (matches Day view feel)
+- Friction: 0.93 (smooth deceleration)
+- Snap threshold: 8px horizontal movement
+- Transform: translateX for smooth 60fps scrolling
+
+**User Experience:**
+- Swipe left → next month
+- Swipe right → previous month
+- Tap any day → jump to that day at 12pm in Day view
+- Purple highlight shows selected date (masterDateTime)
+- Blue highlight shows today's date
+- Gray text for days outside current month
 
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`

@@ -993,95 +993,233 @@ export default function CalendarScreen({ navigation, route }) {
     });
   }, [navigation, viewMode, masterDayTimeDate, masterDateTime]);
 
-  // Navigate to previous month
-  const handlePreviousMonth = () => {
-    const newDate = new Date(masterDateTime);
-    newDate.setMonth(newDate.getMonth() - 1);
-    newDate.setHours(12, 0, 0, 0); // Set to noon
+  // Swipeable Month View Implementation
+  const MONTH_WIDTH = SCREEN_WIDTH;
+  const ROWS = 6;
+  const COLS = 7;
+  const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const CELL_SIZE = Math.floor((SCREEN_WIDTH - 6) / 7);
+  const CALENDAR_HEIGHT = 24 + ROWS * CELL_SIZE;
 
-    // Calculate day offset from base date
-    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-    const diffMs = newDate - baseDate;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  // Month swipe state
+  const monthDragX = useRef(0);
+  const monthOffsetX = useRef(-MONTH_WIDTH * 2);
+  const monthVelocityX = useRef(0);
+  const monthAnimating = useRef(false);
+  const [monthForceUpdate, setMonthForceUpdate] = useState(false);
 
-    // Update external XY float to jump to new month
-    const newPosition = getXYFloatForProbeTarget(12, diffDays);
-    setExternalXYFloat(newPosition);
+  // Get month matrix (always 6 rows)
+  const getMonthMatrix = (year, month) => {
+    const firstDay = new Date(year, month, 1);
+    let firstWeekDay = firstDay.getDay();
+    let matrix = [];
+    let day = 1 - firstWeekDay;
+    for (let row = 0; row < ROWS; ++row) {
+      let week = [];
+      for (let col = 0; col < COLS; ++col, ++day) {
+        let d = new Date(year, month, day);
+        let isCurrentMonth = d.getMonth() === month;
+        week.push({
+          key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+          date: new Date(d),
+          isCurrentMonth,
+        });
+      }
+      matrix.push(week);
+    }
+    return matrix;
   };
 
-  // Navigate to next month
-  const handleNextMonth = () => {
-    const newDate = new Date(masterDateTime);
-    newDate.setMonth(newDate.getMonth() + 1);
-    newDate.setHours(12, 0, 0, 0); // Set to noon
+  // Get adjacent months
+  const getAdjacentMonths = (baseYear, baseMonth, offset) => {
+    let m = baseMonth + offset;
+    let y = baseYear + Math.floor(m / 12);
+    m = ((m % 12) + 12) % 12;
+    return { year: y, month: m };
+  };
 
-    // Calculate day offset from base date
+  // Get 5 months array centered on masterDateTime
+  const months = React.useMemo(() => {
+    const year = masterDateTime.getFullYear();
+    const month = masterDateTime.getMonth();
+    return [-2, -1, 0, 1, 2].map((offset) => getAdjacentMonths(year, month, offset));
+  }, [masterDateTime]);
+
+  // Month swipe animation
+  const monthAnimateStep = () => {
+    if (!monthAnimating.current) return;
+    monthDragX.current += monthVelocityX.current;
+    monthVelocityX.current *= 0.93; // FRICTION
+    if (monthDragX.current > MONTH_WIDTH * 2) monthDragX.current = MONTH_WIDTH * 2;
+    if (monthDragX.current < -MONTH_WIDTH * 2) monthDragX.current = -MONTH_WIDTH * 2;
+    monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
+    setMonthForceUpdate((f) => !f);
+
+    if (Math.abs(monthVelocityX.current) > 0.5) {
+      requestAnimationFrame(monthAnimateStep);
+    } else {
+      let idxFromDrag = Math.round(-monthDragX.current / MONTH_WIDTH);
+      idxFromDrag = Math.max(-2, Math.min(2, idxFromDrag));
+      let snapDragX = -idxFromDrag * MONTH_WIDTH;
+      monthAnimateSnap(snapDragX, () => {
+        if (idxFromDrag !== 0) {
+          // Update masterDateTime to new month
+          const newMonth = months[2 + idxFromDrag];
+          const newDate = new Date(newMonth.year, newMonth.month, 1);
+          newDate.setHours(12, 0, 0, 0);
+
+          const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+          const diffMs = newDate - baseDate;
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+          const newPosition = getXYFloatForProbeTarget(12, diffDays);
+          setExternalXYFloat(newPosition);
+
+          monthDragX.current = 0;
+          monthOffsetX.current = -MONTH_WIDTH * 2;
+        } else {
+          monthDragX.current = 0;
+          monthOffsetX.current = -MONTH_WIDTH * 2;
+        }
+        setMonthForceUpdate((f) => !f);
+        monthAnimating.current = false;
+      });
+    }
+  };
+
+  const monthAnimateSnap = (targetDragX, cb) => {
+    const start = monthDragX.current;
+    const diff = targetDragX - start;
+    const duration = 220;
+    let startTime = null;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      let t = Math.min((timestamp - startTime) / duration, 1);
+      t = 1 - Math.pow(1 - t, 3);
+      monthDragX.current = start + diff * t;
+      monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
+      setMonthForceUpdate((f) => !f);
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else if (cb) cb();
+    }
+    requestAnimationFrame(step);
+  };
+
+  // PanResponder for month swipe
+  const monthPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 8,
+      onPanResponderGrant: () => {
+        monthAnimating.current = false;
+        monthVelocityX.current = 0;
+      },
+      onPanResponderMove: (evt, gesture) => {
+        monthDragX.current = gesture.dx;
+        monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
+        setMonthForceUpdate((f) => !f);
+      },
+      onPanResponderRelease: (evt, gesture) => {
+        monthVelocityX.current = gesture.vx * 18;
+        monthAnimating.current = true;
+        monthAnimateStep();
+      },
+    })
+  ).current;
+
+  // Handle day cell tap - navigate to Day view at 12pm
+  const handleDayTap = (date) => {
     const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-    const diffMs = newDate - baseDate;
+    const targetDate = new Date(date);
+    targetDate.setHours(12, 0, 0, 0); // Set to noon
+
+    const diffMs = targetDate - baseDate;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    // Update external XY float to jump to new month
     const newPosition = getXYFloatForProbeTarget(12, diffDays);
     setExternalXYFloat(newPosition);
+    setViewMode('day');
+  };
+
+  // Render single month view
+  const renderSingleMonthView = (year, month) => {
+    const matrix = getMonthMatrix(year, month);
+    const today = new Date();
+
+    return (
+      <View style={[styles.monthView, { height: CALENDAR_HEIGHT }]}>
+        <View style={styles.headerRow}>
+          {DAY_LABELS.map((label, i) => (
+            <Text key={i} style={styles.dayLabel}>
+              {label}
+            </Text>
+          ))}
+        </View>
+        {matrix.map((week, r) => (
+          <View key={r} style={styles.weekRow}>
+            {week.map((day, c) => {
+              const isToday =
+                day.date.getDate() === today.getDate() &&
+                day.date.getMonth() === today.getMonth() &&
+                day.date.getFullYear() === today.getFullYear();
+
+              const isMasterDate =
+                day.date.getDate() === masterDateTime.getDate() &&
+                day.date.getMonth() === masterDateTime.getMonth() &&
+                day.date.getFullYear() === masterDateTime.getFullYear();
+
+              return (
+                <TouchableOpacity
+                  key={day.key}
+                  style={[
+                    styles.cell,
+                    !day.isCurrentMonth && styles.cellOutside,
+                    isToday && styles.todayCell,
+                    isMasterDate && styles.masterDateCell,
+                  ]}
+                  onPress={() => handleDayTap(day.date)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.cellText,
+                      !day.isCurrentMonth && styles.cellTextOutside,
+                      isToday && styles.todayText,
+                      isMasterDate && styles.masterDateText,
+                    ]}
+                  >
+                    {day.date.getDate()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
   };
 
   // Month view rendering
   const renderMonthView = () => {
-    const year = masterDateTime.getFullYear();
-    const month = masterDateTime.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const weeks = [];
-    let dayCounter = 1;
-
-    for (let week = 0; week < 6; week++) {
-      const days = [];
-      for (let day = 0; day < 7; day++) {
-        if ((week === 0 && day < firstDay) || dayCounter > daysInMonth) {
-          days.push(<View key={`${week}-${day}`} style={[styles.dayCell, styles.emptyDayCell]} />);
-        } else {
-          const isToday =
-            dayCounter === new Date().getDate() &&
-            month === new Date().getMonth() &&
-            year === new Date().getFullYear();
-          days.push(
-            <View key={`${week}-${day}`} style={[styles.dayCell, isToday && styles.todayCell]}>
-              <Text style={[styles.dayText, isToday && styles.todayText]}>{dayCounter}</Text>
-            </View>
-          );
-          dayCounter++;
-        }
-      }
-      weeks.push(
-        <View key={week} style={styles.weekRow}>
-          {days}
-        </View>
-      );
-      if (dayCounter > daysInMonth) break;
-    }
-
     return (
-      <View style={styles.monthViewContainer}>
-        <View style={styles.monthHeader}>
-          <TouchableOpacity onPress={handlePreviousMonth}>
-            <Text style={styles.monthNavButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.monthTitle}>
-            {masterDateTime.toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </Text>
-          <TouchableOpacity onPress={handleNextMonth}>
-            <Text style={styles.monthNavButtonText}>→</Text>
-          </TouchableOpacity>
+      <View {...monthPanResponder.panHandlers} style={{ width: '100%' }}>
+        <View style={[styles.overflow, { width: '100%', height: CALENDAR_HEIGHT }]}>
+          <View
+            style={{
+              flexDirection: 'row',
+              width: MONTH_WIDTH * months.length,
+              height: CALENDAR_HEIGHT,
+              transform: [{ translateX: monthOffsetX.current }],
+            }}
+          >
+            {months.map((m, i) => (
+              <View key={m.year + '-' + m.month} style={{ width: MONTH_WIDTH }}>
+                {renderSingleMonthView(m.year, m.month)}
+              </View>
+            ))}
+          </View>
         </View>
-        <View style={styles.weekDaysRow}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <Text key={day} style={styles.weekDayText}>
-              {day}
-            </Text>
-          ))}
-        </View>
-        {weeks}
       </View>
     );
   };
@@ -1228,59 +1366,73 @@ const styles = StyleSheet.create({
     userSelect: 'none',
   },
 
-  // Month view styles
-  monthViewContainer: {
-    flex: 1,
-    padding: 10,
+  // Swipeable Month view styles
+  overflow: {
+    overflow: 'hidden',
   },
-  monthHeader: {
+  monthView: {
+    width: '100%',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+  },
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+    backgroundColor: '#fafafa',
+    height: 24,
     alignItems: 'center',
-    marginBottom: 20,
   },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  monthNavButtonText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#6200ee',
-  },
-  weekDaysRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  weekDayText: {
+  dayLabel: {
     flex: 1,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '600',
     fontSize: 14,
+    color: '#778',
   },
   weekRow: {
     flexDirection: 'row',
+    height: Math.floor((SCREEN_WIDTH - 6) / 7),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dayCell: {
+  cell: {
     flex: 1,
-    aspectRatio: 1,
+    height: Math.floor((SCREEN_WIDTH - 6) / 7),
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    padding: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
-  emptyDayCell: {
-    backgroundColor: '#f5f5f5',
+  cellOutside: {
+    backgroundColor: '#fafafa',
   },
   todayCell: {
     backgroundColor: '#e3f2fd',
+    borderColor: '#90caf9',
+    borderWidth: 2,
+  },
+  masterDateCell: {
+    backgroundColor: '#f3e5f5',
     borderColor: '#6200ee',
     borderWidth: 2,
   },
-  dayText: {
+  cellText: {
     fontSize: 16,
+    color: '#222',
+  },
+  cellTextOutside: {
+    color: '#bbb',
   },
   todayText: {
+    color: '#1976d2',
+    fontWeight: 'bold',
+  },
+  masterDateText: {
     color: '#6200ee',
     fontWeight: 'bold',
   },
