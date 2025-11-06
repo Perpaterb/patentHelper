@@ -705,9 +705,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             // Layout within LEFT half of column
             const availableWidth = cellW / 2;
             const columnWidth = availableWidth / layout.maxColumns;
-            const lineThickness = 4; // Thin lines, not rectangles
-            const lineSpacing = 1; // Gap between child and adult lines
-            const totalPairWidth = (lineThickness * 2) + lineSpacing; // 2 lines + gap
+            const lineThickness = 8; // Thicker lines for better visibility
+            const lineSpacing = 0; // No gap - lines touching
+            const totalPairWidth = (lineThickness * 2) + lineSpacing; // 2 lines together
             const lineOffsetX = (columnWidth * layout.column) + ((columnWidth * layout.columnsToUse - totalPairWidth) / 2);
 
             const lineTop = HEADER_H + top;
