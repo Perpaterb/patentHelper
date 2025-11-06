@@ -1045,57 +1045,19 @@ export default function CalendarScreen({ navigation, route }) {
     return [-2, -1, 0, 1, 2].map((offset) => getAdjacentMonths(year, month, offset));
   }, [masterDateTime]);
 
-  // Month swipe animation
-  const monthAnimateStep = () => {
-    if (!monthAnimating.current) return;
-    monthDragX.current += monthVelocityX.current;
-    monthVelocityX.current *= 0.93; // FRICTION
-    if (monthDragX.current > MONTH_WIDTH * 2) monthDragX.current = MONTH_WIDTH * 2;
-    if (monthDragX.current < -MONTH_WIDTH * 2) monthDragX.current = -MONTH_WIDTH * 2;
-    monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
-    setMonthForceUpdate((f) => !f);
-
-    if (Math.abs(monthVelocityX.current) > 0.5) {
-      requestAnimationFrame(monthAnimateStep);
-    } else {
-      let idxFromDrag = Math.round(-monthDragX.current / MONTH_WIDTH);
-      idxFromDrag = Math.max(-2, Math.min(2, idxFromDrag));
-      let snapDragX = -idxFromDrag * MONTH_WIDTH;
-      monthAnimateSnap(snapDragX, () => {
-        if (idxFromDrag !== 0) {
-          // Update masterDateTime to new month
-          const newMonth = months[2 + idxFromDrag];
-          const newDate = new Date(newMonth.year, newMonth.month, 1);
-          newDate.setHours(12, 0, 0, 0);
-
-          const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-          const diffMs = newDate - baseDate;
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-          const newPosition = getXYFloatForProbeTarget(12, diffDays);
-          setExternalXYFloat(newPosition);
-
-          monthDragX.current = 0;
-          monthOffsetX.current = -MONTH_WIDTH * 2;
-        } else {
-          monthDragX.current = 0;
-          monthOffsetX.current = -MONTH_WIDTH * 2;
-        }
-        setMonthForceUpdate((f) => !f);
-        monthAnimating.current = false;
-      });
-    }
-  };
-
+  // Month swipe animation - tight spring feel
   const monthAnimateSnap = (targetDragX, cb) => {
     const start = monthDragX.current;
     const diff = targetDragX - start;
-    const duration = 220;
+    const duration = 150; // Faster snap (was 220)
     let startTime = null;
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       let t = Math.min((timestamp - startTime) / duration, 1);
-      t = 1 - Math.pow(1 - t, 3);
+      // Tighter spring with damped oscillation
+      t = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
       monthDragX.current = start + diff * t;
       monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
       setMonthForceUpdate((f) => !f);
@@ -1106,24 +1068,56 @@ export default function CalendarScreen({ navigation, route }) {
     requestAnimationFrame(step);
   };
 
-  // PanResponder for month swipe
+  // PanResponder for month swipe - sticks to finger
   const monthPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 8,
+      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 5,
       onPanResponderGrant: () => {
         monthAnimating.current = false;
-        monthVelocityX.current = 0;
       },
       onPanResponderMove: (evt, gesture) => {
+        // Stick directly to finger - no lag
         monthDragX.current = gesture.dx;
         monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
         setMonthForceUpdate((f) => !f);
       },
       onPanResponderRelease: (evt, gesture) => {
-        monthVelocityX.current = gesture.vx * 18;
-        monthAnimating.current = true;
-        monthAnimateStep();
+        // Quick snap based on velocity or distance
+        const threshold = MONTH_WIDTH * 0.3; // 30% of width
+        const velocityThreshold = 0.5;
+
+        let targetIdx = 0;
+        if (Math.abs(gesture.vx) > velocityThreshold) {
+          // Fast swipe - use velocity
+          targetIdx = gesture.vx > 0 ? 1 : -1;
+        } else if (Math.abs(monthDragX.current) > threshold) {
+          // Slow drag past threshold
+          targetIdx = monthDragX.current > 0 ? 1 : -1;
+        }
+
+        targetIdx = Math.max(-2, Math.min(2, targetIdx));
+        const snapDragX = -targetIdx * MONTH_WIDTH;
+
+        monthAnimateSnap(snapDragX, () => {
+          if (targetIdx !== 0) {
+            // Update masterDateTime to new month
+            const newMonth = months[2 + targetIdx];
+            const newDate = new Date(newMonth.year, newMonth.month, 1);
+            newDate.setHours(12, 0, 0, 0);
+
+            const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+            const diffMs = newDate - baseDate;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            const newPosition = getXYFloatForProbeTarget(12, diffDays);
+            setExternalXYFloat(newPosition);
+          }
+          monthDragX.current = 0;
+          monthOffsetX.current = -MONTH_WIDTH * 2;
+          setMonthForceUpdate((f) => !f);
+          monthAnimating.current = false;
+        });
       },
     })
   ).current;
@@ -1173,20 +1167,20 @@ export default function CalendarScreen({ navigation, route }) {
                 <TouchableOpacity
                   key={day.key}
                   style={[
-                    styles.cell,
-                    !day.isCurrentMonth && styles.cellOutside,
-                    isToday && styles.todayCell,
-                    isMasterDate && styles.masterDateCell,
+                    styles.monthCell,
+                    !day.isCurrentMonth && styles.monthCellOutside,
+                    isToday && styles.monthTodayCell,
+                    isMasterDate && styles.monthMasterDateCell,
                   ]}
                   onPress={() => handleDayTap(day.date)}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={[
-                      styles.cellText,
-                      !day.isCurrentMonth && styles.cellTextOutside,
-                      isToday && styles.todayText,
-                      isMasterDate && styles.masterDateText,
+                      styles.monthCellText,
+                      !day.isCurrentMonth && styles.monthCellTextOutside,
+                      isToday && styles.monthTodayText,
+                      isMasterDate && styles.monthMasterDateText,
                     ]}
                   >
                     {day.date.getDate()}
@@ -1396,43 +1390,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cell: {
+  monthCell: {
     flex: 1,
     height: Math.floor((SCREEN_WIDTH - 6) / 7),
-    textAlign: 'center',
-    textAlignVertical: 'center',
     padding: 2,
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
   },
-  cellOutside: {
+  monthCellOutside: {
     backgroundColor: '#fafafa',
   },
-  todayCell: {
+  monthTodayCell: {
     backgroundColor: '#e3f2fd',
     borderColor: '#90caf9',
     borderWidth: 2,
   },
-  masterDateCell: {
+  monthMasterDateCell: {
     backgroundColor: '#f3e5f5',
     borderColor: '#6200ee',
     borderWidth: 2,
   },
-  cellText: {
+  monthCellText: {
     fontSize: 16,
     color: '#222',
   },
-  cellTextOutside: {
+  monthCellTextOutside: {
     color: '#bbb',
   },
-  todayText: {
+  monthTodayText: {
     color: '#1976d2',
     fontWeight: 'bold',
   },
-  masterDateText: {
+  monthMasterDateText: {
     color: '#6200ee',
     fontWeight: 'bold',
   },
