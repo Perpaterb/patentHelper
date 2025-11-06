@@ -1003,7 +1003,7 @@ export default function CalendarScreen({ navigation, route }) {
 
   // Month swipe state
   const monthDragX = useRef(0);
-  const monthOffsetX = useRef(-MONTH_WIDTH * 2);
+  const monthOffsetX = useRef(-MONTH_WIDTH * 1); // Center month at index 1
   const monthVelocityX = useRef(0);
   const monthAnimating = useRef(false);
   const [monthForceUpdate, setMonthForceUpdate] = useState(false);
@@ -1038,18 +1038,18 @@ export default function CalendarScreen({ navigation, route }) {
     return { year: y, month: m };
   };
 
-  // Get 5 months array centered on masterDateTime
+  // Get 3 months array centered on masterDateTime (reduce lag)
   const months = React.useMemo(() => {
     const year = masterDateTime.getFullYear();
     const month = masterDateTime.getMonth();
-    return [-2, -1, 0, 1, 2].map((offset) => getAdjacentMonths(year, month, offset));
+    return [-1, 0, 1].map((offset) => getAdjacentMonths(year, month, offset));
   }, [masterDateTime]);
 
   // Month swipe animation - tight spring feel
   const monthAnimateSnap = (targetDragX, cb) => {
     const start = monthDragX.current;
     const diff = targetDragX - start;
-    const duration = 150; // Faster snap (was 220)
+    const duration = 150; // Faster snap
     let startTime = null;
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
@@ -1059,7 +1059,7 @@ export default function CalendarScreen({ navigation, route }) {
         ? 4 * t * t * t
         : 1 - Math.pow(-2 * t + 2, 3) / 2;
       monthDragX.current = start + diff * t;
-      monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
+      monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current; // Center at index 1
       setMonthForceUpdate((f) => !f);
       if (t < 1) {
         requestAnimationFrame(step);
@@ -1079,7 +1079,7 @@ export default function CalendarScreen({ navigation, route }) {
       onPanResponderMove: (evt, gesture) => {
         // Stick directly to finger - no lag
         monthDragX.current = gesture.dx;
-        monthOffsetX.current = -MONTH_WIDTH * 2 + monthDragX.current;
+        monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
         setMonthForceUpdate((f) => !f);
       },
       onPanResponderRelease: (evt, gesture) => {
@@ -1096,13 +1096,13 @@ export default function CalendarScreen({ navigation, route }) {
           targetIdx = monthDragX.current > 0 ? 1 : -1;
         }
 
-        targetIdx = Math.max(-2, Math.min(2, targetIdx));
+        targetIdx = Math.max(-1, Math.min(1, targetIdx)); // Limit to ±1
         const snapDragX = -targetIdx * MONTH_WIDTH;
 
         monthAnimateSnap(snapDragX, () => {
           if (targetIdx !== 0) {
             // Update masterDateTime to new month
-            const newMonth = months[2 + targetIdx];
+            const newMonth = months[1 + targetIdx]; // Center is at index 1
             const newDate = new Date(newMonth.year, newMonth.month, 1);
             newDate.setHours(12, 0, 0, 0);
 
@@ -1114,7 +1114,7 @@ export default function CalendarScreen({ navigation, route }) {
             setExternalXYFloat(newPosition);
           }
           monthDragX.current = 0;
-          monthOffsetX.current = -MONTH_WIDTH * 2;
+          monthOffsetX.current = -MONTH_WIDTH * 1;
           setMonthForceUpdate((f) => !f);
           monthAnimating.current = false;
         });
@@ -1136,11 +1136,8 @@ export default function CalendarScreen({ navigation, route }) {
     setViewMode('day');
   };
 
-  // Render single month view
+  // Render single month view - simplified (no numbers, just grid)
   const renderSingleMonthView = (year, month) => {
-    const matrix = getMonthMatrix(year, month);
-    const today = new Date();
-
     return (
       <View style={[styles.monthView, { height: CALENDAR_HEIGHT }]}>
         <View style={styles.headerRow}>
@@ -1150,44 +1147,14 @@ export default function CalendarScreen({ navigation, route }) {
             </Text>
           ))}
         </View>
-        {matrix.map((week, r) => (
+        {Array.from({ length: ROWS }).map((_, r) => (
           <View key={r} style={styles.weekRow}>
-            {week.map((day, c) => {
-              const isToday =
-                day.date.getDate() === today.getDate() &&
-                day.date.getMonth() === today.getMonth() &&
-                day.date.getFullYear() === today.getFullYear();
-
-              const isMasterDate =
-                day.date.getDate() === masterDateTime.getDate() &&
-                day.date.getMonth() === masterDateTime.getMonth() &&
-                day.date.getFullYear() === masterDateTime.getFullYear();
-
-              return (
-                <TouchableOpacity
-                  key={day.key}
-                  style={[
-                    styles.monthCell,
-                    !day.isCurrentMonth && styles.monthCellOutside,
-                    isToday && styles.monthTodayCell,
-                    isMasterDate && styles.monthMasterDateCell,
-                  ]}
-                  onPress={() => handleDayTap(day.date)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.monthCellText,
-                      !day.isCurrentMonth && styles.monthCellTextOutside,
-                      isToday && styles.monthTodayText,
-                      isMasterDate && styles.monthMasterDateText,
-                    ]}
-                  >
-                    {day.date.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {Array.from({ length: COLS }).map((_, c) => (
+              <View
+                key={`${r}-${c}`}
+                style={styles.monthCell}
+              />
+            ))}
           </View>
         ))}
       </View>
