@@ -335,7 +335,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
 
       {/* Navigation Cards */}
       <View style={styles.sectionsContainer}>
-        <Text style={styles.sectionTitle}>Group Sections</Text>
+        <Text style={styles.sectionTitle}>Group Features</Text>
 
         {/* Messages Section */}
         <Card style={styles.navCard} onPress={goToMessages}>
