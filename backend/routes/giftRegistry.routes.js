@@ -13,16 +13,17 @@ const giftRegistryController = require('../controllers/giftRegistry.controller')
 router.use(requireAuth);
 
 // Registry routes
-router.get('/groups/:groupId/gift-registries', giftRegistryController.getGiftRegistries);
-router.get('/groups/:groupId/gift-registries/:registryId', giftRegistryController.getGiftRegistry);
-router.post('/groups/:groupId/gift-registries', giftRegistryController.createGiftRegistry);
-router.put('/groups/:groupId/gift-registries/:registryId', giftRegistryController.updateGiftRegistry);
-router.delete('/groups/:groupId/gift-registries/:registryId', giftRegistryController.deleteGiftRegistry);
-router.post('/groups/:groupId/gift-registries/:registryId/reset-passcode', giftRegistryController.resetPasscode);
+// Mounted at /groups/:groupId/gift-registries
+router.get('/', giftRegistryController.getGiftRegistries);
+router.get('/:registryId', giftRegistryController.getGiftRegistry);
+router.post('/', giftRegistryController.createGiftRegistry);
+router.put('/:registryId', giftRegistryController.updateGiftRegistry);
+router.delete('/:registryId', giftRegistryController.deleteGiftRegistry);
+router.post('/:registryId/reset-passcode', giftRegistryController.resetPasscode);
 
 // Item routes
-router.post('/groups/:groupId/gift-registries/:registryId/items', giftRegistryController.addGiftItem);
-router.put('/groups/:groupId/gift-registries/:registryId/items/:itemId', giftRegistryController.updateGiftItem);
-router.delete('/groups/:groupId/gift-registries/:registryId/items/:itemId', giftRegistryController.deleteGiftItem);
+router.post('/:registryId/items', giftRegistryController.addGiftItem);
+router.put('/:registryId/items/:itemId', giftRegistryController.updateGiftItem);
+router.delete('/:registryId/items/:itemId', giftRegistryController.deleteGiftItem);
 
 module.exports = router;

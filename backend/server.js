@@ -38,7 +38,6 @@ const usersRoutes = require('./routes/users.routes');
 const groupsRoutes = require('./routes/groups.routes');
 const invitationsRoutes = require('./routes/invitations.routes');
 const logsRoutes = require('./routes/logs.routes');
-const giftRegistryRoutes = require('./routes/giftRegistry.routes');
 
 // Middleware
 app.use(cors({
@@ -66,7 +65,6 @@ app.use('/users', usersRoutes);
 app.use('/groups', groupsRoutes);
 app.use('/invitations', invitationsRoutes);
 app.use('/logs', logsRoutes);
-app.use('/', giftRegistryRoutes); // Gift registry routes use /groups/:groupId/gift-registries
 
 // 404 handler
 app.use((req, res) => {
