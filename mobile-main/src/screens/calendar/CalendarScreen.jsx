@@ -67,9 +67,15 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
 
+  // Calculate scrollXFloat with the probe offset
+  const rawScrollXFloat = targetDay - probeXInGrid + padL / cellW + 0.0001;
+
+  // Round to nearest integer to ensure cells align properly (snap expects integer values)
+  const alignedScrollXFloat = Math.round(rawScrollXFloat);
+
   return {
     scrollYFloat: targetHour - probeYInGrid + padT / CELL_H + 0.0001,
-    scrollXFloat: targetDay - probeXInGrid + padL / cellW + 0.0001,
+    scrollXFloat: alignedScrollXFloat,
   };
 }
 
