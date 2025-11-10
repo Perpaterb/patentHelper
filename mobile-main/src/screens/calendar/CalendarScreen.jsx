@@ -1039,28 +1039,96 @@ export default function CalendarScreen({ navigation, route }) {
     return { year: y, month: m };
   };
 
-  // Get 3 months array centered on masterDateTime (reduce lag)
-  const months = React.useMemo(() => {
-    const year = masterDateTime.getFullYear();
-    const month = masterDateTime.getMonth();
-    return [-1, 0, 1].map((offset) => getAdjacentMonths(year, month, offset));
-  }, [masterDateTime]);
+  // Independent month state for Month view (not tied to masterDateTime)
+  const [viewCenterMonth, setViewCenterMonth] = useState(() => ({
+    year: masterDateTime.getFullYear(),
+    month: masterDateTime.getMonth()
+  }));
 
-  // Month swipe animation - tight spring feel
+  // Use ref to avoid stale closure in animation callback
+  const viewCenterMonthRef = useRef(viewCenterMonth);
+  React.useEffect(() => {
+    viewCenterMonthRef.current = viewCenterMonth;
+  }, [viewCenterMonth]);
+
+  // Get 3 months array centered on viewCenterMonth (reduce lag)
+  const months = React.useMemo(() => {
+    const result = [-1, 0, 1].map((offset) => getAdjacentMonths(viewCenterMonth.year, viewCenterMonth.month, offset));
+    console.log('Months regenerated - viewCenterMonth:', `${viewCenterMonth.year}-${viewCenterMonth.month+1}`, 'months:', result);
+    return result;
+  }, [viewCenterMonth]);
+
+  // Month swipe animation - momentum with friction
+  const monthAnimateStep = () => {
+    if (!monthAnimating.current) return;
+    monthDragX.current += monthVelocityX.current;
+    monthVelocityX.current *= 0.93; // FRICTION
+    if (monthDragX.current > MONTH_WIDTH * 1) monthDragX.current = MONTH_WIDTH * 1;
+    if (monthDragX.current < -MONTH_WIDTH * 1) monthDragX.current = -MONTH_WIDTH * 1;
+    monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
+    setMonthForceUpdate((f) => !f);
+
+    if (Math.abs(monthVelocityX.current) > 0.5) {
+      requestAnimationFrame(monthAnimateStep);
+    } else {
+      let idxFromDrag = Math.round(-monthDragX.current / MONTH_WIDTH);
+      idxFromDrag = Math.max(-1, Math.min(1, idxFromDrag));
+      let snapDragX = -idxFromDrag * MONTH_WIDTH;
+      console.log('Momentum stopped, snapping:', { monthDragX: monthDragX.current, idxFromDrag, snapDragX });
+      monthAnimateSnap(snapDragX, () => {
+        console.log('Snap complete, callback executing');
+
+        if (idxFromDrag !== 0) {
+          // Get current center from ref (to avoid stale closure)
+          const currentCenter = viewCenterMonthRef.current;
+          // Calculate new month directly from current center
+          const newMonth = getAdjacentMonths(currentCenter.year, currentCenter.month, idxFromDrag);
+
+          console.log('Month change:', {
+            idxFromDrag,
+            currentCenter,
+            newMonth
+          });
+          setViewCenterMonth({ year: newMonth.year, month: newMonth.month });
+
+          // Also update masterDateTime for banner consistency
+          let newDate;
+          if (idxFromDrag < 0) {
+            // Swiped backward - go to last day of that month at 12pm
+            newDate = new Date(newMonth.year, newMonth.month + 1, 0);
+          } else {
+            // Swiped forward - go to 1st day of that month at 12pm
+            newDate = new Date(newMonth.year, newMonth.month, 1);
+          }
+          newDate.setHours(12, 0, 0, 0);
+
+          const baseDate = new Date(2023, 9, 31);
+          const diffMs = newDate - baseDate;
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+          const newPosition = getXYFloatForProbeTarget(12, diffDays);
+          setExternalXYFloat(newPosition);
+        }
+
+        monthDragX.current = 0;
+        monthOffsetX.current = -MONTH_WIDTH * 1;
+        setMonthForceUpdate((f) => !f);
+        monthAnimating.current = false;
+      });
+    }
+  };
+
   const monthAnimateSnap = (targetDragX, cb) => {
     const start = monthDragX.current;
     const diff = targetDragX - start;
-    const duration = 150; // Faster snap
+    const duration = 220;
     let startTime = null;
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       let t = Math.min((timestamp - startTime) / duration, 1);
-      // Tighter spring with damped oscillation
-      t = t < 0.5
-        ? 4 * t * t * t
-        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      t = 1 - Math.pow(1 - t, 3);
       monthDragX.current = start + diff * t;
-      monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current; // Center at index 1
+      monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
       setMonthForceUpdate((f) => !f);
       if (t < 1) {
         requestAnimationFrame(step);
@@ -1069,56 +1137,24 @@ export default function CalendarScreen({ navigation, route }) {
     requestAnimationFrame(step);
   };
 
-  // PanResponder for month swipe - sticks to finger
+  // PanResponder for month swipe
   const monthPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 5,
+      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 8,
       onPanResponderGrant: () => {
         monthAnimating.current = false;
+        monthVelocityX.current = 0;
       },
       onPanResponderMove: (evt, gesture) => {
-        // Stick directly to finger - no lag
         monthDragX.current = gesture.dx;
         monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
         setMonthForceUpdate((f) => !f);
       },
       onPanResponderRelease: (evt, gesture) => {
-        // Quick snap based on velocity or distance
-        const threshold = MONTH_WIDTH * 0.3; // 30% of width
-        const velocityThreshold = 0.5;
-
-        let targetIdx = 0;
-        if (Math.abs(gesture.vx) > velocityThreshold) {
-          // Fast swipe - use velocity
-          targetIdx = gesture.vx > 0 ? 1 : -1;
-        } else if (Math.abs(monthDragX.current) > threshold) {
-          // Slow drag past threshold
-          targetIdx = monthDragX.current > 0 ? 1 : -1;
-        }
-
-        targetIdx = Math.max(-1, Math.min(1, targetIdx)); // Limit to ±1
-        const snapDragX = -targetIdx * MONTH_WIDTH;
-
-        monthAnimateSnap(snapDragX, () => {
-          if (targetIdx !== 0) {
-            // Update masterDateTime to new month
-            const newMonth = months[1 + targetIdx]; // Center is at index 1
-            const newDate = new Date(newMonth.year, newMonth.month, 1);
-            newDate.setHours(12, 0, 0, 0);
-
-            const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-            const diffMs = newDate - baseDate;
-            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-            const newPosition = getXYFloatForProbeTarget(12, diffDays);
-            setExternalXYFloat(newPosition);
-          }
-          monthDragX.current = 0;
-          monthOffsetX.current = -MONTH_WIDTH * 1;
-          setMonthForceUpdate((f) => !f);
-          monthAnimating.current = false;
-        });
+        monthVelocityX.current = gesture.vx * 18;
+        monthAnimating.current = true;
+        monthAnimateStep();
       },
     })
   ).current;
