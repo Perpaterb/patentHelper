@@ -230,6 +230,46 @@ export default function GroupDashboardScreen({ navigation, route }) {
     navigation.navigate('ApprovalsList', { groupId });
   };
 
+  /**
+   * Navigate to Gift Registry
+   */
+  const goToGiftRegistry = () => {
+    // TODO: Implement Gift Registry screen
+    console.log('Navigate to Gift Registry');
+  };
+
+  /**
+   * Navigate to Secret Santa
+   */
+  const goToSecretSanta = () => {
+    // TODO: Implement Secret Santa screen
+    console.log('Navigate to Secret Santa');
+  };
+
+  /**
+   * Navigate to Library
+   */
+  const goToLibrary = () => {
+    // TODO: Implement Library screen
+    console.log('Navigate to Library');
+  };
+
+  /**
+   * Navigate to Wiki
+   */
+  const goToWiki = () => {
+    // TODO: Implement Wiki screen
+    console.log('Navigate to Wiki');
+  };
+
+  /**
+   * Navigate to Secure Documents
+   */
+  const goToSecureDocuments = () => {
+    // TODO: Implement Secure Documents screen
+    console.log('Navigate to Secure Documents');
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -396,6 +436,81 @@ export default function GroupDashboardScreen({ navigation, route }) {
             </Card.Content>
           </Card>
         )}
+
+        {/* Gift Registry Section */}
+        <Card style={styles.navCard} onPress={goToGiftRegistry}>
+          <Card.Content style={styles.navCardContent}>
+            <View style={styles.navCardIcon}>
+              <Text style={styles.navCardEmoji}>🎁</Text>
+            </View>
+            <View style={styles.navCardInfo}>
+              <Text style={styles.navCardTitle}>Gift Registry</Text>
+              <Text style={styles.navCardDescription}>
+                Wish lists and gift ideas
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Secret Santa Section */}
+        <Card style={styles.navCard} onPress={goToSecretSanta}>
+          <Card.Content style={styles.navCardContent}>
+            <View style={styles.navCardIcon}>
+              <Text style={styles.navCardEmoji}>🎅</Text>
+            </View>
+            <View style={styles.navCardInfo}>
+              <Text style={styles.navCardTitle}>Secret Santa</Text>
+              <Text style={styles.navCardDescription}>
+                Holiday gift exchange
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Library Section */}
+        <Card style={styles.navCard} onPress={goToLibrary}>
+          <Card.Content style={styles.navCardContent}>
+            <View style={styles.navCardIcon}>
+              <Text style={styles.navCardEmoji}>📚</Text>
+            </View>
+            <View style={styles.navCardInfo}>
+              <Text style={styles.navCardTitle}>Library</Text>
+              <Text style={styles.navCardDescription}>
+                Shared books and media
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Wiki Section */}
+        <Card style={styles.navCard} onPress={goToWiki}>
+          <Card.Content style={styles.navCardContent}>
+            <View style={styles.navCardIcon}>
+              <Text style={styles.navCardEmoji}>📖</Text>
+            </View>
+            <View style={styles.navCardInfo}>
+              <Text style={styles.navCardTitle}>Wiki</Text>
+              <Text style={styles.navCardDescription}>
+                Group knowledge base
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Secure Documents Section */}
+        <Card style={styles.navCard} onPress={goToSecureDocuments}>
+          <Card.Content style={styles.navCardContent}>
+            <View style={styles.navCardIcon}>
+              <Text style={styles.navCardEmoji}>🔒</Text>
+            </View>
+            <View style={styles.navCardInfo}>
+              <Text style={styles.navCardTitle}>Secure Documents</Text>
+              <Text style={styles.navCardDescription}>
+                Important files and records
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
       </View>
     </ScrollView>
   );
