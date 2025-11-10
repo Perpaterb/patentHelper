@@ -1308,11 +1308,22 @@ export default function CalendarScreen({ navigation, route }) {
         // Only include if event touches this day
         if (eventStart <= dayEnd && eventEnd >= dayStart) {
           event.responsibilityEvents.forEach(re => {
+            // Calculate start and end fractions within this specific day (0.0 = 12am, 1.0 = 12am next day)
+            const visibleStart = eventStart > dayStart ? eventStart : dayStart;
+            const visibleEnd = eventEnd < dayEnd ? eventEnd : dayEnd;
+
+            // Calculate fraction of day (12am to 12am is 0.0 to 1.0)
+            const dayDuration = 24 * 60 * 60 * 1000; // 24 hours in ms
+            const startFraction = (visibleStart - dayStart) / dayDuration;
+            const endFraction = (visibleEnd - dayStart) / dayDuration;
+
             allResponsibilityBars.push({
               responsibilityEventId: re.responsibilityEventId,
               eventId: event.eventId,
               childColor: re.child.iconColor,
               adultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
+              startFraction, // 0.0 to 1.0 (position within day)
+              endFraction,   // 0.0 to 1.0 (position within day)
             });
           });
         }
@@ -1359,12 +1370,14 @@ export default function CalendarScreen({ navigation, route }) {
       }
     });
 
-    // Build child bars with column assignments
+    // Build child bars with column assignments and time fractions
     const childBars = allResponsibilityBars.map(bar => ({
       responsibilityEventId: bar.responsibilityEventId,
       childColor: bar.childColor,
       adultColor: bar.adultColor,
       column: childBarColumns.get(bar.responsibilityEventId) || 0,
+      startFraction: bar.startFraction,
+      endFraction: bar.endFraction,
     }));
 
     return { dots, lines, childBars };
@@ -1421,34 +1434,36 @@ export default function CalendarScreen({ navigation, route }) {
                     {day.date.getDate()}
                   </Text>
 
-                  {/* Event indicators in bottom half of cell */}
-                  <View style={styles.monthEventContainer}>
-                    {/* Render child responsibility bars first (vertical bars, left to right) */}
+                  {/* Child responsibility bars at top (below day number) */}
+                  <View style={styles.monthChildBarContainer}>
                     {childBars.slice(0, 3).map((bar, idx) => {
-                      const barWidth = 4; // 4px wide vertical bar
-                      const barSpacing = 6; // 6px between bars
-                      const leftPosition = 2 + (bar.column * barSpacing);
+                      // Calculate horizontal position based on time within the day
+                      // bar.startFraction and bar.endFraction are percentages (0-1) of the day
+                      const leftPercent = (bar.startFraction || 0) * 100;
+                      const widthPercent = ((bar.endFraction || 1) - (bar.startFraction || 0)) * 100;
+                      const barHeight = 4; // 4px tall horizontal bar
+                      const topPosition = 20 + (idx * 6); // Start below day number, stack vertically
 
                       return (
                         <View
                           key={`childbar-${bar.responsibilityEventId}`}
                           style={{
                             position: 'absolute',
-                            left: leftPosition,
-                            bottom: 0,
-                            width: barWidth,
-                            height: '100%',
-                            flexDirection: 'column', // Stack child/adult vertically
+                            left: `${leftPercent}%`,
+                            top: topPosition,
+                            width: `${widthPercent}%`,
+                            height: barHeight,
+                            flexDirection: 'row', // Stack child/adult horizontally
                           }}
                         >
-                          {/* Child half (top 50%) */}
+                          {/* Child half (left 50%) */}
                           <View
                             style={{
                               flex: 1,
                               backgroundColor: bar.childColor,
                             }}
                           />
-                          {/* Adult half (bottom 50%) */}
+                          {/* Adult half (right 50%) */}
                           <View
                             style={{
                               flex: 1,
@@ -1458,6 +1473,10 @@ export default function CalendarScreen({ navigation, route }) {
                         </View>
                       );
                     })}
+                  </View>
+
+                  {/* Event indicators in bottom half of cell */}
+                  <View style={styles.monthEventContainer}>
 
                     {/* Render lines for multi-day events */}
                     {lines.slice(0, 3).map((line, idx) => (
@@ -1740,6 +1759,14 @@ const styles = StyleSheet.create({
   monthMasterDateText: {
     color: '#6200ee',
     fontWeight: 'bold',
+  },
+  monthChildBarContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%', // Top half of cell (below day number)
+    pointerEvents: 'none', // Don't block touch events
   },
   monthEventContainer: {
     position: 'absolute',
