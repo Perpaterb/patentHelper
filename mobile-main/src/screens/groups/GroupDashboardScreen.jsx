@@ -410,33 +410,6 @@ export default function GroupDashboardScreen({ navigation, route }) {
           </Card>
         )}
 
-        {/* Approvals Section - Only for admins */}
-        {groupInfo.userRole === 'admin' && (
-          <Card style={styles.navCard} onPress={goToApprovals}>
-            <Card.Content style={styles.navCardContent}>
-              <View style={styles.navCardIcon}>
-                <Text style={styles.navCardEmoji}>✅</Text>
-                {pendingApprovalsCount > 0 && (
-                  <Badge
-                    size={20}
-                    style={styles.approvalBadge}
-                  >
-                    {pendingApprovalsCount}
-                  </Badge>
-                )}
-              </View>
-              <View style={styles.navCardInfo}>
-                <Text style={styles.navCardTitle}>Approvals</Text>
-                <Text style={styles.navCardDescription}>
-                  {pendingApprovalsCount > 0
-                    ? `${pendingApprovalsCount} approval${pendingApprovalsCount !== 1 ? 's' : ''} need${pendingApprovalsCount === 1 ? 's' : ''} your action`
-                    : 'Pending admin approvals'}
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
         {/* Gift Registry Section */}
         <Card style={styles.navCard} onPress={goToGiftRegistry}>
           <Card.Content style={styles.navCardContent}>
@@ -511,6 +484,33 @@ export default function GroupDashboardScreen({ navigation, route }) {
             </View>
           </Card.Content>
         </Card>
+
+        {/* Approvals Section - Only for admins - Moved to bottom */}
+        {groupInfo.userRole === 'admin' && (
+          <Card style={styles.navCard} onPress={goToApprovals}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>✅</Text>
+                {pendingApprovalsCount > 0 && (
+                  <Badge
+                    size={20}
+                    style={styles.approvalBadge}
+                  >
+                    {pendingApprovalsCount}
+                  </Badge>
+                )}
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Approvals</Text>
+                <Text style={styles.navCardDescription}>
+                  {pendingApprovalsCount > 0
+                    ? `${pendingApprovalsCount} approval${pendingApprovalsCount !== 1 ? 's' : ''} need${pendingApprovalsCount === 1 ? 's' : ''} your action`
+                    : 'Pending admin approvals'}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
       </View>
     </ScrollView>
   );
