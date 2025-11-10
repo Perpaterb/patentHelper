@@ -951,6 +951,11 @@ export default function CalendarScreen({ navigation, route }) {
   // Format for banner display
   const masterDayTimeDate = `${hourLabel(probeHour24)} - ${dateLabel(probeDay)}`;
 
+  // Log banner text whenever it changes
+  useEffect(() => {
+    console.log('Banner:', masterDayTimeDate);
+  }, [masterDayTimeDate]);
+
   // Handle Go button - apply the selected date at 12pm
   const handleGoPress = () => {
     // Convert selected date to day offset, set hour to 12 (noon)
@@ -1068,7 +1073,6 @@ export default function CalendarScreen({ navigation, route }) {
   // Get 3 months array centered on viewCenterMonth (reduce lag)
   const months = React.useMemo(() => {
     const result = [-1, 0, 1].map((offset) => getAdjacentMonths(viewCenterMonth.year, viewCenterMonth.month, offset));
-    console.log('Months regenerated - viewCenterMonth:', `${viewCenterMonth.year}-${viewCenterMonth.month+1}`, 'months:', result);
     return result;
   }, [viewCenterMonth]);
 
@@ -1088,21 +1092,13 @@ export default function CalendarScreen({ navigation, route }) {
       let idxFromDrag = Math.round(-monthDragX.current / MONTH_WIDTH);
       idxFromDrag = Math.max(-1, Math.min(1, idxFromDrag));
       let snapDragX = -idxFromDrag * MONTH_WIDTH;
-      console.log('Momentum stopped, snapping:', { monthDragX: monthDragX.current, idxFromDrag, snapDragX });
       monthAnimateSnap(snapDragX, () => {
-        console.log('Snap complete, callback executing');
-
         if (idxFromDrag !== 0) {
           // Get current center from ref (to avoid stale closure)
           const currentCenter = viewCenterMonthRef.current;
           // Calculate new month directly from current center
           const newMonth = getAdjacentMonths(currentCenter.year, currentCenter.month, idxFromDrag);
 
-          console.log('Month change:', {
-            idxFromDrag,
-            currentCenter,
-            newMonth
-          });
           setViewCenterMonth({ year: newMonth.year, month: newMonth.month });
 
           // Also update masterDateTime for banner consistency
