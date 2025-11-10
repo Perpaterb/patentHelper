@@ -11,10 +11,10 @@ const messagesController = require('../controllers/messages.controller');
 const messageGroupsRouter = require('./messageGroups.routes');
 const wishListsRouter = require('./wishLists.routes');
 const krisKringleRouter = require('./krisKringle.routes');
-const giftRegistryRouter = require('./giftRegistry.routes');
 const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
+const giftRegistryController = require('../controllers/giftRegistry.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
@@ -252,6 +252,60 @@ router.delete('/:groupId/calendar/events/:eventId', requireAuth, calendarControl
 router.post('/:groupId/calendar/responsibility-events', requireAuth, calendarController.createResponsibilityEvent);
 
 /**
+ * GET /groups/:groupId/gift-registries
+ * Get all gift registries for a group
+ */
+router.get('/:groupId/gift-registries', requireAuth, giftRegistryController.getGiftRegistries);
+
+/**
+ * GET /groups/:groupId/gift-registries/:registryId
+ * Get a single gift registry with items
+ */
+router.get('/:groupId/gift-registries/:registryId', requireAuth, giftRegistryController.getGiftRegistry);
+
+/**
+ * POST /groups/:groupId/gift-registries
+ * Create a new gift registry
+ */
+router.post('/:groupId/gift-registries', requireAuth, giftRegistryController.createGiftRegistry);
+
+/**
+ * PUT /groups/:groupId/gift-registries/:registryId
+ * Update a gift registry name
+ */
+router.put('/:groupId/gift-registries/:registryId', requireAuth, giftRegistryController.updateGiftRegistry);
+
+/**
+ * DELETE /groups/:groupId/gift-registries/:registryId
+ * Delete a gift registry and all its items
+ */
+router.delete('/:groupId/gift-registries/:registryId', requireAuth, giftRegistryController.deleteGiftRegistry);
+
+/**
+ * POST /groups/:groupId/gift-registries/:registryId/reset-passcode
+ * Reset the passcode for a gift registry
+ */
+router.post('/:groupId/gift-registries/:registryId/reset-passcode', requireAuth, giftRegistryController.resetPasscode);
+
+/**
+ * POST /groups/:groupId/gift-registries/:registryId/items
+ * Add an item to a gift registry
+ */
+router.post('/:groupId/gift-registries/:registryId/items', requireAuth, giftRegistryController.addGiftItem);
+
+/**
+ * PUT /groups/:groupId/gift-registries/:registryId/items/:itemId
+ * Update a gift item
+ */
+router.put('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, giftRegistryController.updateGiftItem);
+
+/**
+ * DELETE /groups/:groupId/gift-registries/:registryId/items/:itemId
+ * Delete a gift item
+ */
+router.delete('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, giftRegistryController.deleteGiftItem);
+
+/**
  * Mount message groups router
  * All routes under /groups/:groupId/message-groups
  */
@@ -268,11 +322,5 @@ router.use('/:groupId/wish-lists', wishListsRouter);
  * All routes under /groups/:groupId/kris-kringle
  */
 router.use('/:groupId/kris-kringle', krisKringleRouter);
-
-/**
- * Mount Gift Registry router
- * All routes under /groups/:groupId/gift-registries
- */
-router.use('/:groupId/gift-registries', giftRegistryRouter);
 
 module.exports = router;
