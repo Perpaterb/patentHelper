@@ -444,12 +444,12 @@ export default function GroupDashboardScreen({ navigation, route }) {
         <Card style={styles.navCard} onPress={goToLibrary}>
           <Card.Content style={styles.navCardContent}>
             <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>📚</Text>
+              <Text style={styles.navCardEmoji}>📦</Text>
             </View>
             <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Library</Text>
+              <Text style={styles.navCardTitle}>Item Registry</Text>
               <Text style={styles.navCardDescription}>
-                Shared books and media
+                Books, tools, and borrowable items
               </Text>
             </View>
           </Card.Content>

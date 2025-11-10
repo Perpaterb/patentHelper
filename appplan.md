@@ -347,7 +347,7 @@ Adults (Parents, Caregivers, Supervisors age 16+):
 - Allow adults to see Finance (cascades with "Finance matters visible to" switches above)
 - Allow adults to see Gift Registry
 - Allow adults to see Secret Santa
-- Allow adults to see Library
+- Allow adults to see Item Registry (books, tools, borrowable items)
 - Allow adults to see Wiki
 - Allow adults to see Secure Documents
 
@@ -357,7 +357,7 @@ Children (under 16):
 - Allow children to see Finance (cascades with "Finance matters visible to" switches above)
 - Allow children to see Gift Registry
 - Allow children to see Secret Santa
-- Allow children to see Library
+- Allow children to see Item Registry (books, tools, borrowable items)
 - Allow children to see Wiki
 - Allow children to see Secure Documents
 
