@@ -1199,6 +1199,115 @@ export default function CalendarScreen({ navigation, route }) {
     // Stay in month view (don't switch to day view)
   };
 
+  /**
+   * Calculate event layout for a single day in month view
+   * Returns: { dots: [{color, row}], lines: [{color, startX, endX, row, isStart, isEnd}] }
+   */
+  const getMonthDayEventLayout = (date, allEvents) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Filter to regular events only (no child responsibility events)
+    const regularEvents = allEvents.filter(event => !event.isResponsibilityEvent);
+
+    // Find events that touch this day
+    const eventsThisDay = regularEvents.filter(event => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      return eventStart <= dayEnd && eventEnd >= dayStart;
+    });
+
+    if (eventsThisDay.length === 0) {
+      return { dots: [], lines: [] };
+    }
+
+    // Separate single-day and multi-day events
+    const singleDayEvents = [];
+    const multiDayEvents = [];
+
+    eventsThisDay.forEach(event => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+
+      // Check if event spans multiple days
+      const startDay = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
+      const endDay = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
+      const spansDays = endDay.getTime() > startDay.getTime();
+
+      if (spansDays) {
+        multiDayEvents.push(event);
+      } else {
+        singleDayEvents.push(event);
+      }
+    });
+
+    // Use scan-line algorithm to assign rows to multi-day events
+    const eventRows = new Map();
+    const scanEvents = [];
+
+    multiDayEvents.forEach(event => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      scanEvents.push({ time: eventStart, type: 'start', event });
+      scanEvents.push({ time: eventEnd, type: 'end', event });
+    });
+
+    scanEvents.sort((a, b) => {
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time - b.time;
+      }
+      return a.type === 'start' ? -1 : 1;
+    });
+
+    const activeEvents = [];
+    scanEvents.forEach(scanEvent => {
+      if (scanEvent.type === 'start') {
+        const usedRows = new Set(activeEvents.map(e => e.row));
+        let row = 0;
+        while (usedRows.has(row)) {
+          row++;
+        }
+        eventRows.set(scanEvent.event.eventId, row);
+        activeEvents.push({ event: scanEvent.event, row });
+      } else {
+        const index = activeEvents.findIndex(e => e.event.eventId === scanEvent.event.eventId);
+        if (index !== -1) {
+          activeEvents.splice(index, 1);
+        }
+      }
+    });
+
+    // Build lines for multi-day events
+    const lines = multiDayEvents.map(event => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      const row = eventRows.get(event.eventId) || 0;
+
+      // Check if this day is the start or end of the event
+      const isStart = eventStart >= dayStart && eventStart <= dayEnd;
+      const isEnd = eventEnd >= dayStart && eventEnd <= dayEnd;
+
+      return {
+        color: '#2196f3',
+        row,
+        isStart,
+        isEnd,
+        eventId: event.eventId,
+      };
+    });
+
+    // Build dots for single-day events
+    const dots = singleDayEvents.map((event, idx) => ({
+      color: '#2196f3',
+      row: idx, // Simple stacking for dots
+      eventId: event.eventId,
+    }));
+
+    return { dots, lines };
+  };
+
   // Render single month view - with numbers and highlighting
   const renderSingleMonthView = (year, month) => {
     const matrix = getMonthMatrix(year, month);
@@ -1226,6 +1335,9 @@ export default function CalendarScreen({ navigation, route }) {
                 day.date.getMonth() === masterDateTime.getMonth() &&
                 day.date.getFullYear() === masterDateTime.getFullYear();
 
+              // Get event indicators for this day
+              const { dots, lines } = getMonthDayEventLayout(day.date, events);
+
               return (
                 <TouchableOpacity
                   key={day.key}
@@ -1237,6 +1349,7 @@ export default function CalendarScreen({ navigation, route }) {
                     isMasterDate && styles.monthMasterDateCell,
                   ]}
                 >
+                  {/* Day number at top */}
                   <Text
                     style={[
                       styles.monthCellText,
@@ -1245,6 +1358,39 @@ export default function CalendarScreen({ navigation, route }) {
                   >
                     {day.date.getDate()}
                   </Text>
+
+                  {/* Event indicators in bottom half of cell */}
+                  <View style={styles.monthEventContainer}>
+                    {/* Render dots for single-day events */}
+                    {dots.slice(0, 3).map((dot, idx) => (
+                      <View
+                        key={`dot-${dot.eventId}`}
+                        style={[
+                          styles.monthEventDot,
+                          {
+                            backgroundColor: dot.color,
+                            bottom: 2 + (idx * 6), // Stack dots vertically
+                          },
+                        ]}
+                      />
+                    ))}
+
+                    {/* Render lines for multi-day events */}
+                    {lines.slice(0, 3).map((line, idx) => (
+                      <View
+                        key={`line-${line.eventId}`}
+                        style={[
+                          styles.monthEventLine,
+                          {
+                            backgroundColor: line.color,
+                            bottom: 2 + (idx * 6), // Stack lines vertically
+                            left: line.isStart ? '20%' : 0, // Start partway if event starts this day
+                            right: line.isEnd ? '20%' : 0, // End partway if event ends this day
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -1492,6 +1638,27 @@ const styles = StyleSheet.create({
   monthMasterDateText: {
     color: '#6200ee',
     fontWeight: 'bold',
+  },
+  monthEventContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%', // Bottom half of cell only
+    pointerEvents: 'none', // Don't block touch events
+  },
+  monthEventDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    left: '50%',
+    marginLeft: -3, // Center the dot
+  },
+  monthEventLine: {
+    position: 'absolute',
+    height: 3,
+    borderRadius: 1.5,
   },
 
   // Grid styles
