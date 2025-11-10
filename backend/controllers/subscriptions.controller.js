@@ -65,25 +65,32 @@ async function getSubscriptionStatus(req, res) {
  */
 async function getPricing(req, res) {
   try {
-    // TODO: Replace with actual pricing from Stripe
-    // Structure matches what web-admin Subscription.jsx expects
+    // Pricing structure for web-admin Subscription.jsx
+    // Updated: Nov 2025 - Competitive pricing model
     const pricing = {
       adminSubscription: {
         priceId: 'price_admin_subscription', // TODO: Replace with actual Stripe price ID
         name: 'Admin Subscription',
-        amount: 800, // $8.00 in cents
+        amount: 400, // $4.00 USD in cents (was $8, now $4 - competitive pricing)
         currency: 'usd',
         interval: 'month',
-        description: 'Required for group admins. Includes 10GB storage for logs, images, and videos.',
+        description: 'Required for group admins. Includes 10GB storage for logs, images, and videos. Only $4/month per admin.',
+        features: [
+          '10GB storage included',
+          'Full admin features',
+          '20-day free trial',
+          'All group members free (only admins pay)',
+        ],
       },
       additionalStorage: {
-        priceId: 'price_storage_upgrade', // TODO: Replace with actual Stripe price ID
+        priceId: 'price_storage_metered', // TODO: Replace with actual Stripe metered price ID
         name: 'Additional Storage',
-        amount: 100, // $1.00 per GB in cents
+        amount: 100, // $1.00 USD per GB in cents (metered billing)
         currency: 'usd',
         interval: 'month',
         unit: 'GB',
-        description: 'Additional storage beyond the included 10GB.',
+        description: 'Additional storage beyond the included 10GB. $1 USD per GB automatically charged.',
+        billingType: 'metered', // Automatically charged based on usage
       },
     };
 

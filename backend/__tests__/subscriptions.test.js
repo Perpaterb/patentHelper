@@ -36,9 +36,9 @@ describe('Subscription Endpoints', () => {
       expect(pricing.adminSubscription).toHaveProperty('interval', 'month');
       expect(pricing.adminSubscription).toHaveProperty('description');
 
-      // Validate amount is in cents (should be 800 for $8.00)
+      // Validate amount is in cents (should be 400 for $4.00 - updated Nov 2025)
       expect(typeof pricing.adminSubscription.amount).toBe('number');
-      expect(pricing.adminSubscription.amount).toBe(800);
+      expect(pricing.adminSubscription.amount).toBe(400);
 
       // Validate additionalStorage structure
       expect(pricing).toHaveProperty('additionalStorage');

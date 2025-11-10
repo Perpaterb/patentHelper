@@ -14,10 +14,12 @@ A cross-platform parenting and co-parenting helper application designed to facil
 - Multi-tenancy with group isolation
 
 **Business Model:**
-- 100% FREE - No subscriptions, no ads, no in-app purchases
-- Optional donations to keep servers running (Stripe, PayPal)
-- Storage: Each user's own Google Drive (app-created files only)
-- Privacy-focused: You own your data in your Google Drive, not on our servers
+- **$4 USD per admin per month** - Competitive pricing (competitor charges $9/month)
+- 20-day free trial with full admin access (no restrictions)
+- Only admins pay - all other members (parents, children, caregivers, supervisors) are free
+- Storage: 10GB included, then $1 USD per GB over limit
+- Storage tracked per admin across all their groups
+- Stripe payments and subscription management
 
 **Target Platforms:**
 - Web (React) - Full app experience in browser
@@ -25,18 +27,21 @@ A cross-platform parenting and co-parenting helper application designed to facil
 - Android (React Native) - Full app on Android devices
 
 **3 Products, 1 Backend Architecture (KISS Principle):**
-1. **Parenting Helper Web App** (parentinghelperapp.com) - Full features: messaging, calendar, finance, gift registry, etc.
+1. **Parenting Helper Web App** (parentinghelperapp.com)
+   - Full-featured app (messaging, calendar, finance, gift registry, etc.)
+   - Admin subscription management page (billing, payment methods, storage usage)
+   - Built with React
 2. **Parenting Helper Mobile App** - Full features (same as web, optimized for mobile)
 3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
-- **100% FREE** - No subscriptions, no payments needed
-- **Dual Authentication**: Kinde (identity) + Google OAuth (storage)
-- Storage in each user's own Google Drive (app-created files only, private from personal files)
-- Optional donations via landing page (parentinghelperapp.com/donate)
+- **Subscription Model**: $4/month per admin, 20-day free trial
+- **Authentication**: Kinde (single sign-on)
+- **Storage**: AWS S3 (10GB included, $1/GB overage)
+- **Payments**: Stripe (subscription management, metered billing for storage)
 - All 3 products share same backend API/database
 - Web app and mobile apps have identical features (just different UI frameworks)
-- Files stored in hidden `.parentinghelper/` folder in user's Drive (15GB free per user)
+- Mobile apps link to web app for subscription management (no in-app purchases)
 
 ---
 

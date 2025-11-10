@@ -20,29 +20,33 @@ This platform consists of 3 separate products sharing one backend:
    - BUILT THIRD (after main app)
 
 **Pricing:**
-This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of $8 a month (managed via web app). This gets them 10GB of storage. Each 2GB of storage they need on top of that will be an extra $1 a month.
+This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of **$4 USD per month** (managed via web app). This gets them 10GB of storage. Each additional GB of storage over the 10GB limit will be an extra **$1 USD per month** (metered billing).
+
+**Competitive Advantage:** Our main competitor charges $9 USD/month - we're offering the same features for less than half the price.
 
 **20-Day Free Trial:**
-- New users (age 16+) automatically get 20-day free trial with admin features
+- New users (age 16+) automatically get 20-day free trial with **full admin access**
+- **NO RESTRICTIONS during trial** - full admin features available
 - Trial users can create groups and be admin
-- **IMPORTANT RESTRICTION:** Groups created during trial can only have ONE admin (the trial user)
-  - Cannot add additional admins until trial admin subscribes
-  - UI shows "Upgrade to add more admins" message when attempting to add second admin
+- Can add multiple admins during trial (restriction removed)
 - **Visibility Banner (shown to ALL group members):**
-  - Text: "[Admin Name] needs to subscribe in X days or this group will be deleted"
+  - Text: "[Admin Name] needs to subscribe in X days or this group will be archived"
   - Colors change based on urgency: Yellow (days 20-6), Orange (days 5-2), Red (day 1)
   - Location: Top of group screen (persistent until subscription)
   - "Remind [Admin]" button sends notification to trial admin
 - **Post-trial behavior:**
-  - Admin subscribes: Banner removed, group continues, can add multiple admins
-  - Trial expires: Group archived (not deleted), data preserved, can reactivate by subscribing
+  - Admin subscribes: Banner removed, group continues normally
+  - Trial expires: Group archived (read-only), data preserved, can reactivate by subscribing
 
 **Storage Management Rules:**
-- When storage exceeds limit: Automatically charge for additional 2GB increment ($1 AUD)
-- Send email notification: "Your storage has been increased to XGB. You'll be charged $X AUD on your next billing cycle"
+- Base plan: 10GB included at $4 USD/month
+- Overage: $1 USD per GB over 10GB limit (metered billing via Stripe)
+- When storage exceeds limit: Automatically charge for additional GB ($1 USD per GB)
+- Send email notification: "Your storage has been increased to XGB. You'll be charged $X USD on your next billing cycle"
 - Show warning at 80% capacity in My Account
 - Additional Storage card displays "Automatically charged as needed" (no manual add storage button)
-- All prices displayed as $AUD (e.g., "$AUD 8.00/month") for currency clarity
+- Storage tracked per admin across all their groups
+- All prices displayed as $USD (e.g., "$4.00 USD/month") for currency clarity
 
 **Subscription Cancellation:**
 - Access ends at end of current billing period (not immediately)
