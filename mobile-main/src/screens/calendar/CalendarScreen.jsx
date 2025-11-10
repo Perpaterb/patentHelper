@@ -966,6 +966,14 @@ export default function CalendarScreen({ navigation, route }) {
     // Convert to scroll floats
     const newXYFloat = getXYFloatForProbeTarget(targetHour, daysDiff);
     setExternalXYFloat(newXYFloat);
+
+    // Update viewCenterMonth to match the selected date's month
+    // This ensures the month view scrolls to show the selected month
+    setViewCenterMonth({
+      year: tempSelectedDate.getFullYear(),
+      month: tempSelectedDate.getMonth()
+    });
+
     setShowDatePicker(false);
   };
 
