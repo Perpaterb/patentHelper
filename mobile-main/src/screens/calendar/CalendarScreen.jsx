@@ -915,26 +915,22 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
-   * Fetch events when view mode changes to day or when scrolling significantly
+   * Fetch events when component mounts or groupId changes
    */
   useEffect(() => {
-    if (viewMode === 'day') {
-      fetchEvents();
-    }
-  }, [viewMode, groupId]);
+    fetchEvents();
+  }, [groupId]);
 
   /**
    * Refresh events when returning from CreateEvent or EditEvent screens
    */
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      if (viewMode === 'day') {
-        fetchEvents();
-      }
+      fetchEvents();
     });
 
     return unsubscribe;
-  }, [navigation, viewMode]);
+  }, [navigation]);
 
   // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
@@ -1375,21 +1371,7 @@ export default function CalendarScreen({ navigation, route }) {
 
                   {/* Event indicators in bottom half of cell */}
                   <View style={styles.monthEventContainer}>
-                    {/* Render dots for single-day events */}
-                    {dots.slice(0, 3).map((dot, idx) => (
-                      <View
-                        key={`dot-${dot.eventId}`}
-                        style={[
-                          styles.monthEventDot,
-                          {
-                            backgroundColor: dot.color,
-                            bottom: 2 + (idx * 6), // Stack dots vertically
-                          },
-                        ]}
-                      />
-                    ))}
-
-                    {/* Render lines for multi-day events */}
+                    {/* Render lines first (bottom to top) for multi-day events */}
                     {lines.slice(0, 3).map((line, idx) => (
                       <View
                         key={`line-${line.eventId}`}
@@ -1397,13 +1379,31 @@ export default function CalendarScreen({ navigation, route }) {
                           styles.monthEventLine,
                           {
                             backgroundColor: line.color,
-                            bottom: 2 + (idx * 6), // Stack lines vertically
+                            bottom: 2 + (idx * 6), // Stack lines vertically from bottom
                             left: line.isStart ? '20%' : 0, // Start partway if event starts this day
                             right: line.isEnd ? '20%' : 0, // End partway if event ends this day
                           },
                         ]}
                       />
                     ))}
+
+                    {/* Render dots above lines for single-day events */}
+                    {dots.slice(0, 3).map((dot, idx) => {
+                      const lineCount = Math.min(lines.length, 3);
+                      const dotBottom = 2 + (lineCount * 6) + (idx * 6); // Start above lines
+                      return (
+                        <View
+                          key={`dot-${dot.eventId}`}
+                          style={[
+                            styles.monthEventDot,
+                            {
+                              backgroundColor: dot.color,
+                              bottom: dotBottom,
+                            },
+                          ]}
+                        />
+                      );
+                    })}
                   </View>
                 </TouchableOpacity>
               );
