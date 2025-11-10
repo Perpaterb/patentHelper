@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, Badge } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -281,6 +281,15 @@ export default function GroupDashboardScreen({ navigation, route }) {
               {groupInfo.userRole || 'Member'}
             </Chip>
           </View>
+          {/* Settings Cog Icon - Only for admins */}
+          {groupInfo.userRole === 'admin' && (
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={goToSettings}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          )}
         </Card.Content>
       </Card>
 
@@ -355,23 +364,6 @@ export default function GroupDashboardScreen({ navigation, route }) {
                   {pendingFinanceCount > 0
                     ? `${pendingFinanceCount} unsettled matter${pendingFinanceCount !== 1 ? 's' : ''}`
                     : 'Track expenses and payments'}
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Settings Section - Only for admins */}
-        {groupInfo.userRole === 'admin' && (
-          <Card style={styles.navCard} onPress={goToSettings}>
-            <Card.Content style={styles.navCardContent}>
-              <View style={styles.navCardIcon}>
-                <Text style={styles.navCardEmoji}>⚙️</Text>
-              </View>
-              <View style={styles.navCardInfo}>
-                <Text style={styles.navCardTitle}>Group Settings</Text>
-                <Text style={styles.navCardDescription}>
-                  Manage group and members
                 </Text>
               </View>
             </Card.Content>
@@ -468,6 +460,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1976d2',
     textTransform: 'capitalize',
+  },
+  settingsButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  settingsIcon: {
+    fontSize: 24,
   },
   sectionsContainer: {
     padding: 16,
