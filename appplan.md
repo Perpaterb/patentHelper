@@ -48,6 +48,54 @@ This app can be used by any non-group admin parent for free. Anyone wanting to a
 - Storage tracked per admin across all their groups
 - All prices displayed as $USD (e.g., "$4.00 USD/month") for currency clarity
 
+**Storage Cleanup Tool (Admin Feature):**
+Admins need tools to manage their storage and avoid overage charges. The Storage Cleanup screen provides:
+
+1. **Storage Overview Dashboard:**
+   - Total storage used across all groups
+   - Storage breakdown by group
+   - Storage breakdown by type (images, videos, documents, audit logs)
+   - Visual progress bar showing usage vs. 10GB limit
+   - Cost calculator: "You're using 12.3GB = $4 base + $2.30 overage = $6.30/month"
+
+2. **File Browser with Sorting & Filtering:**
+   - Sort by: Size (largest first), Date (oldest first), Type, Group
+   - Filter by: File type (images/videos/documents), Date range, Specific group
+   - Search by: Filename, Group name
+   - List view shows: Thumbnail/preview, filename, size, date uploaded, group name, file type
+
+3. **Bulk Selection & Deletion:**
+   - Checkbox selection for multiple files
+   - "Select All" / "Deselect All" buttons
+   - "Select all files over 5MB" quick action
+   - "Select all files older than 1 year" quick action
+   - Bulk delete button with confirmation dialog
+   - Shows space that will be freed: "Delete 23 files (456 MB)"
+
+4. **File Preview & Details:**
+   - Click file to preview (images show full size, videos show player)
+   - File metadata: Uploaded by, uploaded date, associated message/event, group
+   - Context link: "View in Messages" or "View in Finance" to see where file is used
+   - Individual delete button per file
+
+5. **Safety Features:**
+   - **Audit log exports are PROTECTED** - cannot be deleted via cleanup tool
+   - Files associated with active finance matters show warning: "This file is part of an active payment dispute"
+   - Confirmation dialog before deletion: "Are you sure? This will permanently delete X files (YMB)"
+   - Deleted files removed from S3 immediately (no soft delete for storage optimization)
+
+6. **Recommendations Engine:**
+   - "You have 45 images over 5MB. Consider compressing or deleting."
+   - "23 videos from 2023 are taking up 3.2GB. Review old videos?"
+   - "Oldest files: 156 files from 2022 (1.8GB)"
+
+**Technical Implementation:**
+- Web admin app only (primary use case)
+- Backend endpoint: `GET /storage/analysis` - Returns file list with metadata
+- Backend endpoint: `DELETE /storage/files` - Bulk delete with file IDs array
+- S3 integration: Direct delete from bucket, update storage_usage table
+- Real-time storage recalculation after deletion
+
 **Subscription Cancellation:**
 - Access ends at end of current billing period (not immediately)
 - Ensures legal continuity for co-parenting documentation
