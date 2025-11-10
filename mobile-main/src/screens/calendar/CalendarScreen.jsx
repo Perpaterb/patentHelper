@@ -1221,8 +1221,9 @@ export default function CalendarScreen({ navigation, route }) {
                 day.date.getFullYear() === masterDateTime.getFullYear();
 
               return (
-                <View
+                <TouchableOpacity
                   key={day.key}
+                  onPress={() => handleDayTap(day.date)}
                   style={[
                     styles.monthCell,
                     !day.isCurrentMonth && styles.monthCellOutside,
@@ -1238,7 +1239,7 @@ export default function CalendarScreen({ navigation, route }) {
                   >
                     {day.date.getDate()}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
