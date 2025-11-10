@@ -69,7 +69,7 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
 
   return {
     scrollYFloat: targetHour - probeYInGrid + padT / CELL_H + 0.0001,
-    scrollXFloat: targetDay - probeXInGrid + padL / cellW -0.5 + 0.0001,
+    scrollXFloat: targetDay - probeXInGrid + padL / cellW + 0.0001,
   };
 }
 
