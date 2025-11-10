@@ -1398,11 +1398,14 @@ const styles = StyleSheet.create({
   // Header button styles
   headerDateButton: {
     padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerDateText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   viewToggleText: {
     color: '#fff',
