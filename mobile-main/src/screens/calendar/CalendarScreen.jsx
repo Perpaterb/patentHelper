@@ -861,9 +861,10 @@ export default function CalendarScreen({ navigation, route }) {
     const now = new Date();
     const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
 
-    // Calculate day offset from base date
-    const diffMs = now - baseDate;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    // Calculate day offset from base date using UTC to avoid timezone issues
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((nowUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
     // Get current hour (round to nearest hour)
     const currentHour = now.getHours();
@@ -954,7 +955,12 @@ export default function CalendarScreen({ navigation, route }) {
   const handleGoPress = () => {
     // Convert selected date to day offset, set hour to 12 (noon)
     const baseDate = new Date(2023, 9, 31);
-    const daysDiff = Math.floor((tempSelectedDate - baseDate) / (1000 * 60 * 60 * 24));
+
+    // Use Date.UTC to avoid timezone issues with date arithmetic
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const selectedDateUTC = Date.UTC(tempSelectedDate.getFullYear(), tempSelectedDate.getMonth(), tempSelectedDate.getDate());
+    const daysDiff = Math.round((selectedDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
+
     const targetHour = 12; // Always go to 12pm (noon)
 
     // Convert to scroll floats
@@ -1093,18 +1099,20 @@ export default function CalendarScreen({ navigation, route }) {
 
           // Also update masterDateTime for banner consistency
           let newDate;
-          if (idxFromDrag < 0) {
-            // Swiped backward - go to last day of that month at 12pm
-            newDate = new Date(newMonth.year, newMonth.month + 1, 0);
-          } else {
-            // Swiped forward - go to 1st day of that month at 12pm
+          if (idxFromDrag > 0) {
+            // Swiped forward (right) - go to 1st day of NEW month at 12pm
             newDate = new Date(newMonth.year, newMonth.month, 1);
+          } else {
+            // Swiped backward (left) - go to last day of NEW month at 12pm
+            newDate = new Date(newMonth.year, newMonth.month + 1, 0);
           }
           newDate.setHours(12, 0, 0, 0);
 
           const baseDate = new Date(2023, 9, 31);
-          const diffMs = newDate - baseDate;
-          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          // Use Date.UTC to avoid timezone issues
+          const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+          const newDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+          const diffDays = Math.round((newDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
           const newPosition = getXYFloatForProbeTarget(12, diffDays);
           setExternalXYFloat(newPosition);
@@ -1165,8 +1173,10 @@ export default function CalendarScreen({ navigation, route }) {
     const targetDate = new Date(date);
     targetDate.setHours(12, 0, 0, 0); // Set to noon
 
-    const diffMs = targetDate - baseDate;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    // Use Date.UTC to avoid timezone issues
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const targetDateUTC = Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const diffDays = Math.round((targetDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
     const newPosition = getXYFloatForProbeTarget(12, diffDays);
     setExternalXYFloat(newPosition);
