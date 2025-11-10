@@ -59,6 +59,7 @@ model Group {
   storageUsage          StorageUsage[]
   wishLists             WishList[]
   krisKringles          KrisKringle[]
+  giftRegistries        GiftRegistry[]
 
   @@index([createdAt])
   @@map("groups")
@@ -116,6 +117,7 @@ model GroupMember {
   purchasedWishListItems      WishListItem[]
   krisKringlesCreated         KrisKringle[]
   krisKringleParticipants     KrisKringleParticipant[]
+  giftRegistriesCreated       GiftRegistry[]
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -646,4 +648,48 @@ model KrisKringleExclusion {
   @@unique([krisKringleId, participant1Id, participant2Id])
   @@index([krisKringleId])
   @@map("kris_kringle_exclusions")
+}
+
+// ============================================
+// SHAREABLE GIFT REGISTRY MODELS
+// (Different from wish_lists which are for Secret Santa only)
+// ============================================
+
+model GiftRegistry {
+  registryId   String       @id @default(uuid()) @map("registry_id") @db.Uuid
+  groupId      String       @map("group_id") @db.Uuid
+  creatorId    String       @map("creator_id") @db.Uuid
+  name         String       @db.VarChar(255)
+  sharingType  String       @map("sharing_type") @db.VarChar(20) // public, passcode, group_only
+  passcode     String?      @db.VarChar(6)
+  webToken     String       @unique @map("web_token") @db.VarChar(32)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  group        Group        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator      GroupMember  @relation(fields: [creatorId], references: [groupMemberId], onDelete: Cascade)
+  items        GiftItem[]
+
+  @@index([groupId])
+  @@index([creatorId])
+  @@index([webToken])
+  @@map("gift_registries")
+}
+
+model GiftItem {
+  itemId       String        @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String        @map("registry_id") @db.Uuid
+  title        String        @db.VarChar(255)
+  link         String?       @db.Text
+  photoUrl     String?       @map("photo_url") @db.Text
+  cost         Decimal?      @db.Decimal(10, 2)
+  description  String?       @db.Text
+  displayOrder Int           @default(0) @map("display_order")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  registry     GiftRegistry  @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+
+  @@index([registryId, displayOrder])
+  @@map("gift_items")
 }

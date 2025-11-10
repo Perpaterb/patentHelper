@@ -624,8 +624,145 @@ This is just a form asking for the amount paid and an image of the receipt of pa
 - If overpayment attempted, show error: "Payment amount ($X) exceeds what you owe ($Y). Please enter $Y or less."
 - Rationale: Prevents accounting confusion and disputes
 - Workaround: If overpaid by mistake, create separate finance matter requesting refund
-- Example: Owe $50 but paid $100 → Create new finance matter "Overpayment refund - $50" where other person owes you $50 
+- Example: Owe $50 but paid $100 → Create new finance matter "Overpayment refund - $50" where other person owes you $50
 
+---
+
+Gift Registry
+
+**Purpose**: Allow group members to create shareable gift registries (wishlists) for birthdays, holidays, etc.
+
+**Access Control**:
+- Visible to group members based on admin settings (Feature Visibility Controls)
+- Any member who can see this feature can create unlimited registries
+- Only registry creator and admins can edit/delete registries
+- Only registry creator and admins can add/remove gifts from a registry
+
+**Registry Creation**:
+- User creates a new registry with a name (e.g., "Sarah's Birthday 2025", "Christmas Wishlist")
+- User selects sharing method:
+  1. **Public with link** - Anyone with the link can view (no authentication required)
+  2. **Link with passcode** - Anyone with link + 6-digit passcode can view
+  3. **Group only** - Only accessible via app to members of this group
+- System generates:
+  - Unique shareable web URL (e.g., parentinghelperapp.com/registry/abc123xyz)
+  - 6-digit passcode (if passcode option selected, e.g., "482915")
+
+**Registry Management** (Creator + Admins only):
+- View/copy shareable web link (available repeatedly, not one-time use)
+- Reset passcode (generates new random 6-digit code)
+- Edit registry name
+- Delete registry (permanently removes registry and all gifts)
+- Add/remove gifts to registry
+
+**Gift Structure**:
+Each gift has:
+- **Title/Name** (required) - e.g., "LEGO Star Wars Set"
+- **Link** (optional) - URL to product page
+- **Photo** (optional) - Upload image or fetch from URL
+- **Cost** (optional) - Price in group's currency
+- **Description** (optional) - Long text description, notes, size preferences, etc.
+
+**Registry List View** (Mobile App):
+- Shows all registries created by current user
+- Shows all registries created by others in the group (if group-only)
+- Each registry card displays:
+  - Registry name
+  - Creator name
+  - Number of gifts
+  - Sharing type (Public/Passcode/Group Only)
+  - Share button (opens share sheet with web link)
+- "Create Registry" button in top right
+
+**Registry Detail View** (Mobile App):
+- Registry name at top
+- Creator name and sharing settings
+- List of gifts as cards showing:
+  - Photo thumbnail (if available)
+  - Title
+  - Cost (if provided)
+  - Short description preview
+- Tap gift to see full details
+- Edit/Delete buttons (creator + admins only)
+- Share button to get web link
+
+**Add/Edit Gift Screen** (Creator + Admins only):
+- Text field: Gift title (required)
+- Text field: Link (optional, validated URL)
+- Image picker: Photo (optional, upload from device or camera)
+- Number field: Cost (optional, currency auto-detected from group settings)
+- Multiline text: Description (optional, up to 500 characters)
+- Save/Cancel buttons
+
+**Public Web View** (External visitors):
+- Clean, mobile-responsive web page at parentinghelperapp.com/registry/{id}
+- If passcode required: Show 6-digit input screen first
+- Registry name and creator first name only (privacy)
+- Grid of gift cards showing:
+  - Photo (if available)
+  - Title
+  - Link button (if provided)
+  - Cost (if provided)
+  - Description (if provided)
+- No edit capabilities (read-only for external viewers)
+- "Powered by Parenting Helper" footer with link to sign up
+
+**Integration with Secret Santa**:
+- Gift registries will be used in Secret Santa feature
+- Secret Santa participants can link to their gift registry
+- Secret Santa gift-giver can view recipient's registry anonymously
+
+**Database Structure** (high-level):
+```
+gift_registries table:
+  - registry_id (UUID, primary key)
+  - group_id (UUID, foreign key)
+  - creator_id (UUID, foreign key to group_members)
+  - name (VARCHAR)
+  - sharing_type (ENUM: public, passcode, group_only)
+  - passcode (VARCHAR, nullable, 6 digits)
+  - web_token (VARCHAR, unique, for URL)
+  - created_at, updated_at
+
+gift_items table:
+  - item_id (UUID, primary key)
+  - registry_id (UUID, foreign key)
+  - title (VARCHAR, required)
+  - link (TEXT, nullable)
+  - photo_url (TEXT, nullable)
+  - cost (DECIMAL, nullable)
+  - description (TEXT, nullable)
+  - created_at, updated_at
+```
+
+**Security Considerations**:
+- Web tokens must be cryptographically random (not sequential IDs)
+- Passcodes are stored in plain text (they're not security-critical, just convenience)
+- Rate limiting on public web view to prevent scraping
+- No authentication required for public/passcode links (by design)
+- Group-only registries require app authentication
+
+**Example User Flows**:
+
+**Flow 1: Creating a public registry**
+1. User taps "Gift Registry" from group dashboard
+2. Taps "Create Registry" button
+3. Enters name: "Emma's 10th Birthday"
+4. Selects "Public with link"
+5. Taps "Create"
+6. System generates: parentinghelperapp.com/registry/x7k9m2p
+7. User adds gifts: "Nintendo Switch", "Pokemon Cards", "Art Supplies"
+8. User shares link via text message to grandparents
+
+**Flow 2: Viewing a passcode-protected registry**
+1. Grandma receives link: parentinghelperapp.com/registry/a3b9z1x
+2. Opens link in browser
+3. Sees: "Enter passcode to view Emma's registry"
+4. Enters: 482915
+5. Views gift list with photos and links
+6. Clicks Amazon link for Nintendo Switch
+
+---
 
 PH Messenger - Companion App
 
