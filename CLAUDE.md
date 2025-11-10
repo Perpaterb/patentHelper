@@ -968,6 +968,30 @@ await prisma.auditLog.create({
 - Use different Expo accounts or development builds to test side-by-side
 - Test cross-product flow: Subscribe on web → Access features on mobile
 
+### 🚨 CRITICAL: Process Management During Development
+
+**IMPORTANT:** During active development sessions, the USER manages these processes:
+
+1. **Backend (`npm start` in backend/)** - User manages this process
+   - User monitors backend logs in their terminal
+   - **Claude MUST NOT**: Start, stop, or restart the backend process
+   - **Claude MUST**: Ask user to restart backend if needed (e.g., "Please restart the backend with `npm start` to apply these changes")
+
+2. **Mobile App (`npm start` in mobile-main/)** - User manages this process
+   - User monitors Expo dev server in their terminal
+   - **Claude MUST NOT**: Start, stop, or restart the mobile app process
+   - **Claude MUST**: Ask user to restart Expo if needed (e.g., "Please restart Expo to see these changes")
+
+**Why this is critical:**
+- User can see real-time logs for debugging
+- User controls when processes restart (e.g., after code changes)
+- Prevents Claude from interfering with running development servers
+- Allows user to manage multiple terminals efficiently
+
+**When Claude needs a process restarted:**
+- ✅ CORRECT: "These backend changes require a restart. Please stop and restart `npm start` in the backend directory."
+- ❌ WRONG: Running `npm start` via Bash tool or attempting to kill/restart processes
+
 ### Before Committing
 
 **MANDATORY CHECKLIST** - Complete ALL items before committing:

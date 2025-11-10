@@ -547,6 +547,58 @@ patentHelper/
 
 ---
 
+## 3.5. Development Workflow
+
+### Running the Application Locally
+
+**Prerequisites:**
+- Node.js v20+
+- PostgreSQL (via Docker recommended)
+- Expo CLI (for mobile development)
+
+**Process Management During Development:**
+
+During active development sessions, the developer manages these processes manually:
+
+1. **Backend Server** - `cd backend && npm start`
+   - Developer monitors backend logs in their terminal
+   - See real-time API requests, errors, and database queries
+   - Claude should **ASK** for restart if needed, never attempt to manage this process
+
+2. **Mobile App** - `cd mobile-main && npm start`
+   - Developer monitors Expo dev server in their terminal
+   - Hot reload enabled for React Native changes
+   - Claude should **ASK** for restart if needed, never attempt to manage this process
+
+3. **Web App** (when needed) - `cd web-app && npm start`
+   - Developer monitors React dev server
+   - Runs on http://localhost:3001 (backend uses 3000)
+
+**Why Manual Process Management:**
+- Developer sees real-time logs for debugging
+- Developer controls when to restart after code changes
+- Prevents automated tools from killing/restarting critical processes
+- Allows developer to manage multiple terminals efficiently
+
+**Typical Development Session:**
+```bash
+# Terminal 1: Backend
+cd backend
+npm start
+
+# Terminal 2: Mobile App
+cd mobile-main
+npm start
+
+# Terminal 3: Database
+docker-compose up postgres
+
+# Terminal 4: Claude Code (this session)
+# Developer works with Claude here while monitoring logs in other terminals
+```
+
+---
+
 ## 4. Database Schema
 
 ### Users Table
