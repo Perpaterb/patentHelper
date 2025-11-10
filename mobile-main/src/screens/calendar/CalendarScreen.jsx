@@ -949,11 +949,11 @@ export default function CalendarScreen({ navigation, route }) {
   masterDateTime.setHours(probeHour24, 0, 0, 0);
 
   // Format for banner display
-  const masterDayTimeDate = `${hourLabel(probeHour24)} - ${dateLabel(probeDay)}`;
+  const masterDayTimeDate = `${hourLabel(probeHour24)} ${dateLabel(probeDay)}`;
 
   // Log banner text whenever it changes
   useEffect(() => {
-    console.log('Banner:', masterDayTimeDate);
+    console.log('Banner:', masterDayTimeDate, '| masterDateTime:', masterDateTime.toISOString(), '| probeDay:', probeDay);
   }, [masterDayTimeDate]);
 
   // Handle Go button - apply the selected date at 12pm
@@ -993,12 +993,16 @@ export default function CalendarScreen({ navigation, route }) {
       headerTitle: () => (
         <TouchableOpacity
           onPress={() => {
-            setTempSelectedDate(masterDateTime);
-            setShowDatePicker(true);
+            try {
+              setTempSelectedDate(masterDateTime);
+              setShowDatePicker(true);
+            } catch (error) {
+              console.error('Error opening date picker:', error);
+            }
           }}
           style={styles.headerDateButton}
         >
-          <Text style={styles.headerDateText}>{masterDayTimeDate}</Text>
+          <Text style={styles.headerDateText}>{masterDayTimeDate || 'Loading...'}</Text>
         </TouchableOpacity>
       ),
       headerRight: () => (
