@@ -234,8 +234,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
    * Navigate to Gift Registry
    */
   const goToGiftRegistry = () => {
-    // TODO: Implement Gift Registry screen
-    console.log('Navigate to Gift Registry');
+    navigation.navigate('GiftRegistryList', { groupId });
   };
 
   /**

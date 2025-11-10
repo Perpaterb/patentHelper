@@ -34,6 +34,10 @@ import EditChildEventScreen from '../screens/calendar/EditChildEventScreen';
 import FinanceListScreen from '../screens/groups/FinanceListScreen';
 import CreateFinanceMatterScreen from '../screens/finance/CreateFinanceMatterScreen';
 import FinanceMatterDetailsScreen from '../screens/finance/FinanceMatterDetailsScreen';
+import GiftRegistryListScreen from '../screens/groups/GiftRegistryListScreen';
+import GiftRegistryDetailScreen from '../screens/groups/GiftRegistryDetailScreen';
+import AddEditRegistryScreen from '../screens/groups/AddEditRegistryScreen';
+import AddEditGiftItemScreen from '../screens/groups/AddEditGiftItemScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -198,6 +202,28 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               name="FinanceMatterDetails"
               component={FinanceMatterDetailsScreen}
               options={{ title: 'Finance Matter Details', headerBackTitle: '' }}
+            />
+
+            {/* Gift Registry */}
+            <Stack.Screen
+              name="GiftRegistryList"
+              component={GiftRegistryListScreen}
+              options={{ title: 'Gift Registries', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="GiftRegistryDetail"
+              component={GiftRegistryDetailScreen}
+              options={{ title: 'Gift Registry', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="AddEditRegistry"
+              component={AddEditRegistryScreen}
+              options={{ title: 'Registry', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="AddEditGiftItem"
+              component={AddEditGiftItemScreen}
+              options={{ title: 'Gift Item', headerBackTitle: '' }}
             />
 
             {/* Home Screen */}
