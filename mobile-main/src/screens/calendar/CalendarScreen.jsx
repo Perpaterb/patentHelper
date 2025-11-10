@@ -953,11 +953,6 @@ export default function CalendarScreen({ navigation, route }) {
   // Format for banner display
   const masterDayTimeDate = `${hourLabel(probeHour24)} ${dateLabel(probeDay)}`;
 
-  // Log banner text whenever it changes
-  useEffect(() => {
-    console.log('Banner:', masterDayTimeDate, '| masterDateTime:', masterDateTime.toISOString(), '| probeDay:', probeDay);
-  }, [masterDayTimeDate]);
-
   // Handle Go button - apply the selected date at 12pm
   const handleGoPress = () => {
     // Convert selected date to day offset, set hour to 12 (noon)
@@ -1200,7 +1195,6 @@ export default function CalendarScreen({ navigation, route }) {
    * Returns: { dots: [{color, row}], lines: [{color, startX, endX, row, isStart, isEnd}] }
    */
   const getMonthDayEventLayout = (date, allEvents) => {
-    // Debug logging
     if (!allEvents || allEvents.length === 0) {
       return { dots: [], lines: [] };
     }
@@ -1212,8 +1206,6 @@ export default function CalendarScreen({ navigation, route }) {
 
     // Filter to regular events only (no child responsibility events)
     const regularEvents = allEvents.filter(event => !event.isResponsibilityEvent);
-
-    console.log(`[Month View] Date: ${date.toDateString()}, Total events: ${allEvents.length}, Regular events: ${regularEvents.length}`);
 
     // Find events that touch this day
     const eventsThisDay = regularEvents.filter(event => {
@@ -1308,8 +1300,6 @@ export default function CalendarScreen({ navigation, route }) {
       eventId: event.eventId,
     }));
 
-    console.log(`[Month View] Date: ${date.toDateString()}, Dots: ${dots.length}, Lines: ${lines.length}`);
-
     return { dots, lines };
   };
 
@@ -1342,11 +1332,6 @@ export default function CalendarScreen({ navigation, route }) {
 
               // Get event indicators for this day
               const { dots, lines } = getMonthDayEventLayout(day.date, events);
-
-              // Debug first cell only to avoid spam
-              if (r === 0 && c === 0) {
-                console.log(`[Month View Render] Events state:`, events ? events.length : 'null/undefined');
-              }
 
               return (
                 <TouchableOpacity
