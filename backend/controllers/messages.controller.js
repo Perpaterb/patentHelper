@@ -2,9 +2,11 @@
  * Messages Controller
  *
  * Handles messaging operations within groups.
+ * All message content is encrypted at rest using AES-256-GCM.
  */
 
 const { prisma } = require('../config/database');
+const encryptionService = require('../services/encryption.service');
 
 /**
  * Get messages for a group
@@ -244,24 +246,37 @@ async function getMessageGroupMessages(req, res) {
 
     const messages = await prisma.message.findMany(queryOptions);
 
-    // Merge User profile data with GroupMember data (prioritize User profile)
-    const messagesWithLatestProfile = messages.map(message => ({
-      ...message,
-      sender: {
-        groupMemberId: message.sender.groupMemberId,
-        displayName: message.sender.user?.displayName || message.sender.displayName,
-        iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
-        iconColor: message.sender.user?.iconColor || message.sender.iconColor,
-        role: message.sender.role,
-      },
-      readReceipts: message.readReceipts.map(receipt => ({
-        groupMemberId: receipt.groupMemberId,
-        readAt: receipt.readAt,
-        displayName: receipt.groupMember.user?.displayName || receipt.groupMember.displayName,
-        iconLetters: receipt.groupMember.user?.memberIcon || receipt.groupMember.iconLetters,
-        iconColor: receipt.groupMember.user?.iconColor || receipt.groupMember.iconColor,
-      })),
-    }));
+    // Decrypt and merge User profile data with GroupMember data (prioritize User profile)
+    const messagesWithLatestProfile = messages.map(message => {
+      // Decrypt message content
+      let decryptedContent;
+      try {
+        decryptedContent = encryptionService.decrypt(message.content);
+      } catch (error) {
+        // If decryption fails (old unencrypted message or corrupted data), use original
+        console.warn(`Failed to decrypt message ${message.messageId}:`, error.message);
+        decryptedContent = message.content;
+      }
+
+      return {
+        ...message,
+        content: decryptedContent, // Return decrypted content
+        sender: {
+          groupMemberId: message.sender.groupMemberId,
+          displayName: message.sender.user?.displayName || message.sender.displayName,
+          iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
+          iconColor: message.sender.user?.iconColor || message.sender.iconColor,
+          role: message.sender.role,
+        },
+        readReceipts: message.readReceipts.map(receipt => ({
+          groupMemberId: receipt.groupMemberId,
+          readAt: receipt.readAt,
+          displayName: receipt.groupMember.user?.displayName || receipt.groupMember.displayName,
+          iconLetters: receipt.groupMember.user?.memberIcon || receipt.groupMember.iconLetters,
+          iconColor: receipt.groupMember.user?.iconColor || receipt.groupMember.iconColor,
+        })),
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -364,6 +379,9 @@ async function sendMessageGroupMessage(req, res) {
       validMentions = messageGroupMembers.map(m => m.groupMemberId);
     }
 
+    // Encrypt message content before storing
+    const encryptedContent = encryptionService.encrypt(content.trim());
+
     // Create the message
     const message = await prisma.message.create({
       data: {
@@ -377,7 +395,7 @@ async function sendMessageGroupMessage(req, res) {
             groupMemberId: groupMembership.groupMemberId,
           },
         },
-        content: content.trim(),
+        content: encryptedContent, // Store encrypted content
         mentions: validMentions,
       },
       include: {
@@ -400,9 +418,13 @@ async function sendMessageGroupMessage(req, res) {
       },
     });
 
+    // Decrypt message content before sending to client
+    const decryptedContent = encryptionService.decrypt(message.content);
+
     // Merge User profile data with GroupMember data (prioritize User profile)
     const messageWithLatestProfile = {
       ...message,
+      content: decryptedContent, // Return decrypted content to client
       sender: {
         groupMemberId: message.sender.groupMemberId,
         displayName: message.sender.user?.displayName || message.sender.displayName,

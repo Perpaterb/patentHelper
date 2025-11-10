@@ -358,11 +358,11 @@ export default function GroupDashboardScreen({ navigation, route }) {
               )}
             </View>
             <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Messages</Text>
+              <Text style={styles.navCardTitle}>Secure & Encrypted Messaging</Text>
               <Text style={styles.navCardDescription}>
                 {unreadMentionsCount > 0 || unreadMessagesCount > 0
                   ? `${unreadMentionsCount > 0 ? `${unreadMentionsCount} @mention${unreadMentionsCount !== 1 ? 's' : ''}` : ''}${unreadMentionsCount > 0 && unreadMessagesCount > 0 ? ', ' : ''}${unreadMessagesCount > 0 ? `${unreadMessagesCount} unread` : ''}`
-                  : 'Chat with group members'}
+                  : 'Encrypted chat with group members'}
               </Text>
             </View>
           </Card.Content>

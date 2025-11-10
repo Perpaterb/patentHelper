@@ -2,11 +2,13 @@
  * Logs Controller
  *
  * Handles audit log export operations.
+ * When exporting messages, all encrypted content must be decrypted for admin review.
  */
 
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const encryptionService = require('../services/encryption.service');
 
 /**
  * Request a new log export
@@ -92,6 +94,8 @@ async function requestExport(req, res) {
     fs.writeFileSync(exportFilePath, JSON.stringify(exportRequest, null, 2));
 
     // In production, trigger background job to process export
+    // IMPORTANT: When exporting messages, use encryptionService.decrypt() to decrypt
+    // all message content so admins can read them in the export ZIP file
     // For now, we'll just mark it as completed immediately for testing
     setTimeout(() => {
       try {

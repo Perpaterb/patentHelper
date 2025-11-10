@@ -247,6 +247,18 @@ This app consists of 3 products sharing 1 backend:
 - Mobile apps link to web app for subscription management
 - Benefits: Simpler code, no Apple/Google 30% fee, easier payment updates
 
+**Security & Privacy:**
+- **Secure & Encrypted Messaging**: All message content encrypted at rest using AES-256-GCM
+  - Messages encrypted before storage in database (ciphertext only in PostgreSQL)
+  - Decrypted on-the-fly when users view messages
+  - Admins can decrypt messages during log exports for compliance/legal purposes
+  - Encryption key stored securely (environment variable in dev, AWS Secrets Manager in production)
+  - Algorithm: AES-256-GCM (authenticated encryption with 256-bit key)
+- **Transport Security**: All API communication via HTTPS/TLS
+- **Authentication**: Kinde OAuth with MFA support
+- **Authorization**: Role-based access control (RBAC) enforced at API layer
+- **Audit Logging**: All actions logged immutably (cannot be deleted)
+
 ---
 
 Login Page (Mobile Apps)

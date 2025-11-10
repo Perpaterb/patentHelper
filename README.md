@@ -1728,6 +1728,11 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
    - Supervisors have read-only access (enforce at API level)
 
 3. **Data Privacy**
+   - **Message Encryption (AES-256-GCM)**: All message content encrypted at rest
+     - Messages encrypted before storage in database
+     - Decrypted on-the-fly when users view them
+     - Admins can decrypt messages during log exports for compliance
+     - Encryption key stored in environment variable (AWS Secrets Manager in production)
    - Encrypt sensitive data at rest (S3 server-side encryption with KMS)
    - Use HTTPS/TLS for all data in transit
    - Implement row-level security for multi-tenant data isolation
