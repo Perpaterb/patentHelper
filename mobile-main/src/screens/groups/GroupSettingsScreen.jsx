@@ -740,11 +740,11 @@ export default function GroupSettingsScreen({ navigation, route }) {
             {/* Feature Visibility Controls */}
             <Text style={styles.subsectionTitle}>Feature Visibility</Text>
             <Text style={styles.helperText}>
-              Control which features are visible to adults (16+) and children (under 16)
+              Control which features are visible to different role types
             </Text>
 
             {/* Adults Feature Visibility */}
-            <Text style={styles.subSubsectionTitle}>Adults (Parents, Caregivers, Supervisors age 16+)</Text>
+            <Text style={styles.subSubsectionTitle}>Adults (Parents, Caregivers, Supervisors)</Text>
 
             <View style={styles.settingRow}>
               <Text style={styles.settingLabel}>Allow adults to see Messages</Text>
@@ -819,7 +819,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
             </View>
 
             {/* Children Feature Visibility */}
-            <Text style={styles.subSubsectionTitle}>Children (under 16)</Text>
+            <Text style={styles.subSubsectionTitle}>Children</Text>
 
             <View style={styles.settingRow}>
               <Text style={styles.settingLabel}>Allow children to see Messages</Text>

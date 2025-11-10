@@ -353,7 +353,7 @@ Admins can hide entire features from the group dashboard for adults and/or child
 
 Section: "Group Features"
 
-Adults (Parents, Caregivers, Supervisors age 16+):
+Adults (Parents, Caregivers, Supervisors):
 - Allow adults to see Messages
 - Allow adults to see Calendar
 - Allow adults to see Finance (cascades with "Finance matters visible to" switches above)
@@ -363,7 +363,7 @@ Adults (Parents, Caregivers, Supervisors age 16+):
 - Allow adults to see Wiki
 - Allow adults to see Secure Documents
 
-Children (under 16):
+Children:
 - Allow children to see Messages
 - Allow children to see Calendar
 - Allow children to see Finance (cascades with "Finance matters visible to" switches above)
