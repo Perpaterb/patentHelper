@@ -114,6 +114,28 @@ CREATE TABLE group_settings (
     finance_creatable_by_caregivers BOOLEAN DEFAULT FALSE,
     finance_visible_to_children BOOLEAN DEFAULT FALSE,
     finance_creatable_by_children BOOLEAN DEFAULT FALSE,
+
+    -- Feature visibility controls (admins can hide entire features from dashboard)
+    -- Adults = Parents, Caregivers, Supervisors (age 16+)
+    adults_see_messages BOOLEAN DEFAULT TRUE,
+    adults_see_calendar BOOLEAN DEFAULT TRUE,
+    adults_see_finance BOOLEAN DEFAULT TRUE,
+    adults_see_gift_registry BOOLEAN DEFAULT TRUE,
+    adults_see_secret_santa BOOLEAN DEFAULT TRUE,
+    adults_see_library BOOLEAN DEFAULT TRUE,
+    adults_see_wiki BOOLEAN DEFAULT TRUE,
+    adults_see_secure_documents BOOLEAN DEFAULT TRUE,
+
+    -- Children (under 16)
+    children_see_messages BOOLEAN DEFAULT TRUE,
+    children_see_calendar BOOLEAN DEFAULT TRUE,
+    children_see_finance BOOLEAN DEFAULT TRUE,
+    children_see_gift_registry BOOLEAN DEFAULT TRUE,
+    children_see_secret_santa BOOLEAN DEFAULT TRUE,
+    children_see_library BOOLEAN DEFAULT TRUE,
+    children_see_wiki BOOLEAN DEFAULT TRUE,
+    children_see_secure_documents BOOLEAN DEFAULT TRUE,
+
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

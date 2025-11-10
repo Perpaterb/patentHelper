@@ -325,7 +325,7 @@ Select denomination for finance
 Select date format
 Log Export (Web App ONLY): Admins go to parentinghelperapp.com/logs to request log exports. Admin specifies timeframe. Logs emailed as CSV with password-protected media links (valid 1 week). Mobile app shows link to web for log exports. 
 Assign a new admin (note this needs to be a subscriber)
-Settings Switches 
+Settings Switches
 Parents can create message groups and send invites to members of the group
 Children can create message groups and send invites to members of the group
 Caregiver can create message groups and send invites to members of the group
@@ -335,6 +335,38 @@ Finance matters visible to caregivers
 Finance matters can be created by caregivers (greyed out and off if "Finance matters visible to caregivers" option is off)
 Finance matters visible to children
 Finance matters can be created by children (greyed out and off if "Finance matters visible to children" option is off)
+
+**Feature Visibility Controls:**
+Admins can hide entire features from the group dashboard for adults and/or children. Hidden features don't appear in the navigation for those members.
+
+Section: "Group Features"
+
+Adults (Parents, Caregivers, Supervisors age 16+):
+- Allow adults to see Messages
+- Allow adults to see Calendar
+- Allow adults to see Finance (cascades with "Finance matters visible to" switches above)
+- Allow adults to see Gift Registry
+- Allow adults to see Secret Santa
+- Allow adults to see Library
+- Allow adults to see Wiki
+- Allow adults to see Secure Documents
+
+Children (under 16):
+- Allow children to see Messages
+- Allow children to see Calendar
+- Allow children to see Finance (cascades with "Finance matters visible to" switches above)
+- Allow children to see Gift Registry
+- Allow children to see Secret Santa
+- Allow children to see Library
+- Allow children to see Wiki
+- Allow children to see Secure Documents
+
+Notes:
+- Approvals section is always hidden from non-admins (admin-only feature)
+- If a feature is hidden, users cannot see it in dashboard navigation
+- Default: All features visible to both adults and children
+- These settings are per-group (different groups can have different visibility)
+- Use case: Some families may only want messaging, others only want calendar + finance
 I allow this group admin to: (See all other admins under each one all the switches to auto approve administrative changes they make. )
 hide any message without my approval. (admins can still see)
 add people without my approval.
