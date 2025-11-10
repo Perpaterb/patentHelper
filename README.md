@@ -1,5 +1,23 @@
 # Parenting Helper App - Technical Planning Document
 
+C = the child line
+A = the responsible adult line
+
+[CCCCAAAAA]         [CCAA]
+      [CCCCCCCCCAAAAAAAAAA]
+
+They needs to look like this
+
+12am             12pm             12am            12pm            12am
+ |              5th                |              6th               |
+ |      [CCCCCCCCC]         [CCC]  |               [CCCCCCCCCCC]    |
+ |      [AAAAAAAAA]         [AAA]  |               [CCCCCCCCCCC]    |
+ |            [CCCCCCCCCCCCCCCCCCC]|[CCCCCCCCCC]   [AAAAAAAAAAA]    |
+ |            [AAAAAAAAAAAAAAAAAAA]|[AAAAAAAAAA]   [AAAAAAAAAAA]    |
+
+
+Andrew they need to take up all the avalible space up to %50 of the cell
+
 
 ## 1. Overview
 

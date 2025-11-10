@@ -15,6 +15,7 @@ import {
   Modal,
   PanResponder,
   Animated,
+  ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
@@ -889,6 +890,11 @@ export default function CalendarScreen({ navigation, route }) {
   // Event creation modal state
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
 
+  // Day events popup state (for long-press in month view)
+  const [showDayEventsModal, setShowDayEventsModal] = useState(false);
+  const [selectedDayDate, setSelectedDayDate] = useState(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState([]);
+
   // Events state
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -1190,11 +1196,96 @@ export default function CalendarScreen({ navigation, route }) {
     // Stay in month view (don't switch to day view)
   };
 
+  // Handle day cell long press - show events popup
+  const handleDayLongPress = (date) => {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Filter events that touch this day
+    const dayEvents = events.filter(event => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
+      return eventStart <= dayEnd && eventEnd >= dayStart;
+    });
+
+    // Sort by start time
+    dayEvents.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+    setSelectedDayDate(date);
+    setSelectedDayEvents(dayEvents);
+    setShowDayEventsModal(true);
+  };
+
+  /**
+   * Calculate GLOBAL column assignments for all child responsibility events
+   * This must be done once for ALL events so the same event gets the same column across all days
+   */
+  const calculateGlobalChildEventColumns = (allEvents) => {
+    if (!allEvents || allEvents.length === 0) {
+      return new Map();
+    }
+
+    // Flatten all responsibility events
+    const allResponsibilityEvents = [];
+    allEvents.forEach(event => {
+      if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
+        event.responsibilityEvents.forEach(re => {
+          allResponsibilityEvents.push({
+            responsibilityEventId: re.responsibilityEventId,
+            eventId: event.eventId,
+            startTime: event.startTime,
+            endTime: event.endTime,
+          });
+        });
+      }
+    });
+
+    // Use scan-line algorithm to assign columns
+    const childBarColumns = new Map();
+    const childScanEvents = [];
+
+    allResponsibilityEvents.forEach(re => {
+      const eventStart = new Date(re.startTime);
+      const eventEnd = new Date(re.endTime);
+      childScanEvents.push({ time: eventStart, type: 'start', re });
+      childScanEvents.push({ time: eventEnd, type: 'end', re });
+    });
+
+    childScanEvents.sort((a, b) => {
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time - b.time;
+      }
+      return a.type === 'start' ? -1 : 1;
+    });
+
+    const activeBars = [];
+    childScanEvents.forEach(scanEvent => {
+      if (scanEvent.type === 'start') {
+        const usedColumns = new Set(activeBars.map(b => b.column));
+        let column = 0;
+        while (usedColumns.has(column)) {
+          column++;
+        }
+        childBarColumns.set(scanEvent.re.responsibilityEventId, column);
+        activeBars.push({ re: scanEvent.re, column });
+      } else {
+        const index = activeBars.findIndex(b => b.re.responsibilityEventId === scanEvent.re.responsibilityEventId);
+        if (index !== -1) {
+          activeBars.splice(index, 1);
+        }
+      }
+    });
+
+    return childBarColumns;
+  };
+
   /**
    * Calculate event layout for a single day in month view
    * Returns: { dots, lines, childBars }
    */
-  const getMonthDayEventLayout = (date, allEvents) => {
+  const getMonthDayEventLayout = (date, allEvents, globalChildColumns) => {
     if (!allEvents || allEvents.length === 0) {
       return { dots: [], lines: [], childBars: [] };
     }
@@ -1298,7 +1389,7 @@ export default function CalendarScreen({ navigation, route }) {
     }));
 
     // === PROCESS CHILD RESPONSIBILITY EVENTS ===
-    // Flatten responsibility events from all events that touch this day
+    // Use the GLOBAL column assignments passed in (calculated once for all days)
     const allResponsibilityBars = [];
     allEvents.forEach(event => {
       if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
@@ -1317,6 +1408,9 @@ export default function CalendarScreen({ navigation, route }) {
             const startFraction = (visibleStart - dayStart) / dayDuration;
             const endFraction = (visibleEnd - dayStart) / dayDuration;
 
+            // Get the global column assignment for this responsibility event
+            const column = globalChildColumns.get(re.responsibilityEventId) || 0;
+
             allResponsibilityBars.push({
               responsibilityEventId: re.responsibilityEventId,
               eventId: event.eventId,
@@ -1324,61 +1418,15 @@ export default function CalendarScreen({ navigation, route }) {
               adultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
               startFraction, // 0.0 to 1.0 (position within day)
               endFraction,   // 0.0 to 1.0 (position within day)
+              column,        // Global column assignment (same across all days)
             });
           });
         }
       }
     });
 
-    // Use scan-line algorithm to assign columns to child bars
-    const childBarColumns = new Map();
-    const childScanEvents = [];
-
-    allResponsibilityBars.forEach(bar => {
-      // Child bars use parent event timing
-      const event = allEvents.find(e => e.eventId === bar.eventId);
-      if (event) {
-        const eventStart = new Date(event.startTime);
-        const eventEnd = new Date(event.endTime);
-        childScanEvents.push({ time: eventStart, type: 'start', bar });
-        childScanEvents.push({ time: eventEnd, type: 'end', bar });
-      }
-    });
-
-    childScanEvents.sort((a, b) => {
-      if (a.time.getTime() !== b.time.getTime()) {
-        return a.time - b.time;
-      }
-      return a.type === 'start' ? -1 : 1;
-    });
-
-    const activeBars = [];
-    childScanEvents.forEach(scanEvent => {
-      if (scanEvent.type === 'start') {
-        const usedColumns = new Set(activeBars.map(b => b.column));
-        let column = 0;
-        while (usedColumns.has(column)) {
-          column++;
-        }
-        childBarColumns.set(scanEvent.bar.responsibilityEventId, column);
-        activeBars.push({ bar: scanEvent.bar, column });
-      } else {
-        const index = activeBars.findIndex(b => b.bar.responsibilityEventId === scanEvent.bar.responsibilityEventId);
-        if (index !== -1) {
-          activeBars.splice(index, 1);
-        }
-      }
-    });
-
-    // Build child bars with column assignments and time fractions
-    const childBars = allResponsibilityBars.map(bar => ({
-      responsibilityEventId: bar.responsibilityEventId,
-      childColor: bar.childColor,
-      adultColor: bar.adultColor,
-      column: childBarColumns.get(bar.responsibilityEventId) || 0,
-      startFraction: bar.startFraction,
-      endFraction: bar.endFraction,
-    }));
+    // Build child bars with global column assignments
+    const childBars = allResponsibilityBars;
 
     return { dots, lines, childBars };
   };
@@ -1387,6 +1435,13 @@ export default function CalendarScreen({ navigation, route }) {
   const renderSingleMonthView = (year, month) => {
     const matrix = getMonthMatrix(year, month);
     const today = new Date();
+
+    // Calculate GLOBAL column assignments once for all child responsibility events
+    // This ensures the same event gets the same column across all days
+    const globalChildColumns = calculateGlobalChildEventColumns(events);
+
+    // Calculate max columns to determine spacing for all days
+    const maxColumns = globalChildColumns.size > 0 ? Math.max(...globalChildColumns.values()) + 1 : 0;
 
     return (
       <View style={[styles.monthView, { height: CALENDAR_HEIGHT }]}>
@@ -1410,13 +1465,14 @@ export default function CalendarScreen({ navigation, route }) {
                 day.date.getMonth() === masterDateTime.getMonth() &&
                 day.date.getFullYear() === masterDateTime.getFullYear();
 
-              // Get event indicators for this day
-              const { dots, lines, childBars } = getMonthDayEventLayout(day.date, events);
+              // Get event indicators for this day (pass global columns)
+              const { dots, lines, childBars } = getMonthDayEventLayout(day.date, events, globalChildColumns);
 
               return (
                 <TouchableOpacity
                   key={day.key}
                   onPress={() => handleDayTap(day.date)}
+                  onLongPress={() => handleDayLongPress(day.date)}
                   style={[
                     styles.monthCell,
                     !day.isCurrentMonth && styles.monthCellOutside,
@@ -1436,37 +1492,47 @@ export default function CalendarScreen({ navigation, route }) {
 
                   {/* Child responsibility bars at top (below day number) */}
                   <View style={styles.monthChildBarContainer}>
-                    {childBars.slice(0, 3).map((bar, idx) => {
+                    {childBars.map((bar) => {
+                      // Each bar uses its column (from scan-line algorithm) to determine vertical position
+                      // This ensures bars align horizontally across multiple days for the same event
+
                       // Calculate horizontal position based on time within the day
-                      // bar.startFraction and bar.endFraction are percentages (0-1) of the day
+                      // startFraction and endFraction are 0.0 (12am) to 1.0 (12am next day)
                       const leftPercent = (bar.startFraction || 0) * 100;
                       const widthPercent = ((bar.endFraction || 1) - (bar.startFraction || 0)) * 100;
-                      const barHeight = 4; // 4px tall horizontal bar
-                      const topPosition = 20 + (idx * 6); // Start below day number, stack vertically
+
+                      // Each bar pair takes up equal vertical space within the top 60% of cell (below day number)
+                      // The cell height is 2x the width (see line 1022: CELL_HEIGHT = CELL_WIDTH * 2)
+                      // Split: Day number (top), 60% child bars, 40% event indicators (bottom)
+                      const dayNumberAndGapHeight = 20; // Reserve space for day number + gap at top
+                      const childBarsHeight = (CELL_HEIGHT - dayNumberAndGapHeight) * 0.6; // 60% for child bars
+                      const barPairHeight = maxColumns > 0 ? Math.floor(childBarsHeight / maxColumns) : 0; // Divide space equally
+                      const barHeight = Math.floor(barPairHeight / 2); // Child and adult each get half
+
+                      const topPosition = dayNumberAndGapHeight + (bar.column * barPairHeight); // Start below day number + gap
 
                       return (
                         <View
                           key={`childbar-${bar.responsibilityEventId}`}
                           style={{
                             position: 'absolute',
-                            left: `${leftPercent}%`,
+                            left: `${leftPercent}%`, // Start at time-based position
+                            width: `${widthPercent}%`, // Width based on duration
                             top: topPosition,
-                            width: `${widthPercent}%`,
-                            height: barHeight,
-                            flexDirection: 'row', // Stack child/adult horizontally
+                            flexDirection: 'column', // Stack child/adult vertically
                           }}
                         >
-                          {/* Child half (left 50%) */}
+                          {/* Child bar (top) */}
                           <View
                             style={{
-                              flex: 1,
+                              height: barHeight,
                               backgroundColor: bar.childColor,
                             }}
                           />
-                          {/* Adult half (right 50%) */}
+                          {/* Adult bar (bottom) */}
                           <View
                             style={{
-                              flex: 1,
+                              height: barHeight,
                               backgroundColor: bar.adultColor,
                             }}
                           />
@@ -1559,15 +1625,13 @@ export default function CalendarScreen({ navigation, route }) {
         />
       )}
 
-      {/* Floating Action Button (only in Day view) */}
-      {viewMode === 'day' && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setShowEventTypeModal(true)}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      )}
+      {/* Floating Action Button (both Month and Day views) */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setShowEventTypeModal(true)}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
 
       {/* Date Picker Modal */}
       <Modal visible={showDatePicker} transparent={true} animationType="fade">
@@ -1658,6 +1722,142 @@ export default function CalendarScreen({ navigation, route }) {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Day Events Modal (Long Press on Month View) */}
+      <Modal visible={showDayEventsModal} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.dayEventsModalContent}>
+            {/* Header with date and close button */}
+            <View style={styles.dayEventsHeader}>
+              <Text style={styles.dayEventsTitle}>
+                {selectedDayDate ? selectedDayDate.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                }) : ''}
+              </Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowDayEventsModal(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Events list */}
+            <ScrollView style={styles.dayEventsList}>
+              {selectedDayEvents.length === 0 ? (
+                <Text style={styles.noEventsText}>No events for this day</Text>
+              ) : (
+                selectedDayEvents.map((event) => {
+                  const eventStart = new Date(event.startTime);
+                  const eventEnd = new Date(event.endTime);
+                  const isChildEvent = event.responsibilityEvents && event.responsibilityEvents.length > 0;
+
+                  // Check if event spans multiple days
+                  const startDay = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
+                  const endDay = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
+                  const isMultiDay = endDay.getTime() > startDay.getTime();
+
+                  return (
+                    <TouchableOpacity
+                      key={event.eventId}
+                      style={styles.dayEventItem}
+                      onPress={() => {
+                        setShowDayEventsModal(false);
+                        if (isChildEvent) {
+                          navigation.navigate('EditChildEvent', {
+                            groupId: groupId,
+                            eventId: event.eventId,
+                          });
+                        } else {
+                          navigation.navigate('EditEvent', {
+                            groupId: groupId,
+                            eventId: event.eventId,
+                          });
+                        }
+                      }}
+                    >
+                      <View style={styles.dayEventTimeContainer}>
+                        {isMultiDay ? (
+                          <>
+                            <Text style={styles.dayEventDate}>
+                              {eventStart.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </Text>
+                            <Text style={styles.dayEventTime}>
+                              {eventStart.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </Text>
+                            <Text style={styles.dayEventTime}>to</Text>
+                            <Text style={styles.dayEventDate}>
+                              {eventEnd.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </Text>
+                            <Text style={styles.dayEventTime}>
+                              {eventEnd.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.dayEventTime}>
+                              {eventStart.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </Text>
+                            <Text style={styles.dayEventTime}>-</Text>
+                            <Text style={styles.dayEventTime}>
+                              {eventEnd.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                      <View style={styles.dayEventInfo}>
+                        <Text style={styles.dayEventTitle}>
+                          {isChildEvent ? '👶 ' : '📅 '}
+                          {event.title}
+                        </Text>
+                        {event.description && (
+                          <Text style={styles.dayEventDescription} numberOfLines={2}>
+                            {event.description}
+                          </Text>
+                        )}
+                        {isChildEvent && event.responsibilityEvents && (
+                          <View style={styles.childResponsibilityInfo}>
+                            {event.responsibilityEvents.map((re) => (
+                              <Text key={re.responsibilityEventId} style={styles.childResponsibilityText}>
+                                Child: {re.child.displayName} | Responsible: {re.startResponsibleMember?.displayName || re.startResponsibleOtherName}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1765,7 +1965,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: '50%', // Top half of cell (below day number)
+    height: '80%', // Day number (top 20px) + child bars (60% of remaining) = ~80% total
     pointerEvents: 'none', // Don't block touch events
   },
   monthEventContainer: {
@@ -1773,7 +1973,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%', // Bottom half of cell only
+    height: '40%', // Bottom 40% of cell for event indicators
     pointerEvents: 'none', // Don't block touch events
   },
   monthEventDot: {
@@ -1910,5 +2110,98 @@ const styles = StyleSheet.create({
   eventTypeDescription: {
     fontSize: 14,
     color: '#666',
+  },
+
+  // Day Events Modal styles
+  dayEventsModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 0,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
+  },
+  dayEventsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  dayEventsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  dayEventsList: {
+    padding: 16,
+  },
+  noEventsText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+  dayEventItem: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196f3',
+  },
+  dayEventTimeContainer: {
+    marginRight: 12,
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  dayEventDate: {
+    fontSize: 11,
+    color: '#2196f3',
+    fontWeight: 'bold',
+  },
+  dayEventTime: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
+  dayEventInfo: {
+    flex: 1,
+  },
+  dayEventTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  dayEventDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  childResponsibilityInfo: {
+    marginTop: 4,
+  },
+  childResponsibilityText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
