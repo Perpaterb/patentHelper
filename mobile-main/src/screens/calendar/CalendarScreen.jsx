@@ -1175,7 +1175,7 @@ export default function CalendarScreen({ navigation, route }) {
     })
   ).current;
 
-  // Handle day cell tap - navigate to Day view at 12pm
+  // Handle day cell tap - update banner and highlight the selected day
   const handleDayTap = (date) => {
     const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
     const targetDate = new Date(date);
@@ -1186,9 +1186,11 @@ export default function CalendarScreen({ navigation, route }) {
     const targetDateUTC = Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
     const diffDays = Math.round((targetDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
+    // Update the probe position to highlight the selected day
     const newPosition = getXYFloatForProbeTarget(12, diffDays);
     setExternalXYFloat(newPosition);
-    setViewMode('day');
+
+    // Stay in month view (don't switch to day view)
   };
 
   // Render single month view - with numbers and highlighting
