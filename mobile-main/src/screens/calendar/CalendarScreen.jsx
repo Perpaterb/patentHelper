@@ -1192,11 +1192,11 @@ export default function CalendarScreen({ navigation, route }) {
 
   /**
    * Calculate event layout for a single day in month view
-   * Returns: { dots: [{color, row}], lines: [{color, startX, endX, row, isStart, isEnd}] }
+   * Returns: { dots, lines, childBars }
    */
   const getMonthDayEventLayout = (date, allEvents) => {
     if (!allEvents || allEvents.length === 0) {
-      return { dots: [], lines: [] };
+      return { dots: [], lines: [], childBars: [] };
     }
 
     const dayStart = new Date(date);
@@ -1204,19 +1204,16 @@ export default function CalendarScreen({ navigation, route }) {
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
+    // === PROCESS REGULAR EVENTS ===
     // Filter to regular events only (no child responsibility events)
     const regularEvents = allEvents.filter(event => !event.isResponsibilityEvent);
 
-    // Find events that touch this day
+    // Find regular events that touch this day
     const eventsThisDay = regularEvents.filter(event => {
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       return eventStart <= dayEnd && eventEnd >= dayStart;
     });
-
-    if (eventsThisDay.length === 0) {
-      return { dots: [], lines: [] };
-    }
 
     // Separate single-day and multi-day events
     const singleDayEvents = [];
@@ -1300,7 +1297,77 @@ export default function CalendarScreen({ navigation, route }) {
       eventId: event.eventId,
     }));
 
-    return { dots, lines };
+    // === PROCESS CHILD RESPONSIBILITY EVENTS ===
+    // Flatten responsibility events from all events that touch this day
+    const allResponsibilityBars = [];
+    allEvents.forEach(event => {
+      if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
+        const eventStart = new Date(event.startTime);
+        const eventEnd = new Date(event.endTime);
+
+        // Only include if event touches this day
+        if (eventStart <= dayEnd && eventEnd >= dayStart) {
+          event.responsibilityEvents.forEach(re => {
+            allResponsibilityBars.push({
+              responsibilityEventId: re.responsibilityEventId,
+              eventId: event.eventId,
+              childColor: re.child.iconColor,
+              adultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
+            });
+          });
+        }
+      }
+    });
+
+    // Use scan-line algorithm to assign columns to child bars
+    const childBarColumns = new Map();
+    const childScanEvents = [];
+
+    allResponsibilityBars.forEach(bar => {
+      // Child bars use parent event timing
+      const event = allEvents.find(e => e.eventId === bar.eventId);
+      if (event) {
+        const eventStart = new Date(event.startTime);
+        const eventEnd = new Date(event.endTime);
+        childScanEvents.push({ time: eventStart, type: 'start', bar });
+        childScanEvents.push({ time: eventEnd, type: 'end', bar });
+      }
+    });
+
+    childScanEvents.sort((a, b) => {
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time - b.time;
+      }
+      return a.type === 'start' ? -1 : 1;
+    });
+
+    const activeBars = [];
+    childScanEvents.forEach(scanEvent => {
+      if (scanEvent.type === 'start') {
+        const usedColumns = new Set(activeBars.map(b => b.column));
+        let column = 0;
+        while (usedColumns.has(column)) {
+          column++;
+        }
+        childBarColumns.set(scanEvent.bar.responsibilityEventId, column);
+        activeBars.push({ bar: scanEvent.bar, column });
+      } else {
+        const index = activeBars.findIndex(b => b.bar.responsibilityEventId === scanEvent.bar.responsibilityEventId);
+        if (index !== -1) {
+          activeBars.splice(index, 1);
+        }
+      }
+    });
+
+    // Build child bars with column assignments
+    const childBars = allResponsibilityBars.map(bar => ({
+      responsibilityEventId: bar.responsibilityEventId,
+      childColor: bar.childColor,
+      adultColor: bar.adultColor,
+      column: childBarColumns.get(bar.responsibilityEventId) || 0,
+    }));
+
+    return { dots, lines, childBars };
   };
 
   // Render single month view - with numbers and highlighting
@@ -1331,7 +1398,7 @@ export default function CalendarScreen({ navigation, route }) {
                 day.date.getFullYear() === masterDateTime.getFullYear();
 
               // Get event indicators for this day
-              const { dots, lines } = getMonthDayEventLayout(day.date, events);
+              const { dots, lines, childBars } = getMonthDayEventLayout(day.date, events);
 
               return (
                 <TouchableOpacity
@@ -1356,7 +1423,43 @@ export default function CalendarScreen({ navigation, route }) {
 
                   {/* Event indicators in bottom half of cell */}
                   <View style={styles.monthEventContainer}>
-                    {/* Render lines first (bottom to top) for multi-day events */}
+                    {/* Render child responsibility bars first (vertical bars, left to right) */}
+                    {childBars.slice(0, 3).map((bar, idx) => {
+                      const barWidth = 4; // 4px wide vertical bar
+                      const barSpacing = 6; // 6px between bars
+                      const leftPosition = 2 + (bar.column * barSpacing);
+
+                      return (
+                        <View
+                          key={`childbar-${bar.responsibilityEventId}`}
+                          style={{
+                            position: 'absolute',
+                            left: leftPosition,
+                            bottom: 0,
+                            width: barWidth,
+                            height: '100%',
+                            flexDirection: 'column', // Stack child/adult vertically
+                          }}
+                        >
+                          {/* Child half (top 50%) */}
+                          <View
+                            style={{
+                              flex: 1,
+                              backgroundColor: bar.childColor,
+                            }}
+                          />
+                          {/* Adult half (bottom 50%) */}
+                          <View
+                            style={{
+                              flex: 1,
+                              backgroundColor: bar.adultColor,
+                            }}
+                          />
+                        </View>
+                      );
+                    })}
+
+                    {/* Render lines for multi-day events */}
                     {lines.slice(0, 3).map((line, idx) => (
                       <View
                         key={`line-${line.eventId}`}
