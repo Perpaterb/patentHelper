@@ -735,6 +735,164 @@ export default function GroupSettingsScreen({ navigation, route }) {
               />
             </View>
 
+            <Divider style={styles.sectionDivider} />
+
+            {/* Feature Visibility Controls */}
+            <Text style={styles.subsectionTitle}>Feature Visibility</Text>
+            <Text style={styles.helperText}>
+              Control which features are visible to adults (16+) and children (under 16)
+            </Text>
+
+            {/* Adults Feature Visibility */}
+            <Text style={styles.subSubsectionTitle}>Adults (Parents, Caregivers, Supervisors age 16+)</Text>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Messages</Text>
+              <Switch
+                value={groupSettings.adultsSeeMessages ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeMessages', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Calendar</Text>
+              <Switch
+                value={groupSettings.adultsSeeCalendar ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeCalendar', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Finance</Text>
+              <Switch
+                value={groupSettings.adultsSeeFinance ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeFinance', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Gift Registry</Text>
+              <Switch
+                value={groupSettings.adultsSeeGiftRegistry ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeGiftRegistry', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Secret Santa</Text>
+              <Switch
+                value={groupSettings.adultsSeeSecretSanta ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeSecretSanta', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Item Registry</Text>
+              <Switch
+                value={groupSettings.adultsSeeLibrary ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeLibrary', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Wiki</Text>
+              <Switch
+                value={groupSettings.adultsSeeWiki ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeWiki', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow adults to see Secure Documents</Text>
+              <Switch
+                value={groupSettings.adultsSeeSecureDocuments ?? true}
+                onValueChange={(value) => handleToggleSetting('adultsSeeSecureDocuments', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            {/* Children Feature Visibility */}
+            <Text style={styles.subSubsectionTitle}>Children (under 16)</Text>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Messages</Text>
+              <Switch
+                value={groupSettings.childrenSeeMessages ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeMessages', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Calendar</Text>
+              <Switch
+                value={groupSettings.childrenSeeCalendar ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeCalendar', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Finance</Text>
+              <Switch
+                value={groupSettings.childrenSeeFinance ?? false}
+                onValueChange={(value) => handleToggleSetting('childrenSeeFinance', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Gift Registry</Text>
+              <Switch
+                value={groupSettings.childrenSeeGiftRegistry ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeGiftRegistry', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Secret Santa</Text>
+              <Switch
+                value={groupSettings.childrenSeeSecretSanta ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeSecretSanta', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Item Registry</Text>
+              <Switch
+                value={groupSettings.childrenSeeLibrary ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeLibrary', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Wiki</Text>
+              <Switch
+                value={groupSettings.childrenSeeWiki ?? true}
+                onValueChange={(value) => handleToggleSetting('childrenSeeWiki', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Allow children to see Secure Documents</Text>
+              <Switch
+                value={groupSettings.childrenSeeSecureDocuments ?? false}
+                onValueChange={(value) => handleToggleSetting('childrenSeeSecureDocuments', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
             <Button
               mode="contained"
               onPress={handleSaveSettings}
@@ -873,6 +1031,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     color: '#333',
+  },
+  subSubsectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#555',
   },
   settingRow: {
     flexDirection: 'row',
