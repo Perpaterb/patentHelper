@@ -732,7 +732,7 @@ export default function MessagesScreen({ navigation, route }) {
                 <IconButton
                   icon="plus"
                   mode="outlined"
-                  size={20}
+                  size={32}
                   onPress={onPress}
                   disabled={uploading || sending}
                   style={styles.addButton}
