@@ -23,6 +23,7 @@ model User {
   displayName           String?        @map("display_name") @db.VarChar(255)
   memberIcon            String?        @map("member_icon") @db.VarChar(10)
   iconColor             String?        @map("icon_color") @db.VarChar(7)
+  profilePhotoFileId    String?        @map("profile_photo_file_id") @db.Uuid
   groupMemberships      GroupMember[]
   createdGroups         Group[]        @relation("GroupCreator")
   pinnedItems           PinnedItem[]

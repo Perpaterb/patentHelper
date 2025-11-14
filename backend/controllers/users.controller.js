@@ -32,6 +32,7 @@ async function getProfile(req, res) {
         displayName: true,
         memberIcon: true,
         iconColor: true,
+        profilePhotoFileId: true,
         isSubscribed: true,
         createdAt: true,
       },
@@ -46,9 +47,17 @@ async function getProfile(req, res) {
 
     console.log('[users.controller] User profile retrieved:', user);
 
+    // Construct profile photo URL if photo exists
+    const userResponse = {
+      ...user,
+      profilePhotoUrl: user.profilePhotoFileId
+        ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${user.profilePhotoFileId}`
+        : null
+    };
+
     res.status(200).json({
       success: true,
-      user,
+      user: userResponse,
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -77,7 +86,7 @@ async function updateProfile(req, res) {
     console.log('[users.controller] req.body:', req.body);
     console.log('[users.controller] req.user:', req.user);
 
-    const { displayName, memberIcon, iconColor } = req.body;
+    const { displayName, memberIcon, iconColor, profilePhotoFileId } = req.body;
 
     // Validate inputs
     if (displayName !== undefined && typeof displayName !== 'string') {
@@ -120,6 +129,16 @@ async function updateProfile(req, res) {
       }
     }
 
+    if (profilePhotoFileId !== undefined) {
+      // Allow null to remove photo
+      if (profilePhotoFileId !== null && typeof profilePhotoFileId !== 'string') {
+        return res.status(400).json({
+          error: 'Invalid input',
+          message: 'profilePhotoFileId must be a string or null',
+        });
+      }
+    }
+
     // Build update data object (only include fields that were provided)
     const updateData = {};
     if (displayName !== undefined) {
@@ -130,6 +149,9 @@ async function updateProfile(req, res) {
     }
     if (iconColor !== undefined) {
       updateData.iconColor = iconColor;
+    }
+    if (profilePhotoFileId !== undefined) {
+      updateData.profilePhotoFileId = profilePhotoFileId;
     }
 
     // Check if there's anything to update
@@ -153,15 +175,24 @@ async function updateProfile(req, res) {
         displayName: true,
         memberIcon: true,
         iconColor: true,
+        profilePhotoFileId: true,
       },
     });
 
     console.log('[users.controller] User updated successfully:', updatedUser);
 
+    // Construct profile photo URL if photo exists
+    const userResponse = {
+      ...updatedUser,
+      profilePhotoUrl: updatedUser.profilePhotoFileId
+        ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${updatedUser.profilePhotoFileId}`
+        : null
+    };
+
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user: updatedUser,
+      user: userResponse,
     });
   } catch (error) {
     console.error('Update profile error:', error);

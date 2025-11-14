@@ -9,12 +9,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Alert, TouchableOpacity } from 'react-native';
-import { Card, Title, Text, TextInput, Button, Avatar, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Linking, Alert, TouchableOpacity, Image } from 'react-native';
+import { Card, Title, Text, TextInput, Button, Avatar, Divider, ActivityIndicator } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import api from '../../services/api';
-import { STORAGE_KEYS } from '../../config/config';
+import { STORAGE_KEYS, API_BASE_URL } from '../../config/config';
 import ColorPickerModal from '../../components/ColorPickerModal';
+import MediaPicker from '../../components/shared/MediaPicker';
 import { getContrastTextColor } from '../../utils/colorUtils';
 
 /**
@@ -34,10 +35,12 @@ export default function MyAccountScreen({ navigation }) {
   const [displayName, setDisplayName] = useState('');
   const [memberIcon, setMemberIcon] = useState('');
   const [iconColor, setIconColor] = useState('#6200ee');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
   const [email, setEmail] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [error, setError] = useState(null);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     loadAccountInfo();
@@ -60,6 +63,7 @@ export default function MyAccountScreen({ navigation }) {
           setDisplayName(user.displayName || user.email || '');
           setMemberIcon(user.memberIcon || '');
           setIconColor(user.iconColor || '#6200ee');
+          setProfilePhotoUrl(user.profilePhotoUrl || null);
 
           // Update SecureStore cache
           const userDataString = await SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA);
@@ -68,6 +72,7 @@ export default function MyAccountScreen({ navigation }) {
             userData.displayName = user.displayName;
             userData.memberIcon = user.memberIcon;
             userData.iconColor = user.iconColor;
+            userData.profilePhotoUrl = user.profilePhotoUrl;
             await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
           }
         }
@@ -81,6 +86,7 @@ export default function MyAccountScreen({ navigation }) {
           setDisplayName(userData.given_name || userData.displayName || userData.email || '');
           setMemberIcon(userData.memberIcon || '');
           setIconColor(userData.iconColor || '#6200ee');
+          setProfilePhotoUrl(userData.profilePhotoUrl || null);
         }
       }
 
@@ -155,6 +161,114 @@ export default function MyAccountScreen({ navigation }) {
     } catch (err) {
       console.error('Open web admin error:', err);
       Alert.alert('Error', 'Failed to open web admin page');
+    }
+  };
+
+  /**
+   * Handle profile photo upload
+   */
+  const handlePhotoUpload = async (file) => {
+    try {
+      setUploadingPhoto(true);
+      setError(null);
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: file.mimeType,
+        name: file.name,
+      });
+      formData.append('category', 'profiles');
+
+      // Upload file to backend
+      const uploadResponse = await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (uploadResponse.data.success) {
+        const fileId = uploadResponse.data.file.fileId;
+
+        // Update user profile with new photo URL
+        await api.put('/users/profile', {
+          displayName,
+          memberIcon,
+          iconColor,
+          profilePhotoFileId: fileId
+        });
+
+        // Construct the full URL for the photo
+        const photoUrl = `${API_BASE_URL}/files/${fileId}`;
+        setProfilePhotoUrl(photoUrl);
+
+        // Update SecureStore cache
+        const userDataString = await SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA);
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          userData.profilePhotoUrl = photoUrl;
+          await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+        }
+
+        Alert.alert('Success', 'Profile photo uploaded successfully!');
+      }
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      Alert.alert('Error', err.response?.data?.message || 'Failed to upload profile photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  /**
+   * Remove profile photo
+   */
+  const handleRemovePhoto = async () => {
+    try {
+      Alert.alert(
+        'Remove Photo',
+        'Are you sure you want to remove your profile photo?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setUploadingPhoto(true);
+
+                // Update profile to remove photo
+                await api.put('/users/profile', {
+                  displayName,
+                  memberIcon,
+                  iconColor,
+                  profilePhotoFileId: null
+                });
+
+                setProfilePhotoUrl(null);
+
+                // Update SecureStore cache
+                const userDataString = await SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA);
+                if (userDataString) {
+                  const userData = JSON.parse(userDataString);
+                  userData.profilePhotoUrl = null;
+                  await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+                }
+
+                Alert.alert('Success', 'Profile photo removed');
+              } catch (err) {
+                console.error('Remove photo error:', err);
+                Alert.alert('Error', 'Failed to remove profile photo');
+              } finally {
+                setUploadingPhoto(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (err) {
+      console.error('Remove photo error:', err);
     }
   };
 
@@ -235,15 +349,53 @@ export default function MyAccountScreen({ navigation }) {
           <Title>Profile Information</Title>
           <Divider style={styles.divider} />
 
-          <TouchableOpacity style={styles.avatarContainer} onPress={handleOpenColorPicker}>
-            <Avatar.Text
-              size={80}
-              label={memberIcon || displayName?.[0]?.toUpperCase() || email?.[0]?.toUpperCase() || '?'}
-              style={[styles.avatar, { backgroundColor: iconColor }]}
-              color={getContrastTextColor(iconColor)}
-            />
-            <Text style={styles.avatarHint}>Tap to change color</Text>
-          </TouchableOpacity>
+          <View style={styles.avatarContainer}>
+            {uploadingPhoto ? (
+              <View style={styles.uploadingContainer}>
+                <ActivityIndicator size="large" color="#6200ee" />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            ) : profilePhotoUrl ? (
+              <TouchableOpacity onPress={handleRemovePhoto}>
+                <Image
+                  source={{ uri: profilePhotoUrl }}
+                  style={styles.profilePhoto}
+                />
+                <Text style={styles.avatarHint}>Tap to remove photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={handleOpenColorPicker}>
+                <Avatar.Text
+                  size={80}
+                  label={memberIcon || displayName?.[0]?.toUpperCase() || email?.[0]?.toUpperCase() || '?'}
+                  style={[styles.avatar, { backgroundColor: iconColor }]}
+                  color={getContrastTextColor(iconColor)}
+                />
+                <Text style={styles.avatarHint}>Tap to change color</Text>
+              </TouchableOpacity>
+            )}
+
+            {!profilePhotoUrl && !uploadingPhoto && (
+              <View style={styles.photoUploadContainer}>
+                <MediaPicker
+                  onSelect={handlePhotoUpload}
+                  mediaType="photo"
+                  maxSize={5 * 1024 * 1024}
+                  profileIcon={true}
+                  renderTrigger={(onPress) => (
+                    <Button
+                      mode="outlined"
+                      onPress={onPress}
+                      icon="camera"
+                      style={styles.uploadPhotoButton}
+                    >
+                      Add Profile Photo
+                    </Button>
+                  )}
+                />
+              </View>
+            )}
+          </View>
 
           <TextInput
             label="Display Name"
@@ -369,6 +521,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
+  },
+  profilePhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#6200ee',
+  },
+  photoUploadContainer: {
+    marginTop: 12,
+    width: '100%',
+  },
+  uploadPhotoButton: {
+    borderColor: '#6200ee',
+  },
+  uploadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  uploadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   input: {
     marginBottom: 12,
