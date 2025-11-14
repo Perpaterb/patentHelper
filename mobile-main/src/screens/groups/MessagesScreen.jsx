@@ -53,8 +53,6 @@ export default function MessagesScreen({ navigation, route }) {
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [showScrollButton, setShowScrollButton] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -75,6 +73,20 @@ export default function MessagesScreen({ navigation, route }) {
       }, 100);
     }
   }, [messages.length]);
+
+  // Add scroll to bottom button in header
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton
+          icon="arrow-down"
+          size={24}
+          onPress={() => scrollToBottom(true)}
+          style={{ marginRight: 8 }}
+        />
+      ),
+    });
+  }, [navigation]);
 
   /**
    * Load message group information
@@ -289,19 +301,6 @@ export default function MessagesScreen({ navigation, route }) {
     } else {
       setShowVideoPlayer(true);
     }
-  };
-
-  /**
-   * Handle scroll events to detect if user is at bottom
-   */
-  const handleScroll = (event) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-
-    // Consider "at bottom" if within 50 pixels of the bottom
-    const atBottom = distanceFromBottom < 50;
-    setIsAtBottom(atBottom);
-    setShowScrollButton(!atBottom);
   };
 
   /**
@@ -892,22 +891,8 @@ export default function MessagesScreen({ navigation, route }) {
         contentContainerStyle={styles.messagesList}
         ListHeaderComponent={renderLoadMore}
         ListEmptyComponent={renderEmptyState}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
       />
 
-      {/* Scroll to bottom button */}
-      {showScrollButton && (
-        <TouchableOpacity
-          style={styles.scrollToBottomButton}
-          onPress={() => scrollToBottom(true)}
-        >
-          <View style={styles.scrollToBottomIcon}>
-            {/* Down arrow */}
-            <View style={styles.arrowDown} />
-          </View>
-        </TouchableOpacity>
-      )}
 
       {renderMentionPicker()}
       {renderMessageMenu()}
@@ -1260,37 +1245,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6200ee',
     fontWeight: '600',
-  },
-  scrollToBottomButton: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#6200ee',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  scrollToBottomIcon: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowDown: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#ffffff',
   },
 });
