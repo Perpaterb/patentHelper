@@ -81,8 +81,16 @@ Admins need tools to manage their storage and avoid overage charges. The Storage
 5. **Safety Features:**
    - **Audit log exports are PROTECTED** - cannot be deleted via cleanup tool
    - Files associated with active finance matters show warning: "This file is part of an active payment dispute"
-   - Confirmation dialog before deletion: "Are you sure? This will permanently delete X files (YMB)"
-   - Deleted files removed from S3 immediately (no soft delete for storage optimization)
+   - **CRITICAL: Multi-Admin Approval Required** - File deletion requires >50% admin approval
+   - Warning modal with MULTIPLE confirmations before initiating approval request
+   - Approval workflow:
+     - Admin requests deletion → Other admins vote → >50% approval → 24hr grace period → Hard delete
+     - Soft delete first (isHidden = true), wait 24 hours, then permanently delete from filesystem
+     - Audit logs and filenames preserved forever (only file content deleted)
+     - Storage recalculated for ALL admins after hard delete
+   - Confirmation dialog shows: "Are you sure? This requires approval from >50% of admins. Once approved and 24 hours pass, X files (YMB) will be PERMANENTLY deleted. This CANNOT be undone."
+   - Items referencing deleted files show: "🗑️ File deleted (filename.jpg)"
+   - **Web App Only**: File deletion ONLY available in web-admin Storage Management page (NOT in mobile apps)
 
 6. **Recommendations Engine:**
    - "You have 45 images over 5MB. Consider compressing or deleting."

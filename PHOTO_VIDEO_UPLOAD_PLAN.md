@@ -172,6 +172,143 @@ import * as DocumentPicker from 'expo-document-picker';
 }
 ```
 
+#### 8. Admin File Deletion (Web App Only - Future Implementation)
+
+**CRITICAL REQUIREMENT**: Admins need the ability to delete files to free up storage quota.
+
+**Business Rules**:
+- **Web App Only**: File deletion ONLY available in web-admin app Storage Management page
+- **Mobile Apps**: NO file deletion capability (prevents accidental deletions)
+- **Approval Required**: Deleting files requires >50% admin approval
+- **Permanent Deletion**: Once approved, file content is PERMANENTLY deleted (hard delete)
+- **Audit Trail Preserved**: Audit logs and filename remain forever, but file content is gone
+- **Multiple Warnings**: Show MULTIPLE warnings before initiating approval request
+
+**Approval Workflow**:
+1. Admin navigates to Storage Management page in web-admin app
+2. Views list of all files in their groups (filterable by group, category, date, size)
+3. Selects file(s) to delete
+4. System shows warning modal:
+   ```
+   ⚠️ WARNING: Permanent File Deletion
+
+   You are about to request deletion of:
+   - filename.jpg (1.2MB) uploaded on 2025-01-15
+   - video.mp4 (45.6MB) uploaded on 2025-01-20
+
+   IMPORTANT:
+   - This requires approval from >50% of group admins
+   - Once approved, file content will be PERMANENTLY deleted
+   - Only audit logs and filenames will remain
+   - This action CANNOT be undone
+   - Any messages/items referencing these files will show "File deleted"
+
+   Storage to be freed: 46.8MB
+
+   Continue with deletion request?
+   [Cancel] [Request Approval]
+   ```
+5. If admin confirms, create approval record:
+   ```javascript
+   {
+     action: 'delete_files',
+     requestedBy: adminGroupMemberId,
+     groupId: uuid,
+     approvalType: 'majority', // >50%
+     metadata: {
+       fileIds: [uuid1, uuid2],
+       fileNames: ['filename.jpg', 'video.mp4'],
+       totalSize: 48988160, // bytes
+       category: 'messages',
+       storageToFree: '46.8MB'
+     }
+   }
+   ```
+6. Other admins receive notification: "Admin [Name] has requested to delete 2 files (46.8MB) from [Group Name]. Review and vote."
+7. Once >50% approval threshold met:
+   - Update file metadata to `isHidden: true` (soft delete first)
+   - Create audit log: `action: 'delete_file_approved'`
+   - Wait 24 hours (grace period for accidental approvals)
+   - After 24 hours, HARD DELETE file from filesystem
+   - Update storage_usage table for all admins (decrement totalBytes and fileCount)
+   - Update users.storageUsedBytes for all admins
+   - Send email to all admins: "Files deleted successfully. Storage freed: 46.8MB"
+   - Create final audit log: `action: 'delete_file_completed'`
+
+**Audit Logs for File Deletion**:
+```javascript
+// Request created
+{
+  action: 'delete_files_requested',
+  performedBy: adminGroupMemberId,
+  metadata: {
+    fileIds: [uuid1, uuid2],
+    fileNames: ['filename.jpg', 'video.mp4'],
+    totalSize: 48988160,
+    approvalId: uuid
+  }
+}
+
+// Approval votes
+{
+  action: 'delete_files_vote',
+  performedBy: adminGroupMemberId,
+  metadata: {
+    approvalId: uuid,
+    vote: 'approve' | 'reject',
+    fileCount: 2
+  }
+}
+
+// Approval threshold met (soft delete)
+{
+  action: 'delete_files_approved',
+  performedBy: 'system',
+  metadata: {
+    fileIds: [uuid1, uuid2],
+    fileNames: ['filename.jpg', 'video.mp4'],
+    approvedBy: [admin1, admin2, admin3],
+    gracePeriodEnds: '2025-01-16T12:00:00Z'
+  }
+}
+
+// Hard delete completed
+{
+  action: 'delete_files_completed',
+  performedBy: 'system',
+  metadata: {
+    fileIds: [uuid1, uuid2],
+    fileNames: ['filename.jpg', 'video.mp4'], // Names preserved forever
+    totalSize: 48988160,
+    storageFreed: '46.8MB',
+    chargedToAdmins: [userId1, userId2] // Admins whose storage was decremented
+  }
+}
+```
+
+**UI/UX Considerations**:
+- Storage Management page shows storage breakdown by group and category
+- Files shown with: filename, size, category, upload date, uploaded by
+- Search/filter by: group, category, date range, file type, uploader
+- Batch selection for multiple file deletion
+- Show preview of file before deletion request (if image/video)
+- "Storage Impact" calculator: shows how much storage will be freed
+- After deletion, items referencing deleted files show: "🗑️ File deleted (filename.jpg)"
+
+**Database Schema Updates** (Future):
+```sql
+-- Track hard deletes separately from soft deletes
+ALTER TABLE file_metadata ADD COLUMN hard_deleted_at TIMESTAMP;
+ALTER TABLE file_metadata ADD COLUMN deletion_approval_id UUID REFERENCES approvals(approval_id);
+```
+
+**Implementation Notes**:
+- This feature is NOT part of initial mobile app implementation
+- Web-admin app only (subscriptions and storage management happen on web)
+- Requires approval system to be fully implemented first
+- 24-hour grace period prevents immediate irreversible deletion
+- Audit logs ensure complete paper trail for compliance
+
 ## Implementation Order
 
 ### Phase 1: Database & Storage Service (Week 1)
@@ -222,6 +359,46 @@ import * as DocumentPicker from 'expo-document-picker';
 4. ✅ Test quota enforcement
 5. ✅ Test file deletion and storage recalculation
 6. ✅ Test audit logs
+
+### Phase 8: Storage Management (Web App - Future)
+**NOTE:** This phase is for web-admin app ONLY, NOT mobile apps.
+
+1. ⏳ Create Storage Management page in web-admin
+   - Show storage breakdown by group and category
+   - Display all files with metadata (name, size, date, uploader)
+   - Search/filter by group, category, date range, file type, uploader
+   - Show storage usage vs. quota for each group
+
+2. ⏳ Implement file deletion with approval workflow
+   - Batch file selection UI
+   - Warning modal with multiple confirmations
+   - Create approval request (>50% admin approval required)
+   - Notification system for other admins to vote
+   - 24-hour grace period after approval before hard delete
+
+3. ⏳ Implement hard delete process
+   - Soft delete first (isHidden = true)
+   - Wait 24 hours (grace period)
+   - Hard delete file from filesystem
+   - Update storage_usage table for all admins (decrement)
+   - Update users.storageUsedBytes for all admins
+   - Send confirmation email to all admins
+
+4. ⏳ Add database schema updates
+   - Add hard_deleted_at timestamp to file metadata
+   - Add deletion_approval_id foreign key
+
+5. ⏳ Create comprehensive audit logging
+   - Log deletion request
+   - Log all approval votes
+   - Log approval threshold met
+   - Log hard delete completion
+   - Preserve filename in audit logs forever
+
+6. ⏳ Update UI to handle deleted files
+   - Messages with deleted files show: "🗑️ File deleted (filename.jpg)"
+   - Gift registry items with deleted photos show placeholder
+   - Audit logs always show filename even after deletion
 
 ## File Size Limits
 - **Images:** 10MB max (compressed before upload)

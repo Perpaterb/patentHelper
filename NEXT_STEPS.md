@@ -492,9 +492,64 @@ Currently working on: **Swipeable Month View - COMPLETED (Basic)**
 - Toggle button text can highlight on some devices (removed background styling to fix)
 - Time component must be preserved when changing dates in Day view
 
+## Photo/Video Upload Implementation (In Progress)
+
+### Current Status (2025-11-14)
+Currently working on: **Photo/Video Upload System - Backend Complete**
+
+**Just completed:**
+- ✅ Implemented admin storage tracking in localStorageService
+  - Tracks storage against ALL admins in group (not just uploader)
+  - Updates storage_usage table per user+group+mediaType
+  - Updates users.storageUsedBytes for billing
+  - Returns chargedAdminIds for audit logging
+- ✅ Updated file upload endpoints with authentication
+  - Added requireAuth middleware to upload routes
+  - Group membership validation
+  - File size limits per category (5MB-100MB)
+  - Expanded category support (gift-registry, wiki, item-registry)
+- ✅ Implemented audit logging for all uploads
+  - Logs file details and charged admin names
+  - Complete paper trail for compliance
+
+**Next tasks:**
+- [ ] Create mobile MediaPicker component (Expo ImagePicker)
+- [ ] Integrate photo upload into Messages
+- [ ] Integrate photo upload into Gift Registry items
+- [ ] Integrate photo upload into User Profile (My Account)
+- [ ] Test upload functionality in mobile app
+
+### Future: Admin File Deletion (Web App Only)
+
+**CRITICAL REQUIREMENT**: Admins need ability to delete files to free storage quota.
+
+**Key Business Rules**:
+- **Web App Only**: File deletion ONLY in web-admin Storage Management page
+- **Mobile Apps**: NO deletion capability (prevents accidents)
+- **Approval Required**: >50% admin approval needed
+- **24-Hour Grace Period**: Soft delete → wait 24hrs → hard delete
+- **Permanent Deletion**: File content permanently deleted (not recoverable)
+- **Audit Trail**: Filenames preserved in audit logs forever
+- **Multiple Warnings**: Show MULTIPLE warnings before requesting approval
+
+**Implementation Details**:
+See `PHOTO_VIDEO_UPLOAD_PLAN.md` Section 8 for complete specification:
+- Approval workflow (request → vote → soft delete → grace period → hard delete)
+- Storage recalculation (decrement for all admins)
+- UI/UX considerations (batch selection, preview, impact calculator)
+- Database schema updates (hard_deleted_at, deletion_approval_id)
+- Comprehensive audit logging (5 separate log entries per deletion)
+- UI updates for deleted files ("🗑️ File deleted (filename.jpg)")
+
+**Dependencies**:
+- Requires approval system fully implemented
+- Web-admin Storage Management page
+- Email notification system
+- Scheduled task system (for 24hr grace period)
+
 ## Next Session Priorities
 
-1. Test and refine Day view scrolling mechanics
-2. Implement real-time datetime display updates during swipe
-3. Connect to backend API for event data
-4. Add event creation functionality
+1. Create MediaPicker component for mobile photo/video selection
+2. Integrate upload functionality into Messages screen
+3. Integrate upload functionality into Gift Registry items
+4. Test upload flow end-to-end on real device
