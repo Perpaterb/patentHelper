@@ -30,12 +30,12 @@ class LocalStorageService extends StorageInterface {
    * Upload a file to local filesystem
    * @param {Buffer} fileBuffer - File data buffer
    * @param {Object} options - Upload options
-   * @param {string} options.category - File category (messages, calendar, finance, profiles)
+   * @param {string} options.category - File category (messages, calendar, finance, profiles, gift-registry, wiki, item-registry)
    * @param {string} options.userId - User ID
    * @param {string} options.originalName - Original filename
    * @param {string} options.mimeType - MIME type
    * @param {number} options.size - File size in bytes
-   * @param {string} [options.groupId] - Optional group ID
+   * @param {string} [options.groupId] - Optional group ID (required for group-related uploads)
    * @returns {Promise<Object>} File metadata
    */
   async uploadFile(fileBuffer, options) {
@@ -77,13 +77,14 @@ class LocalStorageService extends StorageInterface {
       // Write metadata file
       await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
 
-      // Update storage usage
-      await this._updateStorageUsage(userId, size);
+      // Update storage usage - tracks against ALL admins if group-related
+      const chargedAdminIds = await this._updateStorageUsage(userId, size, groupId, mimeType);
 
-      // Return metadata
+      // Return metadata with charged admin IDs for audit logging
       return {
         ...metadata,
-        url: `/files/${fileId}`
+        url: `/files/${fileId}`,
+        chargedAdminIds: chargedAdminIds
       };
     } catch (error) {
       console.error('File upload error:', error);
@@ -99,7 +100,7 @@ class LocalStorageService extends StorageInterface {
   async getFileMetadata(fileId) {
     try {
       // Find metadata file by searching all category directories
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'temp'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'temp'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
@@ -172,7 +173,7 @@ class LocalStorageService extends StorageInterface {
       metadata.isHidden = true;
 
       // Find and update the metadata file
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'temp'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'temp'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
@@ -211,7 +212,7 @@ class LocalStorageService extends StorageInterface {
       // TODO: Implement proper storage usage tracking with groups and media types
       // Storage is tracked per userId + groupId + mediaType in database schema
       // For now, calculate by scanning metadata files
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'temp'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'temp'];
       let totalBytes = 0;
 
       for (const category of categories) {
@@ -249,15 +250,111 @@ class LocalStorageService extends StorageInterface {
 
   /**
    * Update storage usage for a user
+   * CRITICAL: For group-related uploads, this updates storage for ALL admins in the group
    * @private
-   * @param {string} userId - User ID
+   * @param {string} userId - User ID of uploader
    * @param {number} sizeBytes - Size to add in bytes
+   * @param {string} [groupId] - Optional group ID (required for group-related uploads)
+   * @param {string} [mimeType] - Optional MIME type for media type categorization
+   * @returns {Promise<Array<string>>} Array of admin user IDs charged for this upload
    */
-  async _updateStorageUsage(userId, sizeBytes) {
-    // TODO: Implement database storage tracking when groups are implemented
-    // Storage is tracked per userId + groupId + mediaType in the database
-    // For now, storage usage is calculated on-demand by scanning files
-    console.log(`Storage updated for user ${userId}: +${sizeBytes} bytes`);
+  async _updateStorageUsage(userId, sizeBytes, groupId = null, mimeType = null) {
+    try {
+      const chargedAdminIds = [];
+
+      // Determine media type from MIME type
+      const mediaType = this._getMediaType(mimeType);
+
+      if (groupId) {
+        // For group-related uploads, charge ALL admins in the group
+        const admins = await prisma.groupMember.findMany({
+          where: {
+            groupId: groupId,
+            role: 'admin',
+          },
+          include: {
+            user: true,
+          },
+        });
+
+        // Update storage_usage for each admin
+        for (const admin of admins) {
+          if (!admin.userId) {
+            // Skip placeholder members (unregistered admins shouldn't exist, but skip if they do)
+            continue;
+          }
+
+          // Upsert storage_usage record
+          await prisma.storageUsage.upsert({
+            where: {
+              userId_groupId_mediaType: {
+                userId: admin.userId,
+                groupId: groupId,
+                mediaType: mediaType,
+              },
+            },
+            update: {
+              fileCount: { increment: 1 },
+              totalBytes: { increment: BigInt(sizeBytes) },
+              lastCalculatedAt: new Date(),
+            },
+            create: {
+              userId: admin.userId,
+              groupId: groupId,
+              mediaType: mediaType,
+              fileCount: 1,
+              totalBytes: BigInt(sizeBytes),
+            },
+          });
+
+          // Update user's total storage usage
+          await prisma.user.update({
+            where: { userId: admin.userId },
+            data: {
+              storageUsedBytes: { increment: BigInt(sizeBytes) },
+            },
+          });
+
+          chargedAdminIds.push(admin.userId);
+        }
+
+        console.log(
+          `Storage updated for group ${groupId}: +${sizeBytes} bytes charged to ${chargedAdminIds.length} admin(s)`
+        );
+      } else {
+        // For non-group uploads (e.g., profile photos), charge only the uploader
+        await prisma.user.update({
+          where: { userId: userId },
+          data: {
+            storageUsedBytes: { increment: BigInt(sizeBytes) },
+          },
+        });
+
+        chargedAdminIds.push(userId);
+        console.log(`Storage updated for user ${userId}: +${sizeBytes} bytes`);
+      }
+
+      return chargedAdminIds;
+    } catch (error) {
+      console.error('Update storage usage error:', error);
+      throw new Error(`Failed to update storage usage: ${error.message}`);
+    }
+  }
+
+  /**
+   * Determine media type from MIME type
+   * @private
+   * @param {string} mimeType - MIME type
+   * @returns {string} Media type (image, video, document, log)
+   */
+  _getMediaType(mimeType) {
+    if (!mimeType) return 'document';
+
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('application/pdf') || mimeType.includes('document')) return 'document';
+
+    return 'document';
   }
 }
 

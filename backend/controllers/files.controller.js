@@ -14,6 +14,8 @@ const { prisma } = require('../config/database');
  * Upload a single file
  * POST /files/upload
  *
+ * Requires authentication. File storage is charged to ALL admins of the group.
+ *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
  */
@@ -30,16 +32,51 @@ async function uploadFile(req, res) {
     // Extract metadata from request
     const { category = 'messages', groupId } = req.body;
 
-    // TODO: Get userId from authenticated session (Phase 1, Week 2)
-    // For now, use a placeholder
-    const userId = req.body.userId || 'test-user-id';
+    // Get userId from authenticated session
+    const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
         message: `Category must be one of: ${validCategories.join(', ')}`
+      });
+    }
+
+    // For group-related uploads, verify user is a member of the group
+    if (groupId) {
+      const membership = await prisma.groupMember.findFirst({
+        where: {
+          userId: userId,
+          groupId: groupId,
+        },
+      });
+
+      if (!membership) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not a member of this group'
+        });
+      }
+    }
+
+    // Validate file size limits
+    const maxSizes = {
+      'profiles': 5 * 1024 * 1024,      // 5MB for profile icons
+      'messages': 100 * 1024 * 1024,    // 100MB for messages (videos)
+      'calendar': 100 * 1024 * 1024,
+      'finance': 25 * 1024 * 1024,      // 25MB for documents
+      'gift-registry': 10 * 1024 * 1024, // 10MB for images
+      'wiki': 25 * 1024 * 1024,
+      'item-registry': 10 * 1024 * 1024,
+    };
+
+    const maxSize = maxSizes[category] || 10 * 1024 * 1024;
+    if (req.file.size > maxSize) {
+      return res.status(400).json({
+        error: 'File too large',
+        message: `File size exceeds ${(maxSize / (1024 * 1024)).toFixed(0)}MB limit for ${category}`
       });
     }
 
@@ -53,14 +90,57 @@ async function uploadFile(req, res) {
       groupId: groupId || null
     };
 
-    // Upload file using storage service
+    // Upload file using storage service (tracks storage against all admins)
     const fileMetadata = await storageService.uploadFile(req.file.buffer, uploadOptions);
 
-    // Return success response
+    // Create audit log if group-related upload
+    if (groupId && fileMetadata.chargedAdminIds && fileMetadata.chargedAdminIds.length > 0) {
+      const membership = await prisma.groupMember.findFirst({
+        where: { userId: userId, groupId: groupId },
+        include: { user: true }
+      });
+
+      // Get admin names for audit log
+      const admins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          userId: { in: fileMetadata.chargedAdminIds }
+        },
+        include: { user: true }
+      });
+
+      const adminNames = admins.map(a => a.user?.displayName || a.displayName).join(', ');
+      const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'upload_file',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.user?.displayName || membership.displayName,
+          performedByEmail: membership.user?.email || 'N/A',
+          actionLocation: category,
+          messageContent: `Uploaded ${req.file.originalname} (${fileSizeMB}MB) - Charged to admins: ${adminNames}`,
+          metadata: {
+            fileId: fileMetadata.fileId,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            mimeType: req.file.mimetype,
+            category: category,
+            groupId: groupId,
+            chargedToAdmins: fileMetadata.chargedAdminIds,
+          }
+        }
+      });
+    }
+
+    // Return success response (exclude chargedAdminIds from client response)
+    const { chargedAdminIds, ...clientMetadata } = fileMetadata;
     res.status(201).json({
       success: true,
       message: 'File uploaded successfully',
-      file: fileMetadata
+      file: clientMetadata
     });
 
   } catch (error) {
@@ -75,6 +155,8 @@ async function uploadFile(req, res) {
 /**
  * Upload multiple files
  * POST /files/upload-multiple
+ *
+ * Requires authentication. File storage is charged to ALL admins of the group.
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -91,15 +173,55 @@ async function uploadMultipleFiles(req, res) {
 
     // Extract metadata from request
     const { category = 'messages', groupId } = req.body;
-    const userId = req.body.userId || 'test-user-id';
+    const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
         message: `Category must be one of: ${validCategories.join(', ')}`
       });
+    }
+
+    // For group-related uploads, verify user is a member of the group
+    if (groupId) {
+      const membership = await prisma.groupMember.findFirst({
+        where: {
+          userId: userId,
+          groupId: groupId,
+        },
+      });
+
+      if (!membership) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not a member of this group'
+        });
+      }
+    }
+
+    // Validate file size limits
+    const maxSizes = {
+      'profiles': 5 * 1024 * 1024,
+      'messages': 100 * 1024 * 1024,
+      'calendar': 100 * 1024 * 1024,
+      'finance': 25 * 1024 * 1024,
+      'gift-registry': 10 * 1024 * 1024,
+      'wiki': 25 * 1024 * 1024,
+      'item-registry': 10 * 1024 * 1024,
+    };
+
+    const maxSize = maxSizes[category] || 10 * 1024 * 1024;
+
+    // Validate all file sizes before uploading
+    for (const file of req.files) {
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          error: 'File too large',
+          message: `File "${file.originalname}" exceeds ${(maxSize / (1024 * 1024)).toFixed(0)}MB limit for ${category}`
+        });
+      }
     }
 
     // Upload all files
@@ -117,11 +239,54 @@ async function uploadMultipleFiles(req, res) {
 
     const uploadedFiles = await Promise.all(uploadPromises);
 
-    // Return success response
+    // Create audit log if group-related upload
+    if (groupId && uploadedFiles.length > 0) {
+      const membership = await prisma.groupMember.findFirst({
+        where: { userId: userId, groupId: groupId },
+        include: { user: true }
+      });
+
+      const chargedAdminIds = uploadedFiles[0].chargedAdminIds || [];
+      const admins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          userId: { in: chargedAdminIds }
+        },
+        include: { user: true }
+      });
+
+      const adminNames = admins.map(a => a.user?.displayName || a.displayName).join(', ');
+      const totalSizeMB = (uploadedFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2);
+      const fileNames = uploadedFiles.map(f => f.originalName).join(', ');
+
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'upload_files',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.user?.displayName || membership.displayName,
+          performedByEmail: membership.user?.email || 'N/A',
+          actionLocation: category,
+          messageContent: `Uploaded ${uploadedFiles.length} files (${totalSizeMB}MB total) - Charged to admins: ${adminNames}`,
+          metadata: {
+            fileIds: uploadedFiles.map(f => f.fileId),
+            fileNames: uploadedFiles.map(f => f.originalName),
+            totalSize: uploadedFiles.reduce((sum, f) => sum + f.size, 0),
+            category: category,
+            groupId: groupId,
+            chargedToAdmins: chargedAdminIds,
+          }
+        }
+      });
+    }
+
+    // Return success response (exclude chargedAdminIds from client response)
+    const clientFiles = uploadedFiles.map(({ chargedAdminIds, ...file }) => file);
     res.status(201).json({
       success: true,
       message: `${uploadedFiles.length} files uploaded successfully`,
-      files: uploadedFiles
+      files: clientFiles
     });
 
   } catch (error) {
