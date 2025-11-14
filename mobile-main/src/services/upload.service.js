@@ -6,7 +6,7 @@
  */
 
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const API_BASE_URL = 'http://localhost:3000'; // Update for production
 
@@ -21,8 +21,8 @@ const API_BASE_URL = 'http://localhost:3000'; // Update for production
  */
 export const uploadFile = async (file, category, groupId = null, onProgress = null) => {
   try {
-    // Get authentication token
-    const token = await AsyncStorage.getItem('authToken');
+    // Get authentication token from secure storage (same as api.js)
+    const token = await SecureStore.getItemAsync('accessToken');
     if (!token) {
       throw new Error('Authentication required. Please log in again.');
     }
@@ -84,8 +84,8 @@ export const uploadFile = async (file, category, groupId = null, onProgress = nu
  */
 export const uploadMultipleFiles = async (files, category, groupId = null, onProgress = null) => {
   try {
-    // Get authentication token
-    const token = await AsyncStorage.getItem('authToken');
+    // Get authentication token from secure storage (same as api.js)
+    const token = await SecureStore.getItemAsync('accessToken');
     if (!token) {
       throw new Error('Authentication required. Please log in again.');
     }
