@@ -234,6 +234,16 @@ async function getMessageGroupMessages(req, res) {
             },
           },
         },
+        media: {
+          select: {
+            mediaId: true,
+            mediaType: true,
+            url: true,
+            thumbnailUrl: true,
+            fileSizeBytes: true,
+            uploadedAt: true,
+          },
+        },
       },
     };
 
@@ -303,7 +313,7 @@ async function sendMessageGroupMessage(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId, messageGroupId } = req.params;
-    const { content, mentions } = req.body;
+    const { content, mentions, mediaFileIds } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -379,10 +389,40 @@ async function sendMessageGroupMessage(req, res) {
       validMentions = messageGroupMembers.map(m => m.groupMemberId);
     }
 
+    // Validate media files if provided
+    let mediaFiles = [];
+    if (mediaFileIds && Array.isArray(mediaFileIds) && mediaFileIds.length > 0) {
+      // Verify all media files exist and belong to this user/group
+      mediaFiles = await prisma.uploadedFile.findMany({
+        where: {
+          fileId: {
+            in: mediaFileIds,
+          },
+          uploadedBy: userId,
+          groupId: groupId,
+          category: 'messages',
+        },
+        select: {
+          fileId: true,
+          mimeType: true,
+          s3Key: true,
+          fileSizeBytes: true,
+        },
+      });
+
+      // Ensure all provided fileIds were found
+      if (mediaFiles.length !== mediaFileIds.length) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Some media files were not found or do not belong to you',
+        });
+      }
+    }
+
     // Encrypt message content before storing
     const encryptedContent = encryptionService.encrypt(content.trim());
 
-    // Create the message
+    // Create the message with media
     const message = await prisma.message.create({
       data: {
         messageGroup: {
@@ -397,6 +437,14 @@ async function sendMessageGroupMessage(req, res) {
         },
         content: encryptedContent, // Store encrypted content
         mentions: validMentions,
+        media: {
+          create: mediaFiles.map(file => ({
+            mediaType: file.mimeType.startsWith('image/') ? 'image' : 'video',
+            s3Key: file.s3Key,
+            url: file.fileId, // Store fileId as URL for retrieval
+            fileSizeBytes: file.fileSizeBytes,
+          })),
+        },
       },
       include: {
         sender: {
@@ -413,6 +461,16 @@ async function sendMessageGroupMessage(req, res) {
                 iconColor: true,
               },
             },
+          },
+        },
+        media: {
+          select: {
+            mediaId: true,
+            mediaType: true,
+            url: true,
+            thumbnailUrl: true,
+            fileSizeBytes: true,
+            uploadedAt: true,
           },
         },
       },
