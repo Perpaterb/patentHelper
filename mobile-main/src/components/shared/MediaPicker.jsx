@@ -145,6 +145,7 @@ const MediaPicker = ({
 
     try {
       const selectedAssets = allowMultiple ? result.assets : [result.assets[0]];
+      const processedFiles = [];
 
       for (const asset of selectedAssets) {
         let finalUri = asset.uri;
@@ -188,7 +189,7 @@ const MediaPicker = ({
         const ext = asset.uri.split('.').pop() || (asset.type === 'image' ? 'jpg' : 'mp4');
         const fileName = `${asset.type}_${timestamp}.${ext}`;
 
-        // Return file object
+        // Create file object
         const file = {
           uri: finalUri,
           type: asset.type,
@@ -197,7 +198,16 @@ const MediaPicker = ({
           mimeType: mimeType,
         };
 
-        onSelect(file);
+        processedFiles.push(file);
+      }
+
+      // Call onSelect with array if allowMultiple, otherwise with single file
+      if (processedFiles.length > 0) {
+        if (allowMultiple) {
+          onSelect(processedFiles);
+        } else {
+          onSelect(processedFiles[0]);
+        }
       }
     } catch (error) {
       console.error('Process media error:', error);
