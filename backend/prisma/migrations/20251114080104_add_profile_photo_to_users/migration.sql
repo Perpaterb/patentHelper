@@ -1,1 +1,2 @@
--- This is an empty migration.
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "profile_photo_file_id" UUID;
