@@ -1,9 +1,9 @@
-# Parenting Helper App - Technical Planning Document
+# Family Helper App - Technical Planning Document
 
 
 ## 1. Overview
 
-A cross-platform parenting and co-parenting helper application designed to facilitate communication, scheduling, and financial coordination between parents, children, caregivers, and supervisors. The app provides three core functionalities: messaging, calendar management, and financial tracking, with comprehensive logging and approval systems for administrative oversight.
+A cross-platform family and co-parenting helper application designed to facilitate communication, scheduling, and financial coordination between parents, children, caregivers, and supervisors. The app provides three core functionalities: messaging, calendar management, and financial tracking, with comprehensive logging and approval systems for administrative oversight.
 
 **Key Features:**
 - Role-based group management (Admin, Parent, Child, Caregiver, Supervisor)
@@ -27,12 +27,12 @@ A cross-platform parenting and co-parenting helper application designed to facil
 - Android (React Native) - Full app on Android devices
 
 **3 Products, 1 Backend Architecture (KISS Principle):**
-1. **Parenting Helper Web App** (parentinghelperapp.com)
+1. **Family Helper Web App** (familyhelperapp.com)
    - Full-featured app (messaging, calendar, finance, gift registry, etc.)
    - Admin subscription management page (billing, payment methods, storage usage)
    - Built with React
-2. **Parenting Helper Mobile App** - Full features (same as web, optimized for mobile)
-3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
+2. **Family Helper Mobile App** - Full features (same as web, optimized for mobile)
+3. **FH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
 - **Subscription Model**: $4/month per admin, 20-day free trial
@@ -47,7 +47,7 @@ A cross-platform parenting and co-parenting helper application designed to facil
 
 ## 1.5. App Navigation Hierarchies
 
-### Parenting Helper Web App - `web-app/`
+### Family Helper Web App - `web-app/`
 
 **IMPORTANT**: Full-featured web application with ALL features (Messages, Calendar, Finance, Gift Registry, etc.).
 
@@ -92,7 +92,7 @@ Individual Group (Group Dashboard/Overview)
 - Can be used on desktop/laptop browsers
 - Same navigation hierarchy as mobile app
 
-### Parenting Helper (Full Mobile App) - `mobile-main/`
+### Family Helper (Full Mobile App) - `mobile-main/`
 
 **IMPORTANT**: This is the FULL app with ALL features (Messages, Calendar, Finance).
 
@@ -128,7 +128,7 @@ Individual Group (Group Dashboard/Overview)
 - Messages section has its own Message Groups List
 - Each feature (Messages/Calendar/Finance) is a separate section within a Group
 
-### PH Messenger (Messaging-Only App) - `mobile-messenger/`
+### FH Messenger (Messaging-Only App) - `mobile-messenger/`
 
 **IMPORTANT**: This is the SIMPLIFIED messaging-only app.
 
@@ -202,7 +202,7 @@ If true:
 #### Mobile Apps (2 Apps)
 - **React Native with Expo**
   - **Justification**: Cross-platform development, single codebase for iOS/Android, cloud builds (no Xcode/Android Studio required), large ecosystem, excellent for MVP development speed
-  - **Two Apps**: Main app (Parenting Helper) + Companion app (PH Messenger)
+  - **Two Apps**: Main app (Family Helper) + Companion app (FH Messenger)
 - **React Navigation**
   - **Justification**: Standard routing solution for React Native apps with native gestures support
 - **State Management**: Redux Toolkit
@@ -210,7 +210,7 @@ If true:
 - **UI Components**: React Native Paper / Native Base
   - **Justification**: Pre-built, accessible components that speed up development
 - **Biometric Auth**: Expo Local Authentication
-  - **Justification**: Face ID/Touch ID for PH Messenger quick access
+  - **Justification**: Face ID/Touch ID for FH Messenger quick access
 - **Google OAuth**: `@react-native-google-signin/google-signin`
   - **Justification**: Handle Google Drive OAuth flow on mobile
 
@@ -338,7 +338,7 @@ patentHelper/
 │   ├── package.json
 │   └── README.md
 │
-├── mobile-main/                     # Parenting Helper (Main App) - BUILT SECOND
+├── mobile-main/                     # Family Helper (Main App) - BUILT SECOND
 │   ├── src/
 │   │   ├── components/              # Reusable UI components
 │   │   │   ├── common/              # Generic components (buttons, inputs, etc.)
@@ -421,7 +421,7 @@ patentHelper/
 │   ├── .prettierrc.js
 │   └── package.json
 │
-├── mobile-messenger/                # PH Messenger (Companion App) - BUILT THIRD
+├── mobile-messenger/                # FH Messenger (Companion App) - BUILT THIRD
 │   ├── src/
 │   │   ├── components/              # Shared messaging components
 │   │   │   └── messaging/           # Message components (reused from main app)
@@ -1896,7 +1896,7 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 - Log export functionality
 - My Account page
 - Email notifications for billing/storage
-- Testing and deployment to parentinghelperapp.com
+- Testing and deployment to familyhelperapp.com
 
 #### Phase 3: Mobile - Main App Foundation (Weeks 7-10)
 - **After web app is complete**
@@ -1916,7 +1916,7 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 - Admin permissions matrix
 - Full audit logging
 
-#### Phase 5: Mobile - PH Messenger App (Weeks 17-18)
+#### Phase 5: Mobile - FH Messenger App (Weeks 17-18)
 - **After main mobile app is complete**
 - Lightweight messaging-only app
 - Biometric authentication

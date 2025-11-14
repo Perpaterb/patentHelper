@@ -2,19 +2,19 @@
 
 This platform consists of 3 separate products sharing one backend:
 
-1. **Admin Web App** (parentinghelperapp.com) - React web application
+1. **Admin Web App** (familyhelperapp.com) - React web application
    - Subscription management & payments (Stripe)
    - Storage upgrades & billing
    - Log exports
    - My Account management
    - BUILT FIRST (no payments in mobile apps)
 
-2. **Parenting Helper Mobile App** - React Native (iOS + Android)
+2. **Family Helper Mobile App** - React Native (iOS + Android)
    - Full features: messaging, calendar, finance, admin
    - NO payment features (links to web app for subscriptions)
    - BUILT SECOND (after web app)
 
-3. **PH Messenger Mobile App** - React Native (iOS + Android)
+3. **FH Messenger Mobile App** - React Native (iOS + Android)
    - Messaging only, biometric auth
    - For children and restricted devices
    - BUILT THIRD (after main app)

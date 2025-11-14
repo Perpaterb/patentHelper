@@ -374,7 +374,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
               <View style={styles.webTokenSection}>
                 <Text style={styles.webTokenLabel}>Share Link:</Text>
                 <Text style={styles.webTokenValue} numberOfLines={1}>
-                  {`https://parentinghelperapp.com/registry/${registry.webToken}`}
+                  {`https://familyhelperapp.com/registry/${registry.webToken}`}
                 </Text>
               </View>
             )}
