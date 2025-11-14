@@ -122,7 +122,7 @@ async function uploadFile(req, res) {
           performedByEmail: membership.user?.email || 'N/A',
           actionLocation: category,
           messageContent: `Uploaded ${req.file.originalname} (${fileSizeMB}MB) - Charged to admins: ${adminNames}`,
-          metadata: {
+          logData: {
             fileId: fileMetadata.fileId,
             fileName: req.file.originalname,
             fileSize: req.file.size,
@@ -269,7 +269,7 @@ async function uploadMultipleFiles(req, res) {
           performedByEmail: membership.user?.email || 'N/A',
           actionLocation: category,
           messageContent: `Uploaded ${uploadedFiles.length} files (${totalSizeMB}MB total) - Charged to admins: ${adminNames}`,
-          metadata: {
+          logData: {
             fileIds: uploadedFiles.map(f => f.fileId),
             fileNames: uploadedFiles.map(f => f.originalName),
             totalSize: uploadedFiles.reduce((sum, f) => sum + f.size, 0),
