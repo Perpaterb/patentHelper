@@ -6,10 +6,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Alert, Image, ActivityIndicator } from 'react-native';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import MediaPicker from '../../components/shared/MediaPicker';
+import ImageViewer from '../../components/shared/ImageViewer';
+import VideoPlayer from '../../components/shared/VideoPlayer';
+import { uploadFile, uploadMultipleFiles, getFileUrl } from '../../services/upload.service';
 
 /**
  * @typedef {Object} MessagesScreenProps
@@ -42,6 +46,12 @@ export default function MessagesScreen({ navigation, route }) {
   const [selectedMentions, setSelectedMentions] = useState([]);
   const [longPressedMessage, setLongPressedMessage] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [attachedMedia, setAttachedMedia] = useState([]); // Array of {fileId, type, url}
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -218,10 +228,62 @@ export default function MessagesScreen({ navigation, route }) {
   };
 
   /**
+   * Handle media selection and upload
+   */
+  const handleMediaSelect = async (files) => {
+    try {
+      setUploading(true);
+      setError(null);
+      setUploadProgress(0);
+
+      const uploadedFiles = await uploadMultipleFiles(
+        files,
+        'messages',
+        groupId,
+        (progress) => setUploadProgress(progress)
+      );
+
+      // Add uploaded files to attachedMedia
+      const mediaItems = uploadedFiles.map(file => ({
+        fileId: file.fileId,
+        type: file.mimeType.startsWith('image/') ? 'image' : 'video',
+        url: file.fileId,
+      }));
+
+      setAttachedMedia([...attachedMedia, ...mediaItems]);
+    } catch (err) {
+      console.error('Media upload error:', err);
+      Alert.alert('Upload Failed', err.message || 'Failed to upload media');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  /**
+   * Handle removing attached media
+   */
+  const handleRemoveMedia = (fileId) => {
+    setAttachedMedia(attachedMedia.filter(m => m.fileId !== fileId));
+  };
+
+  /**
+   * Handle media tap to view full-screen
+   */
+  const handleMediaTap = (media) => {
+    setSelectedMediaUrl(getFileUrl(media.url));
+    if (media.type === 'image') {
+      setShowImageViewer(true);
+    } else {
+      setShowVideoPlayer(true);
+    }
+  };
+
+  /**
    * Send a new message
    */
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && attachedMedia.length === 0) return;
 
     // Supervisors cannot send messages (per appplan.md line 91)
     if (userRole === 'supervisor') {
@@ -233,15 +295,23 @@ export default function MessagesScreen({ navigation, route }) {
       setSending(true);
       setError(null);
 
-      const response = await api.post(`/groups/${groupId}/message-groups/${messageGroupId}/messages`, {
-        content: newMessage.trim(),
+      const payload = {
+        content: newMessage.trim() || ' ', // Backend requires content, use space if only media
         mentions: selectedMentions,
-      });
+      };
+
+      // Add media file IDs if any
+      if (attachedMedia.length > 0) {
+        payload.mediaFileIds = attachedMedia.map(m => m.fileId);
+      }
+
+      const response = await api.post(`/groups/${groupId}/message-groups/${messageGroupId}/messages`, payload);
 
       // Add new message to list
       setMessages([...messages, response.data.message]);
       setNewMessage('');
       setSelectedMentions([]);
+      setAttachedMedia([]);
 
       // Scroll to bottom
       setTimeout(() => {
@@ -447,6 +517,33 @@ export default function MessagesScreen({ navigation, route }) {
             <Text style={styles.senderName}>
               {item.sender?.displayName || 'Unknown'}
             </Text>
+
+            {/* Render attached media */}
+            {item.media && item.media.length > 0 && (
+              <View style={styles.mediaContainer}>
+                {item.media.map((media) => (
+                  <TouchableOpacity
+                    key={media.mediaId}
+                    onPress={() => handleMediaTap(media)}
+                    style={styles.mediaThumbnail}
+                  >
+                    {media.mediaType === 'image' ? (
+                      <Image
+                        source={{ uri: getFileUrl(media.url) }}
+                        style={styles.mediaImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.videoThumbnail}>
+                        <IconButton icon="play-circle" size={48} iconColor="#fff" />
+                        <Text style={styles.videoText}>Video</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             <Text style={styles.messageContent}>{item.content}</Text>
             <View style={styles.messageFooter}>
               <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
@@ -574,28 +671,83 @@ export default function MessagesScreen({ navigation, route }) {
     }
 
     return (
-      <View style={styles.inputContainer}>
-        <TextInput
-          ref={inputRef}
-          value={newMessage}
-          onChangeText={handleTextChange}
-          placeholder="Type a message..."
-          mode="outlined"
-          style={[styles.input, { maxHeight: maxInputHeight }]}
-          multiline
-          maxLength={10000}
-          disabled={sending}
-        />
-        <IconButton
-          icon="send"
-          mode="contained"
-          iconColor="#fff"
-          containerColor="#6200ee"
-          size={24}
-          onPress={handleSendMessage}
-          disabled={!newMessage.trim() || sending}
-          style={styles.sendButton}
-        />
+      <View>
+        {/* Show attached media preview */}
+        {attachedMedia.length > 0 && (
+          <ScrollView horizontal style={styles.attachedMediaContainer}>
+            {attachedMedia.map((media) => (
+              <View key={media.fileId} style={styles.attachedMediaItem}>
+                {media.type === 'image' ? (
+                  <Image
+                    source={{ uri: getFileUrl(media.url) }}
+                    style={styles.attachedMediaThumb}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.attachedMediaThumb}>
+                    <IconButton icon="video" size={24} />
+                  </View>
+                )}
+                <IconButton
+                  icon="close-circle"
+                  size={20}
+                  iconColor="#f44336"
+                  onPress={() => handleRemoveMedia(media.fileId)}
+                  style={styles.removeMediaButton}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Upload progress indicator */}
+        {uploading && (
+          <View style={styles.uploadingContainer}>
+            <ActivityIndicator size="small" color="#6200ee" />
+            <Text style={styles.uploadingText}>Uploading... {uploadProgress}%</Text>
+          </View>
+        )}
+
+        <View style={styles.inputContainer}>
+          <MediaPicker
+            onSelect={handleMediaSelect}
+            mediaType="both"
+            maxSize={100 * 1024 * 1024} // 100MB for videos
+            allowMultiple={true}
+            imageQuality={0.8}
+            disabled={uploading || sending}
+            renderTrigger={(onPress) => (
+              <IconButton
+                icon="attachment"
+                size={24}
+                onPress={onPress}
+                disabled={uploading || sending}
+                style={styles.attachButton}
+              />
+            )}
+          />
+          <TextInput
+            ref={inputRef}
+            value={newMessage}
+            onChangeText={handleTextChange}
+            placeholder="Type a message..."
+            mode="outlined"
+            style={[styles.input, { maxHeight: maxInputHeight }]}
+            multiline
+            maxLength={10000}
+            disabled={sending || uploading}
+          />
+          <IconButton
+            icon="send"
+            mode="contained"
+            iconColor="#fff"
+            containerColor="#6200ee"
+            size={24}
+            onPress={handleSendMessage}
+            disabled={(!newMessage.trim() && attachedMedia.length === 0) || sending || uploading}
+            style={styles.sendButton}
+          />
+        </View>
       </View>
     );
   };
@@ -703,6 +855,30 @@ export default function MessagesScreen({ navigation, route }) {
       {renderMentionPicker()}
       {renderMessageMenu()}
       {renderInputArea()}
+
+      {/* Image Viewer */}
+      {selectedMediaUrl && (
+        <ImageViewer
+          visible={showImageViewer}
+          imageUrl={selectedMediaUrl}
+          onClose={() => {
+            setShowImageViewer(false);
+            setSelectedMediaUrl(null);
+          }}
+        />
+      )}
+
+      {/* Video Player */}
+      {selectedMediaUrl && (
+        <VideoPlayer
+          visible={showVideoPlayer}
+          videoUrl={selectedMediaUrl}
+          onClose={() => {
+            setShowVideoPlayer(false);
+            setSelectedMediaUrl(null);
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -947,5 +1123,77 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     marginLeft: 0,
+  },
+  mediaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+    gap: 8,
+  },
+  mediaThumbnail: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  mediaImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+  },
+  videoThumbnail: {
+    width: 200,
+    height: 200,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  videoText: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  attachedMediaContainer: {
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  attachedMediaItem: {
+    position: 'relative',
+    marginRight: 8,
+  },
+  attachedMediaThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#e0e0e0',
+  },
+  removeMediaButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    margin: 0,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    gap: 8,
+  },
+  uploadingText: {
+    fontSize: 14,
+    color: '#6200ee',
+    fontWeight: '600',
+  },
+  attachButton: {
+    margin: 0,
   },
 });
