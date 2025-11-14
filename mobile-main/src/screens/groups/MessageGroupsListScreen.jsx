@@ -11,6 +11,7 @@ import { Card, Title, Text, FAB, Avatar, Chip, IconButton } from 'react-native-p
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * @typedef {Object} MessageGroupsListScreenProps
@@ -248,18 +249,16 @@ export default function MessageGroupsListScreen({ navigation, route }) {
             // Collapsed view - show first 5 avatars
             <View style={styles.membersRow}>
               {item.members?.slice(0, 5).map((member, index) => {
-                const bgColor = member.groupMember?.iconColor || '#6200ee';
                 return (
-                  <Avatar.Text
-                    key={member.groupMemberId}
-                    size={32}
-                    label={member.groupMember?.iconLetters || '?'}
-                    style={{
-                      backgroundColor: bgColor,
-                      marginLeft: index > 0 ? -6 : 0,
-                    }}
-                    color={getContrastTextColor(bgColor)}
-                  />
+                  <View key={member.groupMemberId} style={{ marginLeft: index > 0 ? -6 : 0 }}>
+                    <UserAvatar
+                      profilePhotoUrl={member.groupMember?.profilePhotoUrl}
+                      memberIcon={member.groupMember?.iconLetters}
+                      iconColor={member.groupMember?.iconColor || '#6200ee'}
+                      displayName={member.groupMember?.displayName}
+                      size={32}
+                    />
+                  </View>
                 );
               })}
               {item.members?.length > 5 && (
@@ -272,14 +271,14 @@ export default function MessageGroupsListScreen({ navigation, route }) {
             // Expanded view - show all members with names
             <View style={styles.membersExpandedContainer}>
               {item.members?.map((member) => {
-                const bgColor = member.groupMember?.iconColor || '#6200ee';
                 return (
                   <View key={member.groupMemberId} style={styles.memberExpandedRow}>
-                    <Avatar.Text
+                    <UserAvatar
+                      profilePhotoUrl={member.groupMember?.profilePhotoUrl}
+                      memberIcon={member.groupMember?.iconLetters}
+                      iconColor={member.groupMember?.iconColor || '#6200ee'}
+                      displayName={member.groupMember?.displayName}
                       size={32}
-                      label={member.groupMember?.iconLetters || '?'}
-                      style={{ backgroundColor: bgColor }}
-                      color={getContrastTextColor(bgColor)}
                     />
                     <Text style={styles.memberExpandedName}>
                       {member.groupMember?.displayName || 'Unknown'}

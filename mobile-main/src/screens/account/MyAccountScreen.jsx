@@ -358,8 +358,10 @@ export default function MyAccountScreen({ navigation }) {
             ) : profilePhotoUrl ? (
               <TouchableOpacity onPress={handleRemovePhoto}>
                 <Image
+                  key={profilePhotoUrl}
                   source={{ uri: profilePhotoUrl }}
                   style={styles.profilePhoto}
+                  resizeMode="cover"
                 />
                 <Text style={styles.avatarHint}>Tap to remove photo</Text>
               </TouchableOpacity>

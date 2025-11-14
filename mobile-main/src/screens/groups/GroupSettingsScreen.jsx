@@ -23,6 +23,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * @typedef {Object} GroupSettingsScreenProps
@@ -567,12 +568,13 @@ export default function GroupSettingsScreen({ navigation, route }) {
               description={member.displayName}
               onPress={() => handleMemberPress(member)}
               left={(props) => (
-                <Avatar.Text
-                  {...props}
+                <UserAvatar
+                  profilePhotoUrl={member.profilePhotoUrl}
+                  memberIcon={member.iconLetters}
+                  iconColor={member.iconColor}
+                  displayName={member.displayName}
+                  email={member.email}
                   size={40}
-                  label={member.iconLetters || member.displayName?.[0] || 'U'}
-                  style={{ backgroundColor: member.iconColor || '#6200ee' }}
-                  color={getContrastTextColor(member.iconColor || '#6200ee')}
                 />
               )}
               right={() => (
