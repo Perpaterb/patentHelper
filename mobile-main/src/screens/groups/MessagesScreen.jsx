@@ -302,7 +302,10 @@ export default function MessagesScreen({ navigation, route }) {
 
       // Add media file IDs if any
       if (attachedMedia.length > 0) {
-        payload.mediaFileIds = attachedMedia.map(m => m.fileId);
+        payload.mediaFiles = attachedMedia.map(m => ({
+          fileId: m.fileId,
+          mimeType: m.type === 'image' ? 'image/jpeg' : 'video/mp4',
+        }));
       }
 
       const response = await api.post(`/groups/${groupId}/message-groups/${messageGroupId}/messages`, payload);

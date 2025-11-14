@@ -319,7 +319,7 @@ async function sendMessageGroupMessage(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId, messageGroupId } = req.params;
-    const { content, mentions, mediaFileIds } = req.body;
+    const { content, mentions, mediaFiles: mediaFilesInput } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -329,7 +329,7 @@ async function sendMessageGroupMessage(req, res) {
     }
 
     // Validate content (allow empty if media files are provided)
-    if ((!content || content.trim().length === 0) && (!mediaFileIds || mediaFileIds.length === 0)) {
+    if ((!content || content.trim().length === 0) && (!mediaFilesInput || mediaFilesInput.length === 0)) {
       return res.status(400).json({
         error: 'Validation Error',
         message: 'Message must have content or media attachments',
@@ -397,22 +397,14 @@ async function sendMessageGroupMessage(req, res) {
 
     // Validate media files if provided
     let mediaFiles = [];
-    if (mediaFileIds && Array.isArray(mediaFileIds) && mediaFileIds.length > 0) {
-      // Fetch file metadata from storage to get mimeType and size
-      for (const fileId of mediaFileIds) {
-        try {
-          const fileMetadata = await storageService.getFileMetadata(fileId);
-          mediaFiles.push({
-            fileId: fileId,
-            mimeType: fileMetadata.mimeType,
-            s3Key: fileMetadata.storagePath || fileId,
-            fileSizeBytes: fileMetadata.size || 0,
-          });
-        } catch (error) {
-          console.warn(`File ${fileId} not found in storage, skipping`);
-          // Skip files that don't exist
-        }
-      }
+    if (mediaFilesInput && Array.isArray(mediaFilesInput) && mediaFilesInput.length > 0) {
+      // Use media file info provided by client (includes mimeType)
+      mediaFiles = mediaFilesInput.map(file => ({
+        fileId: file.fileId,
+        mimeType: file.mimeType,
+        s3Key: file.fileId,
+        fileSizeBytes: 0, // Size will be tracked separately in storage
+      }));
     }
 
     // Encrypt message content before storing (use space if content is empty)
