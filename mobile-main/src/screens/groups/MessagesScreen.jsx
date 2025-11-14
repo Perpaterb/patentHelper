@@ -709,23 +709,6 @@ export default function MessagesScreen({ navigation, route }) {
         )}
 
         <View style={styles.inputContainer}>
-          <MediaPicker
-            onSelect={handleMediaSelect}
-            mediaType="both"
-            maxSize={100 * 1024 * 1024} // 100MB for videos
-            allowMultiple={true}
-            imageQuality={0.8}
-            disabled={uploading || sending}
-            renderTrigger={(onPress) => (
-              <IconButton
-                icon="attachment"
-                size={24}
-                onPress={onPress}
-                disabled={uploading || sending}
-                style={styles.attachButton}
-              />
-            )}
-          />
           <TextInput
             ref={inputRef}
             value={newMessage}
@@ -737,16 +720,36 @@ export default function MessagesScreen({ navigation, route }) {
             maxLength={10000}
             disabled={sending || uploading}
           />
-          <IconButton
-            icon="send"
-            mode="contained"
-            iconColor="#fff"
-            containerColor="#6200ee"
-            size={24}
-            onPress={handleSendMessage}
-            disabled={(!newMessage.trim() && attachedMedia.length === 0) || sending || uploading}
-            style={styles.sendButton}
-          />
+          <View style={styles.buttonColumn}>
+            <MediaPicker
+              onSelect={handleMediaSelect}
+              mediaType="both"
+              maxSize={100 * 1024 * 1024} // 100MB for videos
+              allowMultiple={true}
+              imageQuality={0.8}
+              disabled={uploading || sending}
+              renderTrigger={(onPress) => (
+                <IconButton
+                  icon="plus"
+                  mode="outlined"
+                  size={20}
+                  onPress={onPress}
+                  disabled={uploading || sending}
+                  style={styles.addButton}
+                />
+              )}
+            />
+            <IconButton
+              icon="send"
+              mode="contained"
+              iconColor="#fff"
+              containerColor="#6200ee"
+              size={24}
+              onPress={handleSendMessage}
+              disabled={(!newMessage.trim() && attachedMedia.length === 0) || sending || uploading}
+              style={styles.sendButton}
+            />
+          </View>
         </View>
       </View>
     );
@@ -1018,8 +1021,19 @@ const styles = StyleSheet.create({
     marginRight: 8,
     backgroundColor: '#fff',
   },
+  buttonColumn: {
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addButton: {
+    margin: 0,
+    width: 40,
+    height: 40,
+  },
   sendButton: {
-    marginBottom: 4,
+    margin: 0,
   },
   supervisorNotice: {
     padding: 16,
@@ -1192,8 +1206,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6200ee',
     fontWeight: '600',
-  },
-  attachButton: {
-    margin: 0,
   },
 });
