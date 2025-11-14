@@ -31,6 +31,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
  * @param {number} [props.imageQuality=0.8] - Image compression quality (0-1)
  * @param {boolean} [props.profileIcon=false] - Resize to 512x512 for profile icons
  * @param {string} [props.label] - Custom button label
+ * @param {Function} [props.renderTrigger] - Custom render function: (onPress) => JSX.Element
+ * @param {boolean} [props.disabled=false] - Disable the picker
  */
 const MediaPicker = ({
   onSelect,
@@ -40,6 +42,8 @@ const MediaPicker = ({
   imageQuality = 0.8,
   profileIcon = false,
   label,
+  renderTrigger,
+  disabled = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -303,12 +307,18 @@ const MediaPicker = ({
     return 'Add Media';
   };
 
+  // If custom trigger is provided, use it
+  if (renderTrigger) {
+    return renderTrigger(showPickerOptions);
+  }
+
+  // Otherwise, render default button
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.button}
         onPress={showPickerOptions}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
       >
         <Text style={styles.buttonText}>
           {isLoading ? 'Processing...' : (label || getDefaultLabel())}
