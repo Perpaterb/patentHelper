@@ -7,6 +7,7 @@
 
 const { prisma } = require('../config/database');
 const encryptionService = require('../services/encryption.service');
+const storageService = require('../services/storage');
 
 /**
  * Get messages for a group
@@ -397,14 +398,21 @@ async function sendMessageGroupMessage(req, res) {
     // Validate media files if provided
     let mediaFiles = [];
     if (mediaFileIds && Array.isArray(mediaFileIds) && mediaFileIds.length > 0) {
-      // TODO: Validate that files exist in storage
-      // For now, trust that upload service created these files
-      mediaFiles = mediaFileIds.map(fileId => ({
-        fileId: fileId,
-        mimeType: 'application/octet-stream', // Will be determined from file
-        s3Key: fileId,
-        fileSizeBytes: 0, // Will be determined from file
-      }));
+      // Fetch file metadata from storage to get mimeType and size
+      for (const fileId of mediaFileIds) {
+        try {
+          const fileMetadata = await storageService.getFileMetadata(fileId);
+          mediaFiles.push({
+            fileId: fileId,
+            mimeType: fileMetadata.mimeType,
+            s3Key: fileMetadata.storagePath || fileId,
+            fileSizeBytes: fileMetadata.size || 0,
+          });
+        } catch (error) {
+          console.warn(`File ${fileId} not found in storage, skipping`);
+          // Skip files that don't exist
+        }
+      }
     }
 
     // Encrypt message content before storing (use space if content is empty)
