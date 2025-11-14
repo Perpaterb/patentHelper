@@ -10,6 +10,8 @@ import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Linking, Image } f
 import { Card, Title, Text, FAB, IconButton, Button, Chip, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
+import ImageViewer from '../../components/shared/ImageViewer';
+import { getFileUrl } from '../../services/upload.service';
 
 /**
  * @typedef {Object} GiftRegistryDetailScreenProps
@@ -28,6 +30,8 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
   const [registry, setRegistry] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [currentGroupMemberId, setCurrentGroupMemberId] = useState(null);
@@ -275,11 +279,18 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
           </View>
 
           {item.photoUrl && (
-            <Image
-              source={{ uri: item.photoUrl }}
-              style={styles.itemPhoto}
-              resizeMode="cover"
-            />
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedImageUrl(getFileUrl(item.photoUrl));
+                setShowImageViewer(true);
+              }}
+            >
+              <Image
+                source={{ uri: getFileUrl(item.photoUrl) }}
+                style={styles.itemPhoto}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           )}
 
           <Title style={styles.itemTitle}>{item.title}</Title>
@@ -419,6 +430,15 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
           icon="plus"
           onPress={handleAddItem}
           label="Add Item"
+        />
+      )}
+
+      {/* Image Viewer */}
+      {selectedImageUrl && (
+        <ImageViewer
+          visible={showImageViewer}
+          imageUrl={selectedImageUrl}
+          onClose={() => setShowImageViewer(false)}
         />
       )}
     </View>

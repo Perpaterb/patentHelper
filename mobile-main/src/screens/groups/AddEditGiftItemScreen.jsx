@@ -6,15 +6,19 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native';
 import {
   TextInput,
   Button,
   Title,
   Text,
   HelperText,
+  ActivityIndicator,
 } from 'react-native-paper';
 import api from '../../services/api';
+import MediaPicker from '../../components/shared/MediaPicker';
+import ImageViewer from '../../components/shared/ImageViewer';
+import { uploadFile, getFileUrl } from '../../services/upload.service';
 
 /**
  * @typedef {Object} AddEditGiftItemScreenProps
@@ -35,10 +39,14 @@ export default function AddEditGiftItemScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [uploadedFileId, setUploadedFileId] = useState(null);
   const [cost, setCost] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
 
   // Set screen title
   useEffect(() => {
@@ -53,10 +61,63 @@ export default function AddEditGiftItemScreen({ navigation, route }) {
       setTitle(itemData.title || '');
       setLink(itemData.link || '');
       setPhotoUrl(itemData.photoUrl || '');
+      // If photoUrl exists, it's a file ID from upload
+      if (itemData.photoUrl) {
+        setUploadedFileId(itemData.photoUrl);
+      }
       setCost(itemData.cost ? String(itemData.cost) : '');
       setDescription(itemData.description || '');
     }
   }, [isEditMode, itemData]);
+
+  /**
+   * Handle photo selection and upload
+   */
+  const handlePhotoSelect = async (file) => {
+    try {
+      setUploading(true);
+      setError(null);
+      setUploadProgress(0);
+
+      const uploadedFile = await uploadFile(
+        file,
+        'gift-registry',
+        groupId,
+        (progress) => setUploadProgress(progress)
+      );
+
+      setUploadedFileId(uploadedFile.fileId);
+      setPhotoUrl(uploadedFile.fileId); // Store fileId in photoUrl field
+      Alert.alert('Success', 'Photo uploaded successfully');
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      Alert.alert('Upload Failed', err.message || 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  /**
+   * Handle photo removal
+   */
+  const handleRemovePhoto = () => {
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove this photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            setUploadedFileId(null);
+            setPhotoUrl('');
+          },
+        },
+      ]
+    );
+  };
 
   /**
    * Validate cost input
@@ -292,20 +353,55 @@ export default function AddEditGiftItemScreen({ navigation, route }) {
             Link to product page (optional)
           </HelperText>
 
-          <TextInput
-            label="Photo URL (Optional)"
-            value={photoUrl}
-            onChangeText={setPhotoUrl}
-            mode="outlined"
-            style={styles.input}
-            placeholder="https://example.com/image.jpg"
-            disabled={loading}
-            keyboardType="url"
-            autoCapitalize="none"
-          />
-          <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-            URL to product image (optional)
-          </HelperText>
+          {/* Photo Upload */}
+          <View style={styles.photoSection}>
+            <Text style={styles.photoLabel}>Photo (Optional)</Text>
+
+            {uploadedFileId ? (
+              <View style={styles.photoPreviewContainer}>
+                <TouchableOpacity
+                  onPress={() => setShowImageViewer(true)}
+                  style={styles.photoPreview}
+                >
+                  <Image
+                    source={{ uri: getFileUrl(uploadedFileId) }}
+                    style={styles.photoImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+                <Button
+                  mode="text"
+                  onPress={handleRemovePhoto}
+                  disabled={loading || uploading}
+                  style={styles.removePhotoButton}
+                  textColor="#d32f2f"
+                >
+                  Remove Photo
+                </Button>
+              </View>
+            ) : (
+              <View>
+                <MediaPicker
+                  onSelect={handlePhotoSelect}
+                  mediaType="photo"
+                  maxSize={10 * 1024 * 1024} // 10MB
+                  allowMultiple={false}
+                  imageQuality={0.8}
+                  label={uploading ? `Uploading... ${uploadProgress}%` : 'Add Photo'}
+                />
+                {uploading && (
+                  <View style={styles.uploadingContainer}>
+                    <ActivityIndicator size="small" color="#6200ee" />
+                    <Text style={styles.uploadingText}>{uploadProgress}%</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <HelperText type="info" visible={true} style={styles.helperTextInfo}>
+              Upload a product image (max 10MB)
+            </HelperText>
+          </View>
 
           <TextInput
             label="Cost (Optional)"
@@ -357,6 +453,15 @@ export default function AddEditGiftItemScreen({ navigation, route }) {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Image Viewer */}
+      {uploadedFileId && (
+        <ImageViewer
+          visible={showImageViewer}
+          imageUrl={getFileUrl(uploadedFileId)}
+          onClose={() => setShowImageViewer(false)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -404,5 +509,44 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginBottom: 16,
+  },
+  photoSection: {
+    marginBottom: 16,
+  },
+  photoLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  photoPreviewContainer: {
+    marginBottom: 8,
+  },
+  photoPreview: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+    marginBottom: 8,
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removePhotoButton: {
+    marginTop: 0,
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  uploadingText: {
+    fontSize: 14,
+    color: '#6200ee',
+    fontWeight: '600',
   },
 });
