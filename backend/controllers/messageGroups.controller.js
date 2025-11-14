@@ -74,6 +74,7 @@ async function getMessageGroups(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },
@@ -156,6 +157,9 @@ async function getMessageGroups(req, res) {
               displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
               iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
               iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+              profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
+                ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${member.groupMember.user.profilePhotoFileId}`
+                : null,
               isRegistered: member.groupMember.isRegistered,
             },
           })),
@@ -293,6 +297,7 @@ async function createMessageGroup(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },
@@ -384,6 +389,7 @@ async function getMessageGroupById(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },
@@ -436,6 +442,9 @@ async function getMessageGroupById(req, res) {
           displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+          profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${member.groupMember.user.profilePhotoFileId}`
+            : null,
           role: member.groupMember.role,
           isRegistered: member.groupMember.isRegistered,
         },

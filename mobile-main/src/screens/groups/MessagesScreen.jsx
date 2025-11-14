@@ -13,6 +13,7 @@ import { getContrastTextColor } from '../../utils/colorUtils';
 import MediaPicker from '../../components/shared/MediaPicker';
 import ImageViewer from '../../components/shared/ImageViewer';
 import VideoPlayer from '../../components/shared/VideoPlayer';
+import UserAvatar from '../../components/shared/UserAvatar';
 import { uploadFile, uploadMultipleFiles, getFileUrl } from '../../services/upload.service';
 
 /**
@@ -654,18 +655,18 @@ export default function MessagesScreen({ navigation, route }) {
                 <Text style={styles.mentionPickerEmpty}>No members found</Text>
               ) : (
                 filteredMembers.map((member) => {
-                  const bgColor = member.iconColor || '#6200ee';
                   return (
                     <TouchableOpacity
                       key={member.groupMemberId}
                       style={styles.mentionPickerItem}
                       onPress={() => handleMentionSelect(member)}
                     >
-                      <Avatar.Text
+                      <UserAvatar
+                        profilePhotoUrl={member.profilePhotoUrl}
+                        memberIcon={member.iconLetters}
+                        iconColor={member.iconColor}
+                        displayName={member.displayName}
                         size={40}
-                        label={member.iconLetters || '?'}
-                        style={{ backgroundColor: bgColor }}
-                        color={getContrastTextColor(bgColor)}
                       />
                       <Text style={styles.mentionPickerItemText}>
                         {member.displayName}
