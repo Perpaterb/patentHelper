@@ -31,7 +31,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
  * @param {number} [props.imageQuality=0.8] - Image compression quality (0-1)
  * @param {boolean} [props.profileIcon=false] - Resize to 512x512 for profile icons
  * @param {string} [props.label] - Custom button label
- * @param {Function} [props.renderTrigger] - Custom render function: (onPress) => JSX.Element
+ * @param {Function} [props.renderTrigger] - Custom render function: (onPress, isLoading) => JSX.Element
+ * @param {Function} [props.onProcessingChange] - Callback when processing state changes: (isProcessing) => void
  * @param {boolean} [props.disabled=false] - Disable the picker
  */
 const MediaPicker = ({
@@ -43,9 +44,17 @@ const MediaPicker = ({
   profileIcon = false,
   label,
   renderTrigger,
+  onProcessingChange,
   disabled = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+
+  // Notify parent when processing state changes
+  React.useEffect(() => {
+    if (onProcessingChange) {
+      onProcessingChange(isLoading);
+    }
+  }, [isLoading, onProcessingChange]);
 
   /**
    * Request camera permissions
@@ -175,18 +184,23 @@ const MediaPicker = ({
           continue;
         }
 
-        // Determine MIME type
+        // Determine MIME type and file extension
         let mimeType = 'application/octet-stream';
+        let ext = 'bin';
+
         if (asset.type === 'image') {
+          // Images are always compressed to JPEG format
           mimeType = 'image/jpeg';
+          ext = 'jpg';
         } else if (asset.type === 'video') {
-          const ext = asset.uri.split('.').pop()?.toLowerCase();
+          // Determine video extension from URI
+          const videoExt = asset.uri.split('.').pop()?.toLowerCase();
+          ext = videoExt || 'mp4';
           mimeType = ext === 'mov' ? 'video/quicktime' : 'video/mp4';
         }
 
         // Generate filename
         const timestamp = Date.now();
-        const ext = asset.uri.split('.').pop() || (asset.type === 'image' ? 'jpg' : 'mp4');
         const fileName = `${asset.type}_${timestamp}.${ext}`;
 
         // Create file object
@@ -319,7 +333,7 @@ const MediaPicker = ({
 
   // If custom trigger is provided, use it
   if (renderTrigger) {
-    return renderTrigger(showPickerOptions);
+    return renderTrigger(showPickerOptions, isLoading);
   }
 
   // Otherwise, render default button

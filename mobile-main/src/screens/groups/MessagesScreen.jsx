@@ -49,9 +49,12 @@ export default function MessagesScreen({ navigation, route }) {
   const [attachedMedia, setAttachedMedia] = useState([]); // Array of {fileId, type, url}
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [processing, setProcessing] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -63,6 +66,15 @@ export default function MessagesScreen({ navigation, route }) {
     loadMessageGroupInfo();
     loadMessages();
   }, [messageGroupId]);
+
+  // Scroll to bottom when messages load
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        scrollToBottom(false); // No animation on initial load
+      }, 100);
+    }
+  }, [messages.length]);
 
   /**
    * Load message group information
@@ -272,10 +284,32 @@ export default function MessagesScreen({ navigation, route }) {
    */
   const handleMediaTap = (media) => {
     setSelectedMediaUrl(getFileUrl(media.url));
-    if (media.type === 'image') {
+    if (media.mediaType === 'image') {
       setShowImageViewer(true);
     } else {
       setShowVideoPlayer(true);
+    }
+  };
+
+  /**
+   * Handle scroll events to detect if user is at bottom
+   */
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+
+    // Consider "at bottom" if within 50 pixels of the bottom
+    const atBottom = distanceFromBottom < 50;
+    setIsAtBottom(atBottom);
+    setShowScrollButton(!atBottom);
+  };
+
+  /**
+   * Scroll to bottom of messages
+   */
+  const scrollToBottom = (animated = true) => {
+    if (flatListRef.current && messages.length > 0) {
+      flatListRef.current.scrollToEnd({ animated });
     }
   };
 
@@ -703,11 +737,13 @@ export default function MessagesScreen({ navigation, route }) {
           </ScrollView>
         )}
 
-        {/* Upload progress indicator */}
-        {uploading && (
+        {/* Upload/Processing progress indicator */}
+        {(uploading || processing) && (
           <View style={styles.uploadingContainer}>
             <ActivityIndicator size="small" color="#6200ee" />
-            <Text style={styles.uploadingText}>Uploading... {uploadProgress}%</Text>
+            <Text style={styles.uploadingText}>
+              {processing && !uploading ? 'Processing images...' : `Uploading... ${uploadProgress}%`}
+            </Text>
           </View>
         )}
 
@@ -730,14 +766,15 @@ export default function MessagesScreen({ navigation, route }) {
               maxSize={100 * 1024 * 1024} // 100MB for videos
               allowMultiple={true}
               imageQuality={0.8}
-              disabled={uploading || sending}
-              renderTrigger={(onPress) => (
+              disabled={uploading || sending || processing}
+              onProcessingChange={setProcessing}
+              renderTrigger={(onPress, isLoading) => (
                 <IconButton
                   icon="plus"
                   mode="outlined"
                   size={32}
                   onPress={onPress}
-                  disabled={uploading || sending}
+                  disabled={uploading || sending || isLoading}
                   style={styles.addButton}
                 />
               )}
@@ -855,8 +892,22 @@ export default function MessagesScreen({ navigation, route }) {
         contentContainerStyle={styles.messagesList}
         ListHeaderComponent={renderLoadMore}
         ListEmptyComponent={renderEmptyState}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
+
+      {/* Scroll to bottom button */}
+      {showScrollButton && (
+        <TouchableOpacity
+          style={styles.scrollToBottomButton}
+          onPress={() => scrollToBottom(true)}
+        >
+          <View style={styles.scrollToBottomIcon}>
+            {/* Down arrow */}
+            <View style={styles.arrowDown} />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {renderMentionPicker()}
       {renderMessageMenu()}
@@ -1209,5 +1260,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6200ee',
     fontWeight: '600',
+  },
+  scrollToBottomButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#6200ee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  scrollToBottomIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrowDown: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#ffffff',
   },
 });

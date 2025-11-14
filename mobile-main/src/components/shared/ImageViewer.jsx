@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { GestureHandlerRootView, PinchGestureHandler, State } from 'react-native-gesture-handler';
 import Animated, {
@@ -30,6 +31,8 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,6 +46,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ImageViewer = ({ visible, imageUrl, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Zoom animation
   const scale = useSharedValue(1);
@@ -75,6 +79,62 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
           });
         }
       );
+    }
+  };
+
+  /**
+   * Handle image load error
+   */
+  const handleImageError = (error) => {
+    console.error('Image failed to load:', error.nativeEvent.error);
+    setIsLoading(false);
+  };
+
+  /**
+   * Download image to device
+   */
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Photo library access is required to save images.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Download image to temporary location
+      const filename = imageUrl.split('/').pop() + '.jpg';
+      const fileUri = FileSystem.documentDirectory + filename;
+
+      const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Download failed with status ${downloadResult.status}`);
+      }
+
+      // Save to media library
+      await MediaLibrary.createAssetAsync(downloadResult.uri);
+
+      Alert.alert(
+        'Success',
+        'Image saved to your photo library!',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert(
+        'Download Failed',
+        error.message || 'Failed to save image. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -144,6 +204,26 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
             </View>
           </TouchableOpacity>
 
+          {/* Download button */}
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={handleDownload}
+            disabled={isDownloading || isLoading}
+          >
+            <View style={styles.downloadIconContainer}>
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  {/* Download icon: arrow down into tray */}
+                  <View style={styles.downloadTray} />
+                  <View style={styles.downloadArrowLine} />
+                  <View style={styles.downloadArrowHead} />
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+
           {/* Loading indicator */}
           {isLoading && (
             <ActivityIndicator
@@ -170,6 +250,7 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
                 ]}
                 resizeMode="contain"
                 onLoad={handleImageLoad}
+                onError={handleImageError}
               />
             </Animated.View>
           </PinchGestureHandler>
@@ -217,6 +298,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     transform: [{ rotate: '-45deg' }],
     borderRadius: 2,
+  },
+  downloadButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 20,
+    zIndex: 10,
+    padding: 12,
+  },
+  downloadIconContainer: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  downloadTray: {
+    position: 'absolute',
+    bottom: 8,
+    width: 24,
+    height: 8,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderColor: '#ffffff',
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  downloadArrowLine: {
+    position: 'absolute',
+    top: 6,
+    width: 3,
+    height: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 1.5,
+  },
+  downloadArrowHead: {
+    position: 'absolute',
+    top: 16,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#ffffff',
   },
   loader: {
     position: 'absolute',

@@ -309,15 +309,11 @@ async function getFile(req, res) {
   try {
     const { fileId } = req.params;
 
-    console.log(`[getFile] Fetching file: ${fileId}`);
-
     // Get file metadata
     const metadata = await storageService.getFileMetadata(fileId);
-    console.log(`[getFile] Metadata found:`, metadata);
 
     // Get file data
     const fileBuffer = await storageService.getFile(fileId);
-    console.log(`[getFile] File buffer size: ${fileBuffer.length} bytes`);
 
     // Set response headers
     res.setHeader('Content-Type', metadata.mimeType);
