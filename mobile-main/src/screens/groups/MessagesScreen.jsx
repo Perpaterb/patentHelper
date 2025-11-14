@@ -80,9 +80,10 @@ export default function MessagesScreen({ navigation, route }) {
       headerRight: () => (
         <IconButton
           icon="arrow-down"
+          iconColor="#ffffff"
           size={24}
           onPress={() => scrollToBottom(true)}
-          style={{ marginRight: 8 }}
+          style={{ marginRight: -4, marginLeft: -3, marginTop: 0 }}
         />
       ),
     });
