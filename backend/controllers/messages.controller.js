@@ -285,6 +285,11 @@ async function getMessageGroupMessages(req, res) {
           iconLetters: receipt.groupMember.user?.memberIcon || receipt.groupMember.iconLetters,
           iconColor: receipt.groupMember.user?.iconColor || receipt.groupMember.iconColor,
         })),
+        // Convert BigInt fileSizeBytes to Number for JSON serialization
+        media: message.media?.map(m => ({
+          ...m,
+          fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : 0,
+        })),
       };
     });
 
@@ -474,6 +479,11 @@ async function sendMessageGroupMessage(req, res) {
         iconColor: message.sender.user?.iconColor || message.sender.iconColor,
         role: message.sender.role,
       },
+      // Convert BigInt fileSizeBytes to Number for JSON serialization
+      media: message.media?.map(m => ({
+        ...m,
+        fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : 0,
+      })),
     };
 
     // Update lastMessageAt on the message group
