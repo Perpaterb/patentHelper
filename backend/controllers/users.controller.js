@@ -51,7 +51,7 @@ async function getProfile(req, res) {
     const userResponse = {
       ...user,
       profilePhotoUrl: user.profilePhotoFileId
-        ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${user.profilePhotoFileId}`
+        ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${user.profilePhotoFileId}`
         : null
     };
 
@@ -185,7 +185,7 @@ async function updateProfile(req, res) {
     const userResponse = {
       ...updatedUser,
       profilePhotoUrl: updatedUser.profilePhotoFileId
-        ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${updatedUser.profilePhotoFileId}`
+        ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${updatedUser.profilePhotoFileId}`
         : null
     };
 
