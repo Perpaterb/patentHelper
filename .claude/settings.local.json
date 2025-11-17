@@ -38,7 +38,8 @@
       "Bash(npm install:*)",
       "Read(//tmp/**)",
       "Bash(npm test:*)",
-      "Bash(npx prisma migrate:*)"
+      "Bash(npx prisma migrate:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
