@@ -1040,27 +1040,54 @@ await prisma.auditLog.create({
 
 ### 🚨 CRITICAL: Process Management During Development
 
-**IMPORTANT:** During active development sessions, the USER manages these processes:
+**ABSOLUTE RULE: Claude NEVER controls running processes. USER has complete control.**
 
-1. **Backend (`npm start` in backend/)** - User manages this process
-   - User monitors backend logs in their terminal
-   - **Claude MUST NOT**: Start, stop, or restart the backend process
-   - **Claude MUST**: Ask user to restart backend if needed (e.g., "Please restart the backend with `npm start` to apply these changes")
+**USER-MANAGED PROCESSES** (Claude must NEVER touch these):
 
-2. **Mobile App (`npm start` in mobile-main/)** - User manages this process
-   - User monitors Expo dev server in their terminal
-   - **Claude MUST NOT**: Start, stop, or restart the mobile app process
-   - **Claude MUST**: Ask user to restart Expo if needed (e.g., "Please restart Expo to see these changes")
+1. **Backend Server** (`npm start` in backend/)
+   - ❌ **NEVER** run `npm start` via Bash tool
+   - ❌ **NEVER** stop, kill, or restart the backend process
+   - ❌ **NEVER** check if backend is running
+   - ✅ **ALWAYS** ask user to restart if needed
 
-**Why this is critical:**
-- User can see real-time logs for debugging
-- User controls when processes restart (e.g., after code changes)
-- Prevents Claude from interfering with running development servers
-- Allows user to manage multiple terminals efficiently
+2. **Expo Dev Server** (`npm start` in mobile-main/)
+   - ❌ **NEVER** run `npm start` or `expo start` via Bash tool
+   - ❌ **NEVER** stop, kill, or restart Expo
+   - ❌ **NEVER** check if Expo is running
+   - ✅ **ALWAYS** ask user to restart if needed
 
-**When Claude needs a process restarted:**
-- ✅ CORRECT: "These backend changes require a restart. Please stop and restart `npm start` in the backend directory."
-- ❌ WRONG: Running `npm start` via Bash tool or attempting to kill/restart processes
+3. **Database** (Docker Compose)
+   - ❌ **NEVER** run `docker-compose up` or `docker-compose down`
+   - ❌ **NEVER** restart database containers
+   - ✅ **ALWAYS** ask user if database changes are needed
+
+**Why this is CRITICAL:**
+- ✅ User sees real-time logs in their terminals (essential for debugging)
+- ✅ User controls when processes restart (e.g., after code changes)
+- ✅ Prevents Claude from interfering with running development servers
+- ✅ Avoids process conflicts and port binding issues
+- ✅ User manages multiple terminals efficiently
+
+**How Claude Should Communicate:**
+
+✅ **CORRECT Examples:**
+- "Please restart the backend server (`npm start` in backend/) to apply these changes."
+- "These mobile app changes require restarting Expo. Please restart the Expo dev server."
+- "I've updated the Prisma schema. Please run `npx prisma migrate dev` to apply database changes."
+
+❌ **WRONG Examples:**
+- Running `npm start` via Bash tool
+- Running `pkill -f "node"` or similar process killers
+- Running `expo start` via Bash tool
+- Attempting to check if processes are running with `ps` or `lsof`
+
+**Exception:** Claude CAN run one-time commands like:
+- `npm test` (runs and exits)
+- `npx prisma migrate dev` (applies migrations and exits)
+- `git` commands (not processes)
+- File operations (read, write, edit)
+
+**The Rule:** If it starts a **persistent process** (server, dev server, watcher), USER controls it, not Claude.
 
 ### Before Committing
 
