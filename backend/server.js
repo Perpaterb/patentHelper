@@ -38,6 +38,7 @@ const usersRoutes = require('./routes/users.routes');
 const groupsRoutes = require('./routes/groups.routes');
 const invitationsRoutes = require('./routes/invitations.routes');
 const logsRoutes = require('./routes/logs.routes');
+const personalRegistriesRoutes = require('./routes/personalRegistries.routes');
 
 // Middleware
 app.use(cors({
@@ -62,6 +63,7 @@ app.use('/auth', authRoutes);
 app.use('/files', filesRoutes);
 app.use('/subscriptions', subscriptionRoutes);
 app.use('/users', usersRoutes);
+app.use('/users/personal-registries', personalRegistriesRoutes);
 app.use('/groups', groupsRoutes);
 app.use('/invitations', invitationsRoutes);
 app.use('/logs', logsRoutes);
