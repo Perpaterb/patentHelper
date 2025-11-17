@@ -1,5 +1,75 @@
 # Claude Code Instructions for Parenting Helper App
 
+## 🔒 ABSOLUTE RULE: Git Commits for EVERY Change
+
+**CRITICAL: GitHub must be a perfect mirror of ALL work done by Claude.**
+
+### The Iron-Clad Rule
+
+**EVERY SINGLE CHANGE must be committed and pushed to GitHub IMMEDIATELY.**
+
+This includes:
+- ✅ Editing a single line of code
+- ✅ Updating any documentation file
+- ✅ Creating a new file
+- ✅ Deleting a file
+- ✅ Renaming a file
+- ✅ Changing a configuration
+- ✅ **EVERYTHING - No exceptions**
+
+### Mandatory Workflow (EVERY TIME)
+
+After making ANY change:
+
+1. **Check status**: `git status` - verify what changed
+2. **Stage all**: `git add -A` - stage all changes
+3. **Commit**: `git commit -m "descriptive message"` - use conventional commits format
+4. **Push**: `git push` - push to GitHub immediately
+5. **ONLY THEN** can you ask the user a question or report what you did
+
+### Conventional Commit Format
+
+- `feat: Add new feature`
+- `fix: Bug fix`
+- `refactor: Code refactoring`
+- `docs: Documentation updates`
+- `test: Add or update tests`
+- `chore: Maintenance tasks`
+
+### Why This is CRITICAL
+
+✅ **Point-in-time recovery** - User can `git reset --hard <commit-hash>` to any point
+✅ **Prevents data loss** - If Claude breaks something, easy rollback
+✅ **Clear checkpoints** - Each change is a discrete commit
+✅ **Complete audit trail** - Perfect history of all work
+
+### Before Asking "What's Next?"
+
+**MANDATORY SAFETY CHECKPOINT:**
+
+Before asking the user "What would you like to work on next?" or any similar prompt, you MUST:
+
+1. Run `git status` to check for uncommitted changes
+2. If there are uncommitted changes:
+   - Run `npm test` to ensure tests pass
+   - Stage all changes: `git add -A`
+   - Commit with descriptive message
+   - Push to remote: `git push`
+3. Inform the user: "Changes committed and pushed to [commit message]. Ready for next task."
+
+**Exception:** If there are NO uncommitted changes (clean working tree), you can skip the commit step.
+
+### NEVER Do This
+
+❌ **NEVER** ask a question without committing first
+❌ **NEVER** batch multiple changes into one commit
+❌ **NEVER** skip pushing to remote
+❌ **NEVER** assume "this is too small to commit"
+
+**Remember**: GitHub is the safety net. Commit EVERYTHING.
+
+---
+
 ## 🎯 Core Guiding Principle: KISS / KASS
 
 **KISS: Keep It Simple, Stupid**
