@@ -8,26 +8,28 @@ datasource db {
 }
 
 model User {
-  userId                String         @id @default(uuid()) @map("user_id") @db.Uuid
-  email                 String         @unique @db.VarChar(255)
-  kindeId               String         @unique @map("kinde_id") @db.VarChar(255)
-  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt             DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isSubscribed          Boolean        @default(false) @map("is_subscribed")
-  subscriptionId        String?        @map("subscription_id") @db.VarChar(255)
-  subscriptionStartDate DateTime?      @map("subscription_start_date") @db.Timestamp(6)
-  subscriptionEndDate   DateTime?      @map("subscription_end_date") @db.Timestamp(6)
-  storageLimitGb        Int            @default(0) @map("storage_limit_gb")
-  storageUsedBytes      BigInt         @default(0) @map("storage_used_bytes")
-  lastLogin             DateTime?      @map("last_login") @db.Timestamp(6)
-  displayName           String?        @map("display_name") @db.VarChar(255)
-  memberIcon            String?        @map("member_icon") @db.VarChar(10)
-  iconColor             String?        @map("icon_color") @db.VarChar(7)
-  profilePhotoFileId    String?        @map("profile_photo_file_id") @db.Uuid
-  groupMemberships      GroupMember[]
-  createdGroups         Group[]        @relation("GroupCreator")
-  pinnedItems           PinnedItem[]
-  storageUsage          StorageUsage[]
+  userId                 String                 @id @default(uuid()) @map("user_id") @db.Uuid
+  email                  String                 @unique @db.VarChar(255)
+  kindeId                String                 @unique @map("kinde_id") @db.VarChar(255)
+  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isSubscribed           Boolean                @default(false) @map("is_subscribed")
+  subscriptionId         String?                @map("subscription_id") @db.VarChar(255)
+  subscriptionStartDate  DateTime?              @map("subscription_start_date") @db.Timestamp(6)
+  subscriptionEndDate    DateTime?              @map("subscription_end_date") @db.Timestamp(6)
+  storageLimitGb         Int                    @default(0) @map("storage_limit_gb")
+  storageUsedBytes       BigInt                 @default(0) @map("storage_used_bytes")
+  lastLogin              DateTime?              @map("last_login") @db.Timestamp(6)
+  displayName            String?                @map("display_name") @db.VarChar(255)
+  memberIcon             String?                @map("member_icon") @db.VarChar(10)
+  iconColor              String?                @map("icon_color") @db.VarChar(7)
+  profilePhotoFileId     String?                @map("profile_photo_file_id") @db.Uuid
+  groupMemberships       GroupMember[]
+  createdGroups          Group[]                @relation("GroupCreator")
+  pinnedItems            PinnedItem[]
+  storageUsage           StorageUsage[]
+  personalGiftRegistries PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
+  personalItemRegistries PersonalItemRegistry[] @relation("PersonalItemRegistries")
 
   @@index([email])
   @@index([kindeId])
@@ -35,90 +37,96 @@ model User {
 }
 
 model Group {
-  groupId            String            @id @default(uuid()) @map("group_id") @db.Uuid
-  name               String            @db.VarChar(255)
-  icon               String?           @db.VarChar(255)
-  backgroundImageUrl String?           @map("background_image_url")
-  backgroundColor    String?           @map("background_color") @db.VarChar(7)
-  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isHidden           Boolean           @default(false) @map("is_hidden")
-  dateFormat         String            @default("MM/DD/YYYY") @map("date_format") @db.VarChar(50)
-  currency           String            @default("USD") @db.VarChar(3)
-  createdByTrialUser Boolean           @default(false) @map("created_by_trial_user")
-  createdByUserId    String?           @map("created_by_user_id") @db.Uuid
-  adminPermissions   AdminPermission[]
-  approvals             Approval[]
-  auditLogs             AuditLog[]
-  calendarEvents        CalendarEvent[]
-  financeMatters        FinanceMatter[]
-  members               GroupMember[]
-  settings              GroupSettings?
-  createdBy             User?                   @relation("GroupCreator", fields: [createdByUserId], references: [userId])
-  messageGroups         MessageGroup[]
-  relationships         Relationship[]
-  storageUsage          StorageUsage[]
-  wishLists             WishList[]
-  krisKringles          KrisKringle[]
-  giftRegistries        GiftRegistry[]
+  groupId                   String                          @id @default(uuid()) @map("group_id") @db.Uuid
+  name                      String                          @db.VarChar(255)
+  icon                      String?                         @db.VarChar(255)
+  backgroundImageUrl        String?                         @map("background_image_url")
+  backgroundColor           String?                         @map("background_color") @db.VarChar(7)
+  createdAt                 DateTime                        @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                 DateTime                        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden                  Boolean                         @default(false) @map("is_hidden")
+  dateFormat                String                          @default("MM/DD/YYYY") @map("date_format") @db.VarChar(50)
+  currency                  String                          @default("USD") @db.VarChar(3)
+  createdByTrialUser        Boolean                         @default(false) @map("created_by_trial_user")
+  createdByUserId           String?                         @map("created_by_user_id") @db.Uuid
+  adminPermissions          AdminPermission[]
+  approvals                 Approval[]
+  auditLogs                 AuditLog[]
+  calendarEvents            CalendarEvent[]
+  financeMatters            FinanceMatter[]
+  members                   GroupMember[]
+  settings                  GroupSettings?
+  createdBy                 User?                           @relation("GroupCreator", fields: [createdByUserId], references: [userId])
+  messageGroups             MessageGroup[]
+  relationships             Relationship[]
+  storageUsage              StorageUsage[]
+  wishLists                 WishList[]
+  krisKringles              KrisKringle[]
+  giftRegistries            GiftRegistry[]
+  personalGiftRegistryLinks PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinks")
+  personalItemRegistryLinks PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinks")
+  itemRegistries            ItemRegistry[]                  @relation("ItemRegistries")
 
   @@index([createdAt])
   @@map("groups")
 }
 
 model GroupMember {
-  groupMemberId            String                     @id @default(uuid()) @map("group_member_id") @db.Uuid
-  groupId                  String                     @map("group_id") @db.Uuid
-  userId                   String?                    @map("user_id") @db.Uuid
-  role                     String                     @db.VarChar(50)
-  displayName              String                     @map("display_name") @db.VarChar(255)
-  iconLetters              String                     @map("icon_letters") @db.VarChar(3)
-  iconColor                String                     @map("icon_color") @db.VarChar(7)
-  email                    String?                    @db.VarChar(255)
-  isRegistered             Boolean                    @default(false) @map("is_registered")
-  joinedAt                 DateTime                   @default(now()) @map("joined_at") @db.Timestamp(6)
-  isMuted                  Boolean                    @default(false) @map("is_muted")
-  notifyRequests           Boolean                    @default(true) @map("notify_requests")
-  notifyAllMessages        Boolean                    @default(true) @map("notify_all_messages")
-  notifyMentionMessages    Boolean                    @default(true) @map("notify_mention_messages")
-  notifyAllCalendar        Boolean                    @default(true) @map("notify_all_calendar")
-  notifyMentionCalendar    Boolean                    @default(true) @map("notify_mention_calendar")
-  notifyAllFinance         Boolean                    @default(true) @map("notify_all_finance")
-  notifyMentionFinance     Boolean                    @default(true) @map("notify_mention_finance")
-  isPinned                 Boolean                    @default(false) @map("is_pinned")
-  pinnedOrder              Int?                       @map("pinned_order")
-  grantedPermissions       AdminPermission[]          @relation("GrantingAdmin")
-  receivedPermissions      AdminPermission[]          @relation("ReceivingAdmin")
-  approvalVotes            ApprovalVote[]
-  requestedApprovals       Approval[]                 @relation("ApprovalRequester")
-  auditLogsPerformed       AuditLog[]
-  createdEvents            CalendarEvent[]            @relation("EventCreator")
-  childResponsibilities    ChildResponsibilityEvent[] @relation("ResponsibleChild")
-  endResponsibilities      ChildResponsibilityEvent[] @relation("EndResponsibleMember")
-  startResponsibilities    ChildResponsibilityEvent[] @relation("StartResponsibleMember")
-  eventAttendances         EventAttendee[]
-  financeMatterMemberships FinanceMatterMember[]
-  createdFinanceMatters    FinanceMatter[]            @relation("FinanceMatterCreator")
-  settledFinanceMatters    FinanceMatter[]            @relation("FinanceMatterSettler")
-  canceledFinanceMatters   FinanceMatter[]            @relation("FinanceMatterCanceler")
-  paymentsFrom             FinancePayment[]           @relation("PaymentFrom")
-  paymentsTo               FinancePayment[]           @relation("PaymentTo")
-  group                    Group                      @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  user                     User?                      @relation(fields: [userId], references: [userId])
-  messageGroupMemberships  MessageGroupMember[]
-  createdMessageGroups     MessageGroup[]             @relation("MessageGroupCreator")
-  messageReadReceipts      MessageReadReceipt[]
-  hiddenMessages              Message[]                  @relation("MessageHider")
-  sentMessages                Message[]                  @relation("MessageSender")
-  sentFinanceMatterMessages   FinanceMatterMessage[]     @relation("FinanceMatterMessageSender")
-  relationshipsAsMember1      Relationship[]             @relation("Member1")
-  relationshipsAsMember2      Relationship[]             @relation("Member2")
-  wishListsForMember          WishList[]                 @relation("WishListForMember")
-  wishListsCreated            WishList[]                 @relation("WishListCreator")
-  purchasedWishListItems      WishListItem[]
-  krisKringlesCreated         KrisKringle[]
-  krisKringleParticipants     KrisKringleParticipant[]
-  giftRegistriesCreated       GiftRegistry[]
+  groupMemberId             String                          @id @default(uuid()) @map("group_member_id") @db.Uuid
+  groupId                   String                          @map("group_id") @db.Uuid
+  userId                    String?                         @map("user_id") @db.Uuid
+  role                      String                          @db.VarChar(50)
+  displayName               String                          @map("display_name") @db.VarChar(255)
+  iconLetters               String                          @map("icon_letters") @db.VarChar(3)
+  iconColor                 String                          @map("icon_color") @db.VarChar(7)
+  email                     String?                         @db.VarChar(255)
+  isRegistered              Boolean                         @default(false) @map("is_registered")
+  joinedAt                  DateTime                        @default(now()) @map("joined_at") @db.Timestamp(6)
+  isMuted                   Boolean                         @default(false) @map("is_muted")
+  notifyRequests            Boolean                         @default(true) @map("notify_requests")
+  notifyAllMessages         Boolean                         @default(true) @map("notify_all_messages")
+  notifyMentionMessages     Boolean                         @default(true) @map("notify_mention_messages")
+  notifyAllCalendar         Boolean                         @default(true) @map("notify_all_calendar")
+  notifyMentionCalendar     Boolean                         @default(true) @map("notify_mention_calendar")
+  notifyAllFinance          Boolean                         @default(true) @map("notify_all_finance")
+  notifyMentionFinance      Boolean                         @default(true) @map("notify_mention_finance")
+  isPinned                  Boolean                         @default(false) @map("is_pinned")
+  pinnedOrder               Int?                            @map("pinned_order")
+  grantedPermissions        AdminPermission[]               @relation("GrantingAdmin")
+  receivedPermissions       AdminPermission[]               @relation("ReceivingAdmin")
+  approvalVotes             ApprovalVote[]
+  requestedApprovals        Approval[]                      @relation("ApprovalRequester")
+  auditLogsPerformed        AuditLog[]
+  createdEvents             CalendarEvent[]                 @relation("EventCreator")
+  childResponsibilities     ChildResponsibilityEvent[]      @relation("ResponsibleChild")
+  endResponsibilities       ChildResponsibilityEvent[]      @relation("EndResponsibleMember")
+  startResponsibilities     ChildResponsibilityEvent[]      @relation("StartResponsibleMember")
+  eventAttendances          EventAttendee[]
+  financeMatterMemberships  FinanceMatterMember[]
+  createdFinanceMatters     FinanceMatter[]                 @relation("FinanceMatterCreator")
+  settledFinanceMatters     FinanceMatter[]                 @relation("FinanceMatterSettler")
+  canceledFinanceMatters    FinanceMatter[]                 @relation("FinanceMatterCanceler")
+  paymentsFrom              FinancePayment[]                @relation("PaymentFrom")
+  paymentsTo                FinancePayment[]                @relation("PaymentTo")
+  group                     Group                           @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  user                      User?                           @relation(fields: [userId], references: [userId])
+  messageGroupMemberships   MessageGroupMember[]
+  createdMessageGroups      MessageGroup[]                  @relation("MessageGroupCreator")
+  messageReadReceipts       MessageReadReceipt[]
+  hiddenMessages            Message[]                       @relation("MessageHider")
+  sentMessages              Message[]                       @relation("MessageSender")
+  sentFinanceMatterMessages FinanceMatterMessage[]          @relation("FinanceMatterMessageSender")
+  relationshipsAsMember1    Relationship[]                  @relation("Member1")
+  relationshipsAsMember2    Relationship[]                  @relation("Member2")
+  wishListsForMember        WishList[]                      @relation("WishListForMember")
+  wishListsCreated          WishList[]                      @relation("WishListCreator")
+  purchasedWishListItems    WishListItem[]
+  krisKringlesCreated       KrisKringle[]
+  krisKringleParticipants   KrisKringleParticipant[]
+  giftRegistriesCreated     GiftRegistry[]
+  personalGiftRegistryLinks PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinker")
+  personalItemRegistryLinks PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinker")
+  itemRegistriesCreated     ItemRegistry[]                  @relation("ItemRegistryCreator")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -162,45 +170,45 @@ model GroupSettings {
 }
 
 model AdminPermission {
-  permissionId                        String      @id @default(uuid()) @map("permission_id") @db.Uuid
-  groupId                             String      @map("group_id") @db.Uuid
-  grantingAdminId                     String      @map("granting_admin_id") @db.Uuid
-  receivingAdminId                    String      @map("receiving_admin_id") @db.Uuid
-  autoApproveHideMessages             Boolean     @default(false) @map("auto_approve_hide_messages")
-  autoApproveAddPeople                Boolean     @default(false) @map("auto_approve_add_people")
-  autoApproveRemovePeople             Boolean     @default(false) @map("auto_approve_remove_people")
-  autoApproveAssignRoles              Boolean     @default(false) @map("auto_approve_assign_roles")
-  autoApproveChangeRoles              Boolean     @default(false) @map("auto_approve_change_roles")
-  autoApproveAssignRelationships      Boolean     @default(false) @map("auto_approve_assign_relationships")
-  autoApproveChangeRelationships      Boolean     @default(false) @map("auto_approve_change_relationships")
-  autoApproveCalendarEntries          Boolean     @default(false) @map("auto_approve_calendar_entries")
-  autoApproveAssignChildrenToEvents   Boolean     @default(false) @map("auto_approve_assign_children_to_events")
-  autoApproveAssignCaregiversToEvents Boolean     @default(false) @map("auto_approve_assign_caregivers_to_events")
-  autoApproveChangeMessageDeletionSetting Boolean @default(false) @map("auto_approve_change_message_deletion_setting")
-  createdAt                           DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt                           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  grantingAdmin                       GroupMember @relation("GrantingAdmin", fields: [grantingAdminId], references: [groupMemberId])
-  group                               Group       @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  receivingAdmin                      GroupMember @relation("ReceivingAdmin", fields: [receivingAdminId], references: [groupMemberId])
+  permissionId                            String      @id @default(uuid()) @map("permission_id") @db.Uuid
+  groupId                                 String      @map("group_id") @db.Uuid
+  grantingAdminId                         String      @map("granting_admin_id") @db.Uuid
+  receivingAdminId                        String      @map("receiving_admin_id") @db.Uuid
+  autoApproveHideMessages                 Boolean     @default(false) @map("auto_approve_hide_messages")
+  autoApproveAddPeople                    Boolean     @default(false) @map("auto_approve_add_people")
+  autoApproveRemovePeople                 Boolean     @default(false) @map("auto_approve_remove_people")
+  autoApproveAssignRoles                  Boolean     @default(false) @map("auto_approve_assign_roles")
+  autoApproveChangeRoles                  Boolean     @default(false) @map("auto_approve_change_roles")
+  autoApproveAssignRelationships          Boolean     @default(false) @map("auto_approve_assign_relationships")
+  autoApproveChangeRelationships          Boolean     @default(false) @map("auto_approve_change_relationships")
+  autoApproveCalendarEntries              Boolean     @default(false) @map("auto_approve_calendar_entries")
+  autoApproveAssignChildrenToEvents       Boolean     @default(false) @map("auto_approve_assign_children_to_events")
+  autoApproveAssignCaregiversToEvents     Boolean     @default(false) @map("auto_approve_assign_caregivers_to_events")
+  autoApproveChangeMessageDeletionSetting Boolean     @default(false) @map("auto_approve_change_message_deletion_setting")
+  createdAt                               DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                               DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  grantingAdmin                           GroupMember @relation("GrantingAdmin", fields: [grantingAdminId], references: [groupMemberId])
+  group                                   Group       @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  receivingAdmin                          GroupMember @relation("ReceivingAdmin", fields: [receivingAdminId], references: [groupMemberId])
 
   @@unique([groupId, grantingAdminId, receivingAdminId])
   @@map("admin_permissions")
 }
 
 model MessageGroup {
-  messageGroupId           String               @id @default(uuid()) @map("message_group_id") @db.Uuid
-  groupId                  String               @map("group_id") @db.Uuid
-  name                     String               @db.VarChar(255)
-  createdBy                String               @map("created_by") @db.Uuid
-  createdAt                DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt                DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  lastMessageAt            DateTime?            @map("last_message_at") @db.Timestamp(6)
-  isHidden                 Boolean              @default(false) @map("is_hidden")
-  usersCanDeleteOwnMessages Boolean             @default(true) @map("users_can_delete_own_messages")
-  members                  MessageGroupMember[]
-  creator                  GroupMember          @relation("MessageGroupCreator", fields: [createdBy], references: [groupMemberId])
-  group                    Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  messages                 Message[]
+  messageGroupId            String               @id @default(uuid()) @map("message_group_id") @db.Uuid
+  groupId                   String               @map("group_id") @db.Uuid
+  name                      String               @db.VarChar(255)
+  createdBy                 String               @map("created_by") @db.Uuid
+  createdAt                 DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                 DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  lastMessageAt             DateTime?            @map("last_message_at") @db.Timestamp(6)
+  isHidden                  Boolean              @default(false) @map("is_hidden")
+  usersCanDeleteOwnMessages Boolean              @default(true) @map("users_can_delete_own_messages")
+  members                   MessageGroupMember[]
+  creator                   GroupMember          @relation("MessageGroupCreator", fields: [createdBy], references: [groupMemberId])
+  group                     Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  messages                  Message[]
 
   @@index([groupId])
   @@index([lastMessageAt])
@@ -338,27 +346,27 @@ model ChildResponsibilityEvent {
 }
 
 model FinanceMatter {
-  financeMatterId String                @id @default(uuid()) @map("finance_matter_id") @db.Uuid
-  groupId         String                @map("group_id") @db.Uuid
-  name            String                @db.VarChar(255)
+  financeMatterId String                 @id @default(uuid()) @map("finance_matter_id") @db.Uuid
+  groupId         String                 @map("group_id") @db.Uuid
+  name            String                 @db.VarChar(255)
   description     String?
-  totalAmount     Decimal               @map("total_amount") @db.Decimal(12, 2)
-  currency        String                @db.VarChar(3)
-  dueDate         DateTime?             @map("due_date") @db.Timestamp(6)
-  createdBy       String                @map("created_by") @db.Uuid
-  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isSettled       Boolean               @default(false) @map("is_settled")
-  settledAt       DateTime?             @map("settled_at") @db.Timestamp(6)
-  settledBy       String?               @map("settled_by") @db.Uuid
-  isCanceled      Boolean               @default(false) @map("is_canceled")
-  canceledAt      DateTime?             @map("canceled_at") @db.Timestamp(6)
-  canceledBy      String?               @map("canceled_by") @db.Uuid
+  totalAmount     Decimal                @map("total_amount") @db.Decimal(12, 2)
+  currency        String                 @db.VarChar(3)
+  dueDate         DateTime?              @map("due_date") @db.Timestamp(6)
+  createdBy       String                 @map("created_by") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isSettled       Boolean                @default(false) @map("is_settled")
+  settledAt       DateTime?              @map("settled_at") @db.Timestamp(6)
+  settledBy       String?                @map("settled_by") @db.Uuid
+  isCanceled      Boolean                @default(false) @map("is_canceled")
+  canceledAt      DateTime?              @map("canceled_at") @db.Timestamp(6)
+  canceledBy      String?                @map("canceled_by") @db.Uuid
   members         FinanceMatterMember[]
-  creator         GroupMember           @relation("FinanceMatterCreator", fields: [createdBy], references: [groupMemberId])
-  group           Group                 @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  settler         GroupMember?             @relation("FinanceMatterSettler", fields: [settledBy], references: [groupMemberId])
-  canceler        GroupMember?             @relation("FinanceMatterCanceler", fields: [canceledBy], references: [groupMemberId])
+  creator         GroupMember            @relation("FinanceMatterCreator", fields: [createdBy], references: [groupMemberId])
+  group           Group                  @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  settler         GroupMember?           @relation("FinanceMatterSettler", fields: [settledBy], references: [groupMemberId])
+  canceler        GroupMember?           @relation("FinanceMatterCanceler", fields: [canceledBy], references: [groupMemberId])
   payments        FinancePayment[]
   messages        FinanceMatterMessage[]
 
@@ -526,19 +534,19 @@ model PinnedItem {
 // ============================================
 
 model WishList {
-  wishListId  String       @id @default(uuid()) @map("wish_list_id") @db.Uuid
-  groupId     String       @map("group_id") @db.Uuid
-  name        String       @db.VarChar(255)
-  description String?      @db.Text
-  forMemberId String       @map("for_member_id") @db.Uuid
-  createdBy   String       @map("created_by") @db.Uuid
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isHidden    Boolean      @default(false) @map("is_hidden")
-  items       WishListItem[]
-  group       Group        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  forMember   GroupMember  @relation("WishListForMember", fields: [forMemberId], references: [groupMemberId])
-  creator     GroupMember  @relation("WishListCreator", fields: [createdBy], references: [groupMemberId])
+  wishListId              String                   @id @default(uuid()) @map("wish_list_id") @db.Uuid
+  groupId                 String                   @map("group_id") @db.Uuid
+  name                    String                   @db.VarChar(255)
+  description             String?                  @db.Text
+  forMemberId             String                   @map("for_member_id") @db.Uuid
+  createdBy               String                   @map("created_by") @db.Uuid
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden                Boolean                  @default(false) @map("is_hidden")
+  items                   WishListItem[]
+  group                   Group                    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  forMember               GroupMember              @relation("WishListForMember", fields: [forMemberId], references: [groupMemberId])
+  creator                 GroupMember              @relation("WishListCreator", fields: [createdBy], references: [groupMemberId])
   krisKringleParticipants KrisKringleParticipant[]
 
   @@index([groupId])
@@ -547,23 +555,23 @@ model WishList {
 }
 
 model WishListItem {
-  itemId       String      @id @default(uuid()) @map("item_id") @db.Uuid
-  wishListId   String      @map("wish_list_id") @db.Uuid
-  name         String      @db.VarChar(255)
-  description  String?     @db.Text
-  url          String?     @db.Text
-  imageUrl     String?     @map("image_url") @db.Text
-  price        Decimal?    @db.Decimal(12, 2)
-  priority     String      @default("medium") @db.VarChar(20)
-  isPurchased  Boolean     @default(false) @map("is_purchased")
-  purchasedBy  String?     @map("purchased_by") @db.Uuid
-  purchasedAt  DateTime?   @map("purchased_at") @db.Timestamp(6)
-  notes        String?     @db.Text
-  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isHidden     Boolean     @default(false) @map("is_hidden")
-  wishList     WishList    @relation(fields: [wishListId], references: [wishListId], onDelete: Cascade)
-  purchaser    GroupMember? @relation(fields: [purchasedBy], references: [groupMemberId])
+  itemId      String       @id @default(uuid()) @map("item_id") @db.Uuid
+  wishListId  String       @map("wish_list_id") @db.Uuid
+  name        String       @db.VarChar(255)
+  description String?      @db.Text
+  url         String?      @db.Text
+  imageUrl    String?      @map("image_url") @db.Text
+  price       Decimal?     @db.Decimal(12, 2)
+  priority    String       @default("medium") @db.VarChar(20)
+  isPurchased Boolean      @default(false) @map("is_purchased")
+  purchasedBy String?      @map("purchased_by") @db.Uuid
+  purchasedAt DateTime?    @map("purchased_at") @db.Timestamp(6)
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden    Boolean      @default(false) @map("is_hidden")
+  wishList    WishList     @relation(fields: [wishListId], references: [wishListId], onDelete: Cascade)
+  purchaser   GroupMember? @relation(fields: [purchasedBy], references: [groupMemberId])
 
   @@index([wishListId])
   @@index([isPurchased])
@@ -575,23 +583,23 @@ model WishListItem {
 // ============================================
 
 model KrisKringle {
-  krisKringleId String               @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
-  groupId       String               @map("group_id") @db.Uuid
-  name          String               @db.VarChar(255)
-  description   String?              @db.Text
-  priceLimit    Decimal?             @map("price_limit") @db.Decimal(12, 2)
-  revealDate    DateTime?            @map("reveal_date") @db.Timestamp(6)
-  exchangeDate  DateTime?            @map("exchange_date") @db.Timestamp(6)
-  createdBy     String               @map("created_by") @db.Uuid
-  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  status        String               @default("draft") @db.VarChar(20)
-  isHidden      Boolean              @default(false) @map("is_hidden")
+  krisKringleId String                   @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
+  groupId       String                   @map("group_id") @db.Uuid
+  name          String                   @db.VarChar(255)
+  description   String?                  @db.Text
+  priceLimit    Decimal?                 @map("price_limit") @db.Decimal(12, 2)
+  revealDate    DateTime?                @map("reveal_date") @db.Timestamp(6)
+  exchangeDate  DateTime?                @map("exchange_date") @db.Timestamp(6)
+  createdBy     String                   @map("created_by") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  status        String                   @default("draft") @db.VarChar(20)
+  isHidden      Boolean                  @default(false) @map("is_hidden")
   participants  KrisKringleParticipant[]
   matches       KrisKringleMatch[]
   exclusions    KrisKringleExclusion[]
-  group         Group                @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  creator       GroupMember          @relation(fields: [createdBy], references: [groupMemberId])
+  group         Group                    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator       GroupMember              @relation(fields: [createdBy], references: [groupMemberId])
 
   @@index([groupId])
   @@index([status])
@@ -599,20 +607,20 @@ model KrisKringle {
 }
 
 model KrisKringleParticipant {
-  participantId String      @id @default(uuid()) @map("participant_id") @db.Uuid
-  krisKringleId String      @map("kris_kringle_id") @db.Uuid
-  groupMemberId String?     @map("group_member_id") @db.Uuid
-  email         String?     @db.VarChar(255)
-  name          String      @db.VarChar(255)
-  hasJoined     Boolean     @default(false) @map("has_joined")
-  wishListId    String?     @map("wish_list_id") @db.Uuid
-  joinedAt      DateTime?   @map("joined_at") @db.Timestamp(6)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
-  krisKringle   KrisKringle @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
-  groupMember   GroupMember? @relation(fields: [groupMemberId], references: [groupMemberId])
-  wishList      WishList?   @relation(fields: [wishListId], references: [wishListId])
-  givingTo      KrisKringleMatch[] @relation("GivingMatches")
-  receivingFrom KrisKringleMatch[] @relation("ReceivingMatches")
+  participantId  String                 @id @default(uuid()) @map("participant_id") @db.Uuid
+  krisKringleId  String                 @map("kris_kringle_id") @db.Uuid
+  groupMemberId  String?                @map("group_member_id") @db.Uuid
+  email          String?                @db.VarChar(255)
+  name           String                 @db.VarChar(255)
+  hasJoined      Boolean                @default(false) @map("has_joined")
+  wishListId     String?                @map("wish_list_id") @db.Uuid
+  joinedAt       DateTime?              @map("joined_at") @db.Timestamp(6)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle    KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  groupMember    GroupMember?           @relation(fields: [groupMemberId], references: [groupMemberId])
+  wishList       WishList?              @relation(fields: [wishListId], references: [wishListId])
+  givingTo       KrisKringleMatch[]     @relation("GivingMatches")
+  receivingFrom  KrisKringleMatch[]     @relation("ReceivingMatches")
   exclusionsFrom KrisKringleExclusion[] @relation("ExclusionPerson1")
   exclusionsTo   KrisKringleExclusion[] @relation("ExclusionPerson2")
 
@@ -622,14 +630,14 @@ model KrisKringleParticipant {
 }
 
 model KrisKringleMatch {
-  matchId       String                  @id @default(uuid()) @map("match_id") @db.Uuid
-  krisKringleId String                  @map("kris_kringle_id") @db.Uuid
-  giverId       String                  @map("giver_id") @db.Uuid
-  receiverId    String                  @map("receiver_id") @db.Uuid
-  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
-  krisKringle   KrisKringle             @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
-  giver         KrisKringleParticipant  @relation("GivingMatches", fields: [giverId], references: [participantId])
-  receiver      KrisKringleParticipant  @relation("ReceivingMatches", fields: [receiverId], references: [participantId])
+  matchId       String                 @id @default(uuid()) @map("match_id") @db.Uuid
+  krisKringleId String                 @map("kris_kringle_id") @db.Uuid
+  giverId       String                 @map("giver_id") @db.Uuid
+  receiverId    String                 @map("receiver_id") @db.Uuid
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle   KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  giver         KrisKringleParticipant @relation("GivingMatches", fields: [giverId], references: [participantId])
+  receiver      KrisKringleParticipant @relation("ReceivingMatches", fields: [receiverId], references: [participantId])
 
   @@unique([krisKringleId, giverId])
   @@index([krisKringleId])
@@ -637,14 +645,14 @@ model KrisKringleMatch {
 }
 
 model KrisKringleExclusion {
-  exclusionId   String                  @id @default(uuid()) @map("exclusion_id") @db.Uuid
-  krisKringleId String                  @map("kris_kringle_id") @db.Uuid
+  exclusionId    String                 @id @default(uuid()) @map("exclusion_id") @db.Uuid
+  krisKringleId  String                 @map("kris_kringle_id") @db.Uuid
   participant1Id String                 @map("participant1_id") @db.Uuid
   participant2Id String                 @map("participant2_id") @db.Uuid
-  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
-  krisKringle   KrisKringle             @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
-  participant1  KrisKringleParticipant  @relation("ExclusionPerson1", fields: [participant1Id], references: [participantId])
-  participant2  KrisKringleParticipant  @relation("ExclusionPerson2", fields: [participant2Id], references: [participantId])
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle    KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  participant1   KrisKringleParticipant @relation("ExclusionPerson1", fields: [participant1Id], references: [participantId])
+  participant2   KrisKringleParticipant @relation("ExclusionPerson2", fields: [participant2Id], references: [participantId])
 
   @@unique([krisKringleId, participant1Id, participant2Id])
   @@index([krisKringleId])
@@ -657,19 +665,19 @@ model KrisKringleExclusion {
 // ============================================
 
 model GiftRegistry {
-  registryId   String       @id @default(uuid()) @map("registry_id") @db.Uuid
-  groupId      String       @map("group_id") @db.Uuid
-  creatorId    String       @map("creator_id") @db.Uuid
-  name         String       @db.VarChar(255)
-  sharingType  String       @map("sharing_type") @db.VarChar(20) // public, passcode, group_only
-  passcode     String?      @db.VarChar(6)
-  webToken     String       @unique @map("web_token") @db.VarChar(32)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  registryId  String   @id @default(uuid()) @map("registry_id") @db.Uuid
+  groupId     String   @map("group_id") @db.Uuid
+  creatorId   String   @map("creator_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  sharingType String   @map("sharing_type") @db.VarChar(20) // public, passcode, group_only
+  passcode    String?  @db.VarChar(6)
+  webToken    String   @unique @map("web_token") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  group        Group        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  creator      GroupMember  @relation(fields: [creatorId], references: [groupMemberId], onDelete: Cascade)
-  items        GiftItem[]
+  group   Group       @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator GroupMember @relation(fields: [creatorId], references: [groupMemberId], onDelete: Cascade)
+  items   GiftItem[]
 
   @@index([groupId])
   @@index([creatorId])
@@ -678,19 +686,184 @@ model GiftRegistry {
 }
 
 model GiftItem {
-  itemId       String        @id @default(uuid()) @map("item_id") @db.Uuid
-  registryId   String        @map("registry_id") @db.Uuid
-  title        String        @db.VarChar(255)
-  link         String?       @db.Text
-  photoUrl     String?       @map("photo_url") @db.Text
-  cost         Decimal?      @db.Decimal(10, 2)
-  description  String?       @db.Text
-  displayOrder Int           @default(0) @map("display_order")
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  itemId       String   @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String   @map("registry_id") @db.Uuid
+  title        String   @db.VarChar(255)
+  link         String?  @db.Text
+  photoUrl     String?  @map("photo_url") @db.Text
+  cost         Decimal? @db.Decimal(10, 2)
+  description  String?  @db.Text
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  registry     GiftRegistry  @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  registry GiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
 
   @@index([registryId, displayOrder])
   @@map("gift_items")
+}
+
+// ============================================
+// PERSONAL GIFT REGISTRY MODELS (User-Level)
+// ============================================
+
+model PersonalGiftRegistry {
+  registryId  String   @id @default(uuid()) @map("registry_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  sharingType String   @map("sharing_type") @db.VarChar(30) // external_link, external_link_passcode
+  webToken    String   @unique @map("web_token") @db.VarChar(32)
+  passcode    String?  @db.VarChar(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user       User                            @relation("PersonalGiftRegistries", fields: [userId], references: [userId], onDelete: Cascade)
+  items      PersonalGiftItem[]
+  groupLinks PersonalGiftRegistryGroupLink[]
+
+  @@index([userId])
+  @@index([webToken])
+  @@map("personal_gift_registries")
+}
+
+model PersonalGiftItem {
+  itemId       String   @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String   @map("registry_id") @db.Uuid
+  title        String   @db.VarChar(255)
+  link         String?  @db.Text
+  photoUrl     String?  @map("photo_url") @db.Text
+  cost         Decimal? @db.Decimal(10, 2)
+  description  String?  @db.Text
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  registry PersonalGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+
+  @@index([registryId, displayOrder])
+  @@map("personal_gift_items")
+}
+
+model PersonalGiftRegistryGroupLink {
+  linkId     String   @id @default(uuid()) @map("link_id") @db.Uuid
+  registryId String   @map("registry_id") @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  linkedBy   String   @map("linked_by") @db.Uuid
+  linkedAt   DateTime @default(now()) @map("linked_at") @db.Timestamp(6)
+
+  registry PersonalGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  group    Group                @relation("PersonalGiftRegistryLinks", fields: [groupId], references: [groupId], onDelete: Cascade)
+  linker   GroupMember          @relation("PersonalGiftRegistryLinker", fields: [linkedBy], references: [groupMemberId], onDelete: Cascade)
+
+  @@unique([registryId, groupId])
+  @@index([registryId])
+  @@index([groupId])
+  @@map("personal_gift_registry_group_links")
+}
+
+// ============================================
+// PERSONAL ITEM REGISTRY MODELS (User-Level)
+// For books, tools, borrowable items
+// ============================================
+
+model PersonalItemRegistry {
+  registryId  String   @id @default(uuid()) @map("registry_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  sharingType String   @map("sharing_type") @db.VarChar(30) // external_link, external_link_passcode
+  webToken    String   @unique @map("web_token") @db.VarChar(32)
+  passcode    String?  @db.VarChar(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user       User                            @relation("PersonalItemRegistries", fields: [userId], references: [userId], onDelete: Cascade)
+  items      PersonalItemRegistryItem[]
+  groupLinks PersonalItemRegistryGroupLink[]
+
+  @@index([userId])
+  @@index([webToken])
+  @@map("personal_item_registries")
+}
+
+model PersonalItemRegistryItem {
+  itemId              String   @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId          String   @map("registry_id") @db.Uuid
+  title               String   @db.VarChar(255)
+  description         String?  @db.Text
+  photoUrl            String?  @map("photo_url") @db.Text
+  storageLocation     String?  @map("storage_location") @db.VarChar(255)
+  category            String?  @db.VarChar(100)
+  currentlyBorrowedBy String?  @map("currently_borrowed_by") @db.VarChar(255)
+  replacementValue    Decimal? @map("replacement_value") @db.Decimal(10, 2)
+  displayOrder        Int      @default(0) @map("display_order")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  registry PersonalItemRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+
+  @@index([registryId, displayOrder])
+  @@map("personal_item_registry_items")
+}
+
+model PersonalItemRegistryGroupLink {
+  linkId     String   @id @default(uuid()) @map("link_id") @db.Uuid
+  registryId String   @map("registry_id") @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  linkedBy   String   @map("linked_by") @db.Uuid
+  linkedAt   DateTime @default(now()) @map("linked_at") @db.Timestamp(6)
+
+  registry PersonalItemRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  group    Group                @relation("PersonalItemRegistryLinks", fields: [groupId], references: [groupId], onDelete: Cascade)
+  linker   GroupMember          @relation("PersonalItemRegistryLinker", fields: [linkedBy], references: [groupMemberId], onDelete: Cascade)
+
+  @@unique([registryId, groupId])
+  @@index([registryId])
+  @@index([groupId])
+  @@map("personal_item_registry_group_links")
+}
+
+// ============================================
+// GROUP ITEM REGISTRY MODELS (Group-Level)
+// For books, tools, borrowable items within a group
+// ============================================
+
+model ItemRegistry {
+  registryId  String   @id @default(uuid()) @map("registry_id") @db.Uuid
+  groupId     String   @map("group_id") @db.Uuid
+  creatorId   String   @map("creator_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  sharingType String   @map("sharing_type") @db.VarChar(20) // group_only, external_link, external_link_passcode
+  passcode    String?  @db.VarChar(6)
+  webToken    String?  @unique @map("web_token") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  group   Group              @relation("ItemRegistries", fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator GroupMember        @relation("ItemRegistryCreator", fields: [creatorId], references: [groupMemberId], onDelete: Cascade)
+  items   ItemRegistryItem[]
+
+  @@index([groupId])
+  @@index([creatorId])
+  @@index([webToken])
+  @@map("item_registries")
+}
+
+model ItemRegistryItem {
+  itemId              String   @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId          String   @map("registry_id") @db.Uuid
+  title               String   @db.VarChar(255)
+  description         String?  @db.Text
+  photoUrl            String?  @map("photo_url") @db.Text
+  storageLocation     String?  @map("storage_location") @db.VarChar(255)
+  category            String?  @db.VarChar(100)
+  currentlyBorrowedBy String?  @map("currently_borrowed_by") @db.VarChar(255)
+  replacementValue    Decimal? @map("replacement_value") @db.Decimal(10, 2)
+  displayOrder        Int      @default(0) @map("display_order")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  registry ItemRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+
+  @@index([registryId, displayOrder])
+  @@map("item_registry_items")
 }
