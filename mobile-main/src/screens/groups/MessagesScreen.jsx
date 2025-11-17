@@ -61,6 +61,18 @@ export default function MessagesScreen({ navigation, route }) {
   const screenHeight = Dimensions.get('window').height;
   const maxInputHeight = screenHeight * 0.5;
 
+  /**
+   * Scroll to bottom of messages list
+   */
+  const scrollToBottom = React.useCallback((animated = true) => {
+    if (flatListRef.current) {
+      // Use setTimeout to ensure FlatList has finished rendering
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated });
+      }, 50);
+    }
+  }, []);
+
   useEffect(() => {
     loadMessageGroupInfo();
     loadMessages();
@@ -69,11 +81,12 @@ export default function MessagesScreen({ navigation, route }) {
   // Scroll to bottom when messages load
   useEffect(() => {
     if (messages.length > 0) {
+      // Longer timeout on initial load to ensure FlatList is fully rendered
       setTimeout(() => {
         scrollToBottom(false); // No animation on initial load
-      }, 100);
+      }, 300);
     }
-  }, [messages.length]);
+  }, [messages.length, scrollToBottom]);
 
   // Add scroll to bottom button in header
   useEffect(() => {
@@ -88,7 +101,7 @@ export default function MessagesScreen({ navigation, route }) {
         />
       ),
     });
-  }, [navigation]);
+  }, [navigation, scrollToBottom]);
 
   /**
    * Load message group information
@@ -302,15 +315,6 @@ export default function MessagesScreen({ navigation, route }) {
       setShowImageViewer(true);
     } else {
       setShowVideoPlayer(true);
-    }
-  };
-
-  /**
-   * Scroll to bottom of messages
-   */
-  const scrollToBottom = (animated = true) => {
-    if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated });
     }
   };
 
