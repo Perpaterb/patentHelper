@@ -465,7 +465,7 @@ async function getGroupById(req, res) {
           iconLetters: member.user.memberIcon || member.iconLetters,
           iconColor: member.user.iconColor || member.iconColor,
           profilePhotoUrl: member.user.profilePhotoFileId
-            ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${member.user.profilePhotoFileId}`
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.user.profilePhotoFileId}`
             : null,
         };
       }

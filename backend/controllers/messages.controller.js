@@ -280,7 +280,7 @@ async function getMessageGroupMessages(req, res) {
           iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
           iconColor: message.sender.user?.iconColor || message.sender.iconColor,
           profilePhotoUrl: message.sender.user?.profilePhotoFileId
-            ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${message.sender.user.profilePhotoFileId}`
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${message.sender.user.profilePhotoFileId}`
             : null,
           role: message.sender.role,
         },
@@ -291,7 +291,7 @@ async function getMessageGroupMessages(req, res) {
           iconLetters: receipt.groupMember.user?.memberIcon || receipt.groupMember.iconLetters,
           iconColor: receipt.groupMember.user?.iconColor || receipt.groupMember.iconColor,
           profilePhotoUrl: receipt.groupMember.user?.profilePhotoFileId
-            ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${receipt.groupMember.user.profilePhotoFileId}`
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${receipt.groupMember.user.profilePhotoFileId}`
             : null,
         })),
         // Convert BigInt fileSizeBytes to Number for JSON serialization
@@ -487,7 +487,7 @@ async function sendMessageGroupMessage(req, res) {
         iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
         iconColor: message.sender.user?.iconColor || message.sender.iconColor,
         profilePhotoUrl: message.sender.user?.profilePhotoFileId
-          ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${message.sender.user.profilePhotoFileId}`
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${message.sender.user.profilePhotoFileId}`
           : null,
         role: message.sender.role,
       },

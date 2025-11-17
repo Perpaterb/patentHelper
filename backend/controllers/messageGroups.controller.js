@@ -158,7 +158,7 @@ async function getMessageGroups(req, res) {
               iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
               iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
               profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
-                ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${member.groupMember.user.profilePhotoFileId}`
+                ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.groupMember.user.profilePhotoFileId}`
                 : null,
               isRegistered: member.groupMember.isRegistered,
             },
@@ -443,7 +443,7 @@ async function getMessageGroupById(req, res) {
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
           profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
-            ? `${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${member.groupMember.user.profilePhotoFileId}`
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.groupMember.user.profilePhotoFileId}`
             : null,
           role: member.groupMember.role,
           isRegistered: member.groupMember.isRegistered,
