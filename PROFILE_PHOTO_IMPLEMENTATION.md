@@ -162,7 +162,7 @@ ALTER TABLE "users" ADD COLUMN "profile_photo_file_id" UUID;
     "memberIcon": "JD",
     "iconColor": "#6200ee",
     "profilePhotoFileId": "uuid-or-null",
-    "profilePhotoUrl": "http://localhost:3001/files/uuid-or-null",
+    "profilePhotoUrl": "http://localhost:3000/files/uuid-or-null",
     "isSubscribed": true,
     "createdAt": "ISO timestamp"
   }
@@ -393,6 +393,35 @@ When user uploads profile photo:
 
 **Solution:**
 - Added proper SQL: `ALTER TABLE "users" ADD COLUMN "profile_photo_file_id" UUID;`
+
+---
+
+### Issue 4: Port mismatch in backend URLs (FIXED)
+**Commits:**
+- `5dd4879` - "fix: Correct API_BASE_URL port in users.controller profile photo URLs"
+- `66e9b44` - "fix: Correct port 3001 to 3000 for all profilePhotoUrl constructions"
+
+**Problem:**
+- Backend was constructing profilePhotoUrl with wrong port (3001 instead of 3000)
+- Backend server actually runs on port 3000 (server.js line 93)
+- Caused empty colored circles with no image/initials in all member displays
+
+**Solution:**
+- Fixed 6 occurrences across 4 controllers:
+  - `users.controller.js` - 2 occurrences (GET/PUT /users/profile)
+  - `groups.controller.js` - 1 occurrence (getGroupById members)
+  - `messageGroups.controller.js` - 2 occurrences (all profilePhotoUrl constructions)
+  - `messages.controller.js` - 3 occurrences (sender avatars, read receipts)
+
+**Before:**
+```javascript
+`${process.env.API_BASE_URL || 'http://localhost:3001'}/files/${fileId}`
+```
+
+**After:**
+```javascript
+`${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${fileId}`
+```
 
 ---
 
