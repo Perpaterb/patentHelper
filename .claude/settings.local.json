@@ -40,7 +40,8 @@
       "Bash(npm test:*)",
       "Bash(npx prisma migrate:*)",
       "Bash(git log:*)",
-      "Bash(npx prisma format:*)"
+      "Bash(npx prisma format:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes\" npx prisma migrate reset:*)"
     ],
     "deny": [],
     "ask": []
