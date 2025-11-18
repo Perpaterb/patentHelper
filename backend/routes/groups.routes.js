@@ -15,6 +15,7 @@ const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
 const giftRegistryController = require('../controllers/giftRegistry.controller');
+const itemRegistryRouter = require('./itemRegistry.routes');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
@@ -322,5 +323,11 @@ router.use('/:groupId/wish-lists', wishListsRouter);
  * All routes under /groups/:groupId/kris-kringle
  */
 router.use('/:groupId/kris-kringle', krisKringleRouter);
+
+/**
+ * Mount item registry router
+ * All routes under /groups/:groupId/item-registries
+ */
+router.use('/:groupId/item-registries', itemRegistryRouter);
 
 module.exports = router;
