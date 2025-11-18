@@ -15,6 +15,10 @@ import HomeScreen from '../screens/home/HomeScreen';
 import MyAccountScreen from '../screens/account/MyAccountScreen';
 import PersonalGiftRegistriesScreen from '../screens/account/PersonalGiftRegistriesScreen';
 import PersonalItemRegistriesScreen from '../screens/account/PersonalItemRegistriesScreen';
+import AddEditPersonalGiftRegistryScreen from '../screens/account/AddEditPersonalGiftRegistryScreen';
+import AddEditPersonalItemRegistryScreen from '../screens/account/AddEditPersonalItemRegistryScreen';
+import PersonalGiftRegistryDetailScreen from '../screens/account/PersonalGiftRegistryDetailScreen';
+import PersonalItemRegistryDetailScreen from '../screens/account/PersonalItemRegistryDetailScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
 import EditGroupScreen from '../screens/groups/EditGroupScreen';
@@ -108,6 +112,26 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               name="PersonalItemRegistries"
               component={PersonalItemRegistriesScreen}
               options={{ title: 'My Item Registries', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="AddEditPersonalGiftRegistry"
+              component={AddEditPersonalGiftRegistryScreen}
+              options={{ title: 'Gift Registry', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="AddEditPersonalItemRegistry"
+              component={AddEditPersonalItemRegistryScreen}
+              options={{ title: 'Item Registry', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="PersonalGiftRegistryDetail"
+              component={PersonalGiftRegistryDetailScreen}
+              options={{ title: 'Gift Registry', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="PersonalItemRegistryDetail"
+              component={PersonalItemRegistryDetailScreen}
+              options={{ title: 'Item Registry', headerBackTitle: '' }}
             />
             <Stack.Screen
               name="Invites"
