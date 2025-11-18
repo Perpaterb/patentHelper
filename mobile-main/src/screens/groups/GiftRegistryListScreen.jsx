@@ -356,13 +356,16 @@ export default function GiftRegistryListScreen({ navigation, route }) {
                 )}
 
                 <View style={styles.infoRow}>
-                  <Chip
-                    icon="gift"
-                    style={[styles.chip, { backgroundColor: getSharingTypeColor(item.sharingType) + '20' }]}
-                    textStyle={[styles.chipText, { color: getSharingTypeColor(item.sharingType) }]}
-                  >
-                    {getSharingTypeLabel(item.sharingType)}
-                  </Chip>
+                  {/* Only show sharing type chip for group-owned registries, not linked personal registries */}
+                  {!isLinked && (
+                    <Chip
+                      icon="gift"
+                      style={[styles.chip, { backgroundColor: getSharingTypeColor(item.sharingType) + '20' }]}
+                      textStyle={[styles.chipText, { color: getSharingTypeColor(item.sharingType) }]}
+                    >
+                      {getSharingTypeLabel(item.sharingType)}
+                    </Chip>
+                  )}
 
                   <Text style={styles.itemCount}>
                     {itemCount} {itemCount === 1 ? 'item' : 'items'}
