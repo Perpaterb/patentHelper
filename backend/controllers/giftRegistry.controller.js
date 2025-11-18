@@ -851,6 +851,158 @@ async function deleteGiftItem(req, res) {
   }
 }
 
+/**
+ * Link personal gift registry to group
+ * POST /groups/:groupId/gift-registries/:registryId/link
+ */
+async function linkPersonalRegistry(req, res) {
+  try {
+    const { groupId, registryId } = req.params;
+
+    // Verify user is a member of this group
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Verify personal registry exists and belongs to user
+    const personalRegistry = await prisma.personalGiftRegistry.findUnique({
+      where: {
+        registryId: registryId,
+      },
+    });
+
+    if (!personalRegistry) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Personal registry not found',
+      });
+    }
+
+    if (personalRegistry.userId !== req.user.userId) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You can only link your own personal registries',
+      });
+    }
+
+    // Check if already linked
+    const existingLink = await prisma.personalGiftRegistryGroupLink.findFirst({
+      where: {
+        registryId: registryId,
+        groupId: groupId,
+      },
+    });
+
+    if (existingLink) {
+      return res.status(400).json({
+        error: 'Already linked',
+        message: 'This registry is already linked to this group',
+      });
+    }
+
+    // Create link
+    await prisma.personalGiftRegistryGroupLink.create({
+      data: {
+        registryId: registryId,
+        groupId: groupId,
+        linkedBy: membership.groupMemberId,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Personal registry linked to group successfully',
+    });
+  } catch (error) {
+    console.error('Link personal registry error:', error);
+    res.status(500).json({
+      error: 'Failed to link personal registry',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Unlink personal gift registry from group
+ * DELETE /groups/:groupId/gift-registries/:registryId/unlink
+ */
+async function unlinkPersonalRegistry(req, res) {
+  try {
+    const { groupId, registryId } = req.params;
+
+    // Verify user is a member of this group
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Verify link exists
+    const link = await prisma.personalGiftRegistryGroupLink.findFirst({
+      where: {
+        registryId: registryId,
+        groupId: groupId,
+      },
+      include: {
+        registry: true,
+      },
+    });
+
+    if (!link) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Registry link not found',
+      });
+    }
+
+    // Only the owner or group admins can unlink
+    const canUnlink = link.registry.userId === req.user.userId || membership.role === 'admin';
+
+    if (!canUnlink) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Only the owner or group admins can unlink this registry',
+      });
+    }
+
+    // Delete link
+    await prisma.personalGiftRegistryGroupLink.delete({
+      where: {
+        linkId: link.linkId,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Personal registry unlinked from group successfully',
+    });
+  } catch (error) {
+    console.error('Unlink personal registry error:', error);
+    res.status(500).json({
+      error: 'Failed to unlink personal registry',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getGiftRegistries,
   getGiftRegistry,
@@ -861,4 +1013,6 @@ module.exports = {
   addGiftItem,
   updateGiftItem,
   deleteGiftItem,
+  linkPersonalRegistry,
+  unlinkPersonalRegistry,
 };

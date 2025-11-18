@@ -26,4 +26,8 @@ router.post('/:registryId/items', giftRegistryController.addGiftItem);
 router.put('/:registryId/items/:itemId', giftRegistryController.updateGiftItem);
 router.delete('/:registryId/items/:itemId', giftRegistryController.deleteGiftItem);
 
+// Link/Unlink personal registry routes
+router.post('/:registryId/link', giftRegistryController.linkPersonalRegistry);
+router.delete('/:registryId/unlink', giftRegistryController.unlinkPersonalRegistry);
+
 module.exports = router;
