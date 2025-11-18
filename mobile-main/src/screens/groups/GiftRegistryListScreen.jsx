@@ -115,6 +115,7 @@ export default function GiftRegistryListScreen({ navigation, route }) {
         registryId: registry.registryId,
         registryName: registry.name,
         sharingType: registry.sharingType,
+        fromGroup: true, // Flag to indicate viewing from a group context
       });
     } else {
       // Navigate to group registry detail screen

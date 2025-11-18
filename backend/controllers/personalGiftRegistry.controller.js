@@ -98,17 +98,17 @@ exports.getPersonalGiftRegistries = async (req, res) => {
 /**
  * GET /users/personal-gift-registries/:registryId
  * Get a specific personal gift registry with all items
+ *
+ * Access: Registry owner OR members of groups where this registry is linked
  */
 exports.getPersonalGiftRegistryById = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { registryId } = req.params;
 
-    const registry = await prisma.personalGiftRegistry.findFirst({
-      where: {
-        registryId,
-        userId
-      },
+    // First, try to find the registry
+    const registry = await prisma.personalGiftRegistry.findUnique({
+      where: { registryId },
       include: {
         items: {
           orderBy: { displayOrder: 'asc' }
@@ -141,6 +141,33 @@ exports.getPersonalGiftRegistryById = async (req, res) => {
       });
     }
 
+    // Check if user has access to this registry
+    // User has access if they are:
+    // 1. The owner of the registry, OR
+    // 2. A member of any group where this registry is linked
+    const isOwner = registry.userId === userId;
+
+    let hasGroupAccess = false;
+    if (!isOwner && registry.groupLinks.length > 0) {
+      // Check if user is a member of any linked groups
+      const linkedGroupIds = registry.groupLinks.map(link => link.groupId);
+      const userGroupMembership = await prisma.groupMember.findFirst({
+        where: {
+          userId: userId,
+          groupId: { in: linkedGroupIds }
+        }
+      });
+
+      hasGroupAccess = !!userGroupMembership;
+    }
+
+    if (!isOwner && !hasGroupAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have permission to view this registry.'
+      });
+    }
+
     return res.json({
       success: true,
       registry: {
@@ -150,6 +177,7 @@ exports.getPersonalGiftRegistryById = async (req, res) => {
         webToken: registry.webToken,
         passcode: registry.passcode,
         items: registry.items,
+        isOwner: isOwner, // Add flag so frontend knows if user is the owner
         linkedGroups: registry.groupLinks.map(link => ({
           linkId: link.linkId,
           groupId: link.group.groupId,

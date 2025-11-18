@@ -26,13 +26,14 @@ import { getFileUrl } from '../../services/upload.service';
  * @returns {JSX.Element}
  */
 export default function PersonalGiftRegistryDetailScreen({ navigation, route }) {
-  const { registryId, registryName, sharingType, onUpdate } = route.params;
+  const { registryId, registryName, sharingType, onUpdate, fromGroup } = route.params;
   const [registry, setRegistry] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
+  const [isOwner, setIsOwner] = useState(true); // Default to true for backwards compatibility
 
   // Set screen title
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
       const response = await api.get(`/users/personal-registries/gift-registries/${registryId}`);
       setRegistry(response.data.registry);
       setItems(response.data.registry.items || []);
+      setIsOwner(response.data.registry.isOwner !== false); // Backend returns isOwner flag
     } catch (err) {
       console.error('Load registry error:', err);
 
@@ -77,6 +79,11 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
    * Get sharing type display text
    */
   const getSharingTypeText = (type) => {
+    // If viewing from a group (fromGroup is true), show "Linked to Group" instead of sharing type
+    if (fromGroup) {
+      return 'Linked to Group';
+    }
+
     if (type === 'external_link') {
       return 'Public Link';
     }
@@ -223,22 +230,24 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
         <Card.Content>
           <View style={styles.itemHeader}>
             <Text style={styles.itemNumber}>#{index + 1}</Text>
-            <View style={styles.itemActions}>
-              <IconButton
-                icon="pencil"
-                size={20}
-                iconColor="#6200ee"
-                onPress={() => handleEditItem(item)}
-                style={styles.actionButton}
-              />
-              <IconButton
-                icon="delete"
-                size={20}
-                iconColor="#f44336"
-                onPress={() => handleDeleteItem(item.itemId, item.title)}
-                style={styles.actionButton}
-              />
-            </View>
+            {isOwner && (
+              <View style={styles.itemActions}>
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  iconColor="#6200ee"
+                  onPress={() => handleEditItem(item)}
+                  style={styles.actionButton}
+                />
+                <IconButton
+                  icon="delete"
+                  size={20}
+                  iconColor="#f44336"
+                  onPress={() => handleDeleteItem(item.itemId, item.title)}
+                  style={styles.actionButton}
+                />
+              </View>
+            )}
           </View>
 
           {item.photoUrl && (
@@ -403,13 +412,15 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
         )}
       />
 
-      {/* FAB for adding items */}
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={handleAddItem}
-        label="Add Item"
-      />
+      {/* FAB for adding items - only show for owner */}
+      {isOwner && (
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          onPress={handleAddItem}
+          label="Add Item"
+        />
+      )}
 
       {/* Image Viewer */}
       {selectedImageUrl && (

@@ -277,7 +277,8 @@ async function createGiftRegistry(req, res) {
     }
 
     // Generate web token and passcode if needed
-    const webToken = generateWebToken();
+    // Only generate webToken for public or passcode sharing types (not for group_only)
+    const webToken = (sharingType === 'public' || sharingType === 'passcode') ? generateWebToken() : null;
     const passcode = sharingType === 'passcode' ? generatePasscode() : null;
 
     // Create registry
