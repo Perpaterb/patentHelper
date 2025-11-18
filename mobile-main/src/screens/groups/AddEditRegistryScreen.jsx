@@ -188,66 +188,8 @@ export default function AddEditRegistryScreen({ navigation, route }) {
           maxLength={255}
         />
         <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-          Choose a descriptive name for this registry
+          Choose a descriptive name for this registry. It will be visible to all group members.
         </HelperText>
-
-        {!isEditMode && (
-          <Card style={styles.sharingCard}>
-            <Card.Content>
-              <Text style={styles.sharingTitle}>Sharing Options *</Text>
-              <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-                Choose how this registry can be accessed
-              </HelperText>
-
-              <RadioButton.Group
-                onValueChange={(value) => setSharingType(value)}
-                value={sharingType}
-              >
-                <View style={styles.radioOption}>
-                  <RadioButton.Android value="group_only" disabled={loading} />
-                  <View style={styles.radioLabel}>
-                    <Text style={styles.radioTitle}>Group Only</Text>
-                    <Text style={styles.radioDescription}>
-                      Only group members can see this registry
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.radioOption}>
-                  <RadioButton.Android value="passcode" disabled={loading} />
-                  <View style={styles.radioLabel}>
-                    <Text style={styles.radioTitle}>Passcode Protected</Text>
-                    <Text style={styles.radioDescription}>
-                      Anyone with the 6-digit passcode can view this registry
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.radioOption}>
-                  <RadioButton.Android value="public" disabled={loading} />
-                  <View style={styles.radioLabel}>
-                    <Text style={styles.radioTitle}>Public</Text>
-                    <Text style={styles.radioDescription}>
-                      Anyone with the link can view this registry
-                    </Text>
-                  </View>
-                </View>
-              </RadioButton.Group>
-
-              {sharingType === 'passcode' && (
-                <HelperText type="info" visible={true} style={styles.passcodeInfo}>
-                  A 6-digit passcode will be automatically generated after creation
-                </HelperText>
-              )}
-            </Card.Content>
-          </Card>
-        )}
-
-        {isEditMode && (
-          <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-            Note: Sharing type cannot be changed after creation
-          </HelperText>
-        )}
 
         <Button
           mode="contained"
