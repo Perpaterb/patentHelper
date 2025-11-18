@@ -307,6 +307,18 @@ router.put('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, g
 router.delete('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, giftRegistryController.deleteGiftItem);
 
 /**
+ * POST /groups/:groupId/gift-registries/:registryId/link
+ * Link a personal gift registry to this group
+ */
+router.post('/:groupId/gift-registries/:registryId/link', requireAuth, giftRegistryController.linkPersonalRegistry);
+
+/**
+ * DELETE /groups/:groupId/gift-registries/:registryId/unlink
+ * Unlink a personal gift registry from this group
+ */
+router.delete('/:groupId/gift-registries/:registryId/unlink', requireAuth, giftRegistryController.unlinkPersonalRegistry);
+
+/**
  * Mount message groups router
  * All routes under /groups/:groupId/message-groups
  */
