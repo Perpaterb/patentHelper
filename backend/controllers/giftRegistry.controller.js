@@ -25,7 +25,7 @@ function generatePasscode() {
 }
 
 /**
- * Get all gift registries for a group
+ * Get all gift registries for a group (both group-owned and linked personal registries)
  * GET /groups/:groupId/gift-registries
  */
 async function getGiftRegistries(req, res) {
@@ -47,8 +47,8 @@ async function getGiftRegistries(req, res) {
       });
     }
 
-    // Get all registries for this group
-    const registries = await prisma.giftRegistry.findMany({
+    // Get group-owned gift registries
+    const groupRegistries = await prisma.giftRegistry.findMany({
       where: {
         groupId: groupId,
       },
@@ -72,9 +72,45 @@ async function getGiftRegistries(req, res) {
       },
     });
 
-    // Format response
-    const formattedRegistries = registries.map(registry => ({
+    // Get linked personal gift registries
+    const linkedRegistries = await prisma.personalGiftRegistryGroupLink.findMany({
+      where: {
+        groupId: groupId,
+      },
+      include: {
+        registry: {
+          include: {
+            user: {
+              select: {
+                userId: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+            items: {
+              select: {
+                itemId: true,
+              },
+            },
+          },
+        },
+        linker: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: {
+        linkedAt: 'desc',
+      },
+    });
+
+    // Format group registries
+    const formattedGroupRegistries = groupRegistries.map(registry => ({
       registryId: registry.registryId,
+      type: 'group',
       name: registry.name,
       sharingType: registry.sharingType,
       webToken: registry.webToken,
@@ -84,9 +120,31 @@ async function getGiftRegistries(req, res) {
       updatedAt: registry.updatedAt,
     }));
 
+    // Format linked personal registries
+    const formattedLinkedRegistries = linkedRegistries.map(link => ({
+      registryId: link.registry.registryId,
+      type: 'personal_linked',
+      name: link.registry.name,
+      sharingType: link.registry.sharingType,
+      webToken: link.registry.webToken,
+      itemCount: link.registry.items.length,
+      owner: {
+        userId: link.registry.user.userId,
+        displayName: link.registry.user.displayName,
+        memberIcon: link.registry.user.memberIcon,
+        iconColor: link.registry.user.iconColor,
+      },
+      linkedBy: link.linker.displayName,
+      linkedAt: link.linkedAt,
+    }));
+
+    // Combine and return
     res.status(200).json({
       success: true,
-      registries: formattedRegistries,
+      registries: {
+        group: formattedGroupRegistries,
+        linked: formattedLinkedRegistries,
+      },
     });
   } catch (error) {
     console.error('Get gift registries error:', error);
