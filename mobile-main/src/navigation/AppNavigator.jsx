@@ -13,6 +13,8 @@ import CustomBackButton from '../components/CustomBackButton';
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import MyAccountScreen from '../screens/account/MyAccountScreen';
+import PersonalGiftRegistriesScreen from '../screens/account/PersonalGiftRegistriesScreen';
+import PersonalItemRegistriesScreen from '../screens/account/PersonalItemRegistriesScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
 import EditGroupScreen from '../screens/groups/EditGroupScreen';
@@ -96,6 +98,16 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
               name="MyAccount"
               component={MyAccountScreen}
               options={{ title: 'My Account', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="PersonalGiftRegistries"
+              component={PersonalGiftRegistriesScreen}
+              options={{ title: 'My Gift Registries', headerBackTitle: '' }}
+            />
+            <Stack.Screen
+              name="PersonalItemRegistries"
+              component={PersonalItemRegistriesScreen}
+              options={{ title: 'My Item Registries', headerBackTitle: '' }}
             />
             <Stack.Screen
               name="Invites"

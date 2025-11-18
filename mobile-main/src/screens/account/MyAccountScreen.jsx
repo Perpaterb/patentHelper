@@ -459,6 +459,35 @@ export default function MyAccountScreen({ navigation }) {
         </Card.Content>
       </Card>
 
+      {/* Personal Registries Section */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Title>Personal Registries</Title>
+          <Divider style={styles.divider} />
+          <Text style={styles.registriesNote}>
+            Manage your personal gift and item registries. You can link these to groups or share them externally.
+          </Text>
+
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('PersonalGiftRegistries')}
+            style={styles.registryButton}
+            icon="gift"
+          >
+            My Gift Registries
+          </Button>
+
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('PersonalItemRegistries')}
+            style={styles.registryButton}
+            icon="package-variant"
+          >
+            My Item Registries
+          </Button>
+        </Card.Content>
+      </Card>
+
       {/* Features Note */}
       <Card style={styles.card}>
         <Card.Content>
@@ -585,6 +614,16 @@ const styles = StyleSheet.create({
   webAdminButton: {
     marginTop: 8,
     backgroundColor: '#03dac6',
+  },
+  registriesNote: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  registryButton: {
+    marginTop: 8,
+    backgroundColor: '#6200ee',
   },
   featureText: {
     fontSize: 14,
