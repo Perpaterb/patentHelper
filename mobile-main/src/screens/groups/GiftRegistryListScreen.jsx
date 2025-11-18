@@ -651,6 +651,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#6200ee',
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,
