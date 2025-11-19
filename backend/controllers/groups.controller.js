@@ -256,8 +256,21 @@ async function getGroups(req, res) {
               unreadMentionsCount += unreadMentionsCountForGroup;
             }
 
-            // Calculate pending approvals count (only for admins)
-            if (membership.role === 'admin') {
+            // Calculate trial status and effective role
+            // Trial users get admin-level permissions (20-day trial)
+            const user = await prisma.user.findUnique({
+              where: { userId: userId },
+              select: {
+                isSubscribed: true,
+                createdAt: true,
+              },
+            });
+            const daysSinceCreation = user ? (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+            const isOnTrial = user && !user.isSubscribed && daysSinceCreation <= 20;
+            const effectiveRole = isOnTrial ? 'admin' : membership.role;
+
+            // Calculate pending approvals count (only for admins or trial users)
+            if (effectiveRole === 'admin') {
               // Get all approvals for this group
               const approvals = await prisma.approval.findMany({
                 where: {
@@ -319,7 +332,7 @@ async function getGroups(req, res) {
             backgroundImageUrl: membership.group.backgroundImageUrl,
             createdAt: membership.group.createdAt,
             isHidden: membership.group.isHidden,
-            role: membership.role,
+            role: effectiveRole, // Use effective role (admin during trial)
             displayName: membership.displayName,
             isMuted: membership.isMuted,
             isPinned: membership.isPinned,
