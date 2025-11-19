@@ -248,17 +248,61 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
   };
 
   /**
+   * Handle mark item as purchased
+   */
+  const handleMarkAsPurchased = (item) => {
+    Alert.alert(
+      'Mark as Purchased',
+      'Are you sure you want to mark this item as purchased? This action cannot be undone, and the registry owner will not see this item anymore.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Mark as Purchased',
+          onPress: async () => {
+            try {
+              await api.post(`/groups/${groupId}/gift-registries/${registryId}/items/${item.itemId}/mark-purchased`);
+              loadRegistry(); // Reload registry after marking as purchased
+              Alert.alert('Success', 'Item marked as purchased');
+            } catch (err) {
+              console.error('Mark as purchased error:', err);
+
+              if (err.isAuthError) {
+                console.log('[GiftRegistryDetail] Auth error detected - user will be logged out');
+                return;
+              }
+
+              Alert.alert('Error', err.response?.data?.message || 'Failed to mark item as purchased');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
    * Render gift item
    */
   const renderItem = ({ item, index }) => {
     const canEdit = canEditRegistry();
+    const isOwner = registry?.isOwner || false;
+    const isPurchased = item.isPurchased || false;
 
     return (
-      <Card style={styles.itemCard}>
+      <Card style={[styles.itemCard, isPurchased && styles.purchasedCard]}>
         <Card.Content>
           <View style={styles.itemHeader}>
-            <Text style={styles.itemNumber}>#{index + 1}</Text>
-            {canEdit && (
+            <View style={styles.itemNumberContainer}>
+              <Text style={styles.itemNumber}>#{index + 1}</Text>
+              {isPurchased && (
+                <Chip icon="check-circle" style={styles.purchasedChip} textStyle={styles.purchasedChipText}>
+                  Secretly Purchased
+                </Chip>
+              )}
+            </View>
+            {canEdit && !isPurchased && (
               <View style={styles.itemActions}>
                 <IconButton
                   icon="pencil"
@@ -287,23 +331,23 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
             >
               <Image
                 source={{ uri: getFileUrl(item.photoUrl) }}
-                style={styles.itemPhoto}
+                style={[styles.itemPhoto, isPurchased && styles.purchasedPhoto]}
                 resizeMode="cover"
               />
             </TouchableOpacity>
           )}
 
-          <Title style={styles.itemTitle}>{item.title}</Title>
+          <Title style={[styles.itemTitle, isPurchased && styles.purchasedText]}>{item.title}</Title>
 
           {item.cost && (
-            <Text style={styles.itemCost}>{formatCost(item.cost)}</Text>
+            <Text style={[styles.itemCost, isPurchased && styles.purchasedText]}>{formatCost(item.cost)}</Text>
           )}
 
           {item.description && (
-            <Text style={styles.itemDescription}>{item.description}</Text>
+            <Text style={[styles.itemDescription, isPurchased && styles.purchasedText]}>{item.description}</Text>
           )}
 
-          {item.link && (
+          {item.link && !isPurchased && (
             <Button
               mode="outlined"
               icon="open-in-new"
@@ -311,6 +355,18 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
               style={styles.linkButton}
             >
               View Product
+            </Button>
+          )}
+
+          {/* Show "Mark as Purchased" button for non-owners and non-purchased items */}
+          {!isOwner && !isPurchased && (
+            <Button
+              mode="contained"
+              icon="cart-check"
+              onPress={() => handleMarkAsPurchased(item)}
+              style={styles.markPurchasedButton}
+            >
+              Mark as Purchased
             </Button>
           )}
         </Card.Content>
@@ -546,6 +602,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  itemNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   itemNumber: {
     fontSize: 14,
     fontWeight: '600',
@@ -557,6 +619,24 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     margin: 0,
+  },
+  purchasedCard: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.85,
+  },
+  purchasedChip: {
+    backgroundColor: '#4CAF50',
+  },
+  purchasedChipText: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  purchasedPhoto: {
+    opacity: 0.6,
+  },
+  purchasedText: {
+    color: '#999',
+    textDecorationLine: 'line-through',
   },
   itemPhoto: {
     width: '100%',
@@ -583,6 +663,10 @@ const styles = StyleSheet.create({
   },
   linkButton: {
     marginTop: 8,
+  },
+  markPurchasedButton: {
+    marginTop: 12,
+    backgroundColor: '#4CAF50',
   },
   emptyContainer: {
     padding: 32,

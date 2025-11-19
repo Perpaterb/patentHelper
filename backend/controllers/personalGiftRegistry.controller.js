@@ -810,3 +810,108 @@ exports.unlinkFromGroup = async (req, res) => {
     });
   }
 };
+
+/**
+ * POST /groups/:groupId/personal-gift-registries/:registryId/items/:itemId/mark-purchased
+ * Mark a personal gift item as purchased (when viewing linked registry from group)
+ */
+exports.markItemAsPurchased = async (req, res) => {
+  try {
+    const { groupId, registryId, itemId } = req.params;
+
+    // Verify user is a member of this group
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Verify the registry is linked to this group
+    const link = await prisma.personalGiftRegistryGroupLink.findFirst({
+      where: {
+        registryId: registryId,
+        groupId: groupId,
+      },
+      include: {
+        registry: true,
+      },
+    });
+
+    if (!link) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registry not linked to this group',
+      });
+    }
+
+    // Get the item
+    const item = await prisma.personalGiftItem.findUnique({
+      where: {
+        itemId: itemId,
+      },
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item not found',
+      });
+    }
+
+    // Verify item belongs to this registry
+    if (item.registryId !== registryId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Item does not belong to this registry',
+      });
+    }
+
+    // Prevent owner from marking their own items as purchased
+    if (link.registry.userId === req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Registry owner cannot mark items as purchased',
+      });
+    }
+
+    // Check if already purchased
+    if (item.isPurchased) {
+      return res.status(400).json({
+        success: false,
+        message: 'This item has already been marked as purchased',
+      });
+    }
+
+    // Mark as purchased
+    const updatedItem = await prisma.personalGiftItem.update({
+      where: {
+        itemId: itemId,
+      },
+      data: {
+        isPurchased: true,
+        purchasedBy: membership.groupMemberId,
+        purchasedAt: new Date(),
+      },
+    });
+
+    return res.json({
+      success: true,
+      item: updatedItem,
+      message: 'Item marked as purchased successfully',
+    });
+  } catch (error) {
+    console.error('Mark item as purchased error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark item as purchased',
+    });
+  }
+};

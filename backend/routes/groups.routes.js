@@ -307,6 +307,12 @@ router.put('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, g
 router.delete('/:groupId/gift-registries/:registryId/items/:itemId', requireAuth, giftRegistryController.deleteGiftItem);
 
 /**
+ * POST /groups/:groupId/gift-registries/:registryId/items/:itemId/mark-purchased
+ * Mark a gift item as purchased
+ */
+router.post('/:groupId/gift-registries/:registryId/items/:itemId/mark-purchased', requireAuth, giftRegistryController.markItemAsPurchased);
+
+/**
  * POST /groups/:groupId/gift-registries/:registryId/link
  * Link a personal gift registry to this group
  */
@@ -317,6 +323,13 @@ router.post('/:groupId/gift-registries/:registryId/link', requireAuth, giftRegis
  * Unlink a personal gift registry from this group
  */
 router.delete('/:groupId/gift-registries/:registryId/unlink', requireAuth, giftRegistryController.unlinkPersonalRegistry);
+
+/**
+ * POST /groups/:groupId/personal-gift-registries/:registryId/items/:itemId/mark-purchased
+ * Mark a personal gift item as purchased (when viewing linked registry from group)
+ */
+const personalGiftRegistryController = require('../controllers/personalGiftRegistry.controller');
+router.post('/:groupId/personal-gift-registries/:registryId/items/:itemId/mark-purchased', requireAuth, personalGiftRegistryController.markItemAsPurchased);
 
 /**
  * Mount message groups router

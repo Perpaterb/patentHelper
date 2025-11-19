@@ -194,6 +194,14 @@ async function getGiftRegistry(req, res) {
           },
         },
         items: {
+          include: {
+            purchaser: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+              },
+            },
+          },
           orderBy: {
             displayOrder: 'asc',
           },
@@ -216,14 +224,26 @@ async function getGiftRegistry(req, res) {
       });
     }
 
+    // Check if user is the owner
+    const isOwner = registry.creatorId === membership.groupMemberId;
+
     // Check if user can edit (creator or admin)
-    const canEdit = registry.creatorId === membership.groupMemberId || membership.role === 'admin';
+    const canEdit = isOwner || membership.role === 'admin';
+
+    // Filter items based on user role:
+    // - Owner: Hide purchased items (to maintain surprise)
+    // - Non-owner: Show all items with purchase status
+    const filteredItems = isOwner
+      ? registry.items.filter(item => !item.isPurchased)
+      : registry.items;
 
     res.status(200).json({
       success: true,
       registry: {
         ...registry,
+        items: filteredItems,
         canEdit: canEdit,
+        isOwner: isOwner,
         hasPasscode: !!registry.passcode,
       },
     });
@@ -1004,6 +1024,96 @@ async function unlinkPersonalRegistry(req, res) {
   }
 }
 
+/**
+ * Mark a gift item as purchased
+ * POST /groups/:groupId/gift-registries/:registryId/items/:itemId/mark-purchased
+ */
+async function markItemAsPurchased(req, res) {
+  try {
+    const { groupId, registryId, itemId } = req.params;
+
+    // Verify user is a member of this group
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get item with registry
+    const item = await prisma.giftItem.findUnique({
+      where: {
+        itemId: itemId,
+      },
+      include: {
+        registry: true,
+      },
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        error: 'Item not found',
+        message: 'Gift item not found',
+      });
+    }
+
+    // Verify item belongs to this registry and group
+    if (item.registryId !== registryId || item.registry.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Item does not belong to this registry',
+      });
+    }
+
+    // Prevent owner from marking their own items as purchased
+    if (item.registry.creatorId === membership.groupMemberId) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Registry owner cannot mark items as purchased',
+      });
+    }
+
+    // Check if already purchased
+    if (item.isPurchased) {
+      return res.status(400).json({
+        error: 'Already purchased',
+        message: 'This item has already been marked as purchased',
+      });
+    }
+
+    // Mark as purchased
+    const updatedItem = await prisma.giftItem.update({
+      where: {
+        itemId: itemId,
+      },
+      data: {
+        isPurchased: true,
+        purchasedBy: membership.groupMemberId,
+        purchasedAt: new Date(),
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      item: updatedItem,
+      message: 'Item marked as purchased successfully',
+    });
+  } catch (error) {
+    console.error('Mark item as purchased error:', error);
+    res.status(500).json({
+      error: 'Failed to mark item as purchased',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getGiftRegistries,
   getGiftRegistry,
@@ -1016,4 +1126,5 @@ module.exports = {
   deleteGiftItem,
   linkPersonalRegistry,
   unlinkPersonalRegistry,
+  markItemAsPurchased,
 };

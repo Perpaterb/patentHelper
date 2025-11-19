@@ -72,61 +72,63 @@ model Group {
 }
 
 model GroupMember {
-  groupMemberId             String                          @id @default(uuid()) @map("group_member_id") @db.Uuid
-  groupId                   String                          @map("group_id") @db.Uuid
-  userId                    String?                         @map("user_id") @db.Uuid
-  role                      String                          @db.VarChar(50)
-  displayName               String                          @map("display_name") @db.VarChar(255)
-  iconLetters               String                          @map("icon_letters") @db.VarChar(3)
-  iconColor                 String                          @map("icon_color") @db.VarChar(7)
-  email                     String?                         @db.VarChar(255)
-  isRegistered              Boolean                         @default(false) @map("is_registered")
-  joinedAt                  DateTime                        @default(now()) @map("joined_at") @db.Timestamp(6)
-  isMuted                   Boolean                         @default(false) @map("is_muted")
-  notifyRequests            Boolean                         @default(true) @map("notify_requests")
-  notifyAllMessages         Boolean                         @default(true) @map("notify_all_messages")
-  notifyMentionMessages     Boolean                         @default(true) @map("notify_mention_messages")
-  notifyAllCalendar         Boolean                         @default(true) @map("notify_all_calendar")
-  notifyMentionCalendar     Boolean                         @default(true) @map("notify_mention_calendar")
-  notifyAllFinance          Boolean                         @default(true) @map("notify_all_finance")
-  notifyMentionFinance      Boolean                         @default(true) @map("notify_mention_finance")
-  isPinned                  Boolean                         @default(false) @map("is_pinned")
-  pinnedOrder               Int?                            @map("pinned_order")
-  grantedPermissions        AdminPermission[]               @relation("GrantingAdmin")
-  receivedPermissions       AdminPermission[]               @relation("ReceivingAdmin")
-  approvalVotes             ApprovalVote[]
-  requestedApprovals        Approval[]                      @relation("ApprovalRequester")
-  auditLogsPerformed        AuditLog[]
-  createdEvents             CalendarEvent[]                 @relation("EventCreator")
-  childResponsibilities     ChildResponsibilityEvent[]      @relation("ResponsibleChild")
-  endResponsibilities       ChildResponsibilityEvent[]      @relation("EndResponsibleMember")
-  startResponsibilities     ChildResponsibilityEvent[]      @relation("StartResponsibleMember")
-  eventAttendances          EventAttendee[]
-  financeMatterMemberships  FinanceMatterMember[]
-  createdFinanceMatters     FinanceMatter[]                 @relation("FinanceMatterCreator")
-  settledFinanceMatters     FinanceMatter[]                 @relation("FinanceMatterSettler")
-  canceledFinanceMatters    FinanceMatter[]                 @relation("FinanceMatterCanceler")
-  paymentsFrom              FinancePayment[]                @relation("PaymentFrom")
-  paymentsTo                FinancePayment[]                @relation("PaymentTo")
-  group                     Group                           @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  user                      User?                           @relation(fields: [userId], references: [userId])
-  messageGroupMemberships   MessageGroupMember[]
-  createdMessageGroups      MessageGroup[]                  @relation("MessageGroupCreator")
-  messageReadReceipts       MessageReadReceipt[]
-  hiddenMessages            Message[]                       @relation("MessageHider")
-  sentMessages              Message[]                       @relation("MessageSender")
-  sentFinanceMatterMessages FinanceMatterMessage[]          @relation("FinanceMatterMessageSender")
-  relationshipsAsMember1    Relationship[]                  @relation("Member1")
-  relationshipsAsMember2    Relationship[]                  @relation("Member2")
-  wishListsForMember        WishList[]                      @relation("WishListForMember")
-  wishListsCreated          WishList[]                      @relation("WishListCreator")
-  purchasedWishListItems    WishListItem[]
-  krisKringlesCreated       KrisKringle[]
-  krisKringleParticipants   KrisKringleParticipant[]
-  giftRegistriesCreated     GiftRegistry[]
-  personalGiftRegistryLinks PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinker")
-  personalItemRegistryLinks PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinker")
-  itemRegistriesCreated     ItemRegistry[]                  @relation("ItemRegistryCreator")
+  groupMemberId              String                          @id @default(uuid()) @map("group_member_id") @db.Uuid
+  groupId                    String                          @map("group_id") @db.Uuid
+  userId                     String?                         @map("user_id") @db.Uuid
+  role                       String                          @db.VarChar(50)
+  displayName                String                          @map("display_name") @db.VarChar(255)
+  iconLetters                String                          @map("icon_letters") @db.VarChar(3)
+  iconColor                  String                          @map("icon_color") @db.VarChar(7)
+  email                      String?                         @db.VarChar(255)
+  isRegistered               Boolean                         @default(false) @map("is_registered")
+  joinedAt                   DateTime                        @default(now()) @map("joined_at") @db.Timestamp(6)
+  isMuted                    Boolean                         @default(false) @map("is_muted")
+  notifyRequests             Boolean                         @default(true) @map("notify_requests")
+  notifyAllMessages          Boolean                         @default(true) @map("notify_all_messages")
+  notifyMentionMessages      Boolean                         @default(true) @map("notify_mention_messages")
+  notifyAllCalendar          Boolean                         @default(true) @map("notify_all_calendar")
+  notifyMentionCalendar      Boolean                         @default(true) @map("notify_mention_calendar")
+  notifyAllFinance           Boolean                         @default(true) @map("notify_all_finance")
+  notifyMentionFinance       Boolean                         @default(true) @map("notify_mention_finance")
+  isPinned                   Boolean                         @default(false) @map("is_pinned")
+  pinnedOrder                Int?                            @map("pinned_order")
+  grantedPermissions         AdminPermission[]               @relation("GrantingAdmin")
+  receivedPermissions        AdminPermission[]               @relation("ReceivingAdmin")
+  approvalVotes              ApprovalVote[]
+  requestedApprovals         Approval[]                      @relation("ApprovalRequester")
+  auditLogsPerformed         AuditLog[]
+  createdEvents              CalendarEvent[]                 @relation("EventCreator")
+  childResponsibilities      ChildResponsibilityEvent[]      @relation("ResponsibleChild")
+  endResponsibilities        ChildResponsibilityEvent[]      @relation("EndResponsibleMember")
+  startResponsibilities      ChildResponsibilityEvent[]      @relation("StartResponsibleMember")
+  eventAttendances           EventAttendee[]
+  financeMatterMemberships   FinanceMatterMember[]
+  createdFinanceMatters      FinanceMatter[]                 @relation("FinanceMatterCreator")
+  settledFinanceMatters      FinanceMatter[]                 @relation("FinanceMatterSettler")
+  canceledFinanceMatters     FinanceMatter[]                 @relation("FinanceMatterCanceler")
+  paymentsFrom               FinancePayment[]                @relation("PaymentFrom")
+  paymentsTo                 FinancePayment[]                @relation("PaymentTo")
+  group                      Group                           @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  user                       User?                           @relation(fields: [userId], references: [userId])
+  messageGroupMemberships    MessageGroupMember[]
+  createdMessageGroups       MessageGroup[]                  @relation("MessageGroupCreator")
+  messageReadReceipts        MessageReadReceipt[]
+  hiddenMessages             Message[]                       @relation("MessageHider")
+  sentMessages               Message[]                       @relation("MessageSender")
+  sentFinanceMatterMessages  FinanceMatterMessage[]          @relation("FinanceMatterMessageSender")
+  relationshipsAsMember1     Relationship[]                  @relation("Member1")
+  relationshipsAsMember2     Relationship[]                  @relation("Member2")
+  wishListsForMember         WishList[]                      @relation("WishListForMember")
+  wishListsCreated           WishList[]                      @relation("WishListCreator")
+  purchasedWishListItems     WishListItem[]
+  krisKringlesCreated        KrisKringle[]
+  krisKringleParticipants    KrisKringleParticipant[]
+  giftRegistriesCreated      GiftRegistry[]
+  purchasedGiftItems         GiftItem[]                      @relation("ItemPurchaser")
+  purchasedPersonalGiftItems PersonalGiftItem[]              @relation("PersonalItemPurchaser")
+  personalGiftRegistryLinks  PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinker")
+  personalItemRegistryLinks  PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinker")
+  itemRegistriesCreated      ItemRegistry[]                  @relation("ItemRegistryCreator")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -686,20 +688,25 @@ model GiftRegistry {
 }
 
 model GiftItem {
-  itemId       String   @id @default(uuid()) @map("item_id") @db.Uuid
-  registryId   String   @map("registry_id") @db.Uuid
-  title        String   @db.VarChar(255)
-  link         String?  @db.Text
-  photoUrl     String?  @map("photo_url") @db.Text
-  cost         Decimal? @db.Decimal(10, 2)
-  description  String?  @db.Text
-  displayOrder Int      @default(0) @map("display_order")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  itemId       String    @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String    @map("registry_id") @db.Uuid
+  title        String    @db.VarChar(255)
+  link         String?   @db.Text
+  photoUrl     String?   @map("photo_url") @db.Text
+  cost         Decimal?  @db.Decimal(10, 2)
+  description  String?   @db.Text
+  displayOrder Int       @default(0) @map("display_order")
+  isPurchased  Boolean   @default(false) @map("is_purchased")
+  purchasedBy  String?   @map("purchased_by") @db.Uuid
+  purchasedAt  DateTime? @map("purchased_at") @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  registry GiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  registry  GiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  purchaser GroupMember? @relation("ItemPurchaser", fields: [purchasedBy], references: [groupMemberId], onDelete: SetNull)
 
   @@index([registryId, displayOrder])
+  @@index([purchasedBy])
   @@map("gift_items")
 }
 
@@ -727,20 +734,25 @@ model PersonalGiftRegistry {
 }
 
 model PersonalGiftItem {
-  itemId       String   @id @default(uuid()) @map("item_id") @db.Uuid
-  registryId   String   @map("registry_id") @db.Uuid
-  title        String   @db.VarChar(255)
-  link         String?  @db.Text
-  photoUrl     String?  @map("photo_url") @db.Text
-  cost         Decimal? @db.Decimal(10, 2)
-  description  String?  @db.Text
-  displayOrder Int      @default(0) @map("display_order")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  itemId       String    @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String    @map("registry_id") @db.Uuid
+  title        String    @db.VarChar(255)
+  link         String?   @db.Text
+  photoUrl     String?   @map("photo_url") @db.Text
+  cost         Decimal?  @db.Decimal(10, 2)
+  description  String?   @db.Text
+  displayOrder Int       @default(0) @map("display_order")
+  isPurchased  Boolean   @default(false) @map("is_purchased")
+  purchasedBy  String?   @map("purchased_by") @db.Uuid
+  purchasedAt  DateTime? @map("purchased_at") @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
-  registry PersonalGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  registry  PersonalGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+  purchaser GroupMember?         @relation("PersonalItemPurchaser", fields: [purchasedBy], references: [groupMemberId], onDelete: SetNull)
 
   @@index([registryId, displayOrder])
+  @@index([purchasedBy])
   @@map("personal_gift_items")
 }
 

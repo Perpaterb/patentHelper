@@ -25,6 +25,7 @@ router.post('/:registryId/reset-passcode', giftRegistryController.resetPasscode)
 router.post('/:registryId/items', giftRegistryController.addGiftItem);
 router.put('/:registryId/items/:itemId', giftRegistryController.updateGiftItem);
 router.delete('/:registryId/items/:itemId', giftRegistryController.deleteGiftItem);
+router.post('/:registryId/items/:itemId/mark-purchased', giftRegistryController.markItemAsPurchased);
 
 // Link/Unlink personal registry routes
 router.post('/:registryId/link', giftRegistryController.linkPersonalRegistry);
