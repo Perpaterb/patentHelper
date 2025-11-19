@@ -11,6 +11,7 @@ import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, ScrollView 
 import { Card, Title, Text, FAB, IconButton, Chip, Button, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} GiftRegistryListScreenProps
@@ -415,6 +416,12 @@ export default function GiftRegistryListScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Gift Registries"
+        onBack={() => navigation.goBack()}
+      />
+
       {allRegistries.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No gift registries yet</Text>

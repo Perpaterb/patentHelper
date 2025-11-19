@@ -24,6 +24,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import UserAvatar from '../../components/shared/UserAvatar';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} GroupSettingsScreenProps
@@ -479,35 +480,31 @@ export default function GroupSettingsScreen({ navigation, route }) {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading group settings...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" onPress={loadGroupDetails} style={styles.retryButton}>
-          Retry
-        </Button>
-      </View>
-    );
-  }
-
-  if (!groupInfo) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text>Group not found</Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Group Settings"
+        onBack={() => navigation.goBack()}
+      />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading group settings...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button mode="contained" onPress={loadGroupDetails} style={styles.retryButton}>
+            Retry
+          </Button>
+        </View>
+      ) : !groupInfo ? (
+        <View style={styles.errorContainer}>
+          <Text>Group not found</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
       {/* Group Info Section */}
       <Card style={styles.card}>
         <Card.Content>
@@ -944,7 +941,9 @@ export default function GroupSettingsScreen({ navigation, route }) {
           </Card.Content>
         </Card>
       )}
-    </ScrollView>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -952,6 +951,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

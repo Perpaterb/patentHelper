@@ -12,6 +12,7 @@ import { Card, Title, Text, FAB, Avatar, Chip, Badge } from 'react-native-paper'
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} FinanceListScreenProps
@@ -261,6 +262,12 @@ export default function FinanceListScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Finance"
+        onBack={() => navigation.goBack()}
+      />
+
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>

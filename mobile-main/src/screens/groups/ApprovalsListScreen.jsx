@@ -13,6 +13,7 @@ import { Card, Text, Button, Avatar, Chip, Divider, List } from 'react-native-pa
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} ApprovalsListScreenProps
@@ -342,10 +343,17 @@ export default function ApprovalsListScreen({ navigation, route }) {
     awaitingYourAction.length === 0 && awaitingOthers.length === 0 && completed.length === 0;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-    >
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Approvals"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
       {hasNoApprovals ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No approvals found for this group</Text>
@@ -377,7 +385,8 @@ export default function ApprovalsListScreen({ navigation, route }) {
           )}
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -385,6 +394,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 const RECURRENCE_OPTIONS = [
   { label: 'Daily', value: 'FREQ=DAILY' },
@@ -235,13 +236,14 @@ export default function EditChildEventScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButton}>Cancel</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Child Event</Text>
-        <TouchableOpacity onPress={handleUpdate}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Edit Child Event"
+        onBack={() => navigation.goBack()}
+      />
+
+      <View style={styles.updateButtonContainer}>
+        <TouchableOpacity onPress={handleUpdate} style={styles.updateButton}>
           <Text style={styles.saveButton}>Save</Text>
         </TouchableOpacity>
       </View>
@@ -522,6 +524,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  updateButtonContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    alignItems: 'flex-end',
+  },
+  updateButton: {
+    backgroundColor: '#6200ee',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   header: {
     flexDirection: 'row',

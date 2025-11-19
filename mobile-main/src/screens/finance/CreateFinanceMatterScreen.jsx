@@ -19,6 +19,7 @@ import {
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * CreateFinanceMatterScreen component
@@ -317,9 +318,16 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Basic Info Card */}
-      <Card style={styles.card}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="New Finance Matter"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        {/* Basic Info Card */}
+        <Card style={styles.card}>
         <Card.Content>
           <Title style={styles.sectionTitle}>Finance Matter Details</Title>
           <Divider style={styles.divider} />
@@ -512,7 +520,8 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
       >
         Create Finance Matter
       </Button>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -520,6 +529,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

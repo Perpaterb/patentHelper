@@ -9,6 +9,7 @@ import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-nat
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} CreateGroupScreenProps
@@ -113,8 +114,15 @@ export default function CreateGroupScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Create Group"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         <Title style={styles.title}>Create a New Group</Title>
         <Text style={styles.subtitle}>
           Groups allow you to communicate and organize with family members.
@@ -204,7 +212,8 @@ export default function CreateGroupScreen({ navigation }) {
         onConfirm={handleColorConfirm}
         onCancel={handleColorCancel}
       />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -212,6 +221,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

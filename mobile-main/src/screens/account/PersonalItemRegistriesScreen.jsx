@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Card, Title, Text, Button, FAB, ActivityIndicator, Divider, IconButton } from 'react-native-paper';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} PersonalItemRegistriesScreenProps
@@ -150,6 +151,12 @@ export default function PersonalItemRegistriesScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Item Registries"
+        onBack={() => navigation.goBack()}
+      />
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {error && (
           <Card style={styles.errorCard}>

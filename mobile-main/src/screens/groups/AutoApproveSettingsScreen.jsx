@@ -10,6 +10,7 @@ import { View, StyleSheet, FlatList, ScrollView } from 'react-native';
 import { Card, Title, Text, Switch, Avatar, Divider, ActivityIndicator } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} AutoApproveSettingsScreenProps
@@ -200,6 +201,12 @@ export default function AutoApproveSettingsScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Auto-Approve Settings"
+        onBack={() => navigation.goBack()}
+      />
+
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>

@@ -7,10 +7,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, IconButton, Badge } from 'react-native-paper';
+import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} GroupsListScreenProps
@@ -38,70 +39,6 @@ export default function GroupsListScreen({ navigation }) {
     loadInvitationCount();
   }, []);
 
-  /**
-   * Set up header buttons (My Account left, Search + Invitations right)
-   */
-  useEffect(() => {
-    navigation.setOptions({
-      headerBackTitle: '', // Only show back arrow, no text
-      headerLeft: () => (
-        <View style={{ position: 'relative', marginRight: 0, marginTop: -3, justifyContent: 'center' }}>
-          <IconButton
-            icon="account-circle"
-            iconColor="#fff"
-            size={28}
-            onPress={() => navigation.navigate('MyAccount')}
-            style={{ margin: 0 }}
-          />
-        </View>
-      ),
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* Search Toggle Button */}
-          <View style={{ position: 'relative', marginRight: 0, marginTop: -4, justifyContent: 'center' }}>
-            <IconButton
-              icon="magnify"
-              iconColor="#fff"
-              size={28}
-              onPress={() => {
-                setSearchVisible(!searchVisible);
-                if (searchVisible) {
-                  // Clear search when hiding
-                  setSearchQuery('');
-                }
-              }}
-              style={{ margin: 0 }}
-            />
-          </View>
-
-          {/* Invitations Button */}
-          <View style={{ position: 'relative', marginRight: 0, marginTop: -4, justifyContent: 'center' }}>
-            <IconButton
-              icon="email"
-              iconColor="#fff"
-              size={28}
-              onPress={() => navigation.navigate('Invites')}
-              style={{ margin: 0 }}
-            />
-            {invitationCount > 0 && (
-              <Badge
-                style={{
-                  position: 'absolute',
-                  top: 6,
-                  right: 6,
-                  backgroundColor: '#d32f2f',
-                  pointerEvents: 'none',
-                }}
-                size={16}
-              >
-                {invitationCount}
-              </Badge>
-            )}
-          </View>
-        </View>
-      ),
-    });
-  }, [navigation, invitationCount, searchVisible]);
 
   useEffect(() => {
     filterGroups();
@@ -398,6 +335,45 @@ export default function GroupsListScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Groups"
+        leftButtons={[
+          {
+            icon: 'account-circle',
+            onPress: () => navigation.navigate('MyAccount'),
+          },
+        ]}
+        rightButtons={[
+          {
+            icon: 'magnify',
+            onPress: () => {
+              setSearchVisible(!searchVisible);
+              if (searchVisible) {
+                setSearchQuery('');
+              }
+            },
+          },
+          {
+            icon: 'email',
+            onPress: () => navigation.navigate('Invites'),
+            badge: invitationCount > 0 ? (
+              <Badge
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  backgroundColor: '#d32f2f',
+                }}
+                size={16}
+              >
+                {invitationCount}
+              </Badge>
+            ) : null,
+          },
+        ]}
+      />
+
       {searchVisible && (
         <Searchbar
           placeholder="Search groups..."

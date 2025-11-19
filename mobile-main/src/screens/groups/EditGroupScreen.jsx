@@ -10,6 +10,7 @@ import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-nat
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} EditGroupScreenProps
@@ -175,8 +176,15 @@ export default function EditGroupScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Edit Group"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         <Title style={styles.title}>Edit Group</Title>
         <Text style={styles.subtitle}>
           Update group name, icon, and color. Only admins can edit groups.
@@ -287,7 +295,8 @@ export default function EditGroupScreen({ navigation, route }) {
         onConfirm={handleColorConfirm}
         onCancel={handleColorCancel}
       />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -295,6 +304,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

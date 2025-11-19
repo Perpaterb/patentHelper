@@ -23,6 +23,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} MessageGroupSettingsScreenProps
@@ -261,21 +262,25 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading settings...</Text>
-      </View>
-    );
-  }
-
   // Get members that are not in the message group yet
   const membersNotInGroup = availableMembers.filter(
     am => !currentMembers.some(cm => cm.groupMemberId === am.groupMemberId)
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Message Group Settings"
+        onBack={() => navigation.goBack()}
+      />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading settings...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
       {isHidden && (
         <View style={styles.hiddenBanner}>
           <Text style={styles.hiddenText}>
@@ -420,7 +425,9 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
           </View>
         </>
       )}
-    </ScrollView>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -428,6 +435,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

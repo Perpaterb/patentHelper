@@ -17,6 +17,7 @@ import { STORAGE_KEYS, API_BASE_URL } from '../../config/config';
 import ColorPickerModal from '../../components/ColorPickerModal';
 import MediaPicker from '../../components/shared/MediaPicker';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} MyAccountScreenProps
@@ -334,9 +335,16 @@ export default function MyAccountScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {error && (
-        <Card style={styles.errorCard}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="My Account"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        {error && (
+          <Card style={styles.errorCard}>
           <Card.Content>
             <Text style={styles.errorText}>{error}</Text>
           </Card.Content>
@@ -508,7 +516,8 @@ export default function MyAccountScreen({ navigation }) {
         onConfirm={handleColorConfirm}
         onCancel={handleColorCancel}
       />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -516,6 +525,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   contentContainer: {
     padding: 16,

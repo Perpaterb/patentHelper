@@ -5,7 +5,7 @@
  * Day view implements externally-controlled infinite grid with probe highlight.
  */
 
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -990,34 +991,7 @@ export default function CalendarScreen({ navigation, route }) {
     setShowDatePicker(false);
   };
 
-  // Set header with banner button and toggle (same for both Month and Day views)
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: () => (
-        <TouchableOpacity
-          onPress={() => {
-            try {
-              setTempSelectedDate(masterDateTime);
-              setShowDatePicker(true);
-            } catch (error) {
-              console.error('Error opening date picker:', error);
-            }
-          }}
-          style={styles.headerDateButton}
-        >
-          <Text style={styles.headerDateText}>{masterDayTimeDate || 'Loading...'}</Text>
-        </TouchableOpacity>
-      ),
-      headerRight: () => (
-        <TouchableOpacity
-          style={{ marginLeft: 10, marginRight: 10 }}
-          onPress={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
-        >
-          <Text style={styles.viewToggleText}>{viewMode === 'day' ? 'Day' : 'Month'}</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, viewMode, masterDayTimeDate, masterDateTime]);
+  // Header will be rendered as CustomNavigationHeader in the return statement
 
   // Swipeable Month View Implementation
   const MONTH_WIDTH = SCREEN_WIDTH;
@@ -1613,6 +1587,32 @@ export default function CalendarScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        onBack={() => navigation.goBack()}
+        customTitle={
+          <TouchableOpacity
+            onPress={() => {
+              try {
+                setTempSelectedDate(masterDateTime);
+                setShowDatePicker(true);
+              } catch (error) {
+                console.error('Error opening date picker:', error);
+              }
+            }}
+            style={styles.headerDateButton}
+          >
+            <Text style={styles.headerDateText}>{masterDayTimeDate || 'Loading...'}</Text>
+          </TouchableOpacity>
+        }
+        rightButtons={[
+          {
+            icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
+            onPress: () => setViewMode(viewMode === 'month' ? 'day' : 'month'),
+          },
+        ]}
+      />
+
       {viewMode === 'month' ? (
         renderMonthView()
       ) : (

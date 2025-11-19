@@ -9,7 +9,6 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import CustomBackButton from '../components/CustomBackButton';
 import LoginScreen from '../screens/auth/LoginScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import MyAccountScreen from '../screens/account/MyAccountScreen';
@@ -65,22 +64,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
   return (
     <NavigationContainer>
       <Stack.Navigator
-        screenOptions={({ navigation }) => ({
-          headerStyle: {
-            backgroundColor: '#6200ee',
-            height: 60, // Reduced from default ~90px to 60px (2/3 size)
-          },
-          headerTintColor: '#fff', // Back button and icons are white for visibility on purple
-          headerTitleStyle: {
-            fontWeight: 'bold',
-            fontSize: 18, // Slightly smaller title for smaller header
-            color: '#fff', // Ensure title is white
-          },
-          headerBackTitleVisible: false, // Hide back button text
-          headerBackTitle: '', // Force empty back title on iOS
-          headerLeft: navigation.canGoBack() ? () => <CustomBackButton onPress={() => navigation.goBack()} /> : undefined,
-          headerShadowVisible: true, // Keep shadow for depth
-        })}
+        screenOptions={{
+          headerShown: false, // Hide React Navigation's default header - we use custom header in screens
+        }}
       >
         {!isAuthenticated ? (
           // Authentication Stack
@@ -97,182 +83,50 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen
               name="Groups"
               component={GroupsListScreen}
-              options={{ title: 'Groups', headerBackTitle: '' }}
             />
-            <Stack.Screen
-              name="MyAccount"
-              component={MyAccountScreen}
-              options={{ title: 'My Account', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="PersonalGiftRegistries"
-              component={PersonalGiftRegistriesScreen}
-              options={{ title: 'My Gift Registries', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="PersonalItemRegistries"
-              component={PersonalItemRegistriesScreen}
-              options={{ title: 'My Item Registries', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AddEditPersonalGiftRegistry"
-              component={AddEditPersonalGiftRegistryScreen}
-              options={{ title: 'Gift Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AddEditPersonalItemRegistry"
-              component={AddEditPersonalItemRegistryScreen}
-              options={{ title: 'Item Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="PersonalGiftRegistryDetail"
-              component={PersonalGiftRegistryDetailScreen}
-              options={{ title: 'Gift Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="PersonalItemRegistryDetail"
-              component={PersonalItemRegistryDetailScreen}
-              options={{ title: 'Item Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AddEditPersonalGiftItem"
-              component={AddEditPersonalGiftItemScreen}
-              options={{ title: 'Gift Item', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="Invites"
-              component={InvitesScreen}
-              options={{ title: 'Group Invitations', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="CreateGroup"
-              component={CreateGroupScreen}
-              options={{ title: 'Create Group', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="EditGroup"
-              component={EditGroupScreen}
-              options={{ title: 'Edit Group', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="GroupDashboard"
-              component={GroupDashboardScreen}
-              options={{ title: 'Group Dashboard', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="GroupSettings"
-              component={GroupSettingsScreen}
-              options={{ title: 'Group Settings', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="InviteMember"
-              component={InviteMemberScreen}
-              options={{ title: 'Invite Member', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="MessageGroupsList"
-              component={MessageGroupsListScreen}
-              options={{ title: 'Message Groups', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="CreateMessageGroup"
-              component={CreateMessageGroupScreen}
-              options={{ title: 'Create Message Group', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="GroupMessages"
-              component={MessagesScreen}
-              options={{ title: 'Messages', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="MessageGroupSettings"
-              component={MessageGroupSettingsScreen}
-              options={{ title: 'Message Group Settings', headerBackTitle: '' }}
-            />
+            <Stack.Screen name="MyAccount" component={MyAccountScreen} />
+            <Stack.Screen name="PersonalGiftRegistries" component={PersonalGiftRegistriesScreen} />
+            <Stack.Screen name="PersonalItemRegistries" component={PersonalItemRegistriesScreen} />
+            <Stack.Screen name="AddEditPersonalGiftRegistry" component={AddEditPersonalGiftRegistryScreen} />
+            <Stack.Screen name="AddEditPersonalItemRegistry" component={AddEditPersonalItemRegistryScreen} />
+            <Stack.Screen name="PersonalGiftRegistryDetail" component={PersonalGiftRegistryDetailScreen} />
+            <Stack.Screen name="PersonalItemRegistryDetail" component={PersonalItemRegistryDetailScreen} />
+            <Stack.Screen name="AddEditPersonalGiftItem" component={AddEditPersonalGiftItemScreen} />
+            <Stack.Screen name="Invites" component={InvitesScreen} />
+            <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
+            <Stack.Screen name="EditGroup" component={EditGroupScreen} />
+            <Stack.Screen name="GroupDashboard" component={GroupDashboardScreen} />
+            <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
+            <Stack.Screen name="InviteMember" component={InviteMemberScreen} />
+            <Stack.Screen name="MessageGroupsList" component={MessageGroupsListScreen} />
+            <Stack.Screen name="CreateMessageGroup" component={CreateMessageGroupScreen} />
+            <Stack.Screen name="GroupMessages" component={MessagesScreen} />
+            <Stack.Screen name="MessageGroupSettings" component={MessageGroupSettingsScreen} />
 
             {/* Approvals */}
-            <Stack.Screen
-              name="ApprovalsList"
-              component={ApprovalsListScreen}
-              options={{ title: 'Approvals', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AutoApproveSettings"
-              component={AutoApproveSettingsScreen}
-              options={{ title: 'Auto-Approve Settings', headerBackTitle: '' }}
-            />
+            <Stack.Screen name="ApprovalsList" component={ApprovalsListScreen} />
+            <Stack.Screen name="AutoApproveSettings" component={AutoApproveSettingsScreen} />
 
             {/* Calendar */}
-            <Stack.Screen
-              name="Calendar"
-              component={CalendarScreen}
-              options={{ title: 'Shared Calendar', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="CreateEvent"
-              component={CreateEventScreen}
-              options={{ title: 'Create Event', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="CreateChildEvent"
-              component={CreateChildEventScreen}
-              options={{ title: 'Create Child Event', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="EditEvent"
-              component={EditEventScreen}
-              options={{ title: 'Edit Event', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="EditChildEvent"
-              component={EditChildEventScreen}
-              options={{ title: 'Edit Child Event', headerBackTitle: '' }}
-            />
+            <Stack.Screen name="Calendar" component={CalendarScreen} />
+            <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
+            <Stack.Screen name="CreateChildEvent" component={CreateChildEventScreen} />
+            <Stack.Screen name="EditEvent" component={EditEventScreen} />
+            <Stack.Screen name="EditChildEvent" component={EditChildEventScreen} />
 
             {/* Finance */}
-            <Stack.Screen
-              name="Finance"
-              component={FinanceListScreen}
-              options={{ title: 'Finance Tracker', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="CreateFinanceMatter"
-              component={CreateFinanceMatterScreen}
-              options={{ title: 'Create Finance Matter', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="FinanceMatterDetails"
-              component={FinanceMatterDetailsScreen}
-              options={{ title: 'Finance Matter Details', headerBackTitle: '' }}
-            />
+            <Stack.Screen name="Finance" component={FinanceListScreen} />
+            <Stack.Screen name="CreateFinanceMatter" component={CreateFinanceMatterScreen} />
+            <Stack.Screen name="FinanceMatterDetails" component={FinanceMatterDetailsScreen} />
 
             {/* Gift Registry */}
-            <Stack.Screen
-              name="GiftRegistryList"
-              component={GiftRegistryListScreen}
-              options={{ title: 'Gift Registries', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="GiftRegistryDetail"
-              component={GiftRegistryDetailScreen}
-              options={{ title: 'Gift Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AddEditRegistry"
-              component={AddEditRegistryScreen}
-              options={{ title: 'Registry', headerBackTitle: '' }}
-            />
-            <Stack.Screen
-              name="AddEditGiftItem"
-              component={AddEditGiftItemScreen}
-              options={{ title: 'Gift Item', headerBackTitle: '' }}
-            />
+            <Stack.Screen name="GiftRegistryList" component={GiftRegistryListScreen} />
+            <Stack.Screen name="GiftRegistryDetail" component={GiftRegistryDetailScreen} />
+            <Stack.Screen name="AddEditRegistry" component={AddEditRegistryScreen} />
+            <Stack.Screen name="AddEditGiftItem" component={AddEditGiftItemScreen} />
 
             {/* Home Screen */}
-            <Stack.Screen
-              name="Home"
-              options={{ title: 'Parenting Helper', headerBackTitle: '' }}
-            >
+            <Stack.Screen name="Home">
               {(props) => <HomeScreen {...props} onLogout={onLogout} />}
             </Stack.Screen>
           </>

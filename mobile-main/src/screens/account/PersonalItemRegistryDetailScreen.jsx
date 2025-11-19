@@ -10,6 +10,7 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Card, Title, Text, Button, Divider, Chip, ActivityIndicator } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} PersonalItemRegistryDetailScreenProps
@@ -155,7 +156,14 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Registry Details"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
       <View style={styles.content}>
         {/* Registry Info Card */}
         <Card style={styles.card}>
@@ -247,7 +255,8 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
           </Card.Content>
         </Card>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -255,6 +264,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,

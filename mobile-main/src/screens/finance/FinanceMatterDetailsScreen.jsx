@@ -29,6 +29,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * FinanceMatterDetailsScreen component
@@ -419,9 +420,16 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
   const canCancel = (userRole === 'admin' || isCreator) && !financeMatter.isSettled && !financeMatter.isCanceled;
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Finance Matter Details Card */}
-      <Card style={[styles.card, financeMatter.isCanceled && styles.canceledCard]}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Finance Details"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        {/* Finance Matter Details Card */}
+        <Card style={[styles.card, financeMatter.isCanceled && styles.canceledCard]}>
         <Card.Content>
           <View style={styles.headerRow}>
             <Title style={styles.title}>{financeMatter.name}</Title>
@@ -787,7 +795,8 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -795,6 +804,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

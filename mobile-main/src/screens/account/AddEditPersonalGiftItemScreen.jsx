@@ -19,6 +19,7 @@ import api from '../../services/api';
 import MediaPicker from '../../components/shared/MediaPicker';
 import ImageViewer from '../../components/shared/ImageViewer';
 import { uploadFile, getFileUrl } from '../../services/upload.service';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} AddEditPersonalGiftItemScreenProps
@@ -304,6 +305,12 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={100}
     >
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Gift Item"
+        onBack={() => navigation.goBack()}
+      />
+
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
           <Title style={styles.title}>

@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import ImageViewer from '../../components/shared/ImageViewer';
 import { getFileUrl } from '../../services/upload.service';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} PersonalGiftRegistryDetailScreenProps
@@ -320,6 +321,12 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
 
   return (
     <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Registry Details"
+        onBack={() => navigation.goBack()}
+      />
+
       <FlatList
         data={items}
         renderItem={renderItem}

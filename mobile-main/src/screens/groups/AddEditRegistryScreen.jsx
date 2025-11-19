@@ -17,6 +17,7 @@ import {
   Card,
 } from 'react-native-paper';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} AddEditRegistryScreenProps
@@ -157,11 +158,18 @@ export default function AddEditRegistryScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Title style={styles.title}>
-          {isEditMode ? 'Edit Gift Registry' : 'Create Gift Registry'}
-        </Title>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Gift Registry"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <Title style={styles.title}>
+            {isEditMode ? 'Edit Gift Registry' : 'Create Gift Registry'}
+          </Title>
         <Text style={styles.subtitle}>
           {isEditMode
             ? 'Update the name of your gift registry.'
@@ -210,7 +218,8 @@ export default function AddEditRegistryScreen({ navigation, route }) {
           Cancel
         </Button>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -218,6 +227,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

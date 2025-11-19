@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import UserAvatar from '../../components/shared/UserAvatar';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} MessageGroupsListScreenProps
@@ -305,36 +306,42 @@ export default function MessageGroupsListScreen({ navigation, route }) {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading message groups...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Message Groups"
+        onBack={() => navigation.goBack()}
+      />
 
-      <FlatList
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading message groups...</Text>
+        </View>
+      ) : (
+        <>
+          {error && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          <FlatList
         data={messageGroups}
         renderItem={renderMessageGroup}
         keyExtractor={(item) => item.messageGroupId}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
-      />
+          />
 
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        label="New Message Group"
-        onPress={handleCreateMessageGroup}
-      />
+          <FAB
+            style={styles.fab}
+            icon="plus"
+            label="New Message Group"
+            onPress={handleCreateMessageGroup}
+          />
+        </>
+      )}
     </View>
   );
 }

@@ -19,6 +19,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} InvitesScreenProps
@@ -178,47 +179,43 @@ export default function InvitesScreen({ navigation }) {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200ee" />
-        <Text style={styles.loadingText}>Loading invitations...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" onPress={loadInvitations} style={styles.retryButton}>
-          Retry
-        </Button>
-      </View>
-    );
-  }
-
-  if (invitations.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📭</Text>
-        <Text style={styles.emptyTitle}>No Pending Invitations</Text>
-        <Text style={styles.emptyText}>
-          You don't have any group invitations at the moment.
-        </Text>
-        <Button
-          mode="outlined"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          Back to Groups
-        </Button>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Invitations"
+        onBack={() => navigation.goBack()}
+      />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6200ee" />
+          <Text style={styles.loadingText}>Loading invitations...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button mode="contained" onPress={loadInvitations} style={styles.retryButton}>
+            Retry
+          </Button>
+        </View>
+      ) : invitations.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📭</Text>
+          <Text style={styles.emptyTitle}>No Pending Invitations</Text>
+          <Text style={styles.emptyText}>
+            You don't have any group invitations at the moment.
+          </Text>
+          <Button
+            mode="outlined"
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            Back to Groups
+          </Button>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
       <View style={styles.content}>
         <Text style={styles.headerText}>
           You have {invitations.length} pending invitation{invitations.length !== 1 ? 's' : ''}
@@ -279,8 +276,10 @@ export default function InvitesScreen({ navigation }) {
             </Card.Content>
           </Card>
         ))}
-      </View>
-    </ScrollView>
+        </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -288,6 +287,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,

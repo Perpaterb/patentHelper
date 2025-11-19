@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * CreateEventScreen component
@@ -293,11 +294,18 @@ export default function CreateEventScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.formContainer}>
-        {/* Title */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Title *</Text>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="New Event"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.formContainer}>
+          {/* Title */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>Title *</Text>
           <TextInput
             style={styles.input}
             value={title}
@@ -738,7 +746,8 @@ export default function CreateEventScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -746,6 +755,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   formContainer: {
     padding: 20,

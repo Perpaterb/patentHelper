@@ -19,6 +19,7 @@ import {
 } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} CreateMessageGroupScreenProps
@@ -155,17 +156,21 @@ export default function CreateMessageGroupScreen({ navigation, route }) {
     }
   };
 
-  if (loadingMembers) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading members...</Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Create Message Group"
+        onBack={() => navigation.goBack()}
+      />
+
+      {loadingMembers ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading members...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.content}>
         <Title style={styles.title}>Create Message Group</Title>
         <Text style={styles.subtitle}>
           Give your message group a name and select which members should be included.
@@ -274,8 +279,10 @@ export default function CreateMessageGroupScreen({ navigation, route }) {
         >
           Cancel
         </Button>
-      </View>
-    </ScrollView>
+          </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -283,6 +290,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

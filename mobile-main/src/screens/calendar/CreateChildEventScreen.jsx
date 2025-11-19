@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 export default function CreateChildEventScreen({ navigation, route }) {
   const { groupId, defaultStartDate } = route.params;
@@ -257,9 +258,16 @@ export default function CreateChildEventScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.label}>Title</Text>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="New Child Event"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.section}>
+          <Text style={styles.label}>Title</Text>
         <TextInput
           style={styles.input}
           value={title}
@@ -678,7 +686,8 @@ export default function CreateChildEventScreen({ navigation, route }) {
           </View>
         </Modal>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -686,6 +695,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
     padding: 16,
   },
   section: {

@@ -15,6 +15,7 @@ import { Card, Title, Text, Avatar, Button, Chip, Badge } from 'react-native-pap
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} GroupDashboardScreenProps
@@ -269,35 +270,31 @@ export default function GroupDashboardScreen({ navigation, route }) {
     console.log('Navigate to Secure Documents');
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading group...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button mode="contained" onPress={loadGroupInfo} style={styles.retryButton}>
-          Retry
-        </Button>
-      </View>
-    );
-  }
-
-  if (!groupInfo) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text>Group not found</Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title={groupInfo?.name || "Group Dashboard"}
+        onBack={() => navigation.goBack()}
+      />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Loading group...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button mode="contained" onPress={loadGroupInfo} style={styles.retryButton}>
+            Retry
+          </Button>
+        </View>
+      ) : !groupInfo ? (
+        <View style={styles.errorContainer}>
+          <Text>Group not found</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView}>
       {/* Group Header */}
       <Card style={styles.headerCard}>
         <Card.Content style={styles.headerContent}>
@@ -510,8 +507,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
             </Card.Content>
           </Card>
         )}
-      </View>
-    </ScrollView>
+        </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -519,6 +518,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

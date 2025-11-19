@@ -20,6 +20,7 @@ import {
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} InviteMemberScreenProps
@@ -149,8 +150,15 @@ export default function InviteMemberScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Invite Member"
+        onBack={() => navigation.goBack()}
+      />
+
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
         <Title style={styles.title}>Invite Member to Group</Title>
         <Text style={styles.subtitle}>
           Enter the email address of the person you'd like to invite and select their
@@ -306,8 +314,9 @@ export default function InviteMemberScreen({ navigation, route }) {
           onConfirm={handleColorConfirm}
           onCancel={handleColorCancel}
         />
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -315,6 +324,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

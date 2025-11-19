@@ -15,6 +15,7 @@ import ImageViewer from '../../components/shared/ImageViewer';
 import VideoPlayer from '../../components/shared/VideoPlayer';
 import UserAvatar from '../../components/shared/UserAvatar';
 import { uploadFile, uploadMultipleFiles, getFileUrl } from '../../services/upload.service';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
  * @typedef {Object} MessagesScreenProps
@@ -87,21 +88,6 @@ export default function MessagesScreen({ navigation, route }) {
       }, 300);
     }
   }, [messages.length, scrollToBottom]);
-
-  // Add scroll to bottom button in header
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="arrow-down"
-          iconColor="#ffffff"
-          size={24}
-          onPress={() => scrollToBottom(true)}
-          style={{ marginRight: -4, marginLeft: -3, marginTop: 0 }}
-        />
-      ),
-    });
-  }, [navigation, scrollToBottom]);
 
   /**
    * Load message group information
@@ -878,18 +864,31 @@ export default function MessagesScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title={messageGroupName}
+        onBack={() => navigation.goBack()}
+        rightButtons={[
+          {
+            icon: 'arrow-down',
+            onPress: () => scrollToBottom(true),
+          },
+        ]}
+      />
 
-      <FlatList
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <FlatList
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
@@ -927,7 +926,8 @@ export default function MessagesScreen({ navigation, route }) {
           }}
         />
       )}
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -935,6 +935,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  keyboardView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
