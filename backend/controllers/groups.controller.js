@@ -178,6 +178,7 @@ async function getGroups(req, res) {
             backgroundImageUrl: true,
             createdAt: true,
             isHidden: true,
+            createdByUserId: true, // Include creator to check if user created this group
           },
         },
       },
@@ -189,7 +190,7 @@ async function getGroups(req, res) {
         .filter(membership => !membership.group.isHidden && membership.isRegistered === true) // Filter out hidden/deleted groups and pending invitations
         .map(async membership => {
           // Calculate trial status and effective role
-          // Trial users get admin-level permissions (20-day trial)
+          // Trial users get admin-level permissions ONLY on groups they created (20-day trial)
           const user = await prisma.user.findUnique({
             where: { userId: userId },
             select: {
@@ -199,7 +200,12 @@ async function getGroups(req, res) {
           });
           const daysSinceCreation = user ? (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
           const isOnTrial = user && !user.isSubscribed && daysSinceCreation <= 20;
-          const effectiveRole = isOnTrial ? 'admin' : membership.role;
+          const userCreatedThisGroup = membership.group.createdByUserId === userId;
+
+          // User gets admin role if:
+          // 1. They are on trial AND created this specific group, OR
+          // 2. Their actual role in this group is admin
+          const effectiveRole = (isOnTrial && userCreatedThisGroup) ? 'admin' : membership.role;
 
           // Calculate badge counts from message groups
           // If group is muted, don't show any badges
@@ -420,7 +426,15 @@ async function getGroupById(req, res) {
     // Get group details with all members (include user profile data) and settings
     const group = await prisma.group.findUnique({
       where: { groupId: groupId },
-      include: {
+      select: {
+        groupId: true,
+        name: true,
+        icon: true,
+        backgroundColor: true,
+        backgroundImageUrl: true,
+        createdAt: true,
+        isHidden: true,
+        createdByUserId: true, // Include creator to check if user created this group
         members: {
           select: {
             groupMemberId: true, // IMPORTANT: Include this for member selection in message groups
@@ -497,10 +511,15 @@ async function getGroupById(req, res) {
       };
     });
 
-    // Trial users get admin-level permissions (20-day trial)
+    // Trial users get admin-level permissions ONLY on groups they created (20-day trial)
     const daysSinceCreation = membership.user ? (Date.now() - new Date(membership.user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
     const isOnTrial = membership.user && !membership.user.isSubscribed && daysSinceCreation <= 20;
-    const effectiveRole = isOnTrial ? 'admin' : membership.role;
+    const userCreatedThisGroup = group.createdByUserId === userId;
+
+    // User gets admin role if:
+    // 1. They are on trial AND created this specific group, OR
+    // 2. Their actual role in this group is admin
+    const effectiveRole = (isOnTrial && userCreatedThisGroup) ? 'admin' : membership.role;
 
     res.status(200).json({
       success: true,
