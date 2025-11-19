@@ -115,6 +115,7 @@ async function getGiftRegistries(req, res) {
       sharingType: registry.sharingType,
       webToken: registry.webToken,
       itemCount: registry.items.length,
+      creatorId: registry.creatorId, // Include creatorId for permission checks
       creator: registry.creator,
       createdAt: registry.createdAt,
       updatedAt: registry.updatedAt,
