@@ -94,10 +94,13 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
 
   /**
    * Check if user can edit registry
-   * Only creator or admins can edit
+   * Only creator, owner (for personal registries), or admins can edit
    */
   const canEditRegistry = () => {
     if (!registry) return false;
+    // Check if user is the owner (returned by backend for personal registries)
+    if (registry.isOwner) return true;
+    // Check if user is the creator or an admin
     return registry.creatorId === currentGroupMemberId || userRole === 'admin';
   };
 

@@ -19,6 +19,7 @@ import AddEditPersonalItemRegistryScreen from '../screens/account/AddEditPersona
 import PersonalGiftRegistryDetailScreen from '../screens/account/PersonalGiftRegistryDetailScreen';
 import PersonalItemRegistryDetailScreen from '../screens/account/PersonalItemRegistryDetailScreen';
 import AddEditPersonalGiftItemScreen from '../screens/account/AddEditPersonalGiftItemScreen';
+import AddEditPersonalItemRegistryItemScreen from '../screens/account/AddEditPersonalItemRegistryItemScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
 import EditGroupScreen from '../screens/groups/EditGroupScreen';
@@ -96,6 +97,7 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="PersonalGiftRegistryDetail" component={PersonalGiftRegistryDetailScreen} />
             <Stack.Screen name="PersonalItemRegistryDetail" component={PersonalItemRegistryDetailScreen} />
             <Stack.Screen name="AddEditPersonalGiftItem" component={AddEditPersonalGiftItemScreen} />
+            <Stack.Screen name="AddEditPersonalItemRegistryItem" component={AddEditPersonalItemRegistryItemScreen} />
             <Stack.Screen name="Invites" component={InvitesScreen} />
             <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
             <Stack.Screen name="EditGroup" component={EditGroupScreen} />

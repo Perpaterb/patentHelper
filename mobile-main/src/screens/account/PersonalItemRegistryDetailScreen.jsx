@@ -6,10 +6,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Card, Title, Text, Button, Divider, Chip, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, Alert, FlatList, TouchableOpacity, Image } from 'react-native';
+import { Card, Title, Text, Button, Divider, Chip, ActivityIndicator, FAB, IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
+import ImageViewer from '../../components/shared/ImageViewer';
+import { getFileUrl } from '../../services/upload.service';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 /**
@@ -25,10 +27,14 @@ import CustomNavigationHeader from '../../components/CustomNavigationHeader';
  * @returns {JSX.Element}
  */
 export default function PersonalItemRegistryDetailScreen({ navigation, route }) {
-  const { registryId, registryName, sharingType, onUpdate } = route.params;
+  const { registryId, registryName, sharingType, onUpdate, fromGroup } = route.params;
   const [registry, setRegistry] = useState(null);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
+  const [isOwner, setIsOwner] = useState(true); // Default to true for backwards compatibility
 
   // Set screen title
   useEffect(() => {
@@ -54,6 +60,8 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
 
       const response = await api.get(`/users/personal-registries/item-registries/${registryId}`);
       setRegistry(response.data.registry);
+      setItems(response.data.registry.items || []);
+      setIsOwner(response.data.registry.isOwner !== false); // Backend returns isOwner flag
     } catch (err) {
       console.error('Load registry error:', err);
 
@@ -72,6 +80,11 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
    * Get sharing type display text
    */
   const getSharingTypeText = (type) => {
+    // If viewing from a group (fromGroup is true), show "Linked to Group" instead of sharing type
+    if (fromGroup) {
+      return 'Linked to Group';
+    }
+
     if (type === 'external_link') {
       return 'Public Link';
     }
@@ -127,6 +140,156 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
     );
   };
 
+  /**
+   * Navigate to add item screen
+   */
+  const handleAddItem = () => {
+    navigation.navigate('AddEditPersonalItemRegistryItem', {
+      registryId: registryId,
+      mode: 'create',
+    });
+  };
+
+  /**
+   * Navigate to edit item screen
+   */
+  const handleEditItem = (item) => {
+    navigation.navigate('AddEditPersonalItemRegistryItem', {
+      registryId: registryId,
+      itemId: item.itemId,
+      mode: 'edit',
+      itemData: item,
+    });
+  };
+
+  /**
+   * Handle delete item
+   */
+  const handleDeleteItem = async (itemId, itemTitle) => {
+    Alert.alert(
+      'Delete Item',
+      `Are you sure you want to delete "${itemTitle}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/users/personal-registries/item-registries/${registryId}/items/${itemId}`);
+              loadRegistry(); // Reload registry after deletion
+            } catch (err) {
+              console.error('Delete item error:', err);
+
+              if (err.isAuthError) {
+                console.log('[PersonalItemRegistryDetail] Auth error detected - user will be logged out');
+                return;
+              }
+
+              Alert.alert('Error', err.response?.data?.message || 'Failed to delete item');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle image press
+   */
+  const handleImagePress = (photoUrl) => {
+    setSelectedImageUrl(getFileUrl(photoUrl));
+    setShowImageViewer(true);
+  };
+
+  /**
+   * Format replacement value
+   */
+  const formatReplacementValue = (value) => {
+    if (!value) return null;
+    return `$${parseFloat(value).toFixed(2)}`;
+  };
+
+  /**
+   * Render item registry item
+   */
+  const renderItem = ({ item, index }) => {
+    return (
+      <Card style={styles.itemCard}>
+        <Card.Content>
+          <View style={styles.itemHeader}>
+            <Text style={styles.itemNumber}>#{index + 1}</Text>
+            {isOwner && (
+              <View style={styles.itemActions}>
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  iconColor="#6200ee"
+                  onPress={() => handleEditItem(item)}
+                  style={styles.actionButton}
+                />
+                <IconButton
+                  icon="delete"
+                  size={20}
+                  iconColor="#f44336"
+                  onPress={() => handleDeleteItem(item.itemId, item.title)}
+                  style={styles.actionButton}
+                />
+              </View>
+            )}
+          </View>
+
+          {item.photoUrl && (
+            <TouchableOpacity onPress={() => handleImagePress(item.photoUrl)}>
+              <Image
+                source={{ uri: getFileUrl(item.photoUrl) }}
+                style={styles.itemPhoto}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          )}
+
+          <Title style={styles.itemTitle}>{item.title}</Title>
+
+          {item.description && (
+            <Text style={styles.itemDescription}>{item.description}</Text>
+          )}
+
+          {item.storageLocation && (
+            <View style={styles.itemField}>
+              <Text style={styles.fieldLabel}>Storage Location:</Text>
+              <Text style={styles.fieldValue}>{item.storageLocation}</Text>
+            </View>
+          )}
+
+          {item.category && (
+            <View style={styles.itemField}>
+              <Text style={styles.fieldLabel}>Category:</Text>
+              <Text style={styles.fieldValue}>{item.category}</Text>
+            </View>
+          )}
+
+          {item.currentlyBorrowedBy && (
+            <View style={styles.itemField}>
+              <Text style={styles.fieldLabel}>Currently Borrowed By:</Text>
+              <Text style={styles.fieldValue}>{item.currentlyBorrowedBy}</Text>
+            </View>
+          )}
+
+          {item.replacementValue && (
+            <View style={styles.itemField}>
+              <Text style={styles.fieldLabel}>Replacement Value:</Text>
+              <Text style={styles.fieldValue}>{formatReplacementValue(item.replacementValue)}</Text>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -163,99 +326,116 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
         onBack={() => navigation.goBack()}
       />
 
-      <ScrollView style={styles.scrollView}>
-      <View style={styles.content}>
-        {/* Registry Info Card */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>{registry.name}</Title>
-            <Divider style={styles.divider} />
+      <FlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.itemId}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={() => (
+          <View style={styles.header}>
+            {/* Registry Info Card */}
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title>{registry.name}</Title>
+                <Divider style={styles.divider} />
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Sharing:</Text>
-              <Chip
-                style={[styles.sharingChip, { backgroundColor: getSharingTypeColor(registry.sharingType) }]}
-                textStyle={styles.sharingText}
-              >
-                {getSharingTypeText(registry.sharingType)}
-              </Chip>
-            </View>
-
-            {registry.sharingType === 'external_link_passcode' && registry.passcode && (
-              <View style={styles.passcodeContainer}>
-                <Text style={styles.passcodeLabel}>Passcode:</Text>
-                <Text style={styles.passcodeValue}>{registry.passcode}</Text>
-                <Button
-                  mode="outlined"
-                  onPress={handleResetPasscode}
-                  icon="refresh"
-                  style={styles.resetButton}
-                  compact
-                >
-                  Reset Passcode
-                </Button>
-              </View>
-            )}
-
-            {registry.webToken && (
-              <View style={styles.linkContainer}>
-                <Text style={styles.linkLabel}>Share Link:</Text>
-                <Text style={styles.linkValue} selectable>
-                  {`https://parentinghelperapp.com/registry/${registry.webToken}`}
-                </Text>
-                <Text style={styles.linkHint}>
-                  Anyone with this link {registry.sharingType === 'external_link_passcode' ? 'and passcode ' : ''}
-                  can view this registry
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Items:</Text>
-              <Text style={styles.infoValue}>{registry.items?.length || 0}</Text>
-            </View>
-
-            {registry.linkedToGroups && registry.linkedToGroups.length > 0 && (
-              <View style={styles.linkedGroupsContainer}>
-                <Text style={styles.linkedGroupsLabel}>Linked to Groups:</Text>
-                {registry.linkedToGroups.map((group, index) => (
-                  <Chip key={index} style={styles.groupChip}>
-                    {group.groupName}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Sharing:</Text>
+                  <Chip
+                    style={[styles.sharingChip, { backgroundColor: getSharingTypeColor(registry.sharingType) }]}
+                    textStyle={styles.sharingText}
+                  >
+                    {getSharingTypeText(registry.sharingType)}
                   </Chip>
-                ))}
-              </View>
-            )}
+                </View>
 
-            <Text style={styles.createdDate}>
-              Created: {new Date(registry.createdAt).toLocaleDateString()}
+                {registry.sharingType === 'external_link_passcode' && registry.passcode && (
+                  <View style={styles.passcodeContainer}>
+                    <Text style={styles.passcodeLabel}>Passcode:</Text>
+                    <Text style={styles.passcodeValue}>{registry.passcode}</Text>
+                    <Button
+                      mode="outlined"
+                      onPress={handleResetPasscode}
+                      icon="refresh"
+                      style={styles.resetButton}
+                      compact
+                    >
+                      Reset Passcode
+                    </Button>
+                  </View>
+                )}
+
+                {registry.webToken && (
+                  <View style={styles.linkContainer}>
+                    <Text style={styles.linkLabel}>Share Link:</Text>
+                    <Text style={styles.linkValue} selectable>
+                      {`https://parentinghelperapp.com/registry/${registry.webToken}`}
+                    </Text>
+                    <Text style={styles.linkHint}>
+                      Anyone with this link {registry.sharingType === 'external_link_passcode' ? 'and passcode ' : ''}
+                      can view this registry
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Items:</Text>
+                  <Text style={styles.infoValue}>{items.length}</Text>
+                </View>
+
+                {registry.linkedToGroups && registry.linkedToGroups.length > 0 && (
+                  <View style={styles.linkedGroupsContainer}>
+                    <Text style={styles.linkedGroupsLabel}>Linked to Groups:</Text>
+                    {registry.linkedToGroups.map((group, index) => (
+                      <Chip key={index} style={styles.groupChip}>
+                        {group.groupName}
+                      </Chip>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={styles.createdDate}>
+                  Created: {new Date(registry.createdAt).toLocaleDateString()}
+                </Text>
+              </Card.Content>
+            </Card>
+
+            {/* Items Header */}
+            <View style={styles.itemsHeader}>
+              <Title style={styles.itemsTitle}>
+                {items.length} {items.length === 1 ? 'Item' : 'Items'}
+              </Title>
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No items in this registry yet.</Text>
+            <Text style={styles.emptyHint}>
+              Tap the + button below to add your first item.
             </Text>
-          </Card.Content>
-        </Card>
+          </View>
+        )}
+      />
 
-        {/* Items Section - Placeholder */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>Registry Items</Title>
-            <Divider style={styles.divider} />
+      {/* FAB for adding items - only show for owner */}
+      {isOwner && (
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          onPress={handleAddItem}
+          label="Add Item"
+        />
+      )}
 
-            {(!registry.items || registry.items.length === 0) ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No items in this registry yet.</Text>
-                <Text style={styles.emptyHint}>
-                  Item management will be available in a future update.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.itemsList}>
-                <Text style={styles.itemsPlaceholder}>
-                  This registry has {registry.items.length} item(s). Full item management will be available in a future update.
-                </Text>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-      </View>
-      </ScrollView>
+      {/* Image Viewer */}
+      {selectedImageUrl && (
+        <ImageViewer
+          visible={showImageViewer}
+          imageUrl={selectedImageUrl}
+          onClose={() => setShowImageViewer(false)}
+        />
+      )}
     </View>
   );
 }
@@ -265,10 +445,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollView: {
-    flex: 1,
+  listContent: {
+    paddingBottom: 80, // Space for FAB
   },
-  content: {
+  header: {
     padding: 16,
   },
   loadingContainer: {
@@ -388,8 +568,69 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 8,
   },
+  itemsHeader: {
+    marginBottom: 8,
+  },
+  itemsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  itemCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  itemNumber: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '600',
+  },
+  itemActions: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    margin: 0,
+  },
+  itemPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  itemTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  itemDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  itemField: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    marginRight: 8,
+  },
+  fieldValue: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
   emptyState: {
-    padding: 20,
+    padding: 40,
     alignItems: 'center',
   },
   emptyText: {
@@ -403,13 +644,11 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
-  itemsList: {
-    padding: 12,
-  },
-  itemsPlaceholder: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic',
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#6200ee',
   },
 });

@@ -15,6 +15,7 @@ const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
 const giftRegistryController = require('../controllers/giftRegistry.controller');
+const itemRegistryController = require('../controllers/itemRegistry.controller');
 const itemRegistryRouter = require('./itemRegistry.routes');
 const { requireAuth } = require('../middleware/auth.middleware');
 
@@ -348,6 +349,18 @@ router.use('/:groupId/wish-lists', wishListsRouter);
  * All routes under /groups/:groupId/kris-kringle
  */
 router.use('/:groupId/kris-kringle', krisKringleRouter);
+
+/**
+ * POST /groups/:groupId/item-registries/:registryId/link
+ * Link a personal item registry to this group
+ */
+router.post('/:groupId/item-registries/:registryId/link', requireAuth, itemRegistryController.linkPersonalRegistry);
+
+/**
+ * DELETE /groups/:groupId/item-registries/:registryId/unlink
+ * Unlink a personal item registry from this group
+ */
+router.delete('/:groupId/item-registries/:registryId/unlink', requireAuth, itemRegistryController.unlinkPersonalRegistry);
 
 /**
  * Mount item registry router
