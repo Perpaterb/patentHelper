@@ -44,6 +44,10 @@ import GiftRegistryListScreen from '../screens/groups/GiftRegistryListScreen';
 import GiftRegistryDetailScreen from '../screens/groups/GiftRegistryDetailScreen';
 import AddEditRegistryScreen from '../screens/groups/AddEditRegistryScreen';
 import AddEditGiftItemScreen from '../screens/groups/AddEditGiftItemScreen';
+import ItemRegistryListScreen from '../screens/groups/ItemRegistryListScreen';
+import ItemRegistryDetailScreen from '../screens/groups/ItemRegistryDetailScreen';
+import AddEditItemRegistryScreen from '../screens/groups/AddEditItemRegistryScreen';
+import AddEditItemScreen from '../screens/groups/AddEditItemScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -124,6 +128,12 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="GiftRegistryDetail" component={GiftRegistryDetailScreen} />
             <Stack.Screen name="AddEditRegistry" component={AddEditRegistryScreen} />
             <Stack.Screen name="AddEditGiftItem" component={AddEditGiftItemScreen} />
+
+            {/* Item Registry */}
+            <Stack.Screen name="ItemRegistryList" component={ItemRegistryListScreen} />
+            <Stack.Screen name="ItemRegistryDetail" component={ItemRegistryDetailScreen} />
+            <Stack.Screen name="AddEditItemRegistry" component={AddEditItemRegistryScreen} />
+            <Stack.Screen name="AddEditItem" component={AddEditItemScreen} />
 
             {/* Home Screen */}
             <Stack.Screen name="Home">

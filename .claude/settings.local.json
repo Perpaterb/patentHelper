@@ -41,7 +41,8 @@
       "Bash(npx prisma migrate:*)",
       "Bash(git log:*)",
       "Bash(npx prisma format:*)",
-      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes\" npx prisma migrate reset:*)"
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes\" npx prisma migrate reset:*)",
+      "WebFetch(domain:)"
     ],
     "deny": [],
     "ask": []

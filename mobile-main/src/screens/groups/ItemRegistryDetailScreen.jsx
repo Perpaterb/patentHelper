@@ -1,0 +1,709 @@
+/**
+ * Item Registry Detail Screen
+ *
+ * Displays a single item registry with all its items.
+ * Users can add, edit, and delete items based on permissions.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Image } from 'react-native';
+import { Card, Title, Text, FAB, IconButton, Button, Chip, Divider } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../../services/api';
+import ImageViewer from '../../components/shared/ImageViewer';
+import { getFileUrl } from '../../services/upload.service';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+
+/**
+ * @typedef {Object} ItemRegistryDetailScreenProps
+ * @property {Object} navigation - React Navigation navigation object
+ * @property {Object} route - React Navigation route object
+ */
+
+/**
+ * ItemRegistryDetailScreen component
+ *
+ * @param {ItemRegistryDetailScreenProps} props
+ * @returns {JSX.Element}
+ */
+export default function ItemRegistryDetailScreen({ navigation, route }) {
+  const { groupId, registryId, registryName } = route.params;
+  const [registry, setRegistry] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
+  const [error, setError] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [currentGroupMemberId, setCurrentGroupMemberId] = useState(null);
+
+  // Set screen title
+  useEffect(() => {
+    navigation.setOptions({
+      title: registryName || 'Item Registry',
+    });
+  }, [navigation, registryName]);
+
+  useEffect(() => {
+    loadUserInfo();
+  }, [groupId]);
+
+  // Reload registry when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadRegistry();
+    }, [registryId])
+  );
+
+  /**
+   * Load user information
+   */
+  const loadUserInfo = async () => {
+    try {
+      const response = await api.get(`/groups/${groupId}`);
+      setUserRole(response.data.group?.userRole || null);
+      setCurrentGroupMemberId(response.data.group?.currentGroupMemberId || null);
+    } catch (err) {
+      console.error('Load user info error:', err);
+    }
+  };
+
+  /**
+   * Load item registry and items from API
+   */
+  const loadRegistry = async () => {
+    try {
+      setError(null);
+      const response = await api.get(`/groups/${groupId}/item-registries/${registryId}`);
+      setRegistry(response.data.registry);
+      setItems(response.data.registry.items || []);
+    } catch (err) {
+      console.error('Load registry error:', err);
+
+      // Don't show error if it's an auth error
+      if (err.isAuthError) {
+        console.log('[ItemRegistryDetail] Auth error detected - user will be logged out');
+        return;
+      }
+
+      setError(err.response?.data?.message || 'Failed to load registry');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Check if user can edit registry
+   * Only creator or admins can edit
+   */
+  const canEditRegistry = () => {
+    if (!registry) return false;
+    return registry.creatorId === currentGroupMemberId || userRole === 'admin';
+  };
+
+  /**
+   * Navigate to edit registry screen
+   */
+  const handleEditRegistry = () => {
+    navigation.navigate('AddEditItemRegistry', {
+      groupId: groupId,
+      registryId: registryId,
+      mode: 'edit',
+      registryData: registry,
+    });
+  };
+
+  /**
+   * Navigate to add item screen
+   */
+  const handleAddItem = () => {
+    navigation.navigate('AddEditItem', {
+      groupId: groupId,
+      registryId: registryId,
+      mode: 'create',
+    });
+  };
+
+  /**
+   * Navigate to edit item screen
+   */
+  const handleEditItem = (item) => {
+    navigation.navigate('AddEditItem', {
+      groupId: groupId,
+      registryId: registryId,
+      itemId: item.itemId,
+      mode: 'edit',
+      itemData: item,
+    });
+  };
+
+  /**
+   * Handle delete item
+   */
+  const handleDeleteItem = async (itemId, itemTitle) => {
+    Alert.alert(
+      'Delete Item',
+      `Are you sure you want to delete "${itemTitle}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/groups/${groupId}/item-registries/${registryId}/items/${itemId}`);
+              loadRegistry(); // Reload registry after deletion
+            } catch (err) {
+              console.error('Delete item error:', err);
+
+              if (err.isAuthError) {
+                console.log('[ItemRegistryDetail] Auth error detected - user will be logged out');
+                return;
+              }
+
+              Alert.alert('Error', err.response?.data?.message || 'Failed to delete item');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle reset passcode
+   */
+  const handleResetPasscode = async () => {
+    Alert.alert(
+      'Reset Passcode',
+      'This will generate a new 6-digit passcode for this registry. The old passcode will no longer work.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset',
+          onPress: async () => {
+            try {
+              await api.post(`/groups/${groupId}/item-registries/${registryId}/reset-passcode`);
+              loadRegistry(); // Reload to show new passcode
+              Alert.alert('Success', 'Passcode has been reset');
+            } catch (err) {
+              console.error('Reset passcode error:', err);
+
+              if (err.isAuthError) {
+                console.log('[ItemRegistryDetail] Auth error detected - user will be logged out');
+                return;
+              }
+
+              Alert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Get sharing type label
+   */
+  const getSharingTypeLabel = (sharingType) => {
+    switch (sharingType) {
+      case 'public':
+        return 'Public';
+      case 'passcode':
+        return 'Passcode Protected';
+      case 'group_only':
+        return 'Group Only';
+      default:
+        return sharingType;
+    }
+  };
+
+  /**
+   * Format replacement value
+   */
+  const formatReplacementValue = (value) => {
+    if (!value) return null;
+    return `$${parseFloat(value).toFixed(2)}`;
+  };
+
+  /**
+   * Handle mark item as borrowed
+   */
+  const handleMarkAsBorrowed = (item) => {
+    Alert.alert(
+      'Mark as Borrowed',
+      'Are you sure you want to mark this item as borrowed? This action cannot be undone, and the registry owner will not see this item anymore.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Mark as Borrowed',
+          onPress: async () => {
+            try {
+              await api.post(`/groups/${groupId}/item-registries/${registryId}/items/${item.itemId}/mark-borrowed`);
+              loadRegistry(); // Reload registry after marking as borrowed
+              Alert.alert('Success', 'Item marked as borrowed');
+            } catch (err) {
+              console.error('Mark as borrowed error:', err);
+
+              if (err.isAuthError) {
+                console.log('[ItemRegistryDetail] Auth error detected - user will be logged out');
+                return;
+              }
+
+              Alert.alert('Error', err.response?.data?.message || 'Failed to mark item as borrowed');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Render item
+   */
+  const renderItem = ({ item, index }) => {
+    const canEdit = canEditRegistry();
+    const isOwner = registry?.isOwner || false;
+    const isBorrowed = item.isBorrowed || false;
+
+    return (
+      <Card style={[styles.itemCard, isBorrowed && styles.borrowedCard]}>
+        <Card.Content>
+          <View style={styles.itemHeader}>
+            <View style={styles.itemNumberContainer}>
+              <Text style={styles.itemNumber}>#{index + 1}</Text>
+              {isBorrowed && (
+                <Chip icon="check-circle" style={styles.borrowedChip} textStyle={styles.borrowedChipText}>
+                  Currently Borrowed
+                </Chip>
+              )}
+            </View>
+            {canEdit && !isBorrowed && (
+              <View style={styles.itemActions}>
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  iconColor="#6200ee"
+                  onPress={() => handleEditItem(item)}
+                  style={styles.actionButton}
+                />
+                <IconButton
+                  icon="delete"
+                  size={20}
+                  iconColor="#f44336"
+                  onPress={() => handleDeleteItem(item.itemId, item.title)}
+                  style={styles.actionButton}
+                />
+              </View>
+            )}
+          </View>
+
+          {item.photoUrl && (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedImageUrl(getFileUrl(item.photoUrl));
+                setShowImageViewer(true);
+              }}
+            >
+              <Image
+                source={{ uri: getFileUrl(item.photoUrl) }}
+                style={[styles.itemPhoto, isBorrowed && styles.borrowedPhoto]}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          )}
+
+          <Title style={[styles.itemTitle, isBorrowed && styles.borrowedText]}>{item.title}</Title>
+
+          {item.category && (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Category:</Text>
+              <Text style={[styles.metaValue, isBorrowed && styles.borrowedText]}>{item.category}</Text>
+            </View>
+          )}
+
+          {item.storageLocation && (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Storage Location:</Text>
+              <Text style={[styles.metaValue, isBorrowed && styles.borrowedText]}>{item.storageLocation}</Text>
+            </View>
+          )}
+
+          {item.currentlyBorrowedBy && (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Currently Borrowed By:</Text>
+              <Text style={[styles.metaValue, isBorrowed && styles.borrowedText]}>{item.currentlyBorrowedBy}</Text>
+            </View>
+          )}
+
+          {item.replacementValue && (
+            <Text style={[styles.itemReplacementValue, isBorrowed && styles.borrowedText]}>
+              Replacement Value: {formatReplacementValue(item.replacementValue)}
+            </Text>
+          )}
+
+          {item.description && (
+            <Text style={[styles.itemDescription, isBorrowed && styles.borrowedText]}>{item.description}</Text>
+          )}
+
+          {/* Show "Mark as Borrowed" button for non-owners and non-borrowed items */}
+          {!isOwner && !isBorrowed && (
+            <Button
+              mode="contained"
+              icon="hand-extended"
+              onPress={() => handleMarkAsBorrowed(item)}
+              style={styles.markBorrowedButton}
+            >
+              Mark as Borrowed
+            </Button>
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  /**
+   * Render header
+   */
+  const renderHeader = () => {
+    if (!registry) return null;
+
+    const canEdit = canEditRegistry();
+
+    return (
+      <View style={styles.header}>
+        <Card style={styles.infoCard}>
+          <Card.Content>
+            <View style={styles.infoHeader}>
+              <Title style={styles.registryTitle}>{registry.name}</Title>
+              {canEdit && (
+                <IconButton
+                  icon="pencil"
+                  size={24}
+                  iconColor="#6200ee"
+                  onPress={handleEditRegistry}
+                  style={styles.editButton}
+                />
+              )}
+            </View>
+
+            <View style={styles.metaRow}>
+              <Chip icon="package-variant" style={styles.sharingChip}>
+                {getSharingTypeLabel(registry.sharingType)}
+              </Chip>
+            </View>
+
+            {registry.sharingType === 'passcode' && registry.passcode && (
+              <View style={styles.passcodeSection}>
+                <Text style={styles.passcodeLabel}>Passcode:</Text>
+                <Text style={styles.passcodeValue}>{registry.passcode}</Text>
+                {canEdit && (
+                  <Button
+                    mode="text"
+                    onPress={handleResetPasscode}
+                    compact
+                    style={styles.resetButton}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </View>
+            )}
+
+            <Text style={styles.createdBy}>
+              Created by {registry.creator?.displayName || 'Unknown'}
+            </Text>
+
+            {registry.webToken && (
+              <View style={styles.webTokenSection}>
+                <Text style={styles.webTokenLabel}>Share Link:</Text>
+                <Text style={styles.webTokenValue} numberOfLines={1}>
+                  {`https://familyhelperapp.com/registry/${registry.webToken}`}
+                </Text>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+
+        <View style={styles.itemsHeader}>
+          <Title style={styles.itemsTitle}>
+            {items.length} {items.length === 1 ? 'Item' : 'Items'}
+          </Title>
+        </View>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading registry...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Custom Navigation Header */}
+      <CustomNavigationHeader
+        title="Item Registry Details"
+        onBack={() => navigation.goBack()}
+      />
+
+      <FlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.itemId}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No items yet</Text>
+            <Text style={styles.emptySubtext}>
+              Add items to this item registry
+            </Text>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
+      />
+
+      {canEditRegistry() && (
+        <FAB
+          style={styles.fab}
+          icon="plus"
+          onPress={handleAddItem}
+          label="Add Item"
+        />
+      )}
+
+      {/* Image Viewer */}
+      {selectedImageUrl && (
+        <ImageViewer
+          visible={showImageViewer}
+          imageUrl={selectedImageUrl}
+          onClose={() => setShowImageViewer(false)}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  listContent: {
+    paddingBottom: 80, // Space for FAB
+  },
+  header: {
+    padding: 16,
+  },
+  infoCard: {
+    marginBottom: 16,
+    elevation: 2,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  registryTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    flex: 1,
+  },
+  editButton: {
+    margin: 0,
+    marginRight: -8,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  metaLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 8,
+  },
+  metaValue: {
+    fontSize: 12,
+    color: '#333',
+    flex: 1,
+  },
+  sharingChip: {
+    backgroundColor: '#e3f2fd',
+  },
+  passcodeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+  },
+  passcodeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 8,
+  },
+  passcodeValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF9800',
+    flex: 1,
+  },
+  resetButton: {
+    marginLeft: 8,
+  },
+  createdBy: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 8,
+  },
+  webTokenSection: {
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  webTokenLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  webTokenValue: {
+    fontSize: 12,
+    color: '#6200ee',
+    fontFamily: 'monospace',
+  },
+  itemsHeader: {
+    marginBottom: 8,
+  },
+  itemsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  itemCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  itemNumberContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  itemNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    margin: 0,
+  },
+  borrowedCard: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.85,
+  },
+  borrowedChip: {
+    backgroundColor: '#FF9800',
+  },
+  borrowedChipText: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  borrowedPhoto: {
+    opacity: 0.6,
+  },
+  borrowedText: {
+    color: '#999',
+    textDecorationLine: 'line-through',
+  },
+  itemPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  itemTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  itemReplacementValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginBottom: 8,
+  },
+  itemDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  markBorrowedButton: {
+    marginTop: 12,
+    backgroundColor: '#FF9800',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#f44336',
+    textAlign: 'center',
+    padding: 16,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#6200ee',
+  },
+});

@@ -247,11 +247,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to Library
+   * Navigate to Item Registry
    */
   const goToLibrary = () => {
-    // TODO: Implement Library screen
-    console.log('Navigate to Library');
+    navigation.navigate('ItemRegistryList', { groupId });
   };
 
   /**
