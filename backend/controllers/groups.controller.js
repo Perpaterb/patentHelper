@@ -188,6 +188,19 @@ async function getGroups(req, res) {
       groupMemberships
         .filter(membership => !membership.group.isHidden && membership.isRegistered === true) // Filter out hidden/deleted groups and pending invitations
         .map(async membership => {
+          // Calculate trial status and effective role
+          // Trial users get admin-level permissions (20-day trial)
+          const user = await prisma.user.findUnique({
+            where: { userId: userId },
+            select: {
+              isSubscribed: true,
+              createdAt: true,
+            },
+          });
+          const daysSinceCreation = user ? (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+          const isOnTrial = user && !user.isSubscribed && daysSinceCreation <= 20;
+          const effectiveRole = isOnTrial ? 'admin' : membership.role;
+
           // Calculate badge counts from message groups
           // If group is muted, don't show any badges
           let unreadMessagesCount = 0;
@@ -255,19 +268,6 @@ async function getGroups(req, res) {
               unreadMessagesCount += unreadCount;
               unreadMentionsCount += unreadMentionsCountForGroup;
             }
-
-            // Calculate trial status and effective role
-            // Trial users get admin-level permissions (20-day trial)
-            const user = await prisma.user.findUnique({
-              where: { userId: userId },
-              select: {
-                isSubscribed: true,
-                createdAt: true,
-              },
-            });
-            const daysSinceCreation = user ? (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
-            const isOnTrial = user && !user.isSubscribed && daysSinceCreation <= 20;
-            const effectiveRole = isOnTrial ? 'admin' : membership.role;
 
             // Calculate pending approvals count (only for admins or trial users)
             if (effectiveRole === 'admin') {
