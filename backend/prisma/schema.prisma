@@ -585,49 +585,60 @@ model WishListItem {
 // ============================================
 
 model KrisKringle {
-  krisKringleId String                   @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
-  groupId       String                   @map("group_id") @db.Uuid
-  name          String                   @db.VarChar(255)
-  description   String?                  @db.Text
-  priceLimit    Decimal?                 @map("price_limit") @db.Decimal(12, 2)
-  revealDate    DateTime?                @map("reveal_date") @db.Timestamp(6)
-  exchangeDate  DateTime?                @map("exchange_date") @db.Timestamp(6)
-  createdBy     String                   @map("created_by") @db.Uuid
-  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt     DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  status        String                   @default("draft") @db.VarChar(20)
-  isHidden      Boolean                  @default(false) @map("is_hidden")
-  participants  KrisKringleParticipant[]
-  matches       KrisKringleMatch[]
-  exclusions    KrisKringleExclusion[]
-  group         Group                    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  creator       GroupMember              @relation(fields: [createdBy], references: [groupMemberId])
+  krisKringleId     String                   @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
+  groupId           String                   @map("group_id") @db.Uuid
+  name              String                   @db.VarChar(255)
+  description       String?                  @db.Text
+  occasion          String?                  @db.VarChar(255)
+  priceLimit        Decimal?                 @map("price_limit") @db.Decimal(12, 2)
+  assigningDateTime DateTime?                @map("assigning_date_time") @db.Timestamp(6)
+  exchangeDate      DateTime?                @map("exchange_date") @db.Timestamp(6)
+  webToken          String?                  @unique @map("web_token") @db.VarChar(64)
+  createdBy         String                   @map("created_by") @db.Uuid
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  status            String                   @default("draft") @db.VarChar(20)
+  isHidden          Boolean                  @default(false) @map("is_hidden")
+  isAssigned        Boolean                  @default(false) @map("is_assigned")
+  participants      KrisKringleParticipant[]
+  matches           KrisKringleMatch[]
+  exclusions        KrisKringleExclusion[]
+  group             Group                    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator           GroupMember              @relation(fields: [createdBy], references: [groupMemberId])
 
   @@index([groupId])
   @@index([status])
+  @@index([webToken])
   @@map("kris_kringles")
 }
 
 model KrisKringleParticipant {
-  participantId  String                 @id @default(uuid()) @map("participant_id") @db.Uuid
-  krisKringleId  String                 @map("kris_kringle_id") @db.Uuid
-  groupMemberId  String?                @map("group_member_id") @db.Uuid
-  email          String?                @db.VarChar(255)
-  name           String                 @db.VarChar(255)
-  hasJoined      Boolean                @default(false) @map("has_joined")
-  wishListId     String?                @map("wish_list_id") @db.Uuid
-  joinedAt       DateTime?              @map("joined_at") @db.Timestamp(6)
-  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
-  krisKringle    KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
-  groupMember    GroupMember?           @relation(fields: [groupMemberId], references: [groupMemberId])
-  wishList       WishList?              @relation(fields: [wishListId], references: [wishListId])
-  givingTo       KrisKringleMatch[]     @relation("GivingMatches")
-  receivingFrom  KrisKringleMatch[]     @relation("ReceivingMatches")
-  exclusionsFrom KrisKringleExclusion[] @relation("ExclusionPerson1")
-  exclusionsTo   KrisKringleExclusion[] @relation("ExclusionPerson2")
+  participantId         String                 @id @default(uuid()) @map("participant_id") @db.Uuid
+  krisKringleId         String                 @map("kris_kringle_id") @db.Uuid
+  groupMemberId         String?                @map("group_member_id") @db.Uuid
+  email                 String                 @db.VarChar(255)
+  name                  String                 @db.VarChar(255)
+  passcode              String                 @db.VarChar(6)
+  hasJoined             Boolean                @default(false) @map("has_joined")
+  hasViewed             Boolean                @default(false) @map("has_viewed")
+  viewedAt              DateTime?              @map("viewed_at") @db.Timestamp(6)
+  wishListId            String?                @map("wish_list_id") @db.Uuid
+  giftRegistryId        String?                @map("gift_registry_id") @db.Uuid
+  joinedAt              DateTime?              @map("joined_at") @db.Timestamp(6)
+  initialEmailSentAt    DateTime?              @map("initial_email_sent_at") @db.Timestamp(6)
+  assignmentEmailSentAt DateTime?              @map("assignment_email_sent_at") @db.Timestamp(6)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle           KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  groupMember           GroupMember?           @relation(fields: [groupMemberId], references: [groupMemberId])
+  wishList              WishList?              @relation(fields: [wishListId], references: [wishListId])
+  givingTo              KrisKringleMatch[]     @relation("GivingMatches")
+  receivingFrom         KrisKringleMatch[]     @relation("ReceivingMatches")
+  exclusionsFrom        KrisKringleExclusion[] @relation("ExclusionPerson1")
+  exclusionsTo          KrisKringleExclusion[] @relation("ExclusionPerson2")
 
   @@index([krisKringleId])
   @@index([groupMemberId])
+  @@index([email])
   @@map("kris_kringle_participants")
 }
 

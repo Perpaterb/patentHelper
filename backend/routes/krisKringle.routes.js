@@ -14,9 +14,11 @@ router.use(requireAuth);
 
 // Kris Kringle routes
 router.get('/', krisKringleController.getKrisKringles);
+router.get('/:krisKringleId', krisKringleController.getKrisKringle);
 router.post('/', krisKringleController.createKrisKringle);
 router.post('/:krisKringleId/generate-matches', krisKringleController.generateKrisKringleMatches);
 router.get('/:krisKringleId/my-match', krisKringleController.getMyMatch);
 router.delete('/:krisKringleId', krisKringleController.deleteKrisKringle);
+router.post('/:krisKringleId/participants/:participantId/resend', krisKringleController.resendParticipantEmail);
 
 module.exports = router;
