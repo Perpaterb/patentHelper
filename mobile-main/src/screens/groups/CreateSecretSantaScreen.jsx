@@ -268,17 +268,15 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   };
 
   /**
-   * Format datetime for display (hour only, no minutes)
+   * Format datetime for display (24hr, day/month/year)
    */
   const formatDateTime = (date) => {
     if (!date) return 'Select date';
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-    });
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    const hour = date.getHours().toString().padStart(2, '0');
+    return `${day} ${month} ${year}, ${hour}:00`;
   };
 
   return (
@@ -572,6 +570,8 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 onChange={handleExchangeDateChange}
                 textColor="#000"
                 minuteInterval={60}
+                is24Hour={true}
+                locale="en-GB"
               />
             </View>
           </View>
@@ -604,6 +604,8 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 onChange={handleAssigningDateChange}
                 textColor="#000"
                 minuteInterval={60}
+                is24Hour={true}
+                locale="en-GB"
               />
             </View>
           </View>
