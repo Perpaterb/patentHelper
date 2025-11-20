@@ -17,7 +17,7 @@ import {
   Divider,
   Menu,
 } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import api from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
@@ -193,11 +193,8 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
   /**
    * Handle date change
    */
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setDueDate(selectedDate);
-    }
+  const handleDateChange = (selectedDate) => {
+    setDueDate(selectedDate);
   };
 
   /**
@@ -394,17 +391,17 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
             icon="calendar"
             style={styles.input}
           >
-            {dueDate ? `Due: ${dueDate.toLocaleDateString()}` : 'Set Due Date (Optional)'}
+            {dueDate ? `Due: ${formatDateByType(dueDate, 3)}` : 'Set Due Date (Optional)'}
           </Button>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={dueDate || new Date()}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
+          <DateTimeSelector
+            value={dueDate || new Date()}
+            onChange={handleDateChange}
+            format={3}
+            visible={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
+            title="Due Date"
+          />
         </Card.Content>
       </Card>
 

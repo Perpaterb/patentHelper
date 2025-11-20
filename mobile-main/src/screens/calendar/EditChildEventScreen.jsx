@@ -8,9 +8,8 @@ import {
   StyleSheet,
   Alert,
   Modal,
-  Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
@@ -53,7 +52,6 @@ export default function EditChildEventScreen({ route, navigation }) {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showRecurrenceEndPicker, setShowRecurrenceEndPicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
 
   useEffect(() => {
     fetchEvent();
@@ -196,21 +194,6 @@ export default function EditChildEventScreen({ route, navigation }) {
     }
   };
 
-  const handleStartDateConfirm = () => {
-    setStartDate(tempDate);
-    setShowStartDatePicker(false);
-  };
-
-  const handleEndDateConfirm = () => {
-    setEndDate(tempDate);
-    setShowEndDatePicker(false);
-  };
-
-  const handleRecurrenceEndConfirm = () => {
-    setRecurrenceEndDate(tempDate);
-    setShowRecurrenceEndPicker(false);
-  };
-
   const getRecurrenceLabel = () => {
     const option = RECURRENCE_OPTIONS.find(opt => opt.value === recurrenceRule);
     return option ? option.label : 'Daily';
@@ -280,13 +263,10 @@ export default function EditChildEventScreen({ route, navigation }) {
           <Text style={styles.label}>Start Date & Time *</Text>
           <TouchableOpacity
             style={styles.dateButton}
-            onPress={() => {
-              setTempDate(startDate);
-              setShowStartDatePicker(true);
-            }}
+            onPress={() => setShowStartDatePicker(true)}
           >
             <Text style={styles.dateButtonText}>
-              {startDate.toLocaleString()}
+              {formatDateByType(startDate, 1)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -296,13 +276,10 @@ export default function EditChildEventScreen({ route, navigation }) {
           <Text style={styles.label}>End Date & Time *</Text>
           <TouchableOpacity
             style={styles.dateButton}
-            onPress={() => {
-              setTempDate(endDate);
-              setShowEndDatePicker(true);
-            }}
+            onPress={() => setShowEndDatePicker(true)}
           >
             <Text style={styles.dateButtonText}>
-              {endDate.toLocaleString()}
+              {formatDateByType(endDate, 1)}
             </Text>
           </TouchableOpacity>
         </View>
@@ -354,13 +331,10 @@ export default function EditChildEventScreen({ route, navigation }) {
                 <Text style={styles.label}>Repeat Until</Text>
                 <TouchableOpacity
                   style={styles.dateButton}
-                  onPress={() => {
-                    setTempDate(recurrenceEndDate || new Date());
-                    setShowRecurrenceEndPicker(true);
-                  }}
+                  onPress={() => setShowRecurrenceEndPicker(true)}
                 >
                   <Text style={styles.dateButtonText}>
-                    {recurrenceEndDate ? recurrenceEndDate.toLocaleDateString() : 'Select date'}
+                    {recurrenceEndDate ? formatDateByType(recurrenceEndDate, 3) : 'Select date'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -404,100 +378,40 @@ export default function EditChildEventScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Date Picker Modals */}
-      {showStartDatePicker && (
-        <Modal transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <DateTimePicker
-                value={tempDate}
-                mode="datetime"
-                display="spinner"
-                onChange={(event, date) => {
-                  if (date) setTempDate(date);
-                }}
-                textColor="#000"
-                locale="sv-SE"
-                is24Hour={true}
-                minuteInterval={5}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowStartDatePicker(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.goButton} onPress={handleStartDateConfirm}>
-                  <Text style={styles.goButtonText}>OK</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <DateTimeSelector
+        value={startDate}
+        onChange={(newDate) => {
+          setStartDate(newDate);
+          // Auto-adjust end date if it's before new start date
+          if (endDate <= newDate) {
+            setEndDate(new Date(newDate.getTime() + 60 * 60 * 1000));
+          }
+        }}
+        format={1}
+        visible={showStartDatePicker}
+        onClose={() => setShowStartDatePicker(false)}
+        title="Start Date & Time"
+      />
 
-      {showEndDatePicker && (
-        <Modal transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <DateTimePicker
-                value={tempDate}
-                mode="datetime"
-                display="spinner"
-                onChange={(event, date) => {
-                  if (date) setTempDate(date);
-                }}
-                textColor="#000"
-                locale="sv-SE"
-                is24Hour={true}
-                minuteInterval={5}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowEndDatePicker(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.goButton} onPress={handleEndDateConfirm}>
-                  <Text style={styles.goButtonText}>OK</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <DateTimeSelector
+        value={endDate}
+        onChange={setEndDate}
+        format={1}
+        visible={showEndDatePicker}
+        onClose={() => setShowEndDatePicker(false)}
+        title="End Date & Time"
+        minimumDate={startDate}
+      />
 
-      {showRecurrenceEndPicker && (
-        <Modal transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <DateTimePicker
-                value={tempDate}
-                mode="date"
-                display="spinner"
-                onChange={(event, date) => {
-                  if (date) setTempDate(date);
-                }}
-                textColor="#000"
-                locale="sv-SE"
-                is24Hour={true}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowRecurrenceEndPicker(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.goButton} onPress={handleRecurrenceEndConfirm}>
-                  <Text style={styles.goButtonText}>OK</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <DateTimeSelector
+        value={recurrenceEndDate || new Date()}
+        onChange={setRecurrenceEndDate}
+        format={3}
+        visible={showRecurrenceEndPicker}
+        onClose={() => setShowRecurrenceEndPicker(false)}
+        title="Repeat Until"
+        minimumDate={startDate}
+      />
 
       {/* Recurrence Modal */}
       {showRecurrenceModal && (
@@ -548,25 +462,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    paddingTop: Platform.OS === 'ios' ? 50 : 12,
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#666',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   saveButton: {
     fontSize: 16,
@@ -707,36 +602,6 @@ const styles = StyleSheet.create({
   modalOptionText: {
     fontSize: 16,
     textAlign: 'center',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 16,
-  },
-  goButton: {
-    flex: 1,
-    backgroundColor: '#6200ee',
-    borderRadius: 8,
-    padding: 12,
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  goButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   modalCancelButton: {
     marginTop: 16,
