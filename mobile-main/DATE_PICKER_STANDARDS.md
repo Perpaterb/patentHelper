@@ -146,17 +146,21 @@ To truly hide minutes, you must use separate date and time pickers as shown in F
 
 ## Files Using Date Pickers
 
-### Calendar Banner (Format 3 - date only)
-- `src/screens/calendar/CalendarScreen.jsx`
+### Using DateTimeSelector Component (Recommended)
+The `DateTimeSelector` component (`src/components/DateTimeSelector.jsx`) is the recommended way to implement date pickers. It handles all format types, modal behavior, and platform differences.
 
-### Calendar Event Screens (Format 1 - with 5-min intervals)
+**Files using DateTimeSelector:**
+- `src/screens/calendar/CalendarScreen.jsx` - Format 3 (date only for banner navigation)
+- `src/screens/groups/CreateSecretSantaScreen.jsx` - Format 2 (hour only for exchange/reveal dates)
+
+### Legacy Implementation (Direct DateTimePicker usage)
+These files still use `@react-native-community/datetimepicker` directly with the correct sv-SE locale:
+
+**Calendar Event Screens (Format 1 - with 5-min intervals):**
 - `src/screens/calendar/CreateEventScreen.jsx`
 - `src/screens/calendar/EditEventScreen.jsx`
 - `src/screens/calendar/CreateChildEventScreen.jsx`
 - `src/screens/calendar/EditChildEventScreen.jsx`
 
-### Secret Santa Screens (Format 2 - hour only, separate pickers)
-- `src/screens/groups/CreateSecretSantaScreen.jsx`
-
-### Recurrence End Dates (Format 3 - date only)
+**Recurrence End Dates (Format 3 - date only):**
 - Used within the Calendar event screens above for "Repeat Until" picker

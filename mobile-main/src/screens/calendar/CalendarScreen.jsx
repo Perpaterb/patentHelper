@@ -17,9 +17,9 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -886,7 +886,7 @@ export default function CalendarScreen({ navigation, route }) {
 
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempSelectedDate, setTempSelectedDate] = useState(new Date());
+  const [selectedPickerDate, setSelectedPickerDate] = useState(new Date());
 
   // Event creation modal state
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
@@ -960,14 +960,16 @@ export default function CalendarScreen({ navigation, route }) {
   // Format for banner display
   const masterDayTimeDate = `${hourLabel(probeHour24)} ${dateLabel(probeDay)}`;
 
-  // Handle Go button - apply the selected date at 12pm
-  const handleGoPress = () => {
+  // Handle date picker change - apply the selected date at 12pm
+  const handleDatePickerChange = (newDate) => {
+    setSelectedPickerDate(newDate);
+
     // Convert selected date to day offset, set hour to 12 (noon)
     const baseDate = new Date(2023, 9, 31);
 
     // Use Date.UTC to avoid timezone issues with date arithmetic
     const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-    const selectedDateUTC = Date.UTC(tempSelectedDate.getFullYear(), tempSelectedDate.getMonth(), tempSelectedDate.getDate());
+    const selectedDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
     const daysDiff = Math.round((selectedDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
     const targetHour = 12; // Always go to 12pm (noon)
@@ -979,16 +981,9 @@ export default function CalendarScreen({ navigation, route }) {
     // Update viewCenterMonth to match the selected date's month
     // This ensures the month view scrolls to show the selected month
     setViewCenterMonth({
-      year: tempSelectedDate.getFullYear(),
-      month: tempSelectedDate.getMonth()
+      year: newDate.getFullYear(),
+      month: newDate.getMonth()
     });
-
-    setShowDatePicker(false);
-  };
-
-  // Handle Cancel button - close modal without applying changes
-  const handleCancelPress = () => {
-    setShowDatePicker(false);
   };
 
   // Header will be rendered as CustomNavigationHeader in the return statement
@@ -1594,7 +1589,7 @@ export default function CalendarScreen({ navigation, route }) {
           <TouchableOpacity
             onPress={() => {
               try {
-                setTempSelectedDate(masterDateTime);
+                setSelectedPickerDate(masterDateTime);
                 setShowDatePicker(true);
               } catch (error) {
                 console.error('Error opening date picker:', error);
@@ -1633,39 +1628,15 @@ export default function CalendarScreen({ navigation, route }) {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <DateTimePicker
-              value={tempSelectedDate}
-              mode="date"
-              display="spinner"
-              onChange={(event, selectedDate) => {
-                if (selectedDate) {
-                  setTempSelectedDate(selectedDate);
-                }
-              }}
-              textColor="#000"
-              locale="sv-SE"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={handleCancelPress}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.goButton]}
-                onPress={handleGoPress}
-              >
-                <Text style={styles.goButtonText}>Go</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Date Picker */}
+      <DateTimeSelector
+        value={selectedPickerDate}
+        onChange={handleDatePickerChange}
+        format={3}
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        title="Go to Date"
+      />
 
       {/* Event Type Choice Modal */}
       <Modal visible={showEventTypeModal} transparent={true} animationType="fade">
@@ -2035,12 +2006,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     gap: 12,
   },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
   cancelButton: {
     backgroundColor: '#f5f5f5',
     paddingVertical: 14,
@@ -2050,14 +2015,6 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  goButton: {
-    backgroundColor: '#6200ee',
-  },
-  goButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
