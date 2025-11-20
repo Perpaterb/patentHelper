@@ -84,7 +84,7 @@ export default function AddEditPersonalItemRegistryItemScreen({ navigation, rout
 
       const uploadedFile = await uploadFile(
         file,
-        'personal-item-registry',
+        'item-registry',
         null, // No groupId for personal registries
         (progress) => setUploadProgress(progress)
       );
