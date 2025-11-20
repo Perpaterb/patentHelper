@@ -416,7 +416,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
                 minuteInterval={5}
               />
@@ -448,7 +448,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
                 minuteInterval={5}
               />
@@ -480,7 +480,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
               />
               <View style={styles.modalButtons}>

@@ -837,7 +837,7 @@ export default function EditEventScreen({ navigation, route }) {
                 display="spinner"
                 onChange={handleStartDateChange}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
                 minuteInterval={5}
               />
@@ -871,7 +871,7 @@ export default function EditEventScreen({ navigation, route }) {
                 display="spinner"
                 onChange={handleEndDateChange}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
                 minuteInterval={5}
               />
@@ -906,7 +906,7 @@ export default function EditEventScreen({ navigation, route }) {
                 onChange={handleRecurrenceEndDateChange}
                 minimumDate={startDate}
                 textColor="#000"
-                locale="en-GB"
+                locale="sv-SE"
                 is24Hour={true}
               />
             </View>

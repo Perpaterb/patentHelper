@@ -572,7 +572,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                     display="spinner"
                     onChange={handleExchangeDateChange}
                     textColor="#000"
-                    locale="en-GB"
+                    locale="sv-SE"
                   />
                 </View>
                 <View style={styles.hourPickerColumn}>
@@ -583,7 +583,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                     display="spinner"
                     onChange={handleExchangeDateChange}
                     textColor="#000"
-                    locale="en-GB"
+                    locale="sv-SE"
                     is24Hour={true}
                     minuteInterval={60}
                   />
@@ -622,7 +622,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                     display="spinner"
                     onChange={handleAssigningDateChange}
                     textColor="#000"
-                    locale="en-GB"
+                    locale="sv-SE"
                   />
                 </View>
                 <View style={styles.hourPickerColumn}>
@@ -633,7 +633,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                     display="spinner"
                     onChange={handleAssigningDateChange}
                     textColor="#000"
-                    locale="en-GB"
+                    locale="sv-SE"
                     is24Hour={true}
                     minuteInterval={60}
                   />

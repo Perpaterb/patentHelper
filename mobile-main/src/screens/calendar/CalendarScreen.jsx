@@ -1647,7 +1647,7 @@ export default function CalendarScreen({ navigation, route }) {
                 }
               }}
               textColor="#000"
-              locale="en-GB"
+              locale="sv-SE"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity

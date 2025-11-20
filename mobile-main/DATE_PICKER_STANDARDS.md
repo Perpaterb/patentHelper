@@ -21,7 +21,7 @@ modalOverlay: {
 There are three standard formats used throughout the app:
 
 ### Format 1: Full DateTime with Minutes
-**Layout (left to right):** Year → Month (full name) → Day → Hour (24hr) → Minutes (5 min intervals)
+**Layout (left to right):** Year → Month (3-letter abbr) → Day → Hour (24hr) → Minutes (5 min intervals)
 
 **Use case:** Calendar events (start time, end time)
 
@@ -32,48 +32,75 @@ There are three standard formats used throughout the app:
   mode="datetime"
   display="spinner"
   textColor="#000"
-  locale="en-GB"
+  locale="sv-SE"
   is24Hour={true}
   minuteInterval={5}
 />
 ```
 
 ### Format 2: DateTime with Hour Only (No Minutes)
-**Layout (left to right):** Year → Month (full name) → Day → Hour (24hr)
+**Layout (left to right):** Year → Month (3-letter abbr) → Day → Hour (24hr)
 
 **Use case:** Secret Santa exchange date, reveal names date
 
 **Implementation:**
-The standard `@react-native-community/datetimepicker` does NOT support hiding the minutes wheel in `datetime` mode. To achieve hour-only selection, use **two separate pickers**:
+The standard `@react-native-community/datetimepicker` does NOT support hiding the minutes wheel in `datetime` mode. To achieve hour-only selection, use **two separate pickers side by side**:
 
 ```javascript
-// Date picker
-<DateTimePicker
-  value={date}
-  mode="date"
-  display="spinner"
-  textColor="#000"
-  locale="en-GB"
-/>
+<View style={styles.dateTimeRow}>
+  {/* Date picker */}
+  <View style={styles.datePickerColumn}>
+    <Text style={styles.pickerLabel}>Date</Text>
+    <DateTimePicker
+      value={date}
+      mode="date"
+      display="spinner"
+      textColor="#000"
+      locale="sv-SE"
+    />
+  </View>
 
-// Time picker (hour only)
-<DateTimePicker
-  value={date}
-  mode="time"
-  display="spinner"
-  textColor="#000"
-  locale="en-GB"
-  is24Hour={true}
-  minuteInterval={60}
-/>
+  {/* Hour picker */}
+  <View style={styles.hourPickerColumn}>
+    <Text style={styles.pickerLabel}>Hour</Text>
+    <DateTimePicker
+      value={date}
+      mode="time"
+      display="spinner"
+      textColor="#000"
+      locale="sv-SE"
+      is24Hour={true}
+      minuteInterval={60}
+    />
+  </View>
+</View>
 ```
 
-**Alternative:** Use a custom hour picker component with ScrollView/FlatList.
+**Required styles:**
+```javascript
+dateTimeRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+},
+datePickerColumn: {
+  flex: 2,
+},
+hourPickerColumn: {
+  flex: 1,
+},
+pickerLabel: {
+  fontSize: 14,
+  fontWeight: '600',
+  textAlign: 'center',
+  marginBottom: 8,
+  color: '#333',
+},
+```
 
 ### Format 3: Date Only
-**Layout (left to right):** Year → Month (full name) → Day
+**Layout (left to right):** Year → Month (3-letter abbr) → Day
 
-**Use case:** Recurrence end dates, birthdays
+**Use case:** Calendar banner date picker, recurrence end dates, birthdays
 
 **Implementation:**
 ```javascript
@@ -82,7 +109,7 @@ The standard `@react-native-community/datetimepicker` does NOT support hiding th
   mode="date"
   display="spinner"
   textColor="#000"
-  locale="en-GB"
+  locale="sv-SE"
 />
 ```
 
@@ -92,7 +119,7 @@ The standard `@react-native-community/datetimepicker` does NOT support hiding th
 |------|-------|---------|
 | `mode` | `"datetime"`, `"date"`, `"time"` | Determines which wheels to show |
 | `display` | `"spinner"` | Shows iOS-style picker wheels |
-| `locale` | `"en-GB"` | British English - provides 24hr format and Day/Month/Year order |
+| `locale` | `"sv-SE"` | Swedish - provides Year/Month/Day order and 24hr format |
 | `is24Hour` | `true` | Forces 24-hour time format (no AM/PM) |
 | `minuteInterval` | `5` or `60` | Interval between minute options |
 | `textColor` | `"#000"` | Black text for visibility |
@@ -100,43 +127,36 @@ The standard `@react-native-community/datetimepicker` does NOT support hiding th
 ## Important Notes
 
 ### Locale Selection
-- `en-GB` (British English) is used because it:
-  - Defaults to 24-hour time
-  - Shows full month names
-  - Uses Day/Month/Year order
+- `sv-SE` (Swedish) is used because it provides:
+  - **Year → Month → Day** order (required)
+  - 24-hour time format by default
+  - 3-letter month abbreviations (jan, feb, mar, etc.)
 
+- `en-GB` (British English) uses **Day/Month/Year** order (not what we want)
 - `en-AU` (Australian English) uses 12-hour format by default
-- `en-US` (American English) uses Month/Day/Year order
+- `en-US` (American English) uses **Month/Day/Year** order
 
 ### Consistency Requirement
-**CRITICAL:** All DateTimePicker components across the app MUST use the same props (`locale`, `is24Hour`, etc.) to prevent the "contamination" issue where viewing one picker affects others.
+**CRITICAL:** All DateTimePicker components across the app MUST use the same `locale="sv-SE"` to prevent the "contamination" issue where viewing one picker affects others.
 
 ### minuteInterval Limitation
 Setting `minuteInterval={60}` does NOT hide the minutes wheel - it only shows `:00` as the only option. The minutes wheel will still be visible.
 
-To truly hide minutes, you must:
-1. Use separate date and time pickers, OR
-2. Build a custom picker component
+To truly hide minutes, you must use separate date and time pickers as shown in Format 2.
 
 ## Files Using Date Pickers
 
-### Calendar Screens (Format 1 - with minutes)
+### Calendar Banner (Format 3 - date only)
+- `src/screens/calendar/CalendarScreen.jsx`
+
+### Calendar Event Screens (Format 1 - with 5-min intervals)
 - `src/screens/calendar/CreateEventScreen.jsx`
 - `src/screens/calendar/EditEventScreen.jsx`
 - `src/screens/calendar/CreateChildEventScreen.jsx`
 - `src/screens/calendar/EditChildEventScreen.jsx`
 
-### Secret Santa Screens (Format 2 - hour only, needs refactor)
+### Secret Santa Screens (Format 2 - hour only, separate pickers)
 - `src/screens/groups/CreateSecretSantaScreen.jsx`
 
 ### Recurrence End Dates (Format 3 - date only)
-- Used within the Calendar screens above for "Repeat Until" picker
-
-## Refactoring Notes
-
-The Secret Santa screen currently uses `datetime` mode with `minuteInterval={60}`, which still shows the minutes wheel. To properly implement Format 2 (hour only), this screen needs to be refactored to use either:
-
-1. Two separate pickers (date + time with minuteInterval=60)
-2. A custom hour picker component
-
-This refactor is pending.
+- Used within the Calendar event screens above for "Repeat Until" picker
