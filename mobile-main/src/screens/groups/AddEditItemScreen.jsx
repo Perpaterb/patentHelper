@@ -35,8 +35,9 @@ import CustomNavigationHeader from '../../components/CustomNavigationHeader';
  * @returns {JSX.Element}
  */
 export default function AddEditItemScreen({ navigation, route }) {
-  const { groupId, registryId, itemId, mode, itemData } = route.params;
+  const { groupId, registryId, itemId, mode, itemData, registryType } = route.params;
   const isEditMode = mode === 'edit';
+  const isPersonalLinked = registryType === 'personal_linked';
 
   const [title, setTitle] = useState('');
   const [storageLocation, setStorageLocation] = useState('');
@@ -88,7 +89,7 @@ export default function AddEditItemScreen({ navigation, route }) {
       const uploadedFile = await uploadFile(
         file,
         'item-registry',
-        groupId,
+        isPersonalLinked ? null : groupId, // No groupId for personal registries
         (progress) => setUploadProgress(progress)
       );
 
@@ -202,10 +203,12 @@ export default function AddEditItemScreen({ navigation, route }) {
       if (photoUrl.trim()) payload.photoUrl = photoUrl.trim();
       if (description.trim()) payload.description = description.trim();
 
-      const response = await api.post(
-        `/groups/${groupId}/item-registries/${registryId}/items`,
-        payload
-      );
+      // Use appropriate endpoint based on registry type
+      const endpoint = isPersonalLinked
+        ? `/users/personal-registries/item-registries/${registryId}/items`
+        : `/groups/${groupId}/item-registries/${registryId}/items`;
+
+      const response = await api.post(endpoint, payload);
 
       Alert.alert(
         'Item Added',
@@ -265,10 +268,12 @@ export default function AddEditItemScreen({ navigation, route }) {
       if (photoUrl.trim()) payload.photoUrl = photoUrl.trim();
       if (description.trim()) payload.description = description.trim();
 
-      const response = await api.put(
-        `/groups/${groupId}/item-registries/${registryId}/items/${itemId}`,
-        payload
-      );
+      // Use appropriate endpoint based on registry type
+      const endpoint = isPersonalLinked
+        ? `/users/personal-registries/item-registries/${registryId}/items/${itemId}`
+        : `/groups/${groupId}/item-registries/${registryId}/items/${itemId}`;
+
+      const response = await api.put(endpoint, payload);
 
       Alert.alert(
         'Item Updated',

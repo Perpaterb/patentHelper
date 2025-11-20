@@ -93,14 +93,20 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
   };
 
   /**
-   * Check if user can edit registry
-   * Only creator, owner (for personal registries), or admins can edit
+   * Check if user can edit registry items
+   * For personal_linked registries: ONLY the owner can edit (not admins)
+   * For group registries: creator or admins can edit
    */
   const canEditRegistry = () => {
     if (!registry) return false;
-    // Check if user is the owner (returned by backend for personal registries)
-    if (registry.isOwner) return true;
-    // Check if user is the creator or an admin
+
+    // For linked personal registries, only the owner can edit
+    // Admins should not be able to edit someone else's personal registry items
+    if (registry.type === 'personal_linked') {
+      return registry.isOwner === true;
+    }
+
+    // For group registries: check if user is the creator or an admin
     return registry.creatorId === currentGroupMemberId || userRole === 'admin';
   };
 
@@ -124,6 +130,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
       groupId: groupId,
       registryId: registryId,
       mode: 'create',
+      registryType: registry?.type || 'group',
     });
   };
 
@@ -137,6 +144,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
       itemId: item.itemId,
       mode: 'edit',
       itemData: item,
+      registryType: registry?.type || 'group',
     });
   };
 
@@ -157,7 +165,12 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await api.delete(`/groups/${groupId}/item-registries/${registryId}/items/${itemId}`);
+              // Use appropriate endpoint based on registry type
+              const endpoint = registry?.type === 'personal_linked'
+                ? `/users/personal-registries/item-registries/${registryId}/items/${itemId}`
+                : `/groups/${groupId}/item-registries/${registryId}/items/${itemId}`;
+
+              await api.delete(endpoint);
               loadRegistry(); // Reload registry after deletion
             } catch (err) {
               console.error('Delete item error:', err);
@@ -235,46 +248,10 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
   };
 
   /**
-   * Handle mark item as borrowed
-   */
-  const handleMarkAsBorrowed = (item) => {
-    Alert.alert(
-      'Mark as Borrowed',
-      'Are you sure you want to mark this item as borrowed? This action cannot be undone, and the registry owner will not see this item anymore.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Mark as Borrowed',
-          onPress: async () => {
-            try {
-              await api.post(`/groups/${groupId}/item-registries/${registryId}/items/${item.itemId}/mark-borrowed`);
-              loadRegistry(); // Reload registry after marking as borrowed
-              Alert.alert('Success', 'Item marked as borrowed');
-            } catch (err) {
-              console.error('Mark as borrowed error:', err);
-
-              if (err.isAuthError) {
-                console.log('[ItemRegistryDetail] Auth error detected - user will be logged out');
-                return;
-              }
-
-              Alert.alert('Error', err.response?.data?.message || 'Failed to mark item as borrowed');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  /**
    * Render item
    */
   const renderItem = ({ item, index }) => {
     const canEdit = canEditRegistry();
-    const isOwner = registry?.isOwner || false;
     const isBorrowed = item.isBorrowed || false;
 
     return (
@@ -355,18 +332,6 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
 
           {item.description && (
             <Text style={[styles.itemDescription, isBorrowed && styles.borrowedText]}>{item.description}</Text>
-          )}
-
-          {/* Show "Mark as Borrowed" button for non-owners and non-borrowed items */}
-          {!isOwner && !isBorrowed && (
-            <Button
-              mode="contained"
-              icon="hand-extended"
-              onPress={() => handleMarkAsBorrowed(item)}
-              style={styles.markBorrowedButton}
-            >
-              Mark as Borrowed
-            </Button>
           )}
         </Card.Content>
       </Card>
@@ -676,10 +641,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
     lineHeight: 20,
-  },
-  markBorrowedButton: {
-    marginTop: 12,
-    backgroundColor: '#FF9800',
   },
   emptyContainer: {
     padding: 32,
