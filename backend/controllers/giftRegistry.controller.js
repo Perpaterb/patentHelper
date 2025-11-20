@@ -200,10 +200,11 @@ async function getGiftRegistry(req, res) {
       });
     }
 
-    // Get registry with items
-    const registry = await prisma.giftRegistry.findUnique({
+    // Try to find as group registry first
+    const groupRegistry = await prisma.giftRegistry.findFirst({
       where: {
         registryId: registryId,
+        groupId: groupId,
       },
       include: {
         creator: {
@@ -238,51 +239,98 @@ async function getGiftRegistry(req, res) {
       },
     });
 
-    if (!registry) {
-      return res.status(404).json({
-        error: 'Registry not found',
-        message: 'Gift registry not found',
-      });
-    }
+    if (groupRegistry) {
+      // Check if user is the owner
+      const isOwner = groupRegistry.creatorId === membership.groupMemberId;
 
-    // Verify registry belongs to this group
-    if (registry.groupId !== groupId) {
-      return res.status(403).json({
-        error: 'Access denied',
-        message: 'Registry does not belong to this group',
-      });
-    }
+      // Filter items based on user role:
+      // - Owner: Hide purchased items (to maintain surprise)
+      // - Non-owner: Show all items with purchase status
+      const filteredItems = isOwner
+        ? groupRegistry.items.filter(item => !item.isPurchased)
+        : groupRegistry.items;
 
-    // Check if user is the owner
-    const isOwner = registry.creatorId === membership.groupMemberId;
-
-    // Check if user can edit (creator or admin)
-    const canEdit = isOwner || membership.role === 'admin';
-
-    // Filter items based on user role:
-    // - Owner: Hide purchased items (to maintain surprise)
-    // - Non-owner: Show all items with purchase status
-    const filteredItems = isOwner
-      ? registry.items.filter(item => !item.isPurchased)
-      : registry.items;
-
-    res.status(200).json({
-      success: true,
-      registry: {
-        ...registry,
-        creator: {
-          groupMemberId: registry.creator.groupMemberId,
-          // Use User profile name if available, otherwise fall back to GroupMember name
-          displayName: registry.creator.user?.displayName || registry.creator.displayName,
-          iconLetters: registry.creator.user?.memberIcon || registry.creator.iconLetters,
-          iconColor: registry.creator.user?.iconColor || registry.creator.iconColor,
-          role: registry.creator.role,
+      return res.status(200).json({
+        success: true,
+        registry: {
+          ...groupRegistry,
+          type: 'group',
+          creator: {
+            groupMemberId: groupRegistry.creator.groupMemberId,
+            // Use User profile name if available, otherwise fall back to GroupMember name
+            displayName: groupRegistry.creator.user?.displayName || groupRegistry.creator.displayName,
+            iconLetters: groupRegistry.creator.user?.memberIcon || groupRegistry.creator.iconLetters,
+            iconColor: groupRegistry.creator.user?.iconColor || groupRegistry.creator.iconColor,
+            role: groupRegistry.creator.role,
+          },
+          items: filteredItems,
+          isOwner: isOwner,
+          hasPasscode: !!groupRegistry.passcode,
         },
-        items: filteredItems,
-        canEdit: canEdit,
-        isOwner: isOwner,
-        hasPasscode: !!registry.passcode,
+      });
+    }
+
+    // Try to find as linked personal registry
+    const linkedRegistry = await prisma.personalGiftRegistryGroupLink.findFirst({
+      where: {
+        registryId: registryId,
+        groupId: groupId,
       },
+      include: {
+        registry: {
+          include: {
+            user: {
+              select: {
+                userId: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+            items: {
+              orderBy: {
+                displayOrder: 'asc',
+              },
+            },
+          },
+        },
+        linker: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (linkedRegistry) {
+      // Check if user is the owner
+      const isOwner = linkedRegistry.registry.userId === req.user.userId;
+
+      // Filter items based on user role:
+      // - Owner: Hide purchased items (to maintain surprise)
+      // - Non-owner: Show all items with purchase status
+      const filteredItems = isOwner
+        ? linkedRegistry.registry.items.filter(item => !item.isPurchased)
+        : linkedRegistry.registry.items;
+
+      return res.status(200).json({
+        success: true,
+        registry: {
+          ...linkedRegistry.registry,
+          type: 'personal_linked',
+          items: filteredItems,
+          owner: linkedRegistry.registry.user,
+          linkedBy: linkedRegistry.linker.displayName,
+          linkedAt: linkedRegistry.linkedAt,
+          isOwner: isOwner,
+        },
+      });
+    }
+
+    return res.status(404).json({
+      error: 'Not found',
+      message: 'Gift registry not found in this group',
     });
   } catch (error) {
     console.error('Get gift registry error:', error);
