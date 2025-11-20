@@ -268,29 +268,16 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   };
 
   /**
-   * Format date for display
-   */
-  const formatDate = (date) => {
-    if (!date) return 'Select date';
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  /**
-   * Format datetime for display
+   * Format datetime for display (hour only, no minutes)
    */
   const formatDateTime = (date) => {
+    if (!date) return 'Select date';
     return date.toLocaleString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
-      minute: '2-digit',
     });
   };
 
@@ -337,7 +324,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               }}
             >
               <Text style={styles.dateLabel}>Exchange Date</Text>
-              <Text style={styles.dateValue}>{formatDate(exchangeDate)}</Text>
+              <Text style={styles.dateValue}>{formatDateTime(exchangeDate)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -580,10 +567,11 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
             <View style={styles.datePickerContent}>
               <DateTimePicker
                 value={tempExchangeDate}
-                mode="date"
+                mode="datetime"
                 display="spinner"
                 onChange={handleExchangeDateChange}
                 textColor="#000"
+                minuteInterval={60}
               />
             </View>
           </View>
@@ -615,6 +603,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 display="spinner"
                 onChange={handleAssigningDateChange}
                 textColor="#000"
+                minuteInterval={60}
               />
             </View>
           </View>
@@ -740,7 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     margin: 20,
     borderRadius: 8,
-    maxHeight: '80%',
+    maxHeight: '90%',
+    minHeight: '60%',
   },
   modalTitle: {
     padding: 16,
@@ -756,7 +746,7 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   memberList: {
-    maxHeight: 300,
+    flex: 1,
   },
   memberIcon: {
     width: 40,
@@ -796,12 +786,15 @@ const styles = StyleSheet.create({
   datePickerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   datePickerContainer: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
   },
   datePickerHeader: {
     flexDirection: 'row',
