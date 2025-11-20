@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Modal,
 } from 'react-native';
 import {
   Text,
@@ -29,9 +28,9 @@ import {
   Title,
   ActivityIndicator,
 } from 'react-native-paper';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 
 export default function CreateSecretSantaScreen({ navigation, route }) {
   const { groupId } = route.params;
@@ -41,10 +40,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   const [priceLimit, setPriceLimit] = useState('');
   const [exchangeDate, setExchangeDate] = useState(new Date());
   const [assigningDateTime, setAssigningDateTime] = useState(new Date());
-
-  // Temp dates for picker modals
-  const [tempExchangeDate, setTempExchangeDate] = useState(new Date());
-  const [tempAssigningDateTime, setTempAssigningDateTime] = useState(new Date());
 
   // Participants
   const [participants, setParticipants] = useState([]);
@@ -183,34 +178,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   };
 
   /**
-   * Handle exchange date picker
-   */
-  const handleExchangeDateChange = (event, date) => {
-    if (date) {
-      setTempExchangeDate(date);
-    }
-  };
-
-  const confirmExchangeDate = () => {
-    setExchangeDate(tempExchangeDate);
-    setShowExchangeDatePicker(false);
-  };
-
-  /**
-   * Handle assigning date picker
-   */
-  const handleAssigningDateChange = (event, date) => {
-    if (date) {
-      setTempAssigningDateTime(date);
-    }
-  };
-
-  const confirmAssigningDate = () => {
-    setAssigningDateTime(tempAssigningDateTime);
-    setShowAssigningDatePicker(false);
-  };
-
-  /**
    * Handle create
    */
   const handleCreate = async () => {
@@ -267,18 +234,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Format datetime for display (24hr, day/month/year)
-   */
-  const formatDateTime = (date) => {
-    if (!date) return 'Select date';
-    const day = date.getDate();
-    const month = date.toLocaleString('en-US', { month: 'short' });
-    const year = date.getFullYear();
-    const hour = date.getHours().toString().padStart(2, '0');
-    return `${day} ${month} ${year}, ${hour}:00`;
-  };
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -316,24 +271,18 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
             <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => {
-                setTempExchangeDate(exchangeDate);
-                setShowExchangeDatePicker(true);
-              }}
+              onPress={() => setShowExchangeDatePicker(true)}
             >
               <Text style={styles.dateLabel}>Exchange Date</Text>
-              <Text style={styles.dateValue}>{formatDateTime(exchangeDate)}</Text>
+              <Text style={styles.dateValue}>{formatDateByType(exchangeDate, 2)}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => {
-                setTempAssigningDateTime(assigningDateTime);
-                setShowAssigningDatePicker(true);
-              }}
+              onPress={() => setShowAssigningDatePicker(true)}
             >
               <Text style={styles.dateLabel}>Reveal Names On</Text>
-              <Text style={styles.dateValue}>{formatDateTime(assigningDateTime)}</Text>
+              <Text style={styles.dateValue}>{formatDateByType(assigningDateTime, 2)}</Text>
             </TouchableOpacity>
           </Card.Content>
         </Card>
@@ -544,105 +493,25 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         </PaperModal>
       </Portal>
 
-      {/* Exchange Date Picker Modal */}
-      <Modal
+      {/* Exchange Date Picker */}
+      <DateTimeSelector
+        value={exchangeDate}
+        onChange={setExchangeDate}
+        format={2}
         visible={showExchangeDatePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowExchangeDatePicker(false)}
-      >
-        <View style={styles.datePickerOverlay}>
-          <View style={styles.datePickerContainer}>
-            <View style={styles.datePickerHeader}>
-              <TouchableOpacity onPress={() => setShowExchangeDatePicker(false)}>
-                <Text style={styles.datePickerCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.datePickerTitle}>Exchange Date</Text>
-              <TouchableOpacity onPress={confirmExchangeDate}>
-                <Text style={styles.datePickerDone}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.datePickerContent}>
-              <View style={styles.dateTimeRow}>
-                <View style={styles.datePickerColumn}>
-                  <Text style={styles.pickerLabel}>Date</Text>
-                  <DateTimePicker
-                    value={tempExchangeDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleExchangeDateChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                  />
-                </View>
-                <View style={styles.hourPickerColumn}>
-                  <Text style={styles.pickerLabel}>Hour</Text>
-                  <DateTimePicker
-                    value={tempExchangeDate}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleExchangeDateChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                    is24Hour={true}
-                    minuteInterval={60}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowExchangeDatePicker(false)}
+        title="Exchange Date"
+      />
 
-      {/* Assigning Date Picker Modal */}
-      <Modal
+      {/* Assigning Date Picker */}
+      <DateTimeSelector
+        value={assigningDateTime}
+        onChange={setAssigningDateTime}
+        format={2}
         visible={showAssigningDatePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAssigningDatePicker(false)}
-      >
-        <View style={styles.datePickerOverlay}>
-          <View style={styles.datePickerContainer}>
-            <View style={styles.datePickerHeader}>
-              <TouchableOpacity onPress={() => setShowAssigningDatePicker(false)}>
-                <Text style={styles.datePickerCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.datePickerTitle}>Reveal Names On</Text>
-              <TouchableOpacity onPress={confirmAssigningDate}>
-                <Text style={styles.datePickerDone}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.datePickerContent}>
-              <View style={styles.dateTimeRow}>
-                <View style={styles.datePickerColumn}>
-                  <Text style={styles.pickerLabel}>Date</Text>
-                  <DateTimePicker
-                    value={tempAssigningDateTime}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleAssigningDateChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                  />
-                </View>
-                <View style={styles.hourPickerColumn}>
-                  <Text style={styles.pickerLabel}>Hour</Text>
-                  <DateTimePicker
-                    value={tempAssigningDateTime}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleAssigningDateChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                    is24Hour={true}
-                    minuteInterval={60}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowAssigningDatePicker(false)}
+        title="Reveal Names On"
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -819,60 +688,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 8,
-  },
-  // Date picker modal styles
-  datePickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  datePickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  datePickerCancel: {
-    color: '#666',
-    fontSize: 16,
-  },
-  datePickerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  datePickerDone: {
-    color: '#6200ee',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  datePickerContent: {
-    paddingVertical: 20,
-  },
-  dateTimeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  datePickerColumn: {
-    flex: 2,
-  },
-  hourPickerColumn: {
-    flex: 1,
-  },
-  pickerLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-    color: '#333',
   },
 });
