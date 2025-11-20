@@ -60,6 +60,13 @@ async function getItemRegistries(req, res) {
             displayName: true,
             iconLetters: true,
             iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
           },
         },
         items: {
@@ -116,7 +123,15 @@ async function getItemRegistries(req, res) {
       sharingType: registry.sharingType,
       webToken: registry.webToken,
       itemCount: registry.items.length,
-      creator: registry.creator,
+      creator: {
+        groupMemberId: registry.creator.groupMemberId,
+        // Use User profile name if available, otherwise fall back to GroupMember name
+        displayName: registry.creator.user?.displayName || registry.creator.displayName,
+        iconLetters: registry.creator.user?.memberIcon || registry.creator.iconLetters,
+        iconColor: registry.creator.user?.iconColor || registry.creator.iconColor,
+      },
+      creatorId: registry.creatorId,
+      isOwner: registry.creatorId === membership.groupMemberId,
       createdAt: registry.createdAt,
       updatedAt: registry.updatedAt,
     }));
@@ -135,6 +150,7 @@ async function getItemRegistries(req, res) {
         memberIcon: link.registry.user.memberIcon,
         iconColor: link.registry.user.iconColor,
       },
+      isOwner: link.registry.userId === req.user.userId,
       linkedBy: link.linker.displayName,
       linkedAt: link.linkedAt,
     }));
@@ -192,6 +208,13 @@ async function getItemRegistryById(req, res) {
             displayName: true,
             iconLetters: true,
             iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
           },
         },
         items: {
@@ -208,6 +231,14 @@ async function getItemRegistryById(req, res) {
         registry: {
           ...groupRegistry,
           type: 'group',
+          creator: {
+            groupMemberId: groupRegistry.creator.groupMemberId,
+            // Use User profile name if available, otherwise fall back to GroupMember name
+            displayName: groupRegistry.creator.user?.displayName || groupRegistry.creator.displayName,
+            iconLetters: groupRegistry.creator.user?.memberIcon || groupRegistry.creator.iconLetters,
+            iconColor: groupRegistry.creator.user?.iconColor || groupRegistry.creator.iconColor,
+          },
+          isOwner: groupRegistry.creatorId === membership.groupMemberId,
         },
       });
     }

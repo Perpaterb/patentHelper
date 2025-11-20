@@ -59,6 +59,13 @@ async function getGiftRegistries(req, res) {
             displayName: true,
             iconLetters: true,
             iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
           },
         },
         items: {
@@ -116,7 +123,14 @@ async function getGiftRegistries(req, res) {
       webToken: registry.webToken,
       itemCount: registry.items.length,
       creatorId: registry.creatorId, // Include creatorId for permission checks
-      creator: registry.creator,
+      creator: {
+        groupMemberId: registry.creator.groupMemberId,
+        // Use User profile name if available, otherwise fall back to GroupMember name
+        displayName: registry.creator.user?.displayName || registry.creator.displayName,
+        iconLetters: registry.creator.user?.memberIcon || registry.creator.iconLetters,
+        iconColor: registry.creator.user?.iconColor || registry.creator.iconColor,
+      },
+      isOwner: registry.creatorId === membership.groupMemberId,
       createdAt: registry.createdAt,
       updatedAt: registry.updatedAt,
     }));
@@ -135,6 +149,7 @@ async function getGiftRegistries(req, res) {
         memberIcon: link.registry.user.memberIcon,
         iconColor: link.registry.user.iconColor,
       },
+      isOwner: link.registry.userId === req.user.userId,
       linkedBy: link.linker.displayName,
       linkedAt: link.linkedAt,
     }));
@@ -192,6 +207,13 @@ async function getGiftRegistry(req, res) {
             iconLetters: true,
             iconColor: true,
             role: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
           },
         },
         items: {
@@ -242,6 +264,14 @@ async function getGiftRegistry(req, res) {
       success: true,
       registry: {
         ...registry,
+        creator: {
+          groupMemberId: registry.creator.groupMemberId,
+          // Use User profile name if available, otherwise fall back to GroupMember name
+          displayName: registry.creator.user?.displayName || registry.creator.displayName,
+          iconLetters: registry.creator.user?.memberIcon || registry.creator.iconLetters,
+          iconColor: registry.creator.user?.iconColor || registry.creator.iconColor,
+          role: registry.creator.role,
+        },
         items: filteredItems,
         canEdit: canEdit,
         isOwner: isOwner,

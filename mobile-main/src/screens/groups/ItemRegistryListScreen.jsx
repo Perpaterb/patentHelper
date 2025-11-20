@@ -326,13 +326,16 @@ export default function ItemRegistryListScreen({ navigation, route }) {
                 <View style={styles.titleRow}>
                   <Title style={styles.registryName}>{item.name}</Title>
                   {isLinked ? (
-                    <IconButton
-                      icon="link-off"
-                      size={20}
-                      iconColor="#f44336"
-                      onPress={() => handleUnlinkRegistry(item.registryId, item.name)}
-                      style={styles.deleteButton}
-                    />
+                    // Only show unlink button for owner or admin
+                    (item.isOwner || userRole === 'admin') && (
+                      <IconButton
+                        icon="link-off"
+                        size={20}
+                        iconColor="#f44336"
+                        onPress={() => handleUnlinkRegistry(item.registryId, item.name)}
+                        style={styles.deleteButton}
+                      />
+                    )
                   ) : (
                     canEdit && (
                       <IconButton
