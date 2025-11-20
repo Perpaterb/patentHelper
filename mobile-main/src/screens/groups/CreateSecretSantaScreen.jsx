@@ -36,7 +36,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
   // Form state
   const [name, setName] = useState('');
-  const [occasion, setOccasion] = useState('');
   const [priceLimit, setPriceLimit] = useState('');
   const [exchangeDate, setExchangeDate] = useState(null);
   const [assigningDateTime, setAssigningDateTime] = useState(new Date());
@@ -69,8 +68,8 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
    */
   const loadGroupMembers = async () => {
     try {
-      const response = await api.get(`/groups/${groupId}/members`);
-      setGroupMembers(response.data.members || []);
+      const response = await api.get(`/groups/${groupId}`);
+      setGroupMembers(response.data.group?.members || []);
     } catch (err) {
       console.error('Load group members error:', err);
       Alert.alert('Error', 'Failed to load group members');
@@ -159,7 +158,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
       const payload = {
         name: name.trim(),
-        occasion: occasion.trim() || null,
         priceLimit: priceLimit ? parseFloat(priceLimit) : null,
         exchangeDate: exchangeDate ? exchangeDate.toISOString() : null,
         assigningDateTime: assigningDateTime.toISOString(),
@@ -246,16 +244,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               onChangeText={setName}
               mode="outlined"
               style={styles.input}
-              placeholder="Christmas Gift Exchange"
-            />
-
-            <TextInput
-              label="Occasion"
-              value={occasion}
-              onChangeText={setOccasion}
-              mode="outlined"
-              style={styles.input}
-              placeholder="Christmas 2024"
+              placeholder="Christmas Gift Exchange 2024"
             />
 
             <TextInput

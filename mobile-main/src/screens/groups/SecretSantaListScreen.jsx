@@ -5,8 +5,8 @@
  * Allows creating new events and viewing existing ones.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Text, Card, Title, Paragraph, FAB, ActivityIndicator, IconButton, Chip } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -184,6 +184,12 @@ export default function SecretSantaListScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle}>Secret Santa</Text>
+        <View style={{ width: 48 }} />
+      </View>
+
       <FlatList
         data={secretSantas}
         renderItem={renderItem}
@@ -209,6 +215,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 44,
+    paddingHorizontal: 4,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
