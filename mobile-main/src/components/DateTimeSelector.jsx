@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '100%',
     maxWidth: 420,
-    minHeight: SCREEN_HEIGHT * 0.5,
+    minHeight: SCREEN_HEIGHT * 0.4,
   },
   header: {
     flexDirection: 'row',
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   doneText: {
@@ -301,28 +301,28 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingVertical: 20,
-    paddingHorizontal: 5,
+    paddingVertical: 30,
+    paddingHorizontal: 10,
   },
   pickersRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 2,
+    gap: 0,
   },
   pickerColumn: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 0,
   },
   pickerLabel: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 4,
     color: '#333',
   },
   picker: {
-    width: '100%',
+    width: '150%',
     height: 200,
     backgroundColor: 'transparent',
   },
