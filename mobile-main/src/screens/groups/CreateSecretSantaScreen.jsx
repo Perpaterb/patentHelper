@@ -571,7 +571,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 textColor="#000"
                 minuteInterval={60}
                 is24Hour={true}
-                locale="en-GB"
+                locale="en-AU"
               />
             </View>
           </View>
@@ -605,7 +605,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 textColor="#000"
                 minuteInterval={60}
                 is24Hour={true}
-                locale="en-GB"
+                locale="en-AU"
               />
             </View>
           </View>
@@ -701,8 +701,7 @@ const styles = StyleSheet.create({
   externalChipText: {
     color: '#fff',
     fontSize: 11,
-    lineHeight: 14,
-    marginTop: -2,
+    lineHeight: 14
   },
   exclusionChip: {
     backgroundColor: '#f44336',
@@ -712,8 +711,7 @@ const styles = StyleSheet.create({
   exclusionChipText: {
     color: '#fff',
     fontSize: 11,
-    lineHeight: 14,
-    marginTop: -2,
+    lineHeight: 14
   },
   addButtonsRow: {
     flexDirection: 'row',

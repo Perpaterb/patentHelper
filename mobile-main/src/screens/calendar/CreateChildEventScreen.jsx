@@ -478,6 +478,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 display="spinner"
                 onChange={(event, date) => date && setTempStartDate(date)}
                 textColor="#000"
+                locale="en-AU"
               />
             </View>
           </View>
@@ -507,6 +508,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 onChange={(event, date) => date && setTempEndDate(date)}
                 minimumDate={startDate}
                 textColor="#000"
+                locale="en-AU"
               />
             </View>
           </View>
@@ -536,6 +538,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 onChange={(event, date) => date && setTempRecurrenceEndDate(date)}
                 minimumDate={startDate}
                 textColor="#000"
+                locale="en-AU"
               />
               <TouchableOpacity
                 style={styles.foreverButton}
