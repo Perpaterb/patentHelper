@@ -49,6 +49,9 @@ import ItemRegistryListScreen from '../screens/groups/ItemRegistryListScreen';
 import ItemRegistryDetailScreen from '../screens/groups/ItemRegistryDetailScreen';
 import AddEditItemRegistryScreen from '../screens/groups/AddEditItemRegistryScreen';
 import AddEditItemScreen from '../screens/groups/AddEditItemScreen';
+import SecretSantaListScreen from '../screens/groups/SecretSantaListScreen';
+import CreateSecretSantaScreen from '../screens/groups/CreateSecretSantaScreen';
+import SecretSantaDetailScreen from '../screens/groups/SecretSantaDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -138,7 +141,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="AddEditItem" component={AddEditItemScreen} />
 
             {/* Secret Santa */}
-            <Stack.Screen name="SecretSantaList" component={PlaceholderScreen} />
+            <Stack.Screen name="SecretSantaList" component={SecretSantaListScreen} />
+            <Stack.Screen name="CreateSecretSanta" component={CreateSecretSantaScreen} />
+            <Stack.Screen name="SecretSantaDetail" component={SecretSantaDetailScreen} />
 
             {/* Home Screen */}
             <Stack.Screen name="Home">
