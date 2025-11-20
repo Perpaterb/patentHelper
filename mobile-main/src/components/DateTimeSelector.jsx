@@ -12,8 +12,11 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { Picker } from 'react-native-wheel-pick';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 /**
  * DateTimeSelector - A reusable date/time picker component
@@ -266,13 +269,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 10,
   },
   container: {
     backgroundColor: '#fff',
     borderRadius: 16,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
+    minHeight: SCREEN_HEIGHT * 0.5,
   },
   header: {
     flexDirection: 'row',
@@ -296,26 +300,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
+    flex: 1,
     paddingVertical: 20,
-    paddingHorizontal: 10,
+    paddingHorizontal: 5,
   },
   pickersRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 2,
   },
   pickerColumn: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 2,
   },
   pickerLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
     color: '#333',
   },
   picker: {
     width: '100%',
-    height: 150,
+    height: 200,
+    backgroundColor: 'transparent',
   },
 });
