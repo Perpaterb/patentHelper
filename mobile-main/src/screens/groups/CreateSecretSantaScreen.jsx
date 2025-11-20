@@ -571,7 +571,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 textColor="#000"
                 minuteInterval={60}
                 is24Hour={true}
-                locale="en-AU"
+                locale="en-GB"
               />
             </View>
           </View>
@@ -605,7 +605,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                 textColor="#000"
                 minuteInterval={60}
                 is24Hour={true}
-                locale="en-AU"
+                locale="en-GB"
               />
             </View>
           </View>

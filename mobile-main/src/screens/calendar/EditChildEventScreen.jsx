@@ -416,7 +416,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -446,7 +446,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -476,7 +476,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                   if (date) setTempDate(date);
                 }}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity

@@ -837,7 +837,7 @@ export default function EditEventScreen({ navigation, route }) {
                 display="spinner"
                 onChange={handleStartDateChange}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
             </View>
           </View>
@@ -869,7 +869,7 @@ export default function EditEventScreen({ navigation, route }) {
                 display="spinner"
                 onChange={handleEndDateChange}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
             </View>
           </View>
@@ -902,7 +902,7 @@ export default function EditEventScreen({ navigation, route }) {
                 onChange={handleRecurrenceEndDateChange}
                 minimumDate={startDate}
                 textColor="#000"
-                locale="en-AU"
+                locale="en-GB"
               />
             </View>
             {/* Forever Button */}
