@@ -695,19 +695,25 @@ const styles = StyleSheet.create({
   },
   externalChip: {
     backgroundColor: '#ff9800',
-    height: 24,
+    height: 28,
+    justifyContent: 'center',
   },
   externalChipText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: -2,
   },
   exclusionChip: {
     backgroundColor: '#f44336',
-    height: 24,
+    height: 28,
+    justifyContent: 'center',
   },
   exclusionChipText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: -2,
   },
   addButtonsRow: {
     flexDirection: 'row',
