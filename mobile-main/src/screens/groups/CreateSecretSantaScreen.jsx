@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Text,
@@ -23,13 +24,14 @@ import {
   Chip,
   List,
   Portal,
-  Modal,
+  Modal as PaperModal,
   Card,
   Title,
   ActivityIndicator,
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../services/api';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
 export default function CreateSecretSantaScreen({ navigation, route }) {
   const { groupId } = route.params;
@@ -37,22 +39,28 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   // Form state
   const [name, setName] = useState('');
   const [priceLimit, setPriceLimit] = useState('');
-  const [exchangeDate, setExchangeDate] = useState(null);
+  const [exchangeDate, setExchangeDate] = useState(new Date());
   const [assigningDateTime, setAssigningDateTime] = useState(new Date());
+
+  // Temp dates for picker modals
+  const [tempExchangeDate, setTempExchangeDate] = useState(new Date());
+  const [tempAssigningDateTime, setTempAssigningDateTime] = useState(new Date());
 
   // Participants
   const [participants, setParticipants] = useState([]);
   const [groupMembers, setGroupMembers] = useState([]);
 
-  // Date picker state
+  // Date picker modal state
   const [showExchangeDatePicker, setShowExchangeDatePicker] = useState(false);
   const [showAssigningDatePicker, setShowAssigningDatePicker] = useState(false);
 
   // Modal state
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showExternalModal, setShowExternalModal] = useState(false);
+  const [showExclusionModal, setShowExclusionModal] = useState(false);
   const [externalName, setExternalName] = useState('');
   const [externalEmail, setExternalEmail] = useState('');
+  const [selectedParticipantIndex, setSelectedParticipantIndex] = useState(null);
 
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -95,6 +103,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         name: member.user?.displayName || member.displayName,
         email: member.user?.email || member.email,
         isGroupMember: true,
+        exclusions: [], // Array of participant indices they can't be matched with
       },
     ]);
     setShowMemberModal(false);
@@ -121,6 +130,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         name: externalName.trim(),
         email: externalEmail.trim().toLowerCase(),
         isGroupMember: false,
+        exclusions: [],
       },
     ]);
 
@@ -135,7 +145,69 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   const handleRemoveParticipant = (index) => {
     const newParticipants = [...participants];
     newParticipants.splice(index, 1);
+
+    // Update exclusions to remove references to the removed participant
+    newParticipants.forEach(p => {
+      p.exclusions = p.exclusions
+        .filter(i => i !== index)
+        .map(i => i > index ? i - 1 : i);
+    });
+
     setParticipants(newParticipants);
+  };
+
+  /**
+   * Open exclusion modal for a participant
+   */
+  const handleOpenExclusions = (index) => {
+    setSelectedParticipantIndex(index);
+    setShowExclusionModal(true);
+  };
+
+  /**
+   * Toggle exclusion for a participant
+   */
+  const handleToggleExclusion = (excludeIndex) => {
+    if (selectedParticipantIndex === null) return;
+
+    const newParticipants = [...participants];
+    const exclusions = newParticipants[selectedParticipantIndex].exclusions || [];
+
+    if (exclusions.includes(excludeIndex)) {
+      newParticipants[selectedParticipantIndex].exclusions = exclusions.filter(i => i !== excludeIndex);
+    } else {
+      newParticipants[selectedParticipantIndex].exclusions = [...exclusions, excludeIndex];
+    }
+
+    setParticipants(newParticipants);
+  };
+
+  /**
+   * Handle exchange date picker
+   */
+  const handleExchangeDateChange = (event, date) => {
+    if (date) {
+      setTempExchangeDate(date);
+    }
+  };
+
+  const confirmExchangeDate = () => {
+    setExchangeDate(tempExchangeDate);
+    setShowExchangeDatePicker(false);
+  };
+
+  /**
+   * Handle assigning date picker
+   */
+  const handleAssigningDateChange = (event, date) => {
+    if (date) {
+      setTempAssigningDateTime(date);
+    }
+  };
+
+  const confirmAssigningDate = () => {
+    setAssigningDateTime(tempAssigningDateTime);
+    setShowAssigningDatePicker(false);
   };
 
   /**
@@ -159,12 +231,13 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
       const payload = {
         name: name.trim(),
         priceLimit: priceLimit ? parseFloat(priceLimit) : null,
-        exchangeDate: exchangeDate ? exchangeDate.toISOString() : null,
+        exchangeDate: exchangeDate.toISOString(),
         assigningDateTime: assigningDateTime.toISOString(),
-        participants: participants.map(p => ({
+        participants: participants.map((p, index) => ({
           groupMemberId: p.groupMemberId || null,
           name: p.name,
           email: p.email,
+          exclusions: p.exclusions.map(i => participants[i].email), // Send exclusions as emails
         })),
       };
 
@@ -226,11 +299,10 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.header}>
-        <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>New Secret Santa</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <CustomNavigationHeader
+        title="New Secret Santa"
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Event Details */}
@@ -259,7 +331,10 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
             <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => setShowExchangeDatePicker(true)}
+              onPress={() => {
+                setTempExchangeDate(exchangeDate);
+                setShowExchangeDatePicker(true);
+              }}
             >
               <Text style={styles.dateLabel}>Exchange Date</Text>
               <Text style={styles.dateValue}>{formatDate(exchangeDate)}</Text>
@@ -267,7 +342,10 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
             <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => setShowAssigningDatePicker(true)}
+              onPress={() => {
+                setTempAssigningDateTime(assigningDateTime);
+                setShowAssigningDatePicker(true);
+              }}
             >
               <Text style={styles.dateLabel}>Reveal Names On</Text>
               <Text style={styles.dateValue}>{formatDateTime(assigningDateTime)}</Text>
@@ -283,8 +361,8 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
             </View>
 
             <Text style={styles.tipText}>
-              Tip: It's better to add people as group members before adding them to Secret Santa.
-              This allows them to link their gift registry.
+              Tip: Add people as group members first so they can link their gift registry.
+              Use the exclude button to prevent specific pairings (e.g., spouses).
             </Text>
 
             {participants.length === 0 ? (
@@ -295,12 +373,24 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
                   <View style={styles.participantInfo}>
                     <Text style={styles.participantName}>{p.name}</Text>
                     <Text style={styles.participantEmail}>{p.email}</Text>
-                    {!p.isGroupMember && (
-                      <Chip style={styles.externalChip} textStyle={styles.externalChipText}>
-                        External
-                      </Chip>
-                    )}
+                    <View style={styles.participantChips}>
+                      {!p.isGroupMember && (
+                        <Chip style={styles.externalChip} textStyle={styles.externalChipText}>
+                          External
+                        </Chip>
+                      )}
+                      {p.exclusions && p.exclusions.length > 0 && (
+                        <Chip style={styles.exclusionChip} textStyle={styles.exclusionChipText}>
+                          {p.exclusions.length} excluded
+                        </Chip>
+                      )}
+                    </View>
                   </View>
+                  <IconButton
+                    icon="account-cancel"
+                    size={20}
+                    onPress={() => handleOpenExclusions(index)}
+                  />
                   <IconButton
                     icon="close"
                     size={20}
@@ -350,7 +440,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
       {/* Member Selection Modal */}
       <Portal>
-        <Modal
+        <PaperModal
           visible={showMemberModal}
           onDismiss={() => setShowMemberModal(false)}
           contentContainerStyle={styles.modal}
@@ -386,12 +476,12 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
           <Button onPress={() => setShowMemberModal(false)} style={styles.modalButton}>
             Cancel
           </Button>
-        </Modal>
+        </PaperModal>
       </Portal>
 
       {/* External Participant Modal */}
       <Portal>
-        <Modal
+        <PaperModal
           visible={showExternalModal}
           onDismiss={() => setShowExternalModal(false)}
           contentContainerStyle={styles.modal}
@@ -425,33 +515,111 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               Add
             </Button>
           </View>
-        </Modal>
+        </PaperModal>
       </Portal>
 
-      {/* Date Pickers */}
-      {showExchangeDatePicker && (
-        <DateTimePicker
-          value={exchangeDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowExchangeDatePicker(false);
-            if (date) setExchangeDate(date);
-          }}
-        />
-      )}
+      {/* Exclusion Modal */}
+      <Portal>
+        <PaperModal
+          visible={showExclusionModal}
+          onDismiss={() => setShowExclusionModal(false)}
+          contentContainerStyle={styles.modal}
+        >
+          <Title style={styles.modalTitle}>
+            Can't be matched with
+          </Title>
+          <Text style={styles.exclusionSubtitle}>
+            {selectedParticipantIndex !== null && participants[selectedParticipantIndex]?.name}
+          </Text>
+          <Divider />
+          <ScrollView style={styles.memberList}>
+            {participants.map((p, index) => {
+              if (index === selectedParticipantIndex) return null;
+              const isExcluded = selectedParticipantIndex !== null &&
+                participants[selectedParticipantIndex]?.exclusions?.includes(index);
+              return (
+                <List.Item
+                  key={index}
+                  title={p.name}
+                  description={p.email}
+                  onPress={() => handleToggleExclusion(index)}
+                  right={() => (
+                    <IconButton
+                      icon={isExcluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      iconColor={isExcluded ? '#6200ee' : '#666'}
+                    />
+                  )}
+                />
+              );
+            })}
+          </ScrollView>
+          <Button onPress={() => setShowExclusionModal(false)} style={styles.modalButton}>
+            Done
+          </Button>
+        </PaperModal>
+      </Portal>
 
-      {showAssigningDatePicker && (
-        <DateTimePicker
-          value={assigningDateTime}
-          mode="datetime"
-          display="default"
-          onChange={(event, date) => {
-            setShowAssigningDatePicker(false);
-            if (date) setAssigningDateTime(date);
-          }}
-        />
-      )}
+      {/* Exchange Date Picker Modal */}
+      <Modal
+        visible={showExchangeDatePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowExchangeDatePicker(false)}
+      >
+        <View style={styles.datePickerOverlay}>
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={() => setShowExchangeDatePicker(false)}>
+                <Text style={styles.datePickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.datePickerTitle}>Exchange Date</Text>
+              <TouchableOpacity onPress={confirmExchangeDate}>
+                <Text style={styles.datePickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.datePickerContent}>
+              <DateTimePicker
+                value={tempExchangeDate}
+                mode="date"
+                display="spinner"
+                onChange={handleExchangeDateChange}
+                textColor="#000"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Assigning Date Picker Modal */}
+      <Modal
+        visible={showAssigningDatePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAssigningDatePicker(false)}
+      >
+        <View style={styles.datePickerOverlay}>
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={() => setShowAssigningDatePicker(false)}>
+                <Text style={styles.datePickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.datePickerTitle}>Reveal Names On</Text>
+              <TouchableOpacity onPress={confirmAssigningDate}>
+                <Text style={styles.datePickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.datePickerContent}>
+              <DateTimePicker
+                value={tempAssigningDateTime}
+                mode="datetime"
+                display="spinner"
+                onChange={handleAssigningDateChange}
+                textColor="#000"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -460,20 +628,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 44,
-    paddingHorizontal: 4,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -543,12 +697,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
+  participantChips: {
+    flexDirection: 'row',
+    marginTop: 4,
+    gap: 4,
+  },
   externalChip: {
     backgroundColor: '#ff9800',
-    marginTop: 4,
-    alignSelf: 'flex-start',
+    height: 24,
   },
   externalChipText: {
+    color: '#fff',
+    fontSize: 10,
+  },
+  exclusionChip: {
+    backgroundColor: '#f44336',
+    height: 24,
+  },
+  exclusionChipText: {
     color: '#fff',
     fontSize: 10,
   },
@@ -579,6 +745,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     padding: 16,
     fontSize: 18,
+  },
+  exclusionSubtitle: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    fontSize: 14,
+    color: '#666',
   },
   modalLoading: {
     padding: 40,
@@ -619,5 +791,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     padding: 8,
+  },
+  // Date picker modal styles
+  datePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  datePickerCancel: {
+    color: '#666',
+    fontSize: 16,
+  },
+  datePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  datePickerDone: {
+    color: '#6200ee',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  datePickerContent: {
+    paddingVertical: 20,
   },
 });
