@@ -242,8 +242,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
    * Navigate to Secret Santa
    */
   const goToSecretSanta = () => {
-    // TODO: Implement Secret Santa screen
-    console.log('Navigate to Secret Santa');
+    navigation.navigate('SecretSantaList', { groupId });
   };
 
   /**

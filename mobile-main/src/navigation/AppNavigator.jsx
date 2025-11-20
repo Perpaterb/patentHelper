@@ -137,6 +137,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="AddEditItemRegistry" component={AddEditItemRegistryScreen} />
             <Stack.Screen name="AddEditItem" component={AddEditItemScreen} />
 
+            {/* Secret Santa */}
+            <Stack.Screen name="SecretSantaList" component={PlaceholderScreen} />
+
             {/* Home Screen */}
             <Stack.Screen name="Home">
               {(props) => <HomeScreen {...props} onLogout={onLogout} />}
