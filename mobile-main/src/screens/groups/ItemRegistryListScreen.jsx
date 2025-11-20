@@ -106,26 +106,15 @@ export default function ItemRegistryListScreen({ navigation, route }) {
 
   /**
    * Navigate to registry detail screen
-   * For personal linked registries, navigate to PersonalItemRegistryDetail
-   * For group registries, navigate to ItemRegistryDetail
+   * All registries (group and personal_linked) use ItemRegistryDetail
+   * because the backend getItemRegistryById handles both types
    */
   const handleRegistryPress = (registry) => {
-    if (registry.type === 'personal_linked') {
-      // Navigate to personal registry detail screen
-      navigation.navigate('PersonalItemRegistryDetail', {
-        registryId: registry.registryId,
-        registryName: registry.name,
-        sharingType: registry.sharingType,
-        fromGroup: true, // Flag to indicate viewing from a group context
-      });
-    } else {
-      // Navigate to group registry detail screen
-      navigation.navigate('ItemRegistryDetail', {
-        groupId: groupId,
-        registryId: registry.registryId,
-        registryName: registry.name,
-      });
-    }
+    navigation.navigate('ItemRegistryDetail', {
+      groupId: groupId,
+      registryId: registry.registryId,
+      registryName: registry.name,
+    });
   };
 
   /**

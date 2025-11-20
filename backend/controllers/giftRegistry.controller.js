@@ -106,6 +106,11 @@ async function getGiftRegistries(req, res) {
           select: {
             groupMemberId: true,
             displayName: true,
+            user: {
+              select: {
+                displayName: true,
+              },
+            },
           },
         },
       },
@@ -150,7 +155,8 @@ async function getGiftRegistries(req, res) {
         iconColor: link.registry.user.iconColor,
       },
       isOwner: link.registry.userId === req.user.userId,
-      linkedBy: link.linker.displayName,
+      // Use User profile name if available, otherwise fall back to GroupMember name
+      linkedBy: link.linker.user?.displayName || link.linker.displayName,
       linkedAt: link.linkedAt,
     }));
 

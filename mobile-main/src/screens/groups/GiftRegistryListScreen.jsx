@@ -106,26 +106,15 @@ export default function GiftRegistryListScreen({ navigation, route }) {
 
   /**
    * Navigate to registry detail screen
-   * For personal linked registries, navigate to PersonalGiftRegistryDetail
-   * For group registries, navigate to GiftRegistryDetail
+   * All registries (group and personal_linked) use GiftRegistryDetail
+   * because the backend getGiftRegistry handles both types
    */
   const handleRegistryPress = (registry) => {
-    if (registry.type === 'personal_linked') {
-      // Navigate to personal registry detail screen
-      navigation.navigate('PersonalGiftRegistryDetail', {
-        registryId: registry.registryId,
-        registryName: registry.name,
-        sharingType: registry.sharingType,
-        fromGroup: true, // Flag to indicate viewing from a group context
-      });
-    } else {
-      // Navigate to group registry detail screen
-      navigation.navigate('GiftRegistryDetail', {
-        groupId: groupId,
-        registryId: registry.registryId,
-        registryName: registry.name,
-      });
-    }
+    navigation.navigate('GiftRegistryDetail', {
+      groupId: groupId,
+      registryId: registry.registryId,
+      registryName: registry.name,
+    });
   };
 
   /**
