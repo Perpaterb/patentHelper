@@ -672,6 +672,8 @@ export default function CreateEventScreen({ navigation, route }) {
                 onChange={handleStartDateChange}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
             </View>
           </View>
@@ -704,6 +706,8 @@ export default function CreateEventScreen({ navigation, route }) {
                 onChange={handleEndDateChange}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
             </View>
           </View>
@@ -737,6 +741,7 @@ export default function CreateEventScreen({ navigation, route }) {
                 minimumDate={startDate}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
               />
             </View>
             {/* Forever Button */}

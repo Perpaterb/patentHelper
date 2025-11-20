@@ -417,6 +417,8 @@ export default function EditChildEventScreen({ route, navigation }) {
                 }}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -447,6 +449,8 @@ export default function EditChildEventScreen({ route, navigation }) {
                 }}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -477,6 +481,7 @@ export default function EditChildEventScreen({ route, navigation }) {
                 }}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity

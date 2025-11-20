@@ -1646,6 +1646,8 @@ export default function CalendarScreen({ navigation, route }) {
                   setTempSelectedDate(selectedDate);
                 }
               }}
+              textColor="#000"
+              locale="en-GB"
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity

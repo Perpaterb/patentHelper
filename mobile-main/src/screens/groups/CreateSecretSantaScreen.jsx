@@ -563,16 +563,32 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
             <View style={styles.datePickerContent}>
-              <DateTimePicker
-                value={tempExchangeDate}
-                mode="datetime"
-                display="spinner"
-                onChange={handleExchangeDateChange}
-                textColor="#000"
-                minuteInterval={60}
-                is24Hour={true}
-                locale="en-GB"
-              />
+              <View style={styles.dateTimeRow}>
+                <View style={styles.datePickerColumn}>
+                  <Text style={styles.pickerLabel}>Date</Text>
+                  <DateTimePicker
+                    value={tempExchangeDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleExchangeDateChange}
+                    textColor="#000"
+                    locale="en-GB"
+                  />
+                </View>
+                <View style={styles.hourPickerColumn}>
+                  <Text style={styles.pickerLabel}>Hour</Text>
+                  <DateTimePicker
+                    value={tempExchangeDate}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleExchangeDateChange}
+                    textColor="#000"
+                    locale="en-GB"
+                    is24Hour={true}
+                    minuteInterval={60}
+                  />
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -597,16 +613,32 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
             <View style={styles.datePickerContent}>
-              <DateTimePicker
-                value={tempAssigningDateTime}
-                mode="datetime"
-                display="spinner"
-                onChange={handleAssigningDateChange}
-                textColor="#000"
-                minuteInterval={60}
-                is24Hour={true}
-                locale="en-GB"
-              />
+              <View style={styles.dateTimeRow}>
+                <View style={styles.datePickerColumn}>
+                  <Text style={styles.pickerLabel}>Date</Text>
+                  <DateTimePicker
+                    value={tempAssigningDateTime}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleAssigningDateChange}
+                    textColor="#000"
+                    locale="en-GB"
+                  />
+                </View>
+                <View style={styles.hourPickerColumn}>
+                  <Text style={styles.pickerLabel}>Hour</Text>
+                  <DateTimePicker
+                    value={tempAssigningDateTime}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleAssigningDateChange}
+                    textColor="#000"
+                    locale="en-GB"
+                    is24Hour={true}
+                    minuteInterval={60}
+                  />
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -825,5 +857,22 @@ const styles = StyleSheet.create({
   },
   datePickerContent: {
     paddingVertical: 20,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  datePickerColumn: {
+    flex: 2,
+  },
+  hourPickerColumn: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+    color: '#333',
   },
 });

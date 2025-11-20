@@ -479,6 +479,8 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 onChange={(event, date) => date && setTempStartDate(date)}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
             </View>
           </View>
@@ -509,6 +511,8 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 minimumDate={startDate}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
+                minuteInterval={5}
               />
             </View>
           </View>
@@ -539,6 +543,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 minimumDate={startDate}
                 textColor="#000"
                 locale="en-GB"
+                is24Hour={true}
               />
               <TouchableOpacity
                 style={styles.foreverButton}
