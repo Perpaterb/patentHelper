@@ -451,18 +451,6 @@ export default function GiftRegistryListScreen({ navigation, route }) {
 
             <Button
               mode="contained"
-              icon="folder"
-              onPress={handleCreateGroupRegistry}
-              style={styles.modalButton}
-            >
-              Add Group Only Registry
-            </Button>
-            <Text style={styles.modalButtonHint}>
-              Create a registry specific to this group only
-            </Text>
-
-            <Button
-              mode="contained"
               icon="plus-circle"
               onPress={handleCreatePersonalRegistry}
               style={styles.modalButton}
@@ -483,6 +471,21 @@ export default function GiftRegistryListScreen({ navigation, route }) {
             </Button>
             <Text style={styles.modalButtonHint}>
               Members of the group will be able to access this registry without a passcode
+            </Text>
+
+            <Button
+              mode="contained"
+              icon="folder"
+              onPress={handleCreateGroupRegistry}
+              style={styles.modalButton}
+            >
+              Add Group Only Registry
+            </Button>
+            <Text style={styles.modalButtonHint}>
+              Create a registry specific to this group only
+            </Text>
+            <Text style={styles.modalButtonWarning}>
+              Note: Group-only registries cannot be seen by people outside the group (important for Secret Santa with external participants)
             </Text>
 
             <Button
@@ -682,6 +685,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 16,
     marginBottom: 8,
+  },
+  modalButtonWarning: {
+    fontSize: 11,
+    color: '#ff9800',
+    marginTop: 2,
+    marginLeft: 16,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   modalCancelButton: {
     marginTop: 16,

@@ -451,18 +451,6 @@ export default function ItemRegistryListScreen({ navigation, route }) {
 
             <Button
               mode="contained"
-              icon="folder"
-              onPress={handleCreateGroupRegistry}
-              style={styles.modalButton}
-            >
-              Add Group Only Registry
-            </Button>
-            <Text style={styles.modalButtonHint}>
-              Create a registry specific to this group only
-            </Text>
-
-            <Button
-              mode="contained"
               icon="plus-circle"
               onPress={handleCreatePersonalRegistry}
               style={styles.modalButton}
@@ -483,6 +471,18 @@ export default function ItemRegistryListScreen({ navigation, route }) {
             </Button>
             <Text style={styles.modalButtonHint}>
               Members of the group will be able to access this registry without a passcode
+            </Text>
+
+            <Button
+              mode="contained"
+              icon="folder"
+              onPress={handleCreateGroupRegistry}
+              style={styles.modalButton}
+            >
+              Add Group Only Registry
+            </Button>
+            <Text style={styles.modalButtonHint}>
+              Create a registry specific to this group only
             </Text>
 
             <Button
