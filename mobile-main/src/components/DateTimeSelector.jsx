@@ -1,7 +1,7 @@
 /**
  * DateTimeSelector Component
  *
- * Reusable date/time picker with three format options.
+ * Reusable date/time picker with three format options using wheel pickers.
  * See DATE_PICKER_STANDARDS.md for full documentation.
  */
 
@@ -12,29 +12,21 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
-  Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-
-/**
- * @typedef {Object} DateTimeSelectorProps
- * @property {Date} value - The current date value
- * @property {(date: Date) => void} onChange - Callback when date changes
- * @property {1 | 2 | 3} format - Format type:
- *   1 = Year → Month → Day → Hour → Min (5-min intervals)
- *   2 = Year → Month → Day → Hour (hour only)
- *   3 = Year → Month → Day (date only)
- * @property {boolean} visible - Whether the picker modal is visible
- * @property {() => void} onClose - Callback to close the modal
- * @property {string} [title] - Optional title for the picker
- * @property {Date} [minimumDate] - Optional minimum selectable date
- * @property {Date} [maximumDate] - Optional maximum selectable date
- */
+import { Picker } from 'react-native-wheel-pick';
 
 /**
  * DateTimeSelector - A reusable date/time picker component
  *
- * @param {DateTimeSelectorProps} props
+ * @param {Object} props
+ * @param {Date} props.value - The current date value
+ * @param {Function} props.onChange - Callback when date changes
+ * @param {number} props.format - Format type: 1=full datetime, 2=hour only, 3=date only
+ * @param {boolean} props.visible - Whether the picker modal is visible
+ * @param {Function} props.onClose - Callback to close the modal
+ * @param {string} [props.title] - Optional title for the picker
+ * @param {Date} [props.minimumDate] - Optional minimum selectable date
+ * @param {Date} [props.maximumDate] - Optional maximum selectable date
  * @returns {JSX.Element}
  */
 export default function DateTimeSelector({
@@ -47,92 +39,76 @@ export default function DateTimeSelector({
   minimumDate,
   maximumDate,
 }) {
-  const [tempDate, setTempDate] = useState(value || new Date());
+  // Initialize temp state from value
+  const initializeFromDate = (date) => {
+    const d = date || new Date();
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      day: d.getDate(),
+      hour: d.getHours(),
+      minute: Math.round(d.getMinutes() / 5) * 5,
+    };
+  };
+
+  const [tempDate, setTempDate] = useState(initializeFromDate(value));
 
   // Sync tempDate when value changes or modal opens
   useEffect(() => {
     if (visible && value) {
-      setTempDate(value);
+      setTempDate(initializeFromDate(value));
     }
   }, [visible, value]);
 
-  /**
-   * Round to nearest 5 minutes for Format 1
-   */
-  const roundToNearest5Minutes = (date) => {
-    const rounded = new Date(date);
-    const minutes = rounded.getMinutes();
-    const roundedMinutes = Math.round(minutes / 5) * 5;
-    rounded.setMinutes(roundedMinutes);
-    rounded.setSeconds(0);
-    rounded.setMilliseconds(0);
-    return rounded;
-  };
+  // Month name arrays
+  const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthsFull = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
 
-  /**
-   * Clear minutes for Format 2
-   */
-  const clearMinutes = (date) => {
-    const cleared = new Date(date);
-    cleared.setMinutes(0);
-    cleared.setSeconds(0);
-    cleared.setMilliseconds(0);
-    return cleared;
-  };
-
-  /**
-   * Handle date change from picker
-   */
-  const handleDateChange = (event, selectedDate) => {
-    if (Platform.OS === 'android') {
-      if (event.type === 'dismissed') {
-        onClose();
-        return;
-      }
-      if (event.type === 'set' && selectedDate) {
-        let finalDate = selectedDate;
-        if (format === 1) {
-          finalDate = roundToNearest5Minutes(selectedDate);
-        } else if (format === 2) {
-          finalDate = clearMinutes(selectedDate);
-        }
-        onChange(finalDate);
-        onClose();
-      }
-    } else {
-      // iOS - update temp date, don't close
-      if (selectedDate) {
-        setTempDate(selectedDate);
-      }
+  // Generate arrays for pickers
+  const generateYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear - 50; i <= currentYear + 50; i++) {
+      years.push(i.toString());
     }
+    return years;
   };
 
-  /**
-   * Handle hour change for Format 2 (separate time picker)
-   */
-  const handleHourChange = (event, selectedDate) => {
-    if (selectedDate) {
-      // Preserve the date from tempDate, update only hour
-      const updated = new Date(tempDate);
-      updated.setHours(selectedDate.getHours());
-      updated.setMinutes(0);
-      updated.setSeconds(0);
-      updated.setMilliseconds(0);
-      setTempDate(updated);
-    }
+  const generateDays = (year, month) => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) =>
+      String(i + 1).padStart(2, '0')
+    );
   };
 
+  const generateHours = () => {
+    return Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  };
+
+  const generateMinutes5 = () => {
+    return Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+  };
+
+  const years = generateYears();
+  const hours = generateHours();
+  const minutes5 = generateMinutes5();
+
   /**
-   * Confirm selection (iOS only)
+   * Confirm selection
    */
   const handleConfirm = () => {
-    let finalDate = tempDate;
-    if (format === 1) {
-      finalDate = roundToNearest5Minutes(tempDate);
-    } else if (format === 2) {
-      finalDate = clearMinutes(tempDate);
-    }
-    onChange(finalDate);
+    const newDate = new Date(
+      tempDate.year,
+      tempDate.month,
+      tempDate.day,
+      format === 3 ? 0 : tempDate.hour,
+      format === 3 ? 0 : (format === 2 ? 0 : tempDate.minute),
+      0,
+      0
+    );
+    onChange(newDate);
     onClose();
   };
 
@@ -140,56 +116,15 @@ export default function DateTimeSelector({
    * Cancel selection
    */
   const handleCancel = () => {
-    setTempDate(value || new Date());
+    setTempDate(initializeFromDate(value));
     onClose();
-  };
-
-  /**
-   * Format date for display
-   */
-  const formatDisplayDate = (date) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const fullMonths = ['January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December'];
-
-    const year = date.getFullYear();
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-
-    switch (format) {
-      case 1:
-        return `${year} ${months[date.getMonth()]} ${day}, ${hour}:${minute}`;
-      case 2:
-        return `${year} ${months[date.getMonth()]} ${day}, ${hour}:00`;
-      case 3:
-        return `${year} ${fullMonths[date.getMonth()]} ${day}`;
-      default:
-        return date.toLocaleDateString();
-    }
   };
 
   // Don't render if not visible
   if (!visible) return null;
 
-  // Android uses native picker
-  if (Platform.OS === 'android') {
-    return (
-      <DateTimePicker
-        value={tempDate}
-        mode={format === 3 ? 'date' : 'datetime'}
-        display="default"
-        onChange={handleDateChange}
-        minimumDate={minimumDate}
-        maximumDate={maximumDate}
-        minuteInterval={format === 1 ? 5 : 1}
-        is24Hour={true}
-      />
-    );
-  }
+  const days = generateDays(tempDate.year, tempDate.month);
 
-  // iOS uses modal with spinner
   return (
     <Modal
       visible={visible}
@@ -212,51 +147,79 @@ export default function DateTimeSelector({
 
           {/* Picker Content */}
           <View style={styles.content}>
-            {format === 2 ? (
-              // Format 2: Side-by-side date and hour pickers
-              <View style={styles.dateTimeRow}>
-                <View style={styles.dateColumn}>
-                  <Text style={styles.pickerLabel}>Date</Text>
-                  <DateTimePicker
-                    value={tempDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleDateChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                    minimumDate={minimumDate}
-                    maximumDate={maximumDate}
-                  />
-                </View>
-                <View style={styles.hourColumn}>
-                  <Text style={styles.pickerLabel}>Hour</Text>
-                  <DateTimePicker
-                    value={tempDate}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleHourChange}
-                    textColor="#000"
-                    locale="sv-SE"
-                    is24Hour={true}
-                    minuteInterval={60}
-                  />
-                </View>
+            <View style={styles.pickersRow}>
+              {/* Year Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Year</Text>
+                <Picker
+                  style={styles.picker}
+                  selectedValue={tempDate.year.toString()}
+                  pickerData={years}
+                  onValueChange={(val) => {
+                    const newYear = parseInt(val);
+                    setTempDate({ ...tempDate, year: newYear });
+                  }}
+                />
               </View>
-            ) : (
-              // Format 1 or 3: Single picker
-              <DateTimePicker
-                value={tempDate}
-                mode={format === 3 ? 'date' : 'datetime'}
-                display="spinner"
-                onChange={handleDateChange}
-                textColor="#000"
-                locale="sv-SE"
-                is24Hour={true}
-                minuteInterval={format === 1 ? 5 : 1}
-                minimumDate={minimumDate}
-                maximumDate={maximumDate}
-              />
-            )}
+
+              {/* Month Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Month</Text>
+                <Picker
+                  style={styles.picker}
+                  selectedValue={format === 3 ? monthsFull[tempDate.month] : monthsShort[tempDate.month]}
+                  pickerData={format === 3 ? monthsFull : monthsShort}
+                  onValueChange={(val) => {
+                    const monthArray = format === 3 ? monthsFull : monthsShort;
+                    const monthIndex = monthArray.indexOf(val);
+                    setTempDate({ ...tempDate, month: monthIndex });
+                  }}
+                />
+              </View>
+
+              {/* Day Picker */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.pickerLabel}>Day</Text>
+                <Picker
+                  style={styles.picker}
+                  selectedValue={String(tempDate.day).padStart(2, '0')}
+                  pickerData={days}
+                  onValueChange={(val) => {
+                    setTempDate({ ...tempDate, day: parseInt(val) });
+                  }}
+                />
+              </View>
+
+              {/* Hour Picker (Format 1 and 2 only) */}
+              {format !== 3 && (
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Hour</Text>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={String(tempDate.hour).padStart(2, '0')}
+                    pickerData={hours}
+                    onValueChange={(val) => {
+                      setTempDate({ ...tempDate, hour: parseInt(val) });
+                    }}
+                  />
+                </View>
+              )}
+
+              {/* Minute Picker (Format 1 only) */}
+              {format === 1 && (
+                <View style={styles.pickerColumn}>
+                  <Text style={styles.pickerLabel}>Min</Text>
+                  <Picker
+                    style={styles.picker}
+                    selectedValue={String(tempDate.minute).padStart(2, '0')}
+                    pickerData={minutes5}
+                    onValueChange={(val) => {
+                      setTempDate({ ...tempDate, minute: parseInt(val) });
+                    }}
+                  />
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -269,7 +232,7 @@ export default function DateTimeSelector({
  * Can be used externally for display purposes
  *
  * @param {Date} date - The date to format
- * @param {1 | 2 | 3} format - The format type
+ * @param {number} format - The format type
  * @returns {string} Formatted date string
  */
 export function formatDateByType(date, format) {
@@ -334,22 +297,25 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingVertical: 20,
+    paddingHorizontal: 10,
   },
-  dateTimeRow: {
+  pickersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  dateColumn: {
-    flex: 2,
-  },
-  hourColumn: {
+  pickerColumn: {
     flex: 1,
+    alignItems: 'center',
   },
   pickerLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,
     color: '#333',
+  },
+  picker: {
+    width: '100%',
+    height: 150,
   },
 });

@@ -2,6 +2,14 @@
 
 All date/time pickers in this app follow consistent formatting and positioning standards.
 
+## Package
+
+We use `react-native-wheel-pick` for all date pickers via the `DateTimeSelector` component. This gives us full control over:
+- Column order (Year → Month → Day → Hour → Min)
+- Which columns to show/hide
+- Month display format (3-letter vs full name)
+- No locale contamination issues
+
 ## Positioning
 
 All date picker modals are **centered on screen** using:
@@ -25,136 +33,90 @@ There are three standard formats used throughout the app:
 
 **Use case:** Calendar events (start time, end time)
 
-**Implementation:**
-```javascript
-<DateTimePicker
-  value={date}
-  mode="datetime"
-  display="spinner"
-  textColor="#000"
-  locale="sv-SE"
-  is24Hour={true}
-  minuteInterval={5}
-/>
-```
+**Display example:** `20 Nov 2025, 14:30`
 
 ### Format 2: DateTime with Hour Only (No Minutes)
 **Layout (left to right):** Year → Month (3-letter abbr) → Day → Hour (24hr)
 
 **Use case:** Secret Santa exchange date, reveal names date
 
-**Implementation:**
-The standard `@react-native-community/datetimepicker` does NOT support hiding the minutes wheel in `datetime` mode. To achieve hour-only selection, use **two separate pickers side by side**:
-
-```javascript
-<View style={styles.dateTimeRow}>
-  {/* Date picker */}
-  <View style={styles.datePickerColumn}>
-    <Text style={styles.pickerLabel}>Date</Text>
-    <DateTimePicker
-      value={date}
-      mode="date"
-      display="spinner"
-      textColor="#000"
-      locale="sv-SE"
-    />
-  </View>
-
-  {/* Hour picker */}
-  <View style={styles.hourPickerColumn}>
-    <Text style={styles.pickerLabel}>Hour</Text>
-    <DateTimePicker
-      value={date}
-      mode="time"
-      display="spinner"
-      textColor="#000"
-      locale="sv-SE"
-      is24Hour={true}
-      minuteInterval={60}
-    />
-  </View>
-</View>
-```
-
-**Required styles:**
-```javascript
-dateTimeRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-},
-datePickerColumn: {
-  flex: 2,
-},
-hourPickerColumn: {
-  flex: 1,
-},
-pickerLabel: {
-  fontSize: 14,
-  fontWeight: '600',
-  textAlign: 'center',
-  marginBottom: 8,
-  color: '#333',
-},
-```
+**Display example:** `20 Nov 2025, 14:00`
 
 ### Format 3: Date Only
-**Layout (left to right):** Year → Month (3-letter abbr) → Day
+**Layout (left to right):** Year → Month (Full name) → Day
 
 **Use case:** Calendar banner date picker, recurrence end dates, birthdays
 
-**Implementation:**
+**Display example:** `20 November 2025`
+
+## Using DateTimeSelector Component
+
+The `DateTimeSelector` component (`src/components/DateTimeSelector.jsx`) is the standard way to implement date pickers. It handles all format types and modal behavior.
+
+### Basic Usage
+
 ```javascript
-<DateTimePicker
+import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
+
+// In your component:
+const [date, setDate] = useState(new Date());
+const [showPicker, setShowPicker] = useState(false);
+
+// Display the formatted date
+<Text>{formatDateByType(date, 1)}</Text>
+
+// The picker component
+<DateTimeSelector
   value={date}
-  mode="date"
-  display="spinner"
-  textColor="#000"
-  locale="sv-SE"
+  onChange={setDate}
+  format={1}  // 1, 2, or 3
+  visible={showPicker}
+  onClose={() => setShowPicker(false)}
+  title="Select Date"
 />
 ```
 
-## Key Props Explained
+### Props
 
-| Prop | Value | Purpose |
-|------|-------|---------|
-| `mode` | `"datetime"`, `"date"`, `"time"` | Determines which wheels to show |
-| `display` | `"spinner"` | Shows iOS-style picker wheels |
-| `locale` | `"sv-SE"` | Swedish - provides Year/Month/Day order and 24hr format |
-| `is24Hour` | `true` | Forces 24-hour time format (no AM/PM) |
-| `minuteInterval` | `5` or `60` | Interval between minute options |
-| `textColor` | `"#000"` | Black text for visibility |
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `value` | `Date` | Yes | The current date value |
+| `onChange` | `(date: Date) => void` | Yes | Callback when date is confirmed |
+| `format` | `1 \| 2 \| 3` | Yes | Format type (see above) |
+| `visible` | `boolean` | Yes | Whether the picker modal is visible |
+| `onClose` | `() => void` | Yes | Callback to close the modal |
+| `title` | `string` | No | Modal title (default: "Select Date") |
+| `minimumDate` | `Date` | No | Minimum selectable date (not yet implemented) |
+| `maximumDate` | `Date` | No | Maximum selectable date (not yet implemented) |
 
-## Important Notes
+### formatDateByType Helper
 
-### Locale Selection
-- `sv-SE` (Swedish) is used because it provides:
-  - **Year → Month → Day** order (required)
-  - 24-hour time format by default
-  - 3-letter month abbreviations (jan, feb, mar, etc.)
+Use this function to display dates in the correct format:
 
-- `en-GB` (British English) uses **Day/Month/Year** order (not what we want)
-- `en-AU` (Australian English) uses 12-hour format by default
-- `en-US` (American English) uses **Month/Day/Year** order
+```javascript
+import { formatDateByType } from '../../components/DateTimeSelector';
 
-### Consistency Requirement
-**CRITICAL:** All DateTimePicker components across the app MUST use the same `locale="sv-SE"` to prevent the "contamination" issue where viewing one picker affects others.
+// Format 1: "20 Nov 2025, 14:30"
+formatDateByType(myDate, 1);
 
-### minuteInterval Limitation
-Setting `minuteInterval={60}` does NOT hide the minutes wheel - it only shows `:00` as the only option. The minutes wheel will still be visible.
+// Format 2: "20 Nov 2025, 14:00"
+formatDateByType(myDate, 2);
 
-To truly hide minutes, you must use separate date and time pickers as shown in Format 2.
+// Format 3: "20 November 2025"
+formatDateByType(myDate, 3);
+```
 
 ## Files Using Date Pickers
 
 ### Using DateTimeSelector Component (Recommended)
-The `DateTimeSelector` component (`src/components/DateTimeSelector.jsx`) is the recommended way to implement date pickers. It handles all format types, modal behavior, and platform differences.
 
 **Files using DateTimeSelector:**
 - `src/screens/calendar/CalendarScreen.jsx` - Format 3 (date only for banner navigation)
 - `src/screens/groups/CreateSecretSantaScreen.jsx` - Format 2 (hour only for exchange/reveal dates)
 
-### Legacy Implementation (Direct DateTimePicker usage)
-These files still use `@react-native-community/datetimepicker` directly with the correct sv-SE locale:
+### Legacy Implementation (Direct @react-native-community/datetimepicker)
+
+These files still use `@react-native-community/datetimepicker` directly. They should be migrated to DateTimeSelector when time permits:
 
 **Calendar Event Screens (Format 1 - with 5-min intervals):**
 - `src/screens/calendar/CreateEventScreen.jsx`
@@ -164,3 +126,14 @@ These files still use `@react-native-community/datetimepicker` directly with the
 
 **Recurrence End Dates (Format 3 - date only):**
 - Used within the Calendar event screens above for "Repeat Until" picker
+
+## Migration Notes
+
+When migrating legacy screens to use DateTimeSelector:
+
+1. Remove the `@react-native-community/datetimepicker` import
+2. Import `DateTimeSelector` and `formatDateByType`
+3. Remove temp state management (DateTimeSelector handles this internally)
+4. Remove confirm/cancel handlers (DateTimeSelector handles these)
+5. Update display text to use `formatDateByType(date, format)`
+6. Replace Modal + DateTimePicker with single DateTimeSelector component
