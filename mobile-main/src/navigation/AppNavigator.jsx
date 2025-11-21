@@ -52,6 +52,7 @@ import AddEditItemScreen from '../screens/groups/AddEditItemScreen';
 import SecretSantaListScreen from '../screens/groups/SecretSantaListScreen';
 import CreateSecretSantaScreen from '../screens/groups/CreateSecretSantaScreen';
 import SecretSantaDetailScreen from '../screens/groups/SecretSantaDetailScreen';
+import WikiScreen from '../screens/wiki/WikiScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -144,6 +145,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="SecretSantaList" component={SecretSantaListScreen} />
             <Stack.Screen name="CreateSecretSanta" component={CreateSecretSantaScreen} />
             <Stack.Screen name="SecretSantaDetail" component={SecretSantaDetailScreen} />
+
+            {/* Wiki */}
+            <Stack.Screen name="Wiki" component={WikiScreen} />
 
             {/* Home Screen */}
             <Stack.Screen name="Home">

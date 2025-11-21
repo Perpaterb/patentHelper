@@ -17,6 +17,7 @@ const calendarController = require('../controllers/calendar.controller');
 const giftRegistryController = require('../controllers/giftRegistry.controller');
 const itemRegistryController = require('../controllers/itemRegistry.controller');
 const itemRegistryRouter = require('./itemRegistry.routes');
+const wikiRouter = require('./wiki.routes');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
@@ -367,5 +368,11 @@ router.delete('/:groupId/item-registries/:registryId/unlink', requireAuth, itemR
  * All routes under /groups/:groupId/item-registries
  */
 router.use('/:groupId/item-registries', itemRegistryRouter);
+
+/**
+ * Mount wiki router
+ * All routes under /groups/:groupId/wiki-documents
+ */
+router.use('/:groupId/wiki-documents', wikiRouter);
 
 module.exports = router;

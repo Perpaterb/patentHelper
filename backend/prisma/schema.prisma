@@ -66,6 +66,7 @@ model Group {
   personalGiftRegistryLinks PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinks")
   personalItemRegistryLinks PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinks")
   itemRegistries            ItemRegistry[]                  @relation("ItemRegistries")
+  wikiDocuments             WikiDocument[]
 
   @@index([createdAt])
   @@map("groups")
@@ -129,6 +130,8 @@ model GroupMember {
   personalGiftRegistryLinks  PersonalGiftRegistryGroupLink[] @relation("PersonalGiftRegistryLinker")
   personalItemRegistryLinks  PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinker")
   itemRegistriesCreated      ItemRegistry[]                  @relation("ItemRegistryCreator")
+  wikiDocumentsCreated       WikiDocument[]                  @relation("WikiDocumentCreator")
+  wikiRevisionsEdited        WikiRevision[]                  @relation("WikiRevisionEditor")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -889,4 +892,44 @@ model ItemRegistryItem {
 
   @@index([registryId, displayOrder])
   @@map("item_registry_items")
+}
+
+// ============================================
+// WIKI DOCUMENT MODELS
+// ============================================
+
+model WikiDocument {
+  documentId String   @id @default(uuid()) @map("document_id") @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  title      String   @db.VarChar(255)
+  content    String   @db.Text
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isHidden   Boolean  @default(false) @map("is_hidden")
+
+  group     Group          @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator   GroupMember    @relation("WikiDocumentCreator", fields: [createdBy], references: [groupMemberId])
+  revisions WikiRevision[]
+
+  @@index([groupId])
+  @@index([createdAt])
+  @@map("wiki_documents")
+}
+
+model WikiRevision {
+  revisionId String   @id @default(uuid()) @map("revision_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  title      String   @db.VarChar(255)
+  content    String   @db.Text
+  editedBy   String   @map("edited_by") @db.Uuid
+  editedAt   DateTime @default(now()) @map("edited_at") @db.Timestamp(6)
+  changeNote String?  @map("change_note") @db.VarChar(255)
+
+  document WikiDocument @relation(fields: [documentId], references: [documentId], onDelete: Cascade)
+  editor   GroupMember  @relation("WikiRevisionEditor", fields: [editedBy], references: [groupMemberId])
+
+  @@index([documentId])
+  @@index([editedAt])
+  @@map("wiki_revisions")
 }

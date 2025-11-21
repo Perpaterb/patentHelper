@@ -256,8 +256,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
    * Navigate to Wiki
    */
   const goToWiki = () => {
-    // TODO: Implement Wiki screen
-    console.log('Navigate to Wiki');
+    navigation.navigate('Wiki', { groupId });
   };
 
   /**
