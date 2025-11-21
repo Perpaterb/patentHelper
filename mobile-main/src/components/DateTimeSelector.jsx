@@ -162,6 +162,9 @@ export default function DateTimeSelector({
                     const newYear = parseInt(val);
                     setTempDate({ ...tempDate, year: newYear });
                   }}
+                  selectLineColor="#6200ee"
+                  selectLineSize={2}
+                  isShowSelectBackground={false}
                 />
               </View>
 
@@ -177,6 +180,9 @@ export default function DateTimeSelector({
                     const monthIndex = monthArray.indexOf(val);
                     setTempDate({ ...tempDate, month: monthIndex });
                   }}
+                  selectLineColor="#6200ee"
+                  selectLineSize={2}
+                  isShowSelectBackground={false}
                 />
               </View>
 
@@ -190,6 +196,9 @@ export default function DateTimeSelector({
                   onValueChange={(val) => {
                     setTempDate({ ...tempDate, day: parseInt(val) });
                   }}
+                  selectLineColor="#6200ee"
+                  selectLineSize={2}
+                  isShowSelectBackground={false}
                 />
               </View>
 
@@ -204,6 +213,9 @@ export default function DateTimeSelector({
                     onValueChange={(val) => {
                       setTempDate({ ...tempDate, hour: parseInt(val) });
                     }}
+                    selectLineColor="#6200ee"
+                    selectLineSize={2}
+                    isShowSelectBackground={false}
                   />
                 </View>
               )}
@@ -219,6 +231,9 @@ export default function DateTimeSelector({
                     onValueChange={(val) => {
                       setTempDate({ ...tempDate, minute: parseInt(val) });
                     }}
+                    selectLineColor="#6200ee"
+                    selectLineSize={2}
+                    isShowSelectBackground={false}
                   />
                 </View>
               )}
@@ -315,7 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   pickerLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 4,
