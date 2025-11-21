@@ -21,7 +21,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { IconButton, FAB, Searchbar, ActivityIndicator } from 'react-native-paper';
+import { IconButton, FAB, ActivityIndicator } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -51,14 +51,9 @@ export default function WikiScreen({ navigation, route }) {
 
   // Editor state
   const [isEditing, setIsEditing] = useState(false);
-  const [isCodeView, setIsCodeView] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
-
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState(null);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -67,9 +62,6 @@ export default function WikiScreen({ navigation, route }) {
   // Create new document modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState('');
-
-  // Search modal state
-  const [showSearchModal, setShowSearchModal] = useState(false);
 
   const contentInputRef = useRef(null);
 
@@ -111,21 +103,6 @@ export default function WikiScreen({ navigation, route }) {
       setError(err.response?.data?.message || 'Failed to load documents');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults(null);
-      return;
-    }
-
-    try {
-      const response = await api.get(`/groups/${groupId}/wiki-documents/search?q=${encodeURIComponent(query)}`);
-      setSearchResults(response.data.documents || []);
-    } catch (err) {
-      console.error('Search error:', err);
     }
   };
 
@@ -265,7 +242,6 @@ export default function WikiScreen({ navigation, route }) {
   const formatNumberList = () => insertMarkdown('\n1. Item 1\n2. Item 2\n3. Item 3\n');
   const formatLink = () => insertMarkdown('[link text](url)');
   const formatCode = () => insertMarkdown('\n```\ncode here\n```\n');
-  const formatQuote = () => insertMarkdown('\n> Quote text\n');
 
   const renderDocumentItem = ({ item }) => (
     <TouchableOpacity
@@ -289,8 +265,6 @@ export default function WikiScreen({ navigation, route }) {
     outputRange: [-DRAWER_WIDTH, 0],
   });
 
-  const displayDocs = searchResults !== null ? searchResults : documents;
-
   return (
     <View style={styles.container}>
       <CustomNavigationHeader
@@ -299,10 +273,6 @@ export default function WikiScreen({ navigation, route }) {
         backgroundColor={groupInfo?.backgroundColor}
         onBack={() => navigation.goBack()}
         rightButtons={[
-          {
-            icon: 'magnify',
-            onPress: () => setShowSearchModal(true),
-          },
           {
             icon: drawerOpen ? 'menu-open' : 'menu',
             onPress: () => setDrawerOpen(!drawerOpen),
@@ -396,23 +366,13 @@ export default function WikiScreen({ navigation, route }) {
                     <IconButton icon="format-list-numbered" size={18} onPress={formatNumberList} />
                     <IconButton icon="link" size={18} onPress={formatLink} />
                     <IconButton icon="code-tags" size={18} onPress={formatCode} />
-                    <IconButton icon="format-quote-close" size={18} onPress={formatQuote} />
-                    <View style={styles.toolbarDivider} />
-                    <TouchableOpacity
-                      style={[styles.viewToggle, isCodeView && styles.viewToggleActive]}
-                      onPress={() => setIsCodeView(!isCodeView)}
-                    >
-                      <Text style={[styles.viewToggleText, isCodeView && styles.viewToggleTextActive]}>
-                        {isCodeView ? 'Preview' : 'Code'}
-                      </Text>
-                    </TouchableOpacity>
                   </ScrollView>
                 </View>
               )}
 
               {/* Content area */}
               <ScrollView style={styles.contentScroll}>
-                {isEditing && isCodeView ? (
+                {isEditing ? (
                   <TextInput
                     ref={contentInputRef}
                     style={styles.contentInput}
@@ -425,21 +385,6 @@ export default function WikiScreen({ navigation, route }) {
                     multiline
                     textAlignVertical="top"
                   />
-                ) : isEditing ? (
-                  <View style={styles.splitView}>
-                    <TextInput
-                      ref={contentInputRef}
-                      style={[styles.contentInput, styles.splitInput]}
-                      value={editContent}
-                      onChangeText={(text) => {
-                        setEditContent(text);
-                        setHasChanges(true);
-                      }}
-                      placeholder="Write your content in Markdown..."
-                      multiline
-                      textAlignVertical="top"
-                    />
-                  </View>
                 ) : (
                   <View style={styles.markdownContainer}>
                     <Markdown style={markdownStyles}>
@@ -460,22 +405,13 @@ export default function WikiScreen({ navigation, route }) {
           ]}
         >
           <View style={styles.drawerContent}>
-            <Searchbar
-              placeholder="Search documents..."
-              onChangeText={handleSearch}
-              value={searchQuery}
-              style={styles.searchBar}
-            />
-
             <FlatList
-              data={displayDocs}
+              data={documents}
               keyExtractor={(item) => item.documentId}
               renderItem={renderDocumentItem}
               ListEmptyComponent={
                 <View style={styles.emptyList}>
-                  <Text style={styles.emptyText}>
-                    {searchQuery ? 'No documents found' : 'No documents yet'}
-                  </Text>
+                  <Text style={styles.emptyText}>No documents yet</Text>
                 </View>
               }
               contentContainerStyle={styles.documentList}
@@ -533,71 +469,6 @@ export default function WikiScreen({ navigation, route }) {
                 onPress={handleCreateDocument}
               >
                 <Text style={[styles.modalButtonText, styles.modalButtonTextPrimary]}>Create</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Search modal */}
-      <Modal
-        visible={showSearchModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowSearchModal(false);
-          setSearchQuery('');
-          setSearchResults(null);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.searchModalContent]}>
-            <Text style={styles.modalTitle}>Search Documents</Text>
-            <Searchbar
-              placeholder="Search by title or content..."
-              onChangeText={handleSearch}
-              value={searchQuery}
-              style={styles.searchModalInput}
-              autoFocus
-            />
-            {searchResults && (
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => item.documentId}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.searchResultItem}
-                    onPress={() => {
-                      selectDocument(item);
-                      setShowSearchModal(false);
-                      setSearchQuery('');
-                      setSearchResults(null);
-                    }}
-                  >
-                    <Text style={styles.searchResultTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.searchResultDate}>
-                      {new Date(item.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.searchNoResults}>No documents found</Text>
-                }
-                style={styles.searchResultsList}
-              />
-            )}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => {
-                  setShowSearchModal(false);
-                  setSearchQuery('');
-                  setSearchResults(null);
-                }}
-              >
-                <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -719,31 +590,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#fafafa',
   },
-  toolbarDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#e0e0e0',
-    marginHorizontal: 4,
-    alignSelf: 'center',
-  },
-  viewToggle: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginHorizontal: 4,
-    alignSelf: 'center',
-  },
-  viewToggleActive: {
-    backgroundColor: '#6200ee',
-  },
-  viewToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  viewToggleTextActive: {
-    color: '#fff',
-  },
   contentScroll: {
     flex: 1,
   },
@@ -754,12 +600,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     minHeight: 300,
-  },
-  splitView: {
-    flex: 1,
-  },
-  splitInput: {
-    flex: 1,
   },
   markdownContainer: {
     padding: 16,
@@ -783,11 +623,6 @@ const styles = StyleSheet.create({
   drawerContent: {
     flex: 1,
     paddingTop: 8,
-  },
-  searchBar: {
-    margin: 8,
-    elevation: 0,
-    backgroundColor: '#f5f5f5',
   },
   documentList: {
     paddingBottom: 80,
@@ -878,37 +713,5 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     color: '#fff',
-  },
-  searchModalContent: {
-    maxHeight: '80%',
-  },
-  searchModalInput: {
-    marginBottom: 12,
-    elevation: 0,
-    backgroundColor: '#f5f5f5',
-  },
-  searchResultsList: {
-    maxHeight: 300,
-    marginBottom: 12,
-  },
-  searchResultItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  searchResultTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  searchResultDate: {
-    fontSize: 12,
-    color: '#666',
-  },
-  searchNoResults: {
-    padding: 20,
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
   },
 });
