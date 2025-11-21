@@ -21,7 +21,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { IconButton, FAB, ActivityIndicator } from 'react-native-paper';
+import { IconButton, FAB, Searchbar, ActivityIndicator } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -54,6 +54,10 @@ export default function WikiScreen({ navigation, route }) {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -103,6 +107,21 @@ export default function WikiScreen({ navigation, route }) {
       setError(err.response?.data?.message || 'Failed to load documents');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    try {
+      const response = await api.get(`/groups/${groupId}/wiki-documents/search?q=${encodeURIComponent(query)}`);
+      setSearchResults(response.data.documents || []);
+    } catch (err) {
+      console.error('Search error:', err);
     }
   };
 
@@ -265,6 +284,8 @@ export default function WikiScreen({ navigation, route }) {
     outputRange: [-DRAWER_WIDTH, 0],
   });
 
+  const displayDocs = searchResults !== null ? searchResults : documents;
+
   return (
     <View style={styles.container}>
       <CustomNavigationHeader
@@ -405,13 +426,22 @@ export default function WikiScreen({ navigation, route }) {
           ]}
         >
           <View style={styles.drawerContent}>
+            <Searchbar
+              placeholder="Search documents..."
+              onChangeText={handleSearch}
+              value={searchQuery}
+              style={styles.searchBar}
+            />
+
             <FlatList
-              data={documents}
+              data={displayDocs}
               keyExtractor={(item) => item.documentId}
               renderItem={renderDocumentItem}
               ListEmptyComponent={
                 <View style={styles.emptyList}>
-                  <Text style={styles.emptyText}>No documents yet</Text>
+                  <Text style={styles.emptyText}>
+                    {searchQuery ? 'No documents found' : 'No documents yet'}
+                  </Text>
                 </View>
               }
               contentContainerStyle={styles.documentList}
@@ -623,6 +653,11 @@ const styles = StyleSheet.create({
   drawerContent: {
     flex: 1,
     paddingTop: 8,
+  },
+  searchBar: {
+    margin: 8,
+    elevation: 0,
+    backgroundColor: '#f5f5f5',
   },
   documentList: {
     paddingBottom: 80,
