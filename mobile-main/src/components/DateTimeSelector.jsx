@@ -14,7 +14,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import { Picker } from 'react-native-wheel-pick';
+import { WheelPicker } from 'react-native-infinite-wheel-picker';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -55,13 +55,27 @@ export default function DateTimeSelector({
   };
 
   const [tempDate, setTempDate] = useState(initializeFromDate(value));
+  const [pickerKey, setPickerKey] = useState(0);
 
   // Sync tempDate when value changes or modal opens
   useEffect(() => {
     if (visible && value) {
       setTempDate(initializeFromDate(value));
+      // Force re-render of all pickers when modal opens
+      setPickerKey(prev => prev + 1);
     }
   }, [visible, value]);
+
+  // Helper to get days in a month
+  const getDaysInMonth = (year, month) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  // Adjust day when month or year changes (e.g., 31 -> 28 for Feb)
+  const adjustDayForMonth = (newYear, newMonth, currentDay) => {
+    const maxDays = getDaysInMonth(newYear, newMonth);
+    return Math.min(currentDay, maxDays);
+  };
 
   // Month name arrays
   const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -97,6 +111,31 @@ export default function DateTimeSelector({
   const years = generateYears();
   const hours = generateHours();
   const minutes5 = generateMinutes5();
+  const days = generateDays(tempDate.year, tempDate.month);
+  const monthOptions = format === 3 ? monthsFull : monthsShort;
+
+  // Get current indices for each picker
+  const getYearIndex = () => {
+    const idx = years.indexOf(tempDate.year.toString());
+    return idx >= 0 ? idx : 50;
+  };
+
+  const getMonthIndex = () => tempDate.month;
+
+  const getDayIndex = () => {
+    const idx = days.indexOf(String(tempDate.day).padStart(2, '0'));
+    return idx >= 0 ? idx : 0;
+  };
+
+  const getHourIndex = () => {
+    const idx = hours.indexOf(String(tempDate.hour).padStart(2, '0'));
+    return idx >= 0 ? idx : 0;
+  };
+
+  const getMinuteIndex = () => {
+    const idx = minutes5.indexOf(String(tempDate.minute).padStart(2, '0'));
+    return idx >= 0 ? idx : 0;
+  };
 
   /**
    * Confirm selection
@@ -126,7 +165,19 @@ export default function DateTimeSelector({
   // Don't render if not visible
   if (!visible) return null;
 
-  const days = generateDays(tempDate.year, tempDate.month);
+  // Shared styles for selection indicator (top and bottom lines only)
+  const selectedLayoutStyle = {
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#333333',
+  };
+
+  // Shared text style for picker items
+  const elementTextStyle = {
+    fontSize: 16,
+    color: '#333',
+  };
 
   return (
     <Modal
@@ -154,51 +205,64 @@ export default function DateTimeSelector({
               {/* Year Picker */}
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerLabel}>Year</Text>
-                <Picker
-                  style={styles.picker}
-                  selectedValue={tempDate.year.toString()}
-                  pickerData={years}
-                  onValueChange={(val) => {
-                    const newYear = parseInt(val);
-                    setTempDate({ ...tempDate, year: newYear });
+                <WheelPicker
+                  key={`year-${pickerKey}`}
+                  data={years}
+                  selectedIndex={getYearIndex()}
+                  initialSelectedIndex={getYearIndex()}
+                  onChangeValue={(index, value) => {
+                    const newYear = parseInt(value);
+                    const adjustedDay = adjustDayForMonth(newYear, tempDate.month, tempDate.day);
+                    setTempDate({ ...tempDate, year: newYear, day: adjustedDay });
                   }}
-                  selectLineColor="#6200ee"
-                  selectLineSize={2}
-                  isShowSelectBackground={false}
+                  elementHeight={36}
+                  restElements={2}
+                  infiniteScroll={false}
+                  containerStyle={styles.wheelContainer}
+                  selectedLayoutStyle={selectedLayoutStyle}
+                  elementTextStyle={elementTextStyle}
                 />
               </View>
 
               {/* Month Picker */}
-              <View style={styles.pickerColumn}>
+              <View style={[styles.pickerColumn, format === 3 && styles.wideColumn]}>
                 <Text style={styles.pickerLabel}>Month</Text>
-                <Picker
-                  style={styles.picker}
-                  selectedValue={format === 3 ? monthsFull[tempDate.month] : monthsShort[tempDate.month]}
-                  pickerData={format === 3 ? monthsFull : monthsShort}
-                  onValueChange={(val) => {
-                    const monthArray = format === 3 ? monthsFull : monthsShort;
-                    const monthIndex = monthArray.indexOf(val);
-                    setTempDate({ ...tempDate, month: monthIndex });
+                <WheelPicker
+                  key={`month-${pickerKey}`}
+                  data={monthOptions}
+                  selectedIndex={getMonthIndex()}
+                  initialSelectedIndex={getMonthIndex()}
+                  onChangeValue={(index) => {
+                    const adjustedDay = adjustDayForMonth(tempDate.year, index, tempDate.day);
+                    setTempDate({ ...tempDate, month: index, day: adjustedDay });
                   }}
-                  selectLineColor="#6200ee"
-                  selectLineSize={2}
-                  isShowSelectBackground={false}
+                  elementHeight={36}
+                  restElements={2}
+                  infiniteScroll={false}
+                  containerStyle={styles.wheelContainer}
+                  selectedLayoutStyle={selectedLayoutStyle}
+                  elementTextStyle={elementTextStyle}
                 />
               </View>
 
               {/* Day Picker */}
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerLabel}>Day</Text>
-                <Picker
-                  style={styles.picker}
-                  selectedValue={String(tempDate.day).padStart(2, '0')}
-                  pickerData={days}
-                  onValueChange={(val) => {
-                    setTempDate({ ...tempDate, day: parseInt(val) });
+                <WheelPicker
+                  key={`day-${pickerKey}-${tempDate.year}-${tempDate.month}`}
+                  data={days}
+                  selectedIndex={getDayIndex()}
+                  initialSelectedIndex={getDayIndex()}
+                  onChangeValue={(index, value) => {
+                    const newDay = parseInt(value);
+                    setTempDate({ ...tempDate, day: newDay });
                   }}
-                  selectLineColor="#6200ee"
-                  selectLineSize={2}
-                  isShowSelectBackground={false}
+                  elementHeight={36}
+                  restElements={2}
+                  infiniteScroll={false}
+                  containerStyle={styles.wheelContainer}
+                  selectedLayoutStyle={selectedLayoutStyle}
+                  elementTextStyle={elementTextStyle}
                 />
               </View>
 
@@ -206,16 +270,21 @@ export default function DateTimeSelector({
               {format !== 3 && (
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Hour</Text>
-                  <Picker
-                    style={styles.picker}
-                    selectedValue={String(tempDate.hour).padStart(2, '0')}
-                    pickerData={hours}
-                    onValueChange={(val) => {
-                      setTempDate({ ...tempDate, hour: parseInt(val) });
+                  <WheelPicker
+                    key={`hour-${pickerKey}`}
+                    data={hours}
+                    selectedIndex={getHourIndex()}
+                    initialSelectedIndex={getHourIndex()}
+                    onChangeValue={(index, value) => {
+                      const newHour = parseInt(value);
+                      setTempDate({ ...tempDate, hour: newHour });
                     }}
-                    selectLineColor="#6200ee"
-                    selectLineSize={2}
-                    isShowSelectBackground={false}
+                    elementHeight={36}
+                    restElements={2}
+                    infiniteScroll={false}
+                    containerStyle={styles.wheelContainer}
+                    selectedLayoutStyle={selectedLayoutStyle}
+                    elementTextStyle={elementTextStyle}
                   />
                 </View>
               )}
@@ -224,16 +293,21 @@ export default function DateTimeSelector({
               {format === 1 && (
                 <View style={styles.pickerColumn}>
                   <Text style={styles.pickerLabel}>Min</Text>
-                  <Picker
-                    style={styles.picker}
-                    selectedValue={String(tempDate.minute).padStart(2, '0')}
-                    pickerData={minutes5}
-                    onValueChange={(val) => {
-                      setTempDate({ ...tempDate, minute: parseInt(val) });
+                  <WheelPicker
+                    key={`minute-${pickerKey}`}
+                    data={minutes5}
+                    selectedIndex={getMinuteIndex()}
+                    initialSelectedIndex={getMinuteIndex()}
+                    onChangeValue={(index, value) => {
+                      const newMinute = parseInt(value);
+                      setTempDate({ ...tempDate, minute: newMinute });
                     }}
-                    selectLineColor="#6200ee"
-                    selectLineSize={2}
-                    isShowSelectBackground={false}
+                    elementHeight={36}
+                    restElements={2}
+                    infiniteScroll={false}
+                    containerStyle={styles.wheelContainer}
+                    selectedLayoutStyle={selectedLayoutStyle}
+                    elementTextStyle={elementTextStyle}
                   />
                 </View>
               )}
@@ -291,7 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '100%',
     maxWidth: 420,
-    minHeight: SCREEN_HEIGHT * 0.4,
+    minHeight: SCREEN_HEIGHT * 0.38,
   },
   header: {
     flexDirection: 'row',
@@ -316,29 +390,32 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingVertical: 30,
-    paddingHorizontal: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 8,
   },
   pickersRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 0,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   pickerColumn: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 0,
+    paddingHorizontal: 2,
+  },
+  wideColumn: {
+    flex: 1.5,
   },
   pickerLabel: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 4,
     color: '#333',
   },
-  picker: {
-    width: '150%',
-    height: 200,
+  wheelContainer: {
     backgroundColor: 'transparent',
+    width: '140%',
+    height: 180, // elementHeight (36) * (restElements (2) * 2 + 1) = 180
   },
 });
