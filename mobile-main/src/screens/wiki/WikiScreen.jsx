@@ -68,6 +68,9 @@ export default function WikiScreen({ navigation, route }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState('');
 
+  // Search modal state
+  const [showSearchModal, setShowSearchModal] = useState(false);
+
   const contentInputRef = useRef(null);
 
   useEffect(() => {
@@ -294,16 +297,17 @@ export default function WikiScreen({ navigation, route }) {
         navigation={navigation}
         title="Wiki"
         backgroundColor={groupInfo?.backgroundColor}
-        rightComponent={
-          <View style={styles.headerRight}>
-            <IconButton
-              icon={drawerOpen ? 'menu-open' : 'menu'}
-              iconColor="#fff"
-              size={24}
-              onPress={() => setDrawerOpen(!drawerOpen)}
-            />
-          </View>
-        }
+        onBack={() => navigation.goBack()}
+        rightButtons={[
+          {
+            icon: 'magnify',
+            onPress: () => setShowSearchModal(true),
+          },
+          {
+            icon: drawerOpen ? 'menu-open' : 'menu',
+            onPress: () => setDrawerOpen(!drawerOpen),
+          },
+        ]}
       />
 
       <View style={styles.content}>
@@ -534,6 +538,71 @@ export default function WikiScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      {/* Search modal */}
+      <Modal
+        visible={showSearchModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSearchModal(false);
+          setSearchQuery('');
+          setSearchResults(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.searchModalContent]}>
+            <Text style={styles.modalTitle}>Search Documents</Text>
+            <Searchbar
+              placeholder="Search by title or content..."
+              onChangeText={handleSearch}
+              value={searchQuery}
+              style={styles.searchModalInput}
+              autoFocus
+            />
+            {searchResults && (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.documentId}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.searchResultItem}
+                    onPress={() => {
+                      selectDocument(item);
+                      setShowSearchModal(false);
+                      setSearchQuery('');
+                      setSearchResults(null);
+                    }}
+                  >
+                    <Text style={styles.searchResultTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.searchResultDate}>
+                      {new Date(item.updatedAt).toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.searchNoResults}>No documents found</Text>
+                }
+                style={styles.searchResultsList}
+              />
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setShowSearchModal(false);
+                  setSearchQuery('');
+                  setSearchResults(null);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -593,10 +662,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -813,5 +878,37 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     color: '#fff',
+  },
+  searchModalContent: {
+    maxHeight: '80%',
+  },
+  searchModalInput: {
+    marginBottom: 12,
+    elevation: 0,
+    backgroundColor: '#f5f5f5',
+  },
+  searchResultsList: {
+    maxHeight: 300,
+    marginBottom: 12,
+  },
+  searchResultItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchResultTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  searchResultDate: {
+    fontSize: 12,
+    color: '#666',
+  },
+  searchNoResults: {
+    padding: 20,
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
   },
 });
