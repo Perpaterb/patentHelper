@@ -56,6 +56,7 @@ export default function DateTimeSelector({
 
   const [tempDate, setTempDate] = useState(initializeFromDate(value));
   const [pickerKey, setPickerKey] = useState(0);
+  const [dayPickerKey, setDayPickerKey] = useState(0);
 
   // Sync tempDate when value changes or modal opens
   useEffect(() => {
@@ -63,8 +64,19 @@ export default function DateTimeSelector({
       setTempDate(initializeFromDate(value));
       // Force re-render of all pickers when modal opens
       setPickerKey(prev => prev + 1);
+      setDayPickerKey(prev => prev + 1);
     }
   }, [visible, value]);
+
+  // Update day picker key when year/month changes (with small delay to prevent flash)
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        setDayPickerKey(prev => prev + 1);
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [tempDate.year, tempDate.month, visible]);
 
   // Helper to get days in a month
   const getDaysInMonth = (year, month) => {
@@ -249,7 +261,7 @@ export default function DateTimeSelector({
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerLabel}>Day</Text>
                 <WheelPicker
-                  key={`day-${pickerKey}-${tempDate.year}-${tempDate.month}`}
+                  key={`day-${dayPickerKey}`}
                   data={days}
                   selectedIndex={getDayIndex()}
                   initialSelectedIndex={getDayIndex()}
