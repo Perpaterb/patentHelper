@@ -902,6 +902,19 @@ exports.markItemAsPurchased = async (req, res) => {
       },
     });
 
+    // Create audit log for this group action
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'mark_personal_gift_purchased',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'gift_registry',
+        messageContent: `Marked personal gift item "${item.title}" as purchased from registry "${link.registry.name}"`,
+      },
+    });
+
     return res.json({
       success: true,
       item: updatedItem,

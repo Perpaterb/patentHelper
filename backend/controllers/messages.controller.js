@@ -508,6 +508,21 @@ async function sendMessageGroupMessage(req, res) {
       },
     });
 
+    // Create audit log for sent message
+    const mediaInfo = mediaFiles.length > 0 ? ` with ${mediaFiles.length} media file(s)` : '';
+    const mentionInfo = validMentions.length > 0 ? ` (mentioned ${validMentions.length} member(s))` : '';
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'send_message',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'messages',
+        messageContent: `Sent message${mediaInfo}${mentionInfo}: "${messageContent.substring(0, 100)}${messageContent.length > 100 ? '...' : ''}" (Message ID: ${message.messageId})`,
+      },
+    });
+
     res.status(201).json({
       success: true,
       message: messageWithLatestProfile,

@@ -956,6 +956,19 @@ async function resendParticipantEmail(req, res) {
       data: { initialEmailSentAt: new Date() },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'resend_kris_kringle_email',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'kris_kringle',
+        messageContent: `Resent Secret Santa assignment email to ${participant.name} for event "${krisKringle.name}"`,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Email resent with new access code',

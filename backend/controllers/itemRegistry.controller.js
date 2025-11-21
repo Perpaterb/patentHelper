@@ -374,6 +374,19 @@ async function createItemRegistry(req, res) {
       },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'create_item_registry',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Created item registry "${name}" with sharing type "${sharingType}"`,
+      },
+    });
+
     res.status(201).json({
       success: true,
       registry: {
@@ -486,6 +499,28 @@ async function updateItemRegistry(req, res) {
       },
     });
 
+    // Create audit log
+    const changes = [];
+    if (name && name !== registry.name) {
+      changes.push(`name from "${registry.name}" to "${name}"`);
+    }
+    if (sharingType && sharingType !== registry.sharingType) {
+      changes.push(`sharing type from "${registry.sharingType}" to "${sharingType}"`);
+    }
+    const changeDescription = changes.length > 0 ? changes.join(', ') : 'no changes';
+
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'update_item_registry',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Updated item registry "${registry.name}": ${changeDescription}`,
+      },
+    });
+
     res.status(200).json({
       success: true,
       registry: {
@@ -555,6 +590,19 @@ async function deleteItemRegistry(req, res) {
     await prisma.itemRegistry.delete({
       where: {
         registryId: registryId,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'delete_item_registry',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Deleted item registry "${registry.name}"`,
       },
     });
 
@@ -645,6 +693,19 @@ async function addItem(req, res) {
         currentlyBorrowedBy: currentlyBorrowedBy || null,
         replacementValue: replacementValue ? parseFloat(replacementValue) : null,
         displayOrder: displayOrder,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'add_item',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Added item "${title}" to registry "${registry.name}"`,
       },
     });
 
@@ -741,6 +802,40 @@ async function updateItem(req, res) {
       data: updateData,
     });
 
+    // Create audit log
+    const itemChanges = [];
+    if (title !== undefined && title !== item.title) {
+      itemChanges.push(`title from "${item.title}" to "${title}"`);
+    }
+    if (description !== undefined && description !== item.description) {
+      itemChanges.push('description');
+    }
+    if (storageLocation !== undefined && storageLocation !== item.storageLocation) {
+      itemChanges.push('storage location');
+    }
+    if (category !== undefined && category !== item.category) {
+      itemChanges.push('category');
+    }
+    if (currentlyBorrowedBy !== undefined && currentlyBorrowedBy !== item.currentlyBorrowedBy) {
+      itemChanges.push('borrowed status');
+    }
+    if (replacementValue !== undefined) {
+      itemChanges.push('replacement value');
+    }
+    const itemChangeDescription = itemChanges.length > 0 ? itemChanges.join(', ') : 'no changes';
+
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'update_item',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Updated item "${item.title}" in registry "${registry.name}": ${itemChangeDescription}`,
+      },
+    });
+
     res.status(200).json({
       success: true,
       item: updatedItem,
@@ -822,6 +917,19 @@ async function deleteItem(req, res) {
       },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'delete_item',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Deleted item "${item.title}" from registry "${registry.name}"`,
+      },
+    });
+
     res.status(200).json({
       success: true,
       message: 'Item deleted',
@@ -898,6 +1006,19 @@ async function reorderItems(req, res) {
         })
       )
     );
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'reorder_items',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Reordered ${itemOrders.length} items in registry "${registry.name}"`,
+      },
+    });
 
     res.status(200).json({
       success: true,
@@ -980,6 +1101,19 @@ async function linkPersonalRegistry(req, res) {
       },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'link_personal_registry',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Linked personal registry "${personalRegistry.name}" to group`,
+      },
+    });
+
     res.status(201).json({
       success: true,
       message: 'Personal registry linked to group successfully',
@@ -1048,6 +1182,19 @@ async function unlinkPersonalRegistry(req, res) {
     await prisma.personalItemRegistryGroupLink.delete({
       where: {
         linkId: link.linkId,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'unlink_personal_registry',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Unlinked personal registry "${link.registry.name}" from group`,
       },
     });
 

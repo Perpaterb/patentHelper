@@ -969,6 +969,19 @@ async function sendFinanceMatterMessage(req, res) {
       },
     });
 
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'send_finance_message',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'finance',
+        messageContent: `Sent message on finance matter "${financeMatter.description}": "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`,
+      },
+    });
+
     // Merge user profile data
     const formattedMessage = {
       ...message,

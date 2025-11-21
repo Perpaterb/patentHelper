@@ -707,6 +707,25 @@ exports.linkToGroup = async (req, res) => {
       }
     });
 
+    // Get user info for audit log
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      select: { email: true }
+    });
+
+    // Create audit log for linking registry to group
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'link_personal_item_registry',
+        performedBy: groupMember.groupMemberId,
+        performedByName: groupMember.displayName,
+        performedByEmail: user?.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Linked personal item registry "${registry.name}" to group`,
+      },
+    });
+
     return res.status(201).json({
       success: true,
       link: {
@@ -774,6 +793,35 @@ exports.unlinkFromGroup = async (req, res) => {
         }
       }
     });
+
+    // Get group member info for audit log
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId
+      }
+    });
+
+    // Get user info for audit log
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      select: { email: true }
+    });
+
+    // Create audit log for unlinking registry from group
+    if (groupMember) {
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'unlink_personal_item_registry',
+          performedBy: groupMember.groupMemberId,
+          performedByName: groupMember.displayName,
+          performedByEmail: user?.email || 'N/A',
+          actionLocation: 'item_registry',
+          messageContent: `Unlinked personal item registry "${registry.name}" from group`,
+        },
+      });
+    }
 
     return res.json({
       success: true,
