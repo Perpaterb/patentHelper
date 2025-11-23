@@ -18,6 +18,7 @@ const giftRegistryController = require('../controllers/giftRegistry.controller')
 const itemRegistryController = require('../controllers/itemRegistry.controller');
 const itemRegistryRouter = require('./itemRegistry.routes');
 const wikiRouter = require('./wiki.routes');
+const groupDocumentsRouter = require('./groupDocuments.routes');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
@@ -374,5 +375,11 @@ router.use('/:groupId/item-registries', itemRegistryRouter);
  * All routes under /groups/:groupId/wiki-documents
  */
 router.use('/:groupId/wiki-documents', wikiRouter);
+
+/**
+ * Mount group documents router
+ * All routes under /groups/:groupId/documents
+ */
+router.use('/:groupId/documents', groupDocumentsRouter);
 
 module.exports = router;

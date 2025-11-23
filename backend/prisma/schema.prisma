@@ -67,6 +67,7 @@ model Group {
   personalItemRegistryLinks PersonalItemRegistryGroupLink[] @relation("PersonalItemRegistryLinks")
   itemRegistries            ItemRegistry[]                  @relation("ItemRegistries")
   wikiDocuments             WikiDocument[]
+  groupDocuments            GroupDocument[]
 
   @@index([createdAt])
   @@map("groups")
@@ -132,6 +133,8 @@ model GroupMember {
   itemRegistriesCreated      ItemRegistry[]                  @relation("ItemRegistryCreator")
   wikiDocumentsCreated       WikiDocument[]                  @relation("WikiDocumentCreator")
   wikiRevisionsEdited        WikiRevision[]                  @relation("WikiRevisionEditor")
+  documentsUploaded          GroupDocument[]                 @relation("DocumentUploader")
+  documentsHidden            GroupDocument[]                 @relation("DocumentHider")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -932,4 +935,31 @@ model WikiRevision {
   @@index([documentId])
   @@index([editedAt])
   @@map("wiki_revisions")
+}
+
+// ============================================
+// GROUP DOCUMENT STORAGE
+// Secure document storage for groups
+// ============================================
+
+model GroupDocument {
+  documentId    String    @id @default(uuid()) @map("document_id") @db.Uuid
+  groupId       String    @map("group_id") @db.Uuid
+  fileName      String    @map("file_name") @db.VarChar(255)
+  fileId        String    @map("file_id") @db.Uuid
+  fileSizeBytes BigInt    @map("file_size_bytes")
+  mimeType      String    @map("mime_type") @db.VarChar(100)
+  uploadedBy    String    @map("uploaded_by") @db.Uuid
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  isHidden      Boolean   @default(false) @map("is_hidden")
+  hiddenAt      DateTime? @map("hidden_at") @db.Timestamp(6)
+  hiddenBy      String?   @map("hidden_by") @db.Uuid
+
+  group    Group        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  uploader GroupMember  @relation("DocumentUploader", fields: [uploadedBy], references: [groupMemberId])
+  hider    GroupMember? @relation("DocumentHider", fields: [hiddenBy], references: [groupMemberId])
+
+  @@index([groupId])
+  @@index([uploadedAt])
+  @@map("group_documents")
 }

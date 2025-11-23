@@ -263,8 +263,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
    * Navigate to Secure Documents
    */
   const goToSecureDocuments = () => {
-    // TODO: Implement Secure Documents screen
-    console.log('Navigate to Secure Documents');
+    navigation.navigate('Documents', { groupId });
   };
 
   return (
