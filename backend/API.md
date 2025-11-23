@@ -25,6 +25,12 @@ If an endpoint is missing or incorrect, **FIX THIS FILE FIRST**, then update cod
 - [Calendar](#calendar)
 - [Files](#files)
 - [Audit Logs](#audit-logs)
+- [Wiki Documents](#wiki-documents)
+- [Group Documents](#group-documents)
+- [Gift Registries](#gift-registries)
+- [Item Registries](#item-registries)
+- [Secret Santa](#secret-santa)
+- [Finance Matters](#finance-matters)
 
 ---
 
@@ -937,3 +943,407 @@ Create a child responsibility event with overlap detection.
 - **Timestamps**: ISO 8601 `YYYY-MM-DDTHH:mm:ss.sssZ`
 - **Roles**: `admin`, `parent`, `child`, `caregiver`, `supervisor`
 - **Currency amounts**: In cents (100 = $1.00)
+
+---
+
+## Wiki Documents
+
+### GET /groups/:groupId/wiki-documents
+
+Get all wiki documents for a group.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "documents": [
+    {
+      "documentId": "uuid",
+      "title": "Family Rules",
+      "content": "# Rules\n\n1. Be kind...",
+      "createdAt": "2025-10-23T00:00:00.000Z",
+      "updatedAt": "2025-10-23T00:00:00.000Z",
+      "isHidden": false,
+      "creator": {
+        "groupMemberId": "uuid",
+        "displayName": "John Doe",
+        "iconLetters": "JD",
+        "iconColor": "#6200ee"
+      }
+    }
+  ]
+}
+```
+
+---
+
+### GET /groups/:groupId/wiki-documents/search
+
+Search wiki documents by title or content.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Query Parameters**:
+- `q`: Search query string
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "documents": [...]
+}
+```
+
+---
+
+### GET /groups/:groupId/wiki-documents/:documentId
+
+Get a single wiki document with revision history.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "document": {
+    "documentId": "uuid",
+    "title": "Family Rules",
+    "content": "# Rules\n\n1. Be kind...",
+    "createdAt": "2025-10-23T00:00:00.000Z",
+    "updatedAt": "2025-10-24T00:00:00.000Z",
+    "creator": {...},
+    "revisions": [
+      {
+        "revisionId": "uuid",
+        "title": "Family Rules",
+        "content": "# Rules (original)",
+        "editedAt": "2025-10-23T00:00:00.000Z",
+        "editor": {...}
+      }
+    ]
+  }
+}
+```
+
+---
+
+### POST /groups/:groupId/wiki-documents
+
+Create a new wiki document.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "title": "Family Rules",
+  "content": "# Rules\n\n1. Be kind to each other"
+}
+```
+
+**Response** (201):
+```json
+{
+  "success": true,
+  "document": {
+    "documentId": "uuid",
+    "title": "Family Rules",
+    "content": "...",
+    "createdAt": "2025-10-23T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### PUT /groups/:groupId/wiki-documents/:documentId
+
+Update a wiki document (creates revision history).
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "title": "Family Rules (Updated)",
+  "content": "# Updated Rules\n\n1. Be kind..."
+}
+```
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "document": {
+    "documentId": "uuid",
+    "title": "Family Rules (Updated)",
+    "updatedAt": "2025-10-24T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### DELETE /groups/:groupId/wiki-documents/:documentId
+
+Soft delete a wiki document.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Document deleted successfully"
+}
+```
+
+---
+
+## Group Documents
+
+Secure document storage for groups. All operations are audit logged.
+
+### GET /groups/:groupId/documents
+
+Get all documents for a group.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "documents": [
+    {
+      "documentId": "uuid",
+      "fileName": "custody_agreement.pdf",
+      "fileId": "uuid",
+      "fileSizeBytes": 245760,
+      "mimeType": "application/pdf",
+      "uploadedAt": "2025-10-23T00:00:00.000Z",
+      "isHidden": false,
+      "hiddenAt": null,
+      "hiddenByName": null,
+      "uploader": {
+        "groupMemberId": "uuid",
+        "displayName": "John Doe",
+        "iconLetters": "JD",
+        "iconColor": "#6200ee",
+        "profilePhotoUrl": "http://..."
+      }
+    }
+  ]
+}
+```
+
+**Notes**:
+- Non-admins don't see hidden documents
+- Admins see all documents including hidden ones
+
+---
+
+### POST /groups/:groupId/documents
+
+Upload a document record (file should already be uploaded to /files).
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Request**:
+```json
+{
+  "fileName": "custody_agreement.pdf",
+  "fileId": "uuid",
+  "fileSizeBytes": 245760,
+  "mimeType": "application/pdf"
+}
+```
+
+**Response** (201):
+```json
+{
+  "success": true,
+  "document": {
+    "documentId": "uuid",
+    "fileName": "custody_agreement.pdf",
+    "fileId": "uuid",
+    "fileSizeBytes": 245760,
+    "mimeType": "application/pdf",
+    "uploadedAt": "2025-10-23T00:00:00.000Z",
+    "isHidden": false,
+    "uploader": {...}
+  }
+}
+```
+
+**Notes**:
+- Supervisors cannot upload documents
+
+---
+
+### GET /groups/:groupId/documents/:documentId
+
+Get a single document's info for download.
+
+**Used by**: mobile-main
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "document": {
+    "documentId": "uuid",
+    "fileName": "custody_agreement.pdf",
+    "fileId": "uuid",
+    "fileSizeBytes": 245760,
+    "mimeType": "application/pdf",
+    "uploadedAt": "2025-10-23T00:00:00.000Z",
+    "uploaderName": "John Doe"
+  }
+}
+```
+
+**Notes**:
+- Creates audit log for download
+- Non-admins cannot access hidden documents
+
+---
+
+### PUT /groups/:groupId/documents/:documentId/hide
+
+Hide a document (admin only).
+
+**Used by**: mobile-main
+
+**Authentication**: Required (Admin)
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Document hidden successfully"
+}
+```
+
+---
+
+### PUT /groups/:groupId/documents/:documentId/unhide
+
+Unhide a document (admin only).
+
+**Used by**: mobile-main
+
+**Authentication**: Required (Admin)
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Document unhidden successfully"
+}
+```
+
+---
+
+### DELETE /groups/:groupId/documents/:documentId
+
+Delete a document (admin only).
+
+**Used by**: mobile-main
+
+**Authentication**: Required (Admin)
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Document deleted successfully"
+}
+```
+
+---
+
+## Gift Registries
+
+See `backend/controllers/giftRegistry.controller.js` for full endpoint documentation.
+
+Key endpoints:
+- `GET /groups/:groupId/gift-registries` - List all registries
+- `POST /groups/:groupId/gift-registries` - Create registry
+- `GET /groups/:groupId/gift-registries/:registryId` - Get registry with items
+- `PUT /groups/:groupId/gift-registries/:registryId` - Update registry
+- `DELETE /groups/:groupId/gift-registries/:registryId` - Delete registry
+- `POST /groups/:groupId/gift-registries/:registryId/items` - Add item
+- `PUT /groups/:groupId/gift-registries/:registryId/items/:itemId` - Update item
+- `DELETE /groups/:groupId/gift-registries/:registryId/items/:itemId` - Delete item
+- `POST /groups/:groupId/gift-registries/:registryId/items/:itemId/mark-purchased` - Mark purchased
+
+---
+
+## Item Registries
+
+See `backend/controllers/itemRegistry.controller.js` for full endpoint documentation.
+
+Key endpoints:
+- `GET /groups/:groupId/item-registries` - List all registries
+- `POST /groups/:groupId/item-registries` - Create registry
+- `GET /groups/:groupId/item-registries/:registryId` - Get registry with items
+- `PUT /groups/:groupId/item-registries/:registryId` - Update registry
+- `DELETE /groups/:groupId/item-registries/:registryId` - Delete registry
+- `POST /groups/:groupId/item-registries/:registryId/items` - Add item
+- `PUT /groups/:groupId/item-registries/:registryId/items/:itemId` - Update item
+- `DELETE /groups/:groupId/item-registries/:registryId/items/:itemId` - Delete item
+- `PUT /groups/:groupId/item-registries/:registryId/items/reorder` - Reorder items
+
+---
+
+## Secret Santa
+
+See `backend/controllers/krisKringle.controller.js` for full endpoint documentation.
+
+Key endpoints:
+- `GET /groups/:groupId/kris-kringle` - List all events
+- `POST /groups/:groupId/kris-kringle` - Create event
+- `GET /groups/:groupId/kris-kringle/:eventId` - Get event details
+- `POST /groups/:groupId/kris-kringle/:eventId/generate-matches` - Generate random matches
+- `POST /groups/:groupId/kris-kringle/:eventId/resend-email/:participantId` - Resend assignment email
+- `DELETE /groups/:groupId/kris-kringle/:eventId` - Delete event
+
+---
+
+## Finance Matters
+
+See `backend/controllers/finance.controller.js` for full endpoint documentation.
+
+Key endpoints:
+- `GET /groups/:groupId/finance-matters` - List finance matters
+- `POST /groups/:groupId/finance-matters` - Create finance matter
+- `GET /groups/:groupId/finance-matters/:matterId` - Get matter details
+- `PUT /groups/:groupId/finance-matters/:matterId/settle` - Mark as settled
+- `PUT /groups/:groupId/finance-matters/:matterId/cancel` - Cancel matter
+- `PUT /groups/:groupId/finance-matters/:matterId/record-payment` - Record payment
+- `POST /groups/:groupId/finance-matters/:matterId/payments/:paymentId/confirm` - Confirm payment
+- `POST /groups/:groupId/finance-matters/:matterId/payments/:paymentId/reject` - Reject payment
+- `GET /groups/:groupId/finance-matters/:matterId/messages` - Get messages
+- `POST /groups/:groupId/finance-matters/:matterId/messages` - Send message

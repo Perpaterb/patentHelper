@@ -1,10 +1,28 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-11-06)
+## Current Status (Updated: 2025-11-23)
 
-Currently working on: **Swipeable Month View - COMPLETED (Basic)**
+Currently working on: **Feature Complete - Testing Phase**
 
-**Just completed:**
+**Just completed (2025-11-23):**
+- ✅ Wiki feature with Markdown editing and document management
+- ✅ Secure Document Storage (upload, download, hide/unhide by admins)
+- ✅ Comprehensive audit logging for ALL member actions
+- ✅ API documentation updated for all new endpoints
+
+**Audit Logging Coverage:**
+- Messages: send, read, hide
+- Wiki: create, update, delete
+- Gift Registries: all CRUD operations + purchases
+- Item Registries: all CRUD operations
+- Secret Santa: create, matches, delete, resend emails
+- Finance: all operations including messages
+- Documents: upload, download, hide/unhide, delete
+- Calendar: create, update, delete events
+- Groups: all member management operations
+- Approvals: voting and outcomes
+
+**Previous work (2025-11-06):**
 - ✅ Implemented swipeable month calendar with PanResponder
 - ✅ Always shows 6 rows (matches example code)
 - ✅ Smooth momentum scrolling with snap-to-month
@@ -14,8 +32,9 @@ Currently working on: **Swipeable Month View - COMPLETED (Basic)**
 - ✅ Swipe left/right to navigate between months
 
 **TODO:**
-- Add event dots at bottom of cells
+- Add event dots at bottom of calendar cells
 - Add child event lines in top 70% of cells
+- Testing and bug fixes
 
 ## Recently Completed Tasks
 
