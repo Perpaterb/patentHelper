@@ -55,6 +55,10 @@ import CreateSecretSantaScreen from '../mobile-main/src/screens/groups/CreateSec
 import ApprovalsListScreen from '../mobile-main/src/screens/groups/ApprovalsListScreen';
 import AutoApproveSettingsScreen from '../mobile-main/src/screens/groups/AutoApproveSettingsScreen';
 
+// Import wiki and documents screens
+import WikiScreen from '../mobile-main/src/screens/wiki/WikiScreen';
+import DocumentsScreen from '../mobile-main/src/screens/documents/DocumentsScreen';
+
 // Web-only screens (admin features)
 import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -135,6 +139,8 @@ const linking = {
       CreateSecretSanta: 'web-app/group/:groupId/secret-santa/create',
       ApprovalsList: 'web-app/group/:groupId/approvals',
       AutoApproveSettings: 'web-app/group/:groupId/approvals/auto-approve',
+      Wiki: 'web-app/group/:groupId/wiki',
+      Documents: 'web-app/group/:groupId/documents',
       MyAccount: 'my-account',
     },
   },
@@ -249,6 +255,10 @@ function AppNavigator() {
             {/* Approvals */}
             <Stack.Screen name="ApprovalsList" component={withAppLayoutAndPhoneFrame(ApprovalsListScreen, 'Groups')} />
             <Stack.Screen name="AutoApproveSettings" component={withAppLayoutAndPhoneFrame(AutoApproveSettingsScreen, 'Groups')} />
+
+            {/* Wiki and Documents */}
+            <Stack.Screen name="Wiki" component={withAppLayoutAndPhoneFrame(WikiScreen, 'Groups')} />
+            <Stack.Screen name="Documents" component={withAppLayoutAndPhoneFrame(DocumentsScreen, 'Groups')} />
 
             {/* Mobile app My Account - in phone frame */}
             <Stack.Screen name="MyAccount" component={withAppLayoutAndPhoneFrame(MobileMyAccountScreen, 'Groups')} />
