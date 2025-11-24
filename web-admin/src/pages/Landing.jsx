@@ -106,7 +106,7 @@ function Landing() {
     {
       icon: <HistoryIcon sx={{ fontSize: 40 }} />,
       title: 'Audit Logs',
-      description: 'Complete history of all actions for accountability and legal compliance.',
+      description: 'Complete history of all actions for accountability, legal compliance, and court order adherence.',
     },
   ];
 
@@ -146,13 +146,11 @@ function Landing() {
       >
         <Container maxWidth="md">
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Co-Parenting & Family Management
-            <br />
-            Made Easy
+            Co-Parenting & Family Management Made Easy
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
-            Coordinate schedules, share expenses, and communicate securely with your family.
-            All in one encrypted, organized platform.
+            All-in-one family and co-parenting app. Coordinate schedules, share expenses,
+            and communicate securely with only the people you need and want to.
           </Typography>
           <Button
             variant="contained"
