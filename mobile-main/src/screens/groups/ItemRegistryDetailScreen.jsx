@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, IconButton, Button, Chip, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -152,7 +153,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
    * Handle delete item
    */
   const handleDeleteItem = async (itemId, itemTitle) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Item',
       `Are you sure you want to delete "${itemTitle}"?`,
       [
@@ -180,7 +181,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete item');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete item');
             }
           },
         },
@@ -192,7 +193,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
    * Handle reset passcode
    */
   const handleResetPasscode = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Reset Passcode',
       'This will generate a new 6-digit passcode for this registry. The old passcode will no longer work.',
       [
@@ -206,7 +207,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
             try {
               await api.post(`/groups/${groupId}/item-registries/${registryId}/reset-passcode`);
               loadRegistry(); // Reload to show new passcode
-              Alert.alert('Success', 'Passcode has been reset');
+              CustomAlert.alert('Success', 'Passcode has been reset');
             } catch (err) {
               console.error('Reset passcode error:', err);
 
@@ -215,7 +216,7 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
             }
           },
         },

@@ -9,7 +9,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   TextInput,
   Button,
@@ -91,7 +92,7 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
       setIsMember(userIsMember);
     } catch (err) {
       console.error('Load message group details error:', err);
-      Alert.alert('Error', 'Failed to load message group details');
+      CustomAlert.alert('Error', 'Failed to load message group details');
     } finally {
       setLoading(false);
     }
@@ -114,12 +115,12 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
    */
   const handleSaveName = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Message group name cannot be empty');
+      CustomAlert.alert('Error', 'Message group name cannot be empty');
       return;
     }
 
     if (name === originalName) {
-      Alert.alert('Info', 'No changes to save');
+      CustomAlert.alert('Info', 'No changes to save');
       return;
     }
 
@@ -130,10 +131,10 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
       });
 
       setOriginalName(name.trim());
-      Alert.alert('Success', 'Message group renamed successfully');
+      CustomAlert.alert('Success', 'Message group renamed successfully');
     } catch (err) {
       console.error('Rename error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to rename message group');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to rename message group');
     } finally {
       setSaving(false);
     }
@@ -156,7 +157,7 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
       console.error('Update setting error:', err);
       // Revert on error
       setUsersCanDeleteOwnMessages(previousValue);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update setting');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to update setting');
     }
   };
 
@@ -171,10 +172,10 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
 
       // Reload details to get updated member list
       loadMessageGroupDetails();
-      Alert.alert('Success', 'Member added successfully');
+      CustomAlert.alert('Success', 'Member added successfully');
     } catch (err) {
       console.error('Add member error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to add member');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to add member');
     }
   };
 
@@ -188,7 +189,7 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
       ? 'Are you sure you want to leave this message group?'
       : 'Are you sure you want to remove this member from the message group?';
 
-    Alert.alert(
+    CustomAlert.alert(
       alertTitle,
       alertMessage,
       [
@@ -202,17 +203,17 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
 
               if (isRemovingSelf) {
                 // Navigate back to message groups list
-                Alert.alert('Success', 'You have left the message group', [
+                CustomAlert.alert('Success', 'You have left the message group', [
                   { text: 'OK', onPress: () => navigation.goBack() }
                 ]);
               } else {
                 // Reload details to get updated member list
                 loadMessageGroupDetails();
-                Alert.alert('Success', 'Member removed successfully');
+                CustomAlert.alert('Success', 'Member removed successfully');
               }
             } catch (err) {
               console.error('Remove member error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to remove member');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to remove member');
             }
           }
         }
@@ -224,7 +225,7 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
    * Soft delete message group
    */
   const handleDeleteMessageGroup = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Message Group',
       'This will hide the message group and make it read-only. Admins can still see and undelete it. Continue?',
       [
@@ -235,12 +236,12 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.delete(`/groups/${groupId}/message-groups/${messageGroupId}`);
-              Alert.alert('Success', 'Message group deleted', [
+              CustomAlert.alert('Success', 'Message group deleted', [
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
             } catch (err) {
               console.error('Delete error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete message group');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete message group');
             }
           }
         }
@@ -255,10 +256,10 @@ export default function MessageGroupSettingsScreen({ navigation, route }) {
     try {
       await api.post(`/groups/${groupId}/message-groups/${messageGroupId}/undelete`);
       setIsHidden(false);
-      Alert.alert('Success', 'Message group restored');
+      CustomAlert.alert('Success', 'Message group restored');
     } catch (err) {
       console.error('Undelete error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to restore message group');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to restore message group');
     }
   };
 

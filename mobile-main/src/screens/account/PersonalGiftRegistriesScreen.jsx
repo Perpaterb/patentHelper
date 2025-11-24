@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, Button, FAB, ActivityIndicator, Divider, IconButton } from 'react-native-paper';
 import api from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -91,7 +92,7 @@ export default function PersonalGiftRegistriesScreen({ navigation }) {
    * Delete a registry
    */
   const handleDeleteRegistry = (registry) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Registry',
       `Are you sure you want to delete "${registry.name}"? This will remove all items and unlink it from any groups.`,
       [
@@ -102,11 +103,11 @@ export default function PersonalGiftRegistriesScreen({ navigation }) {
           onPress: async () => {
             try {
               await api.delete(`/users/personal-registries/gift-registries/${registry.registryId}`);
-              Alert.alert('Success', 'Registry deleted successfully');
+              CustomAlert.alert('Success', 'Registry deleted successfully');
               loadRegistries();
             } catch (err) {
               console.error('Delete registry error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete registry');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete registry');
             }
           },
         },

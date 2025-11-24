@@ -5,15 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Text,
   TextInput,
@@ -75,7 +68,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
       setGroupMembers(response.data.group?.members || []);
     } catch (err) {
       console.error('Load group members error:', err);
-      Alert.alert('Error', 'Failed to load group members');
+      CustomAlert.alert('Error', 'Failed to load group members');
     } finally {
       setLoadingMembers(false);
     }
@@ -87,7 +80,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   const handleAddMember = (member) => {
     // Check if already added
     if (participants.some(p => p.groupMemberId === member.groupMemberId)) {
-      Alert.alert('Already Added', `${member.displayName || member.user?.displayName} is already a participant`);
+      CustomAlert.alert('Already Added', `${member.displayName || member.user?.displayName} is already a participant`);
       return;
     }
 
@@ -109,13 +102,13 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
    */
   const handleAddExternal = () => {
     if (!externalName.trim() || !externalEmail.trim()) {
-      Alert.alert('Required Fields', 'Please enter both name and email');
+      CustomAlert.alert('Required Fields', 'Please enter both name and email');
       return;
     }
 
     // Check if email already exists
     if (participants.some(p => p.email?.toLowerCase() === externalEmail.toLowerCase())) {
-      Alert.alert('Already Added', 'A participant with this email already exists');
+      CustomAlert.alert('Already Added', 'A participant with this email already exists');
       return;
     }
 
@@ -183,12 +176,12 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   const handleCreate = async () => {
     // Validation
     if (!name.trim()) {
-      Alert.alert('Required', 'Please enter a name for the Secret Santa');
+      CustomAlert.alert('Required', 'Please enter a name for the Secret Santa');
       return;
     }
 
     if (participants.length < 3) {
-      Alert.alert('Not Enough Participants', 'You need at least 3 participants for Secret Santa');
+      CustomAlert.alert('Not Enough Participants', 'You need at least 3 participants for Secret Santa');
       return;
     }
 
@@ -210,7 +203,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
       const response = await api.post(`/groups/${groupId}/kris-kringle`, payload);
 
-      Alert.alert(
+      CustomAlert.alert(
         'Secret Santa Created!',
         `${participants.length} participants have been emailed with their access link and passcode.`,
         [
@@ -228,7 +221,7 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Error', err.response?.data?.message || 'Failed to create Secret Santa');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to create Secret Santa');
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image, TouchableOpacity } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   TextInput,
   Button,
@@ -89,10 +90,10 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
 
       setUploadedFileId(uploadedFile.fileId);
       setPhotoUrl(uploadedFile.fileId); // Store fileId in photoUrl field
-      Alert.alert('Success', 'Photo uploaded successfully');
+      CustomAlert.alert('Success', 'Photo uploaded successfully');
     } catch (err) {
       console.error('Photo upload error:', err);
-      Alert.alert('Upload Failed', err.message || 'Failed to upload photo');
+      CustomAlert.alert('Upload Failed', err.message || 'Failed to upload photo');
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -103,7 +104,7 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
    * Handle photo removal
    */
   const handleRemovePhoto = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Remove Photo',
       'Are you sure you want to remove this photo?',
       [
@@ -200,7 +201,7 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
         payload
       );
 
-      Alert.alert(
+      CustomAlert.alert(
         'Item Added',
         `"${title.trim()}" has been added to the registry.`,
         [
@@ -261,7 +262,7 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
         payload
       );
 
-      Alert.alert(
+      CustomAlert.alert(
         'Item Updated',
         `"${title.trim()}" has been updated successfully.`,
         [

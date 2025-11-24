@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Modal,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -83,7 +75,7 @@ export default function EditChildEventScreen({ route, navigation }) {
       setLoading(false);
     } catch (err) {
       console.error('Error fetching event:', err);
-      Alert.alert('Error', 'Failed to load event details');
+      CustomAlert.alert('Error', 'Failed to load event details');
       navigation.goBack();
     }
   };
@@ -105,12 +97,12 @@ export default function EditChildEventScreen({ route, navigation }) {
 
   const handleUpdate = async () => {
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title');
+      CustomAlert.alert('Validation Error', 'Please enter a title');
       return;
     }
 
     if (endDate <= startDate) {
-      Alert.alert('Validation Error', 'End time must be after start time');
+      CustomAlert.alert('Validation Error', 'End time must be after start time');
       return;
     }
 
@@ -125,19 +117,19 @@ export default function EditChildEventScreen({ route, navigation }) {
         recurrenceEndDate: isRecurring && !isForever && recurrenceEndDate ? recurrenceEndDate.toISOString() : null,
       });
 
-      Alert.alert('Success', 'Event updated successfully', [
+      CustomAlert.alert('Success', 'Event updated successfully', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (err) {
       console.error('Error updating event:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update event');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to update event');
     }
   };
 
   const handleDelete = () => {
     if (isRecurring) {
       // Show options for recurring events
-      Alert.alert(
+      CustomAlert.alert(
         'Delete Recurring Event',
         'Choose delete option:',
         [
@@ -163,7 +155,7 @@ export default function EditChildEventScreen({ route, navigation }) {
       );
     } else {
       // Single event
-      Alert.alert(
+      CustomAlert.alert(
         'Delete Event',
         'Are you sure you want to delete this event?',
         [
@@ -185,12 +177,12 @@ export default function EditChildEventScreen({ route, navigation }) {
 
       await API.delete(`/groups/${groupId}/calendar/events/${eventId}?${params.toString()}`);
 
-      Alert.alert('Success', 'Event deleted successfully', [
+      CustomAlert.alert('Success', 'Event deleted successfully', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ]);
     } catch (err) {
       console.error('Error deleting event:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to delete event');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete event');
     }
   };
 

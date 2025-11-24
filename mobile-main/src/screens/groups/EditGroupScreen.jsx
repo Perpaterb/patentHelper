@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
@@ -77,14 +78,14 @@ export default function EditGroupScreen({ navigation, route }) {
         backgroundColor: backgroundColor,
       });
 
-      // On web, Alert.alert callbacks don't work, so navigate immediately
+      // On web, CustomAlert.alert callbacks don't work, so navigate immediately
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.alert) {
           window.alert(`Group "${groupName}" updated successfully!`);
         }
         navigation.goBack();
       } else {
-        Alert.alert(
+        CustomAlert.alert(
           'Success',
           `Group "${groupName}" updated successfully!`,
           [
@@ -115,7 +116,7 @@ export default function EditGroupScreen({ navigation, route }) {
    * Handle delete group
    */
   const handleDeleteGroup = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Group',
       `Are you sure you want to delete "${groupName}"? This action cannot be undone.`,
       [
@@ -144,7 +145,7 @@ export default function EditGroupScreen({ navigation, route }) {
 
       // Check if approval is required
       if (response.data.requiresApproval) {
-        Alert.alert(
+        CustomAlert.alert(
           'Approval Requested',
           `Your request to delete "${groupName}" requires approval from other admins. Check the Approvals screen to track its status.`,
           [
@@ -154,7 +155,7 @@ export default function EditGroupScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert(
+      CustomAlert.alert(
         'Success',
         'Group deleted successfully.',
         [

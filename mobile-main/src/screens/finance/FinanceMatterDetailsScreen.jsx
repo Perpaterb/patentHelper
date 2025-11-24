@@ -10,7 +10,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TextInput as RNTextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TextInput as RNTextInput } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
   Title,
@@ -178,7 +179,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
       setMessages(response.data.messages || []);
     } catch (err) {
       console.error('Load messages error:', err);
-      Alert.alert('Error', 'Failed to load messages');
+      CustomAlert.alert('Error', 'Failed to load messages');
     }
   };
 
@@ -197,7 +198,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
       setNewMessage('');
     } catch (err) {
       console.error('Send message error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to send message');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to send message');
     } finally {
       setSendingMessage(false);
     }
@@ -230,25 +231,25 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
    */
   const submitPaymentRecord = async () => {
     if (!selectedMember) {
-      Alert.alert('Error', 'Please select a member');
+      CustomAlert.alert('Error', 'Please select a member');
       return;
     }
 
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount greater than 0');
+      CustomAlert.alert('Error', 'Please enter a valid amount greater than 0');
       return;
     }
 
     if (!selectedMember.recipient) {
-      Alert.alert('Error', 'Payment recipient not found');
+      CustomAlert.alert('Error', 'Payment recipient not found');
       return;
     }
 
     // Validate against the specific reimbursement amount
     const maxAmount = parseFloat(selectedMember.reimbursementAmount || 0);
     if (amount > maxAmount + 0.01) { // Allow small rounding error
-      Alert.alert('Error', `Payment cannot exceed ${financeMatter.currency} ${maxAmount.toFixed(2)}`);
+      CustomAlert.alert('Error', `Payment cannot exceed ${financeMatter.currency} ${maxAmount.toFixed(2)}`);
       return;
     }
 
@@ -260,14 +261,14 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
         toMemberId: selectedMember.recipient.groupMemberId,
       });
 
-      Alert.alert('Success', `Payment of ${amount.toFixed(2)} reported to ${selectedMember.recipient.displayName}. Awaiting confirmation.`);
+      CustomAlert.alert('Success', `Payment of ${amount.toFixed(2)} reported to ${selectedMember.recipient.displayName}. Awaiting confirmation.`);
       setShowPaymentDialog(false);
       setSelectedMember(null);
       setPaymentAmount('');
       loadFinanceMatter(); // Reload to show updated amounts
     } catch (err) {
       console.error('Record payment error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to record payment');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to record payment');
     } finally {
       setRecordingPayment(false);
     }
@@ -277,7 +278,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
    * Handle confirm payment
    */
   const handleConfirmPayment = (payment) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Confirm Payment',
       `Confirm that you received ${financeMatter.currency} ${payment.amount.toFixed(2)} from ${payment.from.displayName}?`,
       [
@@ -287,11 +288,11 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.post(`/groups/${groupId}/finance-matters/${financeMatterId}/payments/${payment.paymentId}/confirm`);
-              Alert.alert('Success', 'Payment confirmed');
+              CustomAlert.alert('Success', 'Payment confirmed');
               loadFinanceMatter();
             } catch (err) {
               console.error('Confirm payment error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to confirm payment');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to confirm payment');
             }
           },
         },
@@ -303,7 +304,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
    * Handle reject payment
    */
   const handleRejectPayment = (payment) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Reject Payment',
       `Reject payment of ${financeMatter.currency} ${payment.amount.toFixed(2)} from ${payment.from.displayName}?`,
       [
@@ -314,11 +315,11 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.post(`/groups/${groupId}/finance-matters/${financeMatterId}/payments/${payment.paymentId}/reject`);
-              Alert.alert('Success', 'Payment rejected');
+              CustomAlert.alert('Success', 'Payment rejected');
               loadFinanceMatter();
             } catch (err) {
               console.error('Reject payment error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to reject payment');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to reject payment');
             }
           },
         },
@@ -330,7 +331,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
    * Handle mark as settled (admin only)
    */
   const handleMarkAsSettled = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Mark as Settled',
       'Are you sure you want to mark this finance matter as settled? This action cannot be undone.',
       [
@@ -341,11 +342,11 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.put(`/groups/${groupId}/finance-matters/${financeMatterId}/settle`);
-              Alert.alert('Success', 'Finance matter marked as settled');
+              CustomAlert.alert('Success', 'Finance matter marked as settled');
               loadFinanceMatter(); // Reload to show updated status
             } catch (err) {
               console.error('Mark as settled error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to mark as settled');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to mark as settled');
             }
           },
         },
@@ -357,7 +358,7 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
    * Handle cancel finance matter (admin or creator only)
    */
   const handleCancelFinanceMatter = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Cancel Finance Matter',
       'Are you sure you want to cancel this finance matter? It will become read-only and cannot be uncanceled.',
       [
@@ -368,11 +369,11 @@ export default function FinanceMatterDetailsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.put(`/groups/${groupId}/finance-matters/${financeMatterId}/cancel`);
-              Alert.alert('Success', 'Finance matter has been canceled');
+              CustomAlert.alert('Success', 'Finance matter has been canceled');
               loadFinanceMatter(); // Reload to show updated status
             } catch (err) {
               console.error('Cancel finance matter error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to cancel finance matter');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to cancel finance matter');
             }
           },
         },

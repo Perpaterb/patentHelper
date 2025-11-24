@@ -12,18 +12,8 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Modal,
-  View,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  ActivityIndicator,
-  StatusBar,
-  Platform,
-  Alert,
-} from 'react-native';
+import { Modal, View, Image, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator, StatusBar, Platform,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { GestureHandlerRootView, PinchGestureHandler, State } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -100,7 +90,7 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
       // Request media library permissions
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        CustomAlert.alert(
           'Permission Required',
           'Photo library access is required to save images.',
           [{ text: 'OK' }]
@@ -121,14 +111,14 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
       // Save to media library
       await MediaLibrary.createAssetAsync(downloadResult.uri);
 
-      Alert.alert(
+      CustomAlert.alert(
         'Success',
         'Image saved to your photo library!',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert(
+      CustomAlert.alert(
         'Download Failed',
         error.message || 'Failed to save image. Please try again.',
         [{ text: 'OK' }]

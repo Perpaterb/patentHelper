@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Image, ActivityIndicator } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
@@ -280,7 +281,7 @@ export default function MessagesScreen({ navigation, route }) {
       setAttachedMedia([...attachedMedia, ...mediaItems]);
     } catch (err) {
       console.error('Media upload error:', err);
-      Alert.alert('Upload Failed', err.message || 'Failed to upload media');
+      CustomAlert.alert('Upload Failed', err.message || 'Failed to upload media');
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -486,7 +487,7 @@ export default function MessagesScreen({ navigation, route }) {
     } catch (err) {
       console.error('Hide message error:', err);
       if (!err.isAuthError) {
-        Alert.alert('Error', err.response?.data?.message || 'Failed to hide message');
+        CustomAlert.alert('Error', err.response?.data?.message || 'Failed to hide message');
       }
     }
   };
@@ -513,7 +514,7 @@ export default function MessagesScreen({ navigation, route }) {
     } catch (err) {
       console.error('Unhide message error:', err);
       if (!err.isAuthError) {
-        Alert.alert('Error', err.response?.data?.message || 'Failed to unhide message');
+        CustomAlert.alert('Error', err.response?.data?.message || 'Failed to unhide message');
       }
     }
   };

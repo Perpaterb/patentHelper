@@ -5,7 +5,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
@@ -72,7 +73,7 @@ export default function CreateGroupScreen({ navigation }) {
         backgroundColor: backgroundColor,
       });
 
-      // On web, Alert.alert callbacks don't work, so navigate immediately
+      // On web, CustomAlert.alert callbacks don't work, so navigate immediately
       if (Platform.OS === 'web') {
         // Use window.alert for web
         if (typeof window !== 'undefined' && window.alert) {
@@ -80,8 +81,8 @@ export default function CreateGroupScreen({ navigation }) {
         }
         navigation.goBack();
       } else {
-        // On mobile, use Alert.alert with callback
-        Alert.alert(
+        // On mobile, use CustomAlert.alert with callback
+        CustomAlert.alert(
           'Success',
           `Group "${groupName}" created successfully!`,
           [
@@ -104,7 +105,7 @@ export default function CreateGroupScreen({ navigation }) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to create group';
 
       if (errorMessage.includes('subscription')) {
-        Alert.alert(
+        CustomAlert.alert(
           'Subscription Required',
           'You need an active subscription to create groups. Please subscribe via the web app.',
           [

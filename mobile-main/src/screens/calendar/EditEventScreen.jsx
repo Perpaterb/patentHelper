@@ -5,17 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Modal,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
@@ -124,7 +115,7 @@ export default function EditEventScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching event:', error);
-      Alert.alert('Error', 'Failed to load event data');
+      CustomAlert.alert('Error', 'Failed to load event data');
     } finally {
       setEventLoading(false);
     }
@@ -145,7 +136,7 @@ export default function EditEventScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching group members:', error);
-      Alert.alert('Error', 'Failed to load group members');
+      CustomAlert.alert('Error', 'Failed to load group members');
     }
   };
 
@@ -179,7 +170,7 @@ export default function EditEventScreen({ navigation, route }) {
    */
   const handleEndDateChange = (newDate) => {
     if (newDate < startDate) {
-      Alert.alert('Invalid Date', 'End date must be after start date');
+      CustomAlert.alert('Invalid Date', 'End date must be after start date');
       return;
     }
     setEndDate(newDate);
@@ -218,12 +209,12 @@ export default function EditEventScreen({ navigation, route }) {
   const handleSubmit = async () => {
     // Validation
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter an event title');
+      CustomAlert.alert('Validation Error', 'Please enter an event title');
       return;
     }
 
     if (endDate <= startDate) {
-      Alert.alert('Validation Error', 'End time must be after start time');
+      CustomAlert.alert('Validation Error', 'End time must be after start time');
       return;
     }
 
@@ -267,19 +258,19 @@ export default function EditEventScreen({ navigation, route }) {
       });
 
       if (response.data.success) {
-        Alert.alert('Success', 'Event updated successfully', [
+        CustomAlert.alert('Success', 'Event updated successfully', [
           {
             text: 'OK',
             onPress: () => navigation.goBack(),
           },
         ]);
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to update event');
+        CustomAlert.alert('Error', response.data.message || 'Failed to update event');
       }
     } catch (error) {
       console.error('Error updating event:', error);
       const errorMessage = error.response?.data?.message || 'Failed to update event. Please try again.';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -289,7 +280,7 @@ export default function EditEventScreen({ navigation, route }) {
    * Handle delete event
    */
   const handleDelete = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Event',
       'Are you sure you want to delete this event?',
       [
@@ -302,15 +293,15 @@ export default function EditEventScreen({ navigation, route }) {
               setLoading(true);
               const response = await API.delete(`/groups/${groupId}/calendar/events/${eventId}`);
               if (response.data.success) {
-                Alert.alert('Success', 'Event deleted successfully', [
+                CustomAlert.alert('Success', 'Event deleted successfully', [
                   { text: 'OK', onPress: () => navigation.goBack() },
                 ]);
               } else {
-                Alert.alert('Error', response.data.message || 'Failed to delete event');
+                CustomAlert.alert('Error', response.data.message || 'Failed to delete event');
               }
             } catch (error) {
               console.error('Error deleting event:', error);
-              Alert.alert('Error', 'Failed to delete event');
+              CustomAlert.alert('Error', 'Failed to delete event');
             } finally {
               setLoading(false);
             }
@@ -324,7 +315,7 @@ export default function EditEventScreen({ navigation, route }) {
    * Handle delete recurring series (all future events)
    */
   const handleDeleteSeries = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Recurring Series',
       'Delete all future events in this recurring series?',
       [
@@ -339,15 +330,15 @@ export default function EditEventScreen({ navigation, route }) {
                 `/groups/${groupId}/calendar/events/${eventId}?deleteSeries=true&fromDate=${new Date().toISOString()}`
               );
               if (response.data.success) {
-                Alert.alert('Success', 'Recurring series deleted successfully', [
+                CustomAlert.alert('Success', 'Recurring series deleted successfully', [
                   { text: 'OK', onPress: () => navigation.goBack() },
                 ]);
               } else {
-                Alert.alert('Error', response.data.message || 'Failed to delete series');
+                CustomAlert.alert('Error', response.data.message || 'Failed to delete series');
               }
             } catch (error) {
               console.error('Error deleting series:', error);
-              Alert.alert('Error', 'Failed to delete series');
+              CustomAlert.alert('Error', 'Failed to delete series');
             } finally {
               setLoading(false);
             }

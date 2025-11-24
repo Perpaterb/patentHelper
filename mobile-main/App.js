@@ -14,6 +14,20 @@ import * as SecureStore from 'expo-secure-store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CONFIG } from './src/constants/config';
 import authEvents from './src/services/authEvents';
+import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
+
+/**
+ * Component to initialize the global alert handler
+ */
+function AlertHandlerInitializer() {
+  const { showAlert } = useCustomAlert();
+
+  useEffect(() => {
+    setGlobalAlertHandler(showAlert);
+  }, [showAlert]);
+
+  return null;
+}
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -98,13 +112,16 @@ export default function App() {
 
   return (
     <PaperProvider>
-      <StatusBar style="light" />
-      <AppNavigator
-        key={navigationKey}
-        isAuthenticated={isAuthenticated}
-        onLoginSuccess={handleLoginSuccess}
-        onLogout={handleLogout}
-      />
+      <CustomAlertProvider>
+        <AlertHandlerInitializer />
+        <StatusBar style="light" />
+        <AppNavigator
+          key={navigationKey}
+          isAuthenticated={isAuthenticated}
+          onLoginSuccess={handleLoginSuccess}
+          onLogout={handleLogout}
+        />
+      </CustomAlertProvider>
     </PaperProvider>
   );
 }

@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   TextInput,
   Button,
@@ -74,7 +75,7 @@ export default function AddEditPersonalGiftRegistryScreen({ navigation, route })
         sharingType: sharingType,
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Registry Created',
         `"${name.trim()}" has been created successfully.`,
         [
@@ -122,7 +123,7 @@ export default function AddEditPersonalGiftRegistryScreen({ navigation, route })
         name: name.trim(),
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Registry Updated',
         `"${name.trim()}" has been updated successfully.`,
         [

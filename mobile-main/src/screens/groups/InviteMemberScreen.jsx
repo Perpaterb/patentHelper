@@ -6,7 +6,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   TextInput,
   Button,
@@ -102,14 +103,14 @@ export default function InviteMemberScreen({ navigation, route }) {
         iconColor: iconColor,
       });
 
-      // On web, Alert.alert callbacks don't work, so navigate immediately
+      // On web, CustomAlert.alert callbacks don't work, so navigate immediately
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.alert) {
           window.alert(`Invitation sent to ${email}. They will be added as a ${role}.`);
         }
         navigation.goBack();
       } else {
-        Alert.alert(
+        CustomAlert.alert(
           'Invitation Sent',
           `Invitation sent to ${email}. They will be added as a ${role}.`,
           [

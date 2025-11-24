@@ -8,7 +8,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Text, Button, Avatar, Chip, Divider, List } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -68,7 +69,7 @@ export default function ApprovalsListScreen({ navigation, route }) {
     } catch (err) {
       console.error('Load approvals error:', err);
       if (!err.isAuthError) {
-        Alert.alert('Error', err.response?.data?.message || 'Failed to load approvals');
+        CustomAlert.alert('Error', err.response?.data?.message || 'Failed to load approvals');
       }
     } finally {
       setLoading(false);
@@ -90,12 +91,12 @@ export default function ApprovalsListScreen({ navigation, route }) {
   const handleVote = async (approvalId, vote) => {
     try {
       await api.post(`/groups/${groupId}/approvals/${approvalId}/vote`, { vote });
-      Alert.alert('Success', `You have ${vote === 'approve' ? 'approved' : 'rejected'} this request`);
+      CustomAlert.alert('Success', `You have ${vote === 'approve' ? 'approved' : 'rejected'} this request`);
       loadApprovals(); // Reload to get updated status
     } catch (err) {
       console.error('Vote error:', err);
       if (!err.isAuthError) {
-        Alert.alert('Error', err.response?.data?.message || `Failed to ${vote} approval`);
+        CustomAlert.alert('Error', err.response?.data?.message || `Failed to ${vote} approval`);
       }
     }
   };
@@ -104,7 +105,7 @@ export default function ApprovalsListScreen({ navigation, route }) {
    * Cancel an approval
    */
   const handleCancel = async (approvalId) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Cancel Approval',
       'Are you sure you want to cancel this approval request?',
       [
@@ -115,12 +116,12 @@ export default function ApprovalsListScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.post(`/groups/${groupId}/approvals/${approvalId}/cancel`);
-              Alert.alert('Success', 'Approval request canceled');
+              CustomAlert.alert('Success', 'Approval request canceled');
               loadApprovals(); // Reload to get updated status
             } catch (err) {
               console.error('Cancel error:', err);
               if (!err.isAuthError) {
-                Alert.alert('Error', err.response?.data?.message || 'Failed to cancel approval');
+                CustomAlert.alert('Error', err.response?.data?.message || 'Failed to cancel approval');
               }
             }
           }

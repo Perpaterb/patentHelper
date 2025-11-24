@@ -7,17 +7,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Modal,
-  Switch,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, Switch,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -102,39 +93,39 @@ export default function CreateChildEventScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching members:', error);
-      Alert.alert('Error', 'Failed to load group members');
+      CustomAlert.alert('Error', 'Failed to load group members');
     }
   };
 
   const handleCreate = async () => {
     // Validation
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a title');
+      CustomAlert.alert('Error', 'Please enter a title');
       return;
     }
 
     if (selectedChildren.length === 0) {
-      Alert.alert('Error', 'Please select at least one child');
+      CustomAlert.alert('Error', 'Please select at least one child');
       return;
     }
 
     if (responsibleType === 'member' && !responsibleMemberId) {
-      Alert.alert('Error', 'Please select a responsible adult');
+      CustomAlert.alert('Error', 'Please select a responsible adult');
       return;
     }
 
     if (responsibleType === 'other' && !responsibleOtherName.trim()) {
-      Alert.alert('Error', 'Please enter a name for the responsible party');
+      CustomAlert.alert('Error', 'Please enter a name for the responsible party');
       return;
     }
 
     if (hasHandoff) {
       if (handoffType === 'member' && !handoffMemberId) {
-        Alert.alert('Error', 'Please select a handoff person');
+        CustomAlert.alert('Error', 'Please select a handoff person');
         return;
       }
       if (handoffType === 'other' && !handoffOtherName.trim()) {
-        Alert.alert('Error', 'Please enter a name for the handoff party');
+        CustomAlert.alert('Error', 'Please enter a name for the handoff party');
         return;
       }
     }
@@ -184,13 +175,13 @@ export default function CreateChildEventScreen({ navigation, route }) {
       });
 
       if (response.data.success) {
-        Alert.alert('Success', 'Child responsibility event created', [
+        CustomAlert.alert('Success', 'Child responsibility event created', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }
     } catch (error) {
       console.error('Error creating event:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to create event');
+      CustomAlert.alert('Error', error.response?.data?.message || 'Failed to create event');
     }
   };
 

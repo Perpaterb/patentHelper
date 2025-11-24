@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, Button, Avatar, Divider } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import { CONFIG } from '../../constants/config';
@@ -75,7 +76,7 @@ export default function HomeScreen({ navigation, onLogout }) {
     if (canOpen) {
       await Linking.openURL(url);
     } else {
-      Alert.alert(
+      CustomAlert.alert(
         'Cannot Open Browser',
         'Please visit parentinghelperapp.com on your browser to manage your subscription.'
       );
@@ -86,7 +87,7 @@ export default function HomeScreen({ navigation, onLogout }) {
    * Handle logout
    */
   const handleLogout = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [

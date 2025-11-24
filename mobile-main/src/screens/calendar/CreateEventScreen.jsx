@@ -5,17 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Modal,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
@@ -78,7 +69,7 @@ export default function CreateEventScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching group members:', error);
-      Alert.alert('Error', 'Failed to load group members');
+      CustomAlert.alert('Error', 'Failed to load group members');
     }
   };
 
@@ -112,7 +103,7 @@ export default function CreateEventScreen({ navigation, route }) {
    */
   const handleEndDateChange = (newDate) => {
     if (newDate < startDate) {
-      Alert.alert('Invalid Date', 'End date must be after start date');
+      CustomAlert.alert('Invalid Date', 'End date must be after start date');
       return;
     }
     setEndDate(newDate);
@@ -151,12 +142,12 @@ export default function CreateEventScreen({ navigation, route }) {
   const handleSubmit = async () => {
     // Validation
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter an event title');
+      CustomAlert.alert('Validation Error', 'Please enter an event title');
       return;
     }
 
     if (endDate <= startDate) {
-      Alert.alert('Validation Error', 'End time must be after start time');
+      CustomAlert.alert('Validation Error', 'End time must be after start time');
       return;
     }
 
@@ -200,19 +191,19 @@ export default function CreateEventScreen({ navigation, route }) {
       });
 
       if (response.data.success) {
-        Alert.alert('Success', 'Event created successfully', [
+        CustomAlert.alert('Success', 'Event created successfully', [
           {
             text: 'OK',
             onPress: () => navigation.goBack(),
           },
         ]);
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to create event');
+        CustomAlert.alert('Error', response.data.message || 'Failed to create event');
       }
     } catch (error) {
       console.error('Error creating event:', error);
       const errorMessage = error.response?.data?.message || 'Failed to create event. Please try again.';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

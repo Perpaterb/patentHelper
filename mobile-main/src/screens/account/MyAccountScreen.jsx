@@ -9,7 +9,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Alert, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Image } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, TextInput, Button, Avatar, Divider, ActivityIndicator } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import api from '../../services/api';
@@ -137,10 +138,10 @@ export default function MyAccountScreen({ navigation }) {
         await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
       }
 
-      Alert.alert('Success', 'Your account information has been saved.');
+      CustomAlert.alert('Success', 'Your account information has been saved.');
     } catch (err) {
       console.error('Save account error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to save account information');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to save account information');
     } finally {
       setSaving(false);
     }
@@ -157,11 +158,11 @@ export default function MyAccountScreen({ navigation }) {
       if (supported) {
         await Linking.openURL(webAdminUrl);
       } else {
-        Alert.alert('Error', 'Cannot open web admin page');
+        CustomAlert.alert('Error', 'Cannot open web admin page');
       }
     } catch (err) {
       console.error('Open web admin error:', err);
-      Alert.alert('Error', 'Failed to open web admin page');
+      CustomAlert.alert('Error', 'Failed to open web admin page');
     }
   };
 
@@ -212,11 +213,11 @@ export default function MyAccountScreen({ navigation }) {
           await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
         }
 
-        Alert.alert('Success', 'Profile photo uploaded successfully!');
+        CustomAlert.alert('Success', 'Profile photo uploaded successfully!');
       }
     } catch (err) {
       console.error('Photo upload error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to upload profile photo');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to upload profile photo');
     } finally {
       setUploadingPhoto(false);
     }
@@ -227,7 +228,7 @@ export default function MyAccountScreen({ navigation }) {
    */
   const handleRemovePhoto = async () => {
     try {
-      Alert.alert(
+      CustomAlert.alert(
         'Remove Photo',
         'Are you sure you want to remove your profile photo?',
         [
@@ -257,10 +258,10 @@ export default function MyAccountScreen({ navigation }) {
                   await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
                 }
 
-                Alert.alert('Success', 'Profile photo removed');
+                CustomAlert.alert('Success', 'Profile photo removed');
               } catch (err) {
                 console.error('Remove photo error:', err);
-                Alert.alert('Error', 'Failed to remove profile photo');
+                CustomAlert.alert('Error', 'Failed to remove profile photo');
               } finally {
                 setUploadingPhoto(false);
               }

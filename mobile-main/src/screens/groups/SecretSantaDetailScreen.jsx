@@ -6,13 +6,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  RefreshControl,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Text,
   Card,
@@ -90,11 +85,11 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
    */
   const handleGenerateMatches = async () => {
     if (event.participants.length < 3) {
-      Alert.alert('Not Enough Participants', 'You need at least 3 participants to generate matches');
+      CustomAlert.alert('Not Enough Participants', 'You need at least 3 participants to generate matches');
       return;
     }
 
-    Alert.alert(
+    CustomAlert.alert(
       'Generate Matches?',
       'This will randomly assign each participant to give a gift to another participant. This action cannot be undone.',
       [
@@ -105,11 +100,11 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
             try {
               setGenerating(true);
               await api.post(`/groups/${groupId}/kris-kringle/${krisKringleId}/generate-matches`);
-              Alert.alert('Success', 'Matches have been generated!');
+              CustomAlert.alert('Success', 'Matches have been generated!');
               loadEvent();
             } catch (err) {
               console.error('Generate matches error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to generate matches');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to generate matches');
             } finally {
               setGenerating(false);
             }
@@ -128,11 +123,11 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
     try {
       setResendingId(participantId);
       await api.post(`/groups/${groupId}/kris-kringle/${krisKringleId}/participants/${participantId}/resend`);
-      Alert.alert('Email Sent', 'A new email with a fresh passcode has been sent.');
+      CustomAlert.alert('Email Sent', 'A new email with a fresh passcode has been sent.');
       loadEvent();
     } catch (err) {
       console.error('Resend email error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to resend email');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to resend email');
     } finally {
       setResendingId(null);
     }
@@ -148,7 +143,7 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
       ? 'This will delete the Secret Santa event and notify all participants via email. This cannot be undone.'
       : 'This will delete the Secret Santa event. This cannot be undone.';
 
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Secret Santa?',
       message,
       [
@@ -163,7 +158,7 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
               navigation.goBack();
             } catch (err) {
               console.error('Delete event error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete event');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete event');
               setDeleting(false);
             }
           },

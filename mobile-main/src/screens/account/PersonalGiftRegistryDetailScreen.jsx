@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, FlatList, TouchableOpacity, Linking, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, FlatList, TouchableOpacity, Linking, Image } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, Button, Divider, Chip, ActivityIndicator, FAB, IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -111,7 +112,7 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
    * Handle reset passcode
    */
   const handleResetPasscode = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Reset Passcode',
       'This will generate a new 6-digit passcode for this registry. The old passcode will no longer work.',
       [
@@ -125,14 +126,14 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
           onPress: async () => {
             try {
               const response = await api.post(`/users/personal-registries/gift-registries/${registryId}/reset-passcode`);
-              Alert.alert(
+              CustomAlert.alert(
                 'Passcode Reset',
                 `New passcode: ${response.data.passcode}\n\nPlease save this passcode and share it with people who need access to this registry.`,
                 [{ text: 'OK', onPress: loadRegistry }]
               );
             } catch (err) {
               console.error('Reset passcode error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
             }
           },
         },
@@ -166,7 +167,7 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
    * Handle delete item
    */
   const handleDeleteItem = async (itemId, itemTitle) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Item',
       `Are you sure you want to delete "${itemTitle}"?`,
       [
@@ -189,7 +190,7 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete item');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete item');
             }
           },
         },
@@ -210,7 +211,7 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
 
     Linking.openURL(url).catch(err => {
       console.error('Failed to open link:', err);
-      Alert.alert('Error', 'Failed to open link');
+      CustomAlert.alert('Error', 'Failed to open link');
     });
   };
 

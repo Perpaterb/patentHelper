@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
   Title,
@@ -180,7 +181,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update permission');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to update permission');
     }
   };
 
@@ -193,7 +194,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
       await api.put(`/groups/${groupId}/settings`, groupSettings);
 
-      Alert.alert('Success', 'Group settings saved successfully');
+      CustomAlert.alert('Success', 'Group settings saved successfully');
     } catch (err) {
       console.error('Save group settings error:', err);
 
@@ -202,7 +203,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Error', err.response?.data?.message || 'Failed to save settings');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to save settings');
     } finally {
       setSavingSettings(false);
     }
@@ -226,7 +227,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         defaultCurrency: currencyCode,
       });
 
-      Alert.alert('Success', `Default currency changed to ${currencyCode}`);
+      CustomAlert.alert('Success', `Default currency changed to ${currencyCode}`);
     } catch (err) {
       console.error('Change currency error:', err);
 
@@ -237,7 +238,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
       // Revert on error
       await loadGroupSettings();
-      Alert.alert('Error', err.response?.data?.message || 'Failed to change currency');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to change currency');
     }
   };
 
@@ -274,7 +275,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     }
 
     // Show member options (change role, remove)
-    Alert.alert(
+    CustomAlert.alert(
       member.displayName,
       'Member management options',
       [
@@ -314,7 +315,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     }));
     buttons.push({ text: 'Cancel', style: 'cancel' });
 
-    Alert.alert(
+    CustomAlert.alert(
       'Change Role',
       `Select new role for ${member.displayName || member.email}`,
       buttons
@@ -332,7 +333,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
       // Check if approval is required
       if (response.data.requiresApproval) {
-        Alert.alert(
+        CustomAlert.alert(
           'Approval Requested',
           `Your request to change ${member.displayName || member.email}'s role to ${newRole} requires approval from other admins. Check the Approvals screen to track its status.`,
           [
@@ -342,7 +343,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Success', `Role changed to ${newRole}`);
+      CustomAlert.alert('Success', `Role changed to ${newRole}`);
       loadGroupDetails(); // Reload to show updated role
     } catch (err) {
       console.error('Change role error:', err);
@@ -354,7 +355,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
       }
 
       const errorMessage = err.response?.data?.message || err.message || 'Failed to change role';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     }
   };
 
@@ -362,7 +363,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    * Handle remove member
    */
   const handleRemoveMember = (member) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Remove Member',
       `Are you sure you want to remove ${member.displayName || member.email} from this group?`,
       [
@@ -385,7 +386,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
       // Check if approval is required
       if (response.data.requiresApproval) {
-        Alert.alert(
+        CustomAlert.alert(
           'Approval Requested',
           `Your request to remove ${member.displayName || member.email} from the group requires approval from other admins. Check the Approvals screen to track its status.`,
           [
@@ -395,7 +396,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Success', 'Member removed from group');
+      CustomAlert.alert('Success', 'Member removed from group');
       loadGroupDetails(); // Reload to show updated member list
     } catch (err) {
       console.error('Remove member error:', err);
@@ -407,7 +408,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
       }
 
       const errorMessage = err.response?.data?.message || err.message || 'Failed to remove member';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     }
   };
 
@@ -415,7 +416,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    * Handle leave group
    */
   const handleLeaveGroup = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Leave Group',
       `Are you sure you want to leave "${groupInfo?.name}"? You will need to be re-invited to rejoin.`,
       [
@@ -436,7 +437,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     try {
       await api.post(`/groups/${groupId}/leave`);
 
-      Alert.alert(
+      CustomAlert.alert(
         'Success',
         'You have left the group',
         [
@@ -456,7 +457,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
       }
 
       const errorMessage = err.response?.data?.message || err.message || 'Failed to leave group';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     }
   };
 

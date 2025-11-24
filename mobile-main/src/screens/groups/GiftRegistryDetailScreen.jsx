@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Linking, Image } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Linking, Image } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, IconButton, Button, Chip, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -152,7 +153,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
    * Handle delete item
    */
   const handleDeleteItem = async (itemId, itemTitle) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Item',
       `Are you sure you want to delete "${itemTitle}"?`,
       [
@@ -180,7 +181,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete item');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete item');
             }
           },
         },
@@ -201,7 +202,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
 
     Linking.openURL(url).catch(err => {
       console.error('Failed to open link:', err);
-      Alert.alert('Error', 'Failed to open link');
+      CustomAlert.alert('Error', 'Failed to open link');
     });
   };
 
@@ -209,7 +210,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
    * Handle reset passcode
    */
   const handleResetPasscode = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Reset Passcode',
       'This will generate a new 6-digit passcode for this registry. The old passcode will no longer work.',
       [
@@ -223,7 +224,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
             try {
               await api.post(`/groups/${groupId}/gift-registries/${registryId}/reset-passcode`);
               loadRegistry(); // Reload to show new passcode
-              Alert.alert('Success', 'Passcode has been reset');
+              CustomAlert.alert('Success', 'Passcode has been reset');
             } catch (err) {
               console.error('Reset passcode error:', err);
 
@@ -232,7 +233,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to reset passcode');
             }
           },
         },
@@ -268,7 +269,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
    * Handle mark item as purchased
    */
   const handleMarkAsPurchased = (item) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Mark as Purchased',
       'Are you sure you want to mark this item as purchased? This action cannot be undone, and the registry owner will not see this item anymore.',
       [
@@ -282,7 +283,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
             try {
               await api.post(`/groups/${groupId}/gift-registries/${registryId}/items/${item.itemId}/mark-purchased`);
               loadRegistry(); // Reload registry after marking as purchased
-              Alert.alert('Success', 'Item marked as purchased');
+              CustomAlert.alert('Success', 'Item marked as purchased');
             } catch (err) {
               console.error('Mark as purchased error:', err);
 
@@ -291,7 +292,7 @@ export default function GiftRegistryDetailScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to mark item as purchased');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to mark item as purchased');
             }
           },
         },

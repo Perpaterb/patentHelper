@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton, Portal, Modal, TextInput, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -150,7 +151,7 @@ export default function GroupsListScreen({ navigation }) {
    */
   const handleSendFeedback = async () => {
     if (!feedbackMessage.trim()) {
-      Alert.alert('Error', 'Please enter your feedback message');
+      CustomAlert.alert('Error', 'Please enter your feedback message');
       return;
     }
 
@@ -160,7 +161,7 @@ export default function GroupsListScreen({ navigation }) {
         message: feedbackMessage.trim(),
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Thank You!',
         'Your feedback has been sent. We appreciate your input!',
         [{ text: 'OK' }]
@@ -176,7 +177,7 @@ export default function GroupsListScreen({ navigation }) {
         return;
       }
 
-      Alert.alert(
+      CustomAlert.alert(
         'Error',
         err.response?.data?.message || 'Failed to send feedback. Please try again.',
         [{ text: 'OK' }]

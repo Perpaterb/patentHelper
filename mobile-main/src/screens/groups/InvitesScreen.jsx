@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
   Title,
@@ -83,7 +84,7 @@ export default function InvitesScreen({ navigation }) {
 
       await api.post(`/invitations/${invitation.groupMemberId}/accept`);
 
-      Alert.alert(
+      CustomAlert.alert(
         'Invitation Accepted',
         `You've joined ${invitation.groupName} as a ${invitation.role}.`,
         [
@@ -109,7 +110,7 @@ export default function InvitesScreen({ navigation }) {
 
       const errorMessage =
         err.response?.data?.message || err.message || 'Failed to accept invitation';
-      Alert.alert('Error', errorMessage);
+      CustomAlert.alert('Error', errorMessage);
     } finally {
       setProcessingInvite(null);
     }
@@ -119,7 +120,7 @@ export default function InvitesScreen({ navigation }) {
    * Handle declining an invitation
    */
   const handleDecline = async (invitation) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Decline Invitation',
       `Are you sure you want to decline the invitation to join ${invitation.groupName}?`,
       [
@@ -149,7 +150,7 @@ export default function InvitesScreen({ navigation }) {
 
               const errorMessage =
                 err.response?.data?.message || err.message || 'Failed to decline invitation';
-              Alert.alert('Error', errorMessage);
+              CustomAlert.alert('Error', errorMessage);
             } finally {
               setProcessingInvite(null);
             }

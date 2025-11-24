@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
   Title,
@@ -172,7 +173,7 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
    */
   const distributeEqually = () => {
     if (!totalAmount || selectedMembers.length === 0) {
-      Alert.alert('Error', 'Please enter a total amount and select members first');
+      CustomAlert.alert('Error', 'Please enter a total amount and select members first');
       return;
     }
 
@@ -202,17 +203,17 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
    */
   const validateForm = () => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter a name for the finance matter');
+      CustomAlert.alert('Validation Error', 'Please enter a name for the finance matter');
       return false;
     }
 
     if (!totalAmount || parseFloat(totalAmount) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid total amount');
+      CustomAlert.alert('Validation Error', 'Please enter a valid total amount');
       return false;
     }
 
     if (selectedMembers.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one member');
+      CustomAlert.alert('Validation Error', 'Please select at least one member');
       return false;
     }
 
@@ -222,12 +223,12 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
     }, 0);
 
     if (totalPercentage > 100) {
-      Alert.alert('Validation Error', `Member allocations cannot exceed 100% (currently ${totalPercentage.toFixed(2)}%)`);
+      CustomAlert.alert('Validation Error', `Member allocations cannot exceed 100% (currently ${totalPercentage.toFixed(2)}%)`);
       return false;
     }
 
     if (totalPercentage < 99) {
-      Alert.alert('Validation Error', `Member allocations must be at least 99% (currently ${totalPercentage.toFixed(2)}%)`);
+      CustomAlert.alert('Validation Error', `Member allocations must be at least 99% (currently ${totalPercentage.toFixed(2)}%)`);
       return false;
     }
 
@@ -238,7 +239,7 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
 
     const total = parseFloat(totalAmount);
     if (totalPaid > total) {
-      Alert.alert(
+      CustomAlert.alert(
         'Validation Error',
         `Total paid amounts (${currency} ${totalPaid.toFixed(2)}) cannot exceed the total amount (${currency} ${total.toFixed(2)})`
       );
@@ -278,7 +279,7 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
 
       await api.post(`/groups/${groupId}/finance-matters`, payload);
 
-      Alert.alert('Success', 'Finance matter created successfully', [
+      CustomAlert.alert('Success', 'Finance matter created successfully', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -289,7 +290,7 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
         return;
       }
 
-      Alert.alert('Error', err.response?.data?.message || 'Failed to create finance matter');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to create finance matter');
     } finally {
       setLoading(false);
     }

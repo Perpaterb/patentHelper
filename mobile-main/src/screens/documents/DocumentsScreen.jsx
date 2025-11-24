@@ -6,15 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { FAB, IconButton, Menu, ActivityIndicator, Avatar } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -156,10 +149,10 @@ export default function DocumentsScreen({ navigation, route }) {
 
       // Add new document to list
       setDocuments((prev) => [response.data.document, ...prev]);
-      Alert.alert('Success', 'Document uploaded successfully');
+      CustomAlert.alert('Success', 'Document uploaded successfully');
     } catch (err) {
       console.error('Upload error:', err);
-      Alert.alert('Error', err.message || 'Failed to upload document');
+      CustomAlert.alert('Error', err.message || 'Failed to upload document');
     } finally {
       setUploading(false);
     }
@@ -176,7 +169,7 @@ export default function DocumentsScreen({ navigation, route }) {
       const downloadUrl = response.data.document.downloadUrl;
 
       if (!downloadUrl) {
-        Alert.alert('Error', 'Download URL not available');
+        CustomAlert.alert('Error', 'Download URL not available');
         return;
       }
 
@@ -189,14 +182,14 @@ export default function DocumentsScreen({ navigation, route }) {
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(downloadResult.uri);
         } else {
-          Alert.alert('Success', 'Document downloaded to cache');
+          CustomAlert.alert('Success', 'Document downloaded to cache');
         }
       } else {
-        Alert.alert('Error', 'Failed to download document');
+        CustomAlert.alert('Error', 'Failed to download document');
       }
     } catch (err) {
       console.error('Download error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to download document');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to download document');
     }
   };
 
@@ -215,7 +208,7 @@ export default function DocumentsScreen({ navigation, route }) {
       setMenuVisible(null);
     } catch (err) {
       console.error('Hide error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to hide document');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to hide document');
     }
   };
 
@@ -234,7 +227,7 @@ export default function DocumentsScreen({ navigation, route }) {
       setMenuVisible(null);
     } catch (err) {
       console.error('Unhide error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to unhide document');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to unhide document');
     }
   };
 
@@ -243,7 +236,7 @@ export default function DocumentsScreen({ navigation, route }) {
    * @param {Object} document - Document to delete
    */
   const handleDelete = (document) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Document',
       `Are you sure you want to delete "${document.fileName}"?`,
       [
@@ -260,7 +253,7 @@ export default function DocumentsScreen({ navigation, route }) {
               setMenuVisible(null);
             } catch (err) {
               console.error('Delete error:', err);
-              Alert.alert(
+              CustomAlert.alert(
                 'Error',
                 err.response?.data?.message || 'Failed to delete document'
               );

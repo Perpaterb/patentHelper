@@ -16,7 +16,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
@@ -62,7 +63,7 @@ const MediaPicker = ({
   const requestCameraPermissions = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
+      CustomAlert.alert(
         'Permission Required',
         'Camera access is required to take photos/videos.',
         [{ text: 'OK' }]
@@ -78,7 +79,7 @@ const MediaPicker = ({
   const requestLibraryPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
+      CustomAlert.alert(
         'Permission Required',
         'Photo library access is required to select photos/videos.',
         [{ text: 'OK' }]
@@ -176,7 +177,7 @@ const MediaPicker = ({
         if (maxSize && finalSize > maxSize) {
           const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1);
           const actualSizeMB = (finalSize / (1024 * 1024)).toFixed(1);
-          Alert.alert(
+          CustomAlert.alert(
             'File Too Large',
             `File size (${actualSizeMB}MB) exceeds maximum allowed size (${maxSizeMB}MB).`,
             [{ text: 'OK' }]
@@ -225,7 +226,7 @@ const MediaPicker = ({
       }
     } catch (error) {
       console.error('Process media error:', error);
-      Alert.alert(
+      CustomAlert.alert(
         'Error',
         'Failed to process media. Please try again.',
         [{ text: 'OK' }]
@@ -258,7 +259,7 @@ const MediaPicker = ({
       await processMedia(result);
     } catch (error) {
       console.error('Camera picker error:', error);
-      Alert.alert(
+      CustomAlert.alert(
         'Error',
         'Failed to open camera. Please try again.',
         [{ text: 'OK' }]
@@ -289,7 +290,7 @@ const MediaPicker = ({
       await processMedia(result);
     } catch (error) {
       console.error('Library picker error:', error);
-      Alert.alert(
+      CustomAlert.alert(
         'Error',
         'Failed to open photo library. Please try again.',
         [{ text: 'OK' }]
@@ -316,7 +317,7 @@ const MediaPicker = ({
       },
     ];
 
-    Alert.alert(
+    CustomAlert.alert(
       profileIcon ? 'Profile Icon' : 'Add Media',
       profileIcon ? 'Choose a photo for your profile icon' : 'Select an option',
       options

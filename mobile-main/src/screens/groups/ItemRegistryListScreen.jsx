@@ -7,7 +7,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, IconButton, Chip, Button, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -100,7 +101,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
       setPersonalRegistries(response.data.registries || []);
     } catch (err) {
       console.error('Load personal registries error:', err);
-      Alert.alert('Error', 'Failed to load personal registries');
+      CustomAlert.alert('Error', 'Failed to load personal registries');
     }
   };
 
@@ -140,7 +141,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
    */
   const handleCreatePersonalRegistry = () => {
     setShowAddModal(false);
-    Alert.alert(
+    CustomAlert.alert(
       'Create Personal Registry',
       'You will be redirected to My Account to create a personal item registry. After creating it, you can return here and link it to this group.',
       [
@@ -170,12 +171,12 @@ export default function ItemRegistryListScreen({ navigation, route }) {
   const handleLinkRegistry = async (registryId, registryName) => {
     try {
       await api.post(`/groups/${groupId}/item-registries/${registryId}/link`);
-      Alert.alert('Success', `"${registryName}" has been linked to this group.`);
+      CustomAlert.alert('Success', `"${registryName}" has been linked to this group.`);
       setShowLinkModal(false);
       loadRegistries(); // Reload list
     } catch (err) {
       console.error('Link registry error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to link registry');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to link registry');
     }
   };
 
@@ -183,7 +184,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
    * Handle delete registry
    */
   const handleDeleteRegistry = async (registryId, registryName) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Registry',
       `Are you sure you want to delete "${registryName}"? This will also delete all items in the registry.`,
       [
@@ -206,7 +207,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete registry');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete registry');
             }
           },
         },
@@ -218,7 +219,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
    * Handle unlink personal registry from group
    */
   const handleUnlinkRegistry = async (registryId, registryName) => {
-    Alert.alert(
+    CustomAlert.alert(
       'Unlink Registry',
       `Are you sure you want to unlink "${registryName}" from this group? The registry will still exist in your personal registries.`,
       [
@@ -241,7 +242,7 @@ export default function ItemRegistryListScreen({ navigation, route }) {
                 return;
               }
 
-              Alert.alert('Error', err.response?.data?.message || 'Failed to unlink registry');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to unlink registry');
             }
           },
         },

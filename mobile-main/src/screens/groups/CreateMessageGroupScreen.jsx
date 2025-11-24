@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import {
   TextInput,
   Button,
@@ -129,7 +130,7 @@ export default function CreateMessageGroupScreen({ navigation, route }) {
         memberIds: selectedMemberIds,
       });
 
-      Alert.alert(
+      CustomAlert.alert(
         'Message Group Created',
         `"${name.trim()}" has been created with ${selectedMemberIds.length} member(s).`,
         [

@@ -6,21 +6,8 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  FlatList,
-  Modal,
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, FlatList, Modal, Animated, Dimensions, KeyboardAvoidingView, Platform,  } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { IconButton, FAB, Searchbar, ActivityIndicator } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
@@ -127,7 +114,7 @@ export default function WikiScreen({ navigation, route }) {
 
   const handleSelectDocument = async (doc) => {
     if (hasChanges) {
-      Alert.alert(
+      CustomAlert.alert(
         'Unsaved Changes',
         'You have unsaved changes. Do you want to discard them?',
         [
@@ -155,13 +142,13 @@ export default function WikiScreen({ navigation, route }) {
       setDrawerOpen(false);
     } catch (err) {
       console.error('Load document error:', err);
-      Alert.alert('Error', 'Failed to load document');
+      CustomAlert.alert('Error', 'Failed to load document');
     }
   };
 
   const handleCreateDocument = async () => {
     if (!newDocTitle.trim()) {
-      Alert.alert('Error', 'Please enter a document title');
+      CustomAlert.alert('Error', 'Please enter a document title');
       return;
     }
 
@@ -181,7 +168,7 @@ export default function WikiScreen({ navigation, route }) {
       setDrawerOpen(false);
     } catch (err) {
       console.error('Create document error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to create document');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to create document');
     }
   };
 
@@ -212,7 +199,7 @@ export default function WikiScreen({ navigation, route }) {
       );
     } catch (err) {
       console.error('Save document error:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to save document');
+      CustomAlert.alert('Error', err.response?.data?.message || 'Failed to save document');
     } finally {
       setSaving(false);
     }
@@ -221,7 +208,7 @@ export default function WikiScreen({ navigation, route }) {
   const handleDeleteDocument = () => {
     if (!selectedDocument) return;
 
-    Alert.alert(
+    CustomAlert.alert(
       'Delete Document',
       `Are you sure you want to delete "${selectedDocument.title}"?`,
       [
@@ -237,7 +224,7 @@ export default function WikiScreen({ navigation, route }) {
               setDrawerOpen(true);
             } catch (err) {
               console.error('Delete document error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to delete document');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to delete document');
             }
           },
         },
