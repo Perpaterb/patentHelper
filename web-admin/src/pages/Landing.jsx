@@ -221,9 +221,9 @@ function Landing() {
               <CircularProgress />
             </Box>
           ) : pricing ? (
-            <Grid container spacing={3} justifyContent="center">
+            <Grid container spacing={2} justifyContent="center">
               {/* Free Members Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} sm={6} lg={4}>
                 <Paper
                   sx={{
                     p: 4,
@@ -263,7 +263,7 @@ function Landing() {
               </Grid>
 
               {/* Admin Subscription Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} sm={6} lg={4}>
                 <Paper
                   sx={{
                     p: 4,
@@ -317,7 +317,7 @@ function Landing() {
               </Grid>
 
               {/* Additional Storage Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} sm={6} lg={4}>
                 <Paper
                   sx={{
                     p: 4,
