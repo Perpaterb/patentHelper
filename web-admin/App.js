@@ -29,8 +29,10 @@ import MessageGroupsListScreen from '../mobile-main/src/screens/groups/MessageGr
 import MessagesScreen from '../mobile-main/src/screens/groups/MessagesScreen';
 import CreateMessageGroupScreen from '../mobile-main/src/screens/groups/CreateMessageGroupScreen';
 import MessageGroupSettingsScreen from '../mobile-main/src/screens/groups/MessageGroupSettingsScreen';
+// Mobile app My Account (in phone frame)
+import MobileMyAccountScreen from '../mobile-main/src/screens/account/MyAccountScreen';
 // Web-admin My Account (different from mobile)
-import MyAccountScreen from './src/screens/MyAccountScreen';
+import WebAdminMyAccountScreen from './src/screens/MyAccountScreen';
 
 // Import calendar screens
 import CalendarScreen from '../mobile-main/src/screens/calendar/CalendarScreen';
@@ -108,7 +110,7 @@ const linking = {
       Subscription: 'subscription',
       Storage: 'storage',
       AuditLogs: 'audit-logs',
-      MyAccount: 'my-account',
+      WebAdminMyAccount: 'web-admin-my-account',
       // Mobile app screens with unique URLs
       Groups: 'web-app',
       GroupDashboard: 'web-app/group/:groupId',
@@ -133,6 +135,7 @@ const linking = {
       CreateSecretSanta: 'web-app/group/:groupId/secret-santa/create',
       ApprovalsList: 'web-app/group/:groupId/approvals',
       AutoApproveSettings: 'web-app/group/:groupId/approvals/auto-approve',
+      MyAccount: 'my-account',
     },
   },
 };
@@ -247,8 +250,11 @@ function AppNavigator() {
             <Stack.Screen name="ApprovalsList" component={withAppLayoutAndPhoneFrame(ApprovalsListScreen, 'Groups')} />
             <Stack.Screen name="AutoApproveSettings" component={withAppLayoutAndPhoneFrame(AutoApproveSettingsScreen, 'Groups')} />
 
-            {/* Account - web-admin version (no phone frame) */}
-            <Stack.Screen name="MyAccount" component={withAppLayout(MyAccountScreen, 'MyAccount')} />
+            {/* Mobile app My Account - in phone frame */}
+            <Stack.Screen name="MyAccount" component={withAppLayoutAndPhoneFrame(MobileMyAccountScreen, 'Groups')} />
+
+            {/* Web-admin My Account - no phone frame */}
+            <Stack.Screen name="WebAdminMyAccount" component={withAppLayout(WebAdminMyAccountScreen, 'MyAccount')} />
 
             {/* Admin-only screens - AppLayout only (no phone frame) */}
             <Stack.Screen name="Subscription" component={withAppLayout(SubscriptionScreen, 'Subscription')} />

@@ -37,7 +37,7 @@ function AppLayout({ children, navigation, currentRoute }) {
   const menuItems = [
     { label: 'Web App', icon: 'apps', route: 'Groups' },
     { label: 'Subscription', icon: 'credit-card', route: 'Subscription' },
-    { label: 'My Account', icon: 'account-circle', route: 'MyAccount' },
+    { label: 'My Account', icon: 'account-circle', route: 'WebAdminMyAccount' },
     ...(isAdmin ? [
       { label: 'Storage Management', icon: 'database', route: 'Storage' },
       { label: 'Audit Logs', icon: 'history', route: 'AuditLogs' },
