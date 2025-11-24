@@ -102,11 +102,11 @@ async function getStorageUsage(req, res) {
       groupUsage[groupId].bytes += bytes;
       groupUsage[groupId].count += 1;
 
-      // Categorize by mime type
-      const mimeType = file.mimeType || '';
-      if (mimeType.startsWith('image/')) {
+      // Categorize by media type
+      const mediaType = file.mediaType || '';
+      if (mediaType.startsWith('image/')) {
         imageBytes += bytes;
-      } else if (mimeType.startsWith('video/')) {
+      } else if (mediaType.startsWith('video/')) {
         videoBytes += bytes;
       } else {
         documentBytes += bytes;
@@ -200,27 +200,33 @@ async function getGroupFiles(req, res) {
     const pendingDeletions = await prisma.approval.findMany({
       where: {
         groupId: groupId,
-        actionType: 'delete_file',
+        approvalType: 'delete_file',
         status: 'pending',
       },
       select: {
-        targetId: true,
+        relatedEntityId: true,
       },
     });
-    const pendingMediaIds = new Set(pendingDeletions.map(a => a.targetId));
+    const pendingMediaIds = new Set(pendingDeletions.map(a => a.relatedEntityId));
 
     // Format files
-    let files = mediaFiles.map(file => ({
-      mediaId: file.mediaId,
-      fileName: file.fileName || 'Unnamed file',
-      fileSizeBytes: Number(file.fileSizeBytes),
-      mimeType: file.mimeType,
-      uploadedAt: file.uploadedAt,
-      url: file.url,
-      thumbnailUrl: file.thumbnailUrl,
-      pendingDeletion: pendingMediaIds.has(file.mediaId),
-      isLog: false,
-    }));
+    let files = mediaFiles.map(file => {
+      // Extract filename from s3Key (e.g., "uploads/messages/uuid/filename.jpg")
+      const s3KeyParts = file.s3Key ? file.s3Key.split('/') : [];
+      const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : 'Unnamed file';
+
+      return {
+        mediaId: file.mediaId,
+        fileName: fileName,
+        fileSizeBytes: Number(file.fileSizeBytes),
+        mimeType: file.mediaType, // Use mediaType field from schema
+        uploadedAt: file.uploadedAt,
+        url: file.url,
+        thumbnailUrl: file.thumbnailUrl,
+        pendingDeletion: pendingMediaIds.has(file.mediaId),
+        isLog: false,
+      };
+    });
 
     // Sort files
     files.sort((a, b) => {
@@ -313,8 +319,8 @@ async function requestFileDeletion(req, res) {
     const existingRequest = await prisma.approval.findFirst({
       where: {
         groupId: groupId,
-        actionType: 'delete_file',
-        targetId: mediaId,
+        approvalType: 'delete_file',
+        relatedEntityId: mediaId,
         status: 'pending',
       },
     });
@@ -338,19 +344,33 @@ async function requestFileDeletion(req, res) {
       },
     });
 
-    const requiredVotes = Math.floor(admins.length / 2) + 1; // >50%
+    // Extract filename from s3Key
+    const s3KeyParts = media.s3Key ? media.s3Key.split('/') : [];
+    const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : 'Unnamed file';
 
     // Create approval request
     const approval = await prisma.approval.create({
       data: {
         groupId: groupId,
-        actionType: 'delete_file',
-        targetId: mediaId,
+        approvalType: 'delete_file',
+        relatedEntityType: 'message_media',
+        relatedEntityId: mediaId,
         requestedBy: membership.groupMemberId,
         status: 'pending',
-        requiredVotes: requiredVotes,
-        currentVotes: 1, // Requester automatically votes yes
-        description: `Delete file: ${media.fileName || 'Unnamed file'}`,
+        approvalData: {
+          fileName: fileName,
+          fileSizeBytes: Number(media.fileSizeBytes),
+        },
+      },
+    });
+
+    // Create auto-approval vote for the requester
+    await prisma.approvalVote.create({
+      data: {
+        approvalId: approval.approvalId,
+        adminId: membership.groupMemberId,
+        vote: 'approve',
+        isAutoApproved: false,
       },
     });
 
@@ -378,7 +398,7 @@ async function requestFileDeletion(req, res) {
         performedByName: membership.displayName || 'Unknown',
         performedByEmail: req.user.email,
         actionLocation: 'storage',
-        messageContent: `Requested deletion of file: ${media.fileName || 'Unnamed file'}`,
+        messageContent: `Requested deletion of file: ${fileName}`,
       },
     });
 
@@ -387,9 +407,9 @@ async function requestFileDeletion(req, res) {
       message: 'Deletion request submitted for admin approval',
       approval: {
         approvalId: approval.approvalId,
-        requiredVotes: requiredVotes,
-        currentVotes: 1,
         status: 'pending',
+        totalAdmins: admins.length,
+        votesReceived: 1,
       },
     });
   } catch (error) {
