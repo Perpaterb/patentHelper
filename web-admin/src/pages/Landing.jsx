@@ -223,15 +223,18 @@ function Landing() {
               <CircularProgress />
             </Box>
           ) : pricing ? (
-            <Grid container spacing={2} justifyContent="center">
+            <Grid container spacing={2} justifyContent="center" sx={{ alignItems: 'stretch' }}>
               {/* Free Members Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   sx={{
                     p: 4,
                     textAlign: 'center',
                     borderRadius: 2,
                     height: '100%',
+                    width: 320,
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -265,7 +268,7 @@ function Landing() {
               </Grid>
 
               {/* Admin Subscription Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   sx={{
                     p: 4,
@@ -274,6 +277,9 @@ function Landing() {
                     borderColor: 'primary.main',
                     borderRadius: 2,
                     height: '100%',
+                    width: 320,
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -319,13 +325,16 @@ function Landing() {
               </Grid>
 
               {/* Additional Storage Card */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   sx={{
                     p: 4,
                     textAlign: 'center',
                     borderRadius: 2,
                     height: '100%',
+                    width: 320,
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
