@@ -7,9 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
-  Grid,
   Card,
   CardContent,
   CardActionArea,
@@ -32,6 +30,7 @@ import AddIcon from '@mui/icons-material/Add';
 import GroupIcon from '@mui/icons-material/Group';
 import MailIcon from '@mui/icons-material/Mail';
 import api from '../../services/api';
+import PhoneFrame from '../../components/layout/PhoneFrame';
 
 function Groups() {
   const navigate = useNavigate();
@@ -147,103 +146,113 @@ function Groups() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading groups...</Typography>
-      </Container>
+      <PhoneFrame>
+        <Box sx={{ textAlign: 'center', pt: 8 }}>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>Loading groups...</Typography>
+        </Box>
+      </PhoneFrame>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4">My Groups</Typography>
-        <Box>
-          {pendingInvitations.length > 0 && (
-            <IconButton
-              color="primary"
-              onClick={() => setInvitesDialogOpen(true)}
-              sx={{ mr: 2 }}
-            >
-              <Badge badgeContent={pendingInvitations.length} color="error">
-                <MailIcon />
-              </Badge>
-            </IconButton>
+    <>
+      <PhoneFrame>
+        <Box sx={{ p: 2 }}>
+          {/* Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">My Groups</Typography>
+            <Box>
+              {pendingInvitations.length > 0 && (
+                <IconButton
+                  color="primary"
+                  onClick={() => setInvitesDialogOpen(true)}
+                  size="small"
+                  sx={{ mr: 1 }}
+                >
+                  <Badge badgeContent={pendingInvitations.length} color="error">
+                    <MailIcon />
+                  </Badge>
+                </IconButton>
+              )}
+              <IconButton
+                color="primary"
+                onClick={() => setCreateDialogOpen(true)}
+                size="small"
+              >
+                <AddIcon />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
           )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            Create Group
-          </Button>
-        </Box>
-      </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Groups Grid */}
-      {groups.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <GroupIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No Groups Yet
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Create your first group to get started.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            Create Group
-          </Button>
-        </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {groups.map((group) => (
-            <Grid item xs={12} sm={6} md={4} key={group.groupId}>
-              <Card>
-                <CardActionArea onClick={() => navigate(`/groups/${group.groupId}`)}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: group.iconColor || 'primary.main',
-                          mr: 2,
-                          width: 48,
-                          height: 48,
-                        }}
-                      >
-                        {getInitials(group.name)}
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="h6" noWrap>
-                          {group.name}
-                        </Typography>
-                        <Chip
-                          label={group.role}
-                          size="small"
-                          color={getRoleColor(group.role)}
-                        />
+          {/* Groups List */}
+          {groups.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <GroupIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                No Groups Yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Create your first group to get started.
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                Create Group
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {groups.map((group) => (
+                <Card key={group.groupId}>
+                  <CardActionArea onClick={() => navigate(`/groups/${group.groupId}`)}>
+                    <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar
+                          sx={{
+                            bgcolor: group.iconColor || 'primary.main',
+                            mr: 1.5,
+                            width: 40,
+                            height: 40,
+                            fontSize: '0.9rem',
+                          }}
+                        >
+                          {getInitials(group.name)}
+                        </Avatar>
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Typography variant="subtitle1" noWrap>
+                            {group.name}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={group.role}
+                              size="small"
+                              color={getRoleColor(group.role)}
+                              sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              {group.memberCount || 0} member{group.memberCount !== 1 ? 's' : ''}
+                            </Typography>
+                          </Box>
+                        </Box>
                       </Box>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {group.memberCount || 0} member{group.memberCount !== 1 ? 's' : ''}
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </PhoneFrame>
 
       {/* Create Group Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -324,7 +333,7 @@ function Groups() {
           <Button onClick={() => setInvitesDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </>
   );
 }
 

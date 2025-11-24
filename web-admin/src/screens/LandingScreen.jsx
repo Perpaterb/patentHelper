@@ -1,0 +1,383 @@
+/**
+ * Landing Screen
+ *
+ * Public landing page showcasing app features and pricing.
+ * React Native version of the old Landing.jsx
+ */
+
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import {
+  Text,
+  Button,
+  Card,
+  Title,
+  Paragraph,
+  Surface,
+  ActivityIndicator,
+} from 'react-native-paper';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import api from '../services/api';
+
+export default function LandingScreen({ navigation }) {
+  const { login, register, isAuthenticated, isLoading } = useKindeAuth();
+  const [pricing, setPricing] = useState(null);
+  const [pricingLoading, setPricingLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigation.navigate('Groups');
+    }
+  }, [isAuthenticated, isLoading, navigation]);
+
+  useEffect(() => {
+    fetchPricing();
+  }, []);
+
+  async function fetchPricing() {
+    try {
+      const response = await api.get('/subscriptions/pricing');
+      setPricing(response.data.pricing);
+    } catch (err) {
+      console.error('Failed to fetch pricing:', err);
+    } finally {
+      setPricingLoading(false);
+    }
+  }
+
+  function formatPrice(amount, currency) {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: currency?.toUpperCase() || 'AUD',
+      minimumFractionDigits: 2,
+    }).format(amount / 100);
+  }
+
+  const features = [
+    { icon: '🔒', title: 'Secure & Encrypted Messaging', description: 'End-to-end encrypted group messaging with media sharing, mentions, and read receipts.' },
+    { icon: '📅', title: 'Shared Calendar', description: 'Coordinate schedules with events, child responsibilities, and handoff tracking.' },
+    { icon: '💰', title: 'Finance Tracking', description: 'Track shared expenses, balances, and financial communications.' },
+    { icon: '🎁', title: 'Gift Registry', description: 'Manage wish lists and gift registries for birthdays and holidays.' },
+    { icon: '🎅', title: 'Secret Santa', description: 'Organize gift exchanges with automatic matching and anonymous wishlists.' },
+    { icon: '📖', title: 'Wiki Documents', description: 'Create and share important documents with rich text editing.' },
+    { icon: '📁', title: 'Secure Storage', description: 'Upload and manage important documents securely.' },
+    { icon: '📜', title: 'Audit Logs', description: 'Complete history of all actions for accountability, legal compliance, and court order adherence.' },
+  ];
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>Family Helper</Text>
+        <View style={styles.headerButtons}>
+          <Button mode="text" onPress={() => login()}>Login</Button>
+          <Button mode="contained" onPress={() => register()}>Sign Up</Button>
+        </View>
+      </View>
+
+      {/* Hero Section */}
+      <Surface style={styles.hero}>
+        <Title style={styles.heroTitle}>
+          Co-Parenting & Family Management Made Easy
+        </Title>
+        <Paragraph style={styles.heroSubtitle}>
+          All-in-one family and co-parenting app. Coordinate schedules, share expenses,
+          and communicate securely with only the people you need and want to.
+        </Paragraph>
+        <Button
+          mode="contained"
+          onPress={() => register()}
+          style={styles.ctaButton}
+          labelStyle={styles.ctaButtonLabel}
+        >
+          Start Free 20-Day Trial
+        </Button>
+        <Text style={styles.noCreditCard}>No credit card required</Text>
+      </Surface>
+
+      {/* Features Section */}
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>Everything You Need</Title>
+        <View style={styles.featuresGrid}>
+          {features.map((feature, index) => (
+            <Card key={index} style={styles.featureCard}>
+              <Card.Content style={styles.featureContent}>
+                <Text style={styles.featureIcon}>{feature.icon}</Text>
+                <Title style={styles.featureTitle}>{feature.title}</Title>
+                <Paragraph style={styles.featureDescription}>{feature.description}</Paragraph>
+              </Card.Content>
+            </Card>
+          ))}
+        </View>
+      </View>
+
+      {/* Pricing Section */}
+      <Surface style={styles.pricingSection}>
+        <Title style={styles.sectionTitle}>Simple, Transparent Pricing</Title>
+
+        {pricingLoading ? (
+          <ActivityIndicator />
+        ) : pricing ? (
+          <View style={styles.pricingGrid}>
+            {/* Free Members Card */}
+            <Card style={styles.pricingCard}>
+              <Card.Content>
+                <Title style={styles.pricingTitle}>Group Members</Title>
+                <Text style={styles.priceAmount}>Free</Text>
+                <Text style={styles.priceInterval}>forever</Text>
+                <View style={styles.featureList}>
+                  {['Parents', 'Children', 'Caregivers', 'Supervisors'].map((item, i) => (
+                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
+                  ))}
+                </View>
+                <Paragraph style={styles.pricingNote}>
+                  All features included when invited to a group
+                </Paragraph>
+              </Card.Content>
+            </Card>
+
+            {/* Admin Subscription Card */}
+            <Card style={[styles.pricingCard, styles.highlightedCard]}>
+              <Card.Content>
+                <Title style={styles.pricingTitle}>{pricing.adminSubscription.name}</Title>
+                <Text style={styles.priceAmount}>
+                  {formatPrice(pricing.adminSubscription.amount, pricing.adminSubscription.currency)}
+                </Text>
+                <Text style={styles.priceInterval}>per {pricing.adminSubscription.interval}</Text>
+                <View style={styles.featureList}>
+                  {['Full admin access', '10GB storage included', 'Unlimited groups', 'Audit log exports', 'Secure messaging', 'Shared calendar'].map((item, i) => (
+                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
+                  ))}
+                </View>
+                <Button mode="contained" onPress={() => register()} style={styles.pricingButton}>
+                  Start Free Trial
+                </Button>
+                <Paragraph style={styles.pricingNote}>Minimum 1 admin per group</Paragraph>
+              </Card.Content>
+            </Card>
+
+            {/* Additional Storage Card */}
+            <Card style={styles.pricingCard}>
+              <Card.Content>
+                <Title style={styles.pricingTitle}>{pricing.additionalStorage.name}</Title>
+                <Text style={styles.priceAmount}>
+                  {formatPrice(pricing.additionalStorage.amount, pricing.additionalStorage.currency)}
+                </Text>
+                <Text style={styles.priceInterval}>per 2GB / {pricing.additionalStorage.interval}</Text>
+                <View style={styles.featureList}>
+                  {['Automatic billing as needed', 'Store more media files', 'Keep more documents', 'No storage limits'].map((item, i) => (
+                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
+                  ))}
+                </View>
+                <Paragraph style={styles.pricingNote}>Only for admins</Paragraph>
+              </Card.Content>
+            </Card>
+          </View>
+        ) : (
+          <Text style={styles.errorText}>Unable to load pricing information.</Text>
+        )}
+      </Surface>
+
+      {/* CTA Section */}
+      <View style={styles.ctaSection}>
+        <Title style={styles.ctaSectionTitle}>Ready to Get Started?</Title>
+        <Paragraph style={styles.ctaSectionText}>
+          Join families who are already using Family Helper to stay organized and connected.
+        </Paragraph>
+        <Button mode="contained" onPress={() => register()} style={styles.ctaButton}>
+          Create Your Account
+        </Button>
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          © {new Date().getFullYear()} Family Helper. All rights reserved.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  logo: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hero: {
+    padding: 40,
+    alignItems: 'center',
+    backgroundColor: '#1976d2',
+  },
+  heroTitle: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 58,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+    opacity: 0.9,
+    marginBottom: 24,
+    maxWidth: 600,
+  },
+  ctaButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  ctaButtonLabel: {
+    fontSize: 16,
+  },
+  noCreditCard: {
+    color: '#fff',
+    opacity: 0.8,
+    marginTop: 8,
+  },
+  section: {
+    padding: 32,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  featureCard: {
+    width: 280,
+    margin: 8,
+  },
+  featureContent: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  featureIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  featureDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#666',
+  },
+  pricingSection: {
+    padding: 32,
+    backgroundColor: '#fff',
+  },
+  pricingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  pricingCard: {
+    width: 320,
+    margin: 8,
+  },
+  highlightedCard: {
+    borderWidth: 2,
+    borderColor: '#1976d2',
+  },
+  pricingTitle: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  priceAmount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#1976d2',
+  },
+  priceInterval: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 16,
+  },
+  featureList: {
+    marginBottom: 16,
+  },
+  featureItem: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  pricingButton: {
+    marginBottom: 8,
+  },
+  pricingNote: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: '#666',
+  },
+  ctaSection: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  ctaSectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  ctaSectionText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  footer: {
+    padding: 24,
+    backgroundColor: '#333',
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#fff',
+  },
+  errorText: {
+    textAlign: 'center',
+    color: '#666',
+  },
+});

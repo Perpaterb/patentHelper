@@ -23,9 +23,9 @@ import Account from './pages/Account';
 import Logs from './pages/Logs';
 import AuthCallback from './pages/AuthCallback';
 
-// App Pages (ported from mobile)
-import Groups from './pages/app/Groups';
-import GroupDashboard from './pages/app/GroupDashboard';
+// App Pages (React Native Web - imported from mobile-main)
+import MobileGroups from './pages/app/MobileGroups';
+// TODO: Import more mobile screens as they are set up
 
 // Create Material-UI theme
 const theme = createTheme({
@@ -169,23 +169,16 @@ function AppRoutes() {
             }
           />
 
-          {/* App Routes (ported from mobile) */}
+          {/* App Routes (React Native Web from mobile-main) */}
           <Route
             path="/groups"
             element={
               <ProtectedRoute>
-                <Groups />
+                <MobileGroups />
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/groups/:groupId/*"
-            element={
-              <ProtectedRoute>
-                <GroupDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* TODO: Add more mobile screen routes as they are set up */}
 
           {/* Fallback - redirect to landing */}
           <Route path="*" element={<Navigate to="/" replace />} />

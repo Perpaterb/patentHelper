@@ -2,41 +2,41 @@
  * Environment Configuration
  *
  * Centralized configuration for environment variables.
- * All environment variables must be prefixed with REACT_APP_
+ * Expo uses EXPO_PUBLIC_ prefix for client-side variables
  */
 
 const config = {
   // API Configuration
   api: {
-    url: process.env.REACT_APP_API_URL || 'http://localhost:3000',
-    timeout: parseInt(process.env.REACT_APP_API_TIMEOUT) || 30000,
+    url: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
+    timeout: parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT) || 30000,
   },
 
   // Kinde Authentication
   kinde: {
-    domain: process.env.REACT_APP_KINDE_DOMAIN || 'https://parentinghelper.kinde.com',
-    clientId: process.env.REACT_APP_KINDE_CLIENT_ID || '',
-    redirectUri: process.env.REACT_APP_KINDE_REDIRECT_URI || 'http://localhost:3001/auth/callback',
-    logoutRedirectUri: process.env.REACT_APP_KINDE_LOGOUT_REDIRECT_URI || 'http://localhost:3001',
+    domain: process.env.EXPO_PUBLIC_KINDE_DOMAIN || 'https://parentinghelper.kinde.com',
+    clientId: process.env.EXPO_PUBLIC_KINDE_CLIENT_ID || '',
+    redirectUri: process.env.EXPO_PUBLIC_KINDE_REDIRECT_URI || 'http://localhost:3001/auth/callback',
+    logoutRedirectUri: process.env.EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI || 'http://localhost:3001',
   },
 
   // Stripe
   stripe: {
-    publishableKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || '',
+    publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
   },
 
   // App Configuration
   app: {
-    name: process.env.REACT_APP_NAME || 'Parenting Helper Admin',
-    version: process.env.REACT_APP_VERSION || '1.0.0',
-    environment: process.env.REACT_APP_ENVIRONMENT || 'development',
+    name: process.env.EXPO_PUBLIC_APP_NAME || 'Parenting Helper Admin',
+    version: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
+    environment: process.env.EXPO_PUBLIC_APP_ENVIRONMENT || 'development',
   },
 
   // Feature Flags
   features: {
-    subscriptions: process.env.REACT_APP_ENABLE_SUBSCRIPTIONS === 'true',
-    logExports: process.env.REACT_APP_ENABLE_LOG_EXPORTS === 'true',
-    storageManagement: process.env.REACT_APP_ENABLE_STORAGE_MANAGEMENT === 'true',
+    subscriptions: process.env.EXPO_PUBLIC_ENABLE_SUBSCRIPTIONS === 'true',
+    logExports: process.env.EXPO_PUBLIC_ENABLE_LOG_EXPORTS === 'true',
+    storageManagement: process.env.EXPO_PUBLIC_ENABLE_STORAGE_MANAGEMENT === 'true',
   },
 };
 

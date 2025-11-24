@@ -22,11 +22,11 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import GroupIcon from '@mui/icons-material/Group';
+import AppsIcon from '@mui/icons-material/Apps';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import DownloadIcon from '@mui/icons-material/Download';
+import StorageIcon from '@mui/icons-material/Storage';
+import HistoryIcon from '@mui/icons-material/History';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 const drawerWidth = 240;
@@ -49,21 +49,22 @@ function AppLayout({ children }) {
     logout();
   };
 
+  // TODO: Get isAdmin from user context/API to conditionally show admin-only items
+  const isAdmin = true; // Placeholder - replace with actual admin check
+
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'My Groups', icon: <GroupIcon />, path: '/groups' },
+    { text: 'Web App', icon: <AppsIcon />, path: '/groups' },
     { text: 'Subscription', icon: <SubscriptionsIcon />, path: '/subscription' },
     { text: 'My Account', icon: <AccountCircleIcon />, path: '/account' },
-    { text: 'Log Exports', icon: <DownloadIcon />, path: '/logs' },
+    ...(isAdmin ? [
+      { text: 'Storage Management', icon: <StorageIcon />, path: '/storage' },
+      { text: 'Audit Logs', icon: <HistoryIcon />, path: '/logs' },
+    ] : []),
   ];
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap>
-          FH Admin
-        </Typography>
-      </Toolbar>
+      <Toolbar />
       <Divider />
       <List>
         {menuItems.map((item) => (
