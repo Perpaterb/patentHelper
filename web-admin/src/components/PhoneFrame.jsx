@@ -39,11 +39,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 8,
     borderColor: '#1a1a1a',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 32,
-    elevation: 16,
+    boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.3)',
+    elevation: 16, // Keep for Android native support
   },
   notch: {
     position: 'absolute',

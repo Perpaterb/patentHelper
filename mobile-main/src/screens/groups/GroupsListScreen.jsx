@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   errorSubtext: {
     fontSize: 14,
     color: '#666',
-    textDecoration: 'underline',
+    textDecorationLine: 'underline',
   },
   fab: {
     position: 'absolute',
