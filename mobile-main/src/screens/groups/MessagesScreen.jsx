@@ -48,7 +48,7 @@ export default function MessagesScreen({ navigation, route }) {
   const [selectedMentions, setSelectedMentions] = useState([]);
   const [longPressedMessage, setLongPressedMessage] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [attachedMedia, setAttachedMedia] = useState([]); // Array of {fileId, type, url}
+  const [attachedMedia, setAttachedMedia] = useState([]); // Array of {fileId, type, url, mimeType, fileSizeBytes}
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
@@ -273,6 +273,8 @@ export default function MessagesScreen({ navigation, route }) {
         fileId: file.fileId,
         type: file.mimeType.startsWith('image/') ? 'image' : 'video',
         url: file.fileId,
+        mimeType: file.mimeType,
+        fileSizeBytes: file.size,
       }));
 
       setAttachedMedia([...attachedMedia, ...mediaItems]);
@@ -329,7 +331,8 @@ export default function MessagesScreen({ navigation, route }) {
       if (attachedMedia.length > 0) {
         payload.mediaFiles = attachedMedia.map(m => ({
           fileId: m.fileId,
-          mimeType: m.type === 'image' ? 'image/jpeg' : 'video/mp4',
+          mimeType: m.mimeType || (m.type === 'image' ? 'image/jpeg' : 'video/mp4'),
+          fileSizeBytes: m.fileSizeBytes || 0,
         }));
       }
 

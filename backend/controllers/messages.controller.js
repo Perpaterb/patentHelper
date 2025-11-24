@@ -406,12 +406,12 @@ async function sendMessageGroupMessage(req, res) {
     // Validate media files if provided
     let mediaFiles = [];
     if (mediaFilesInput && Array.isArray(mediaFilesInput) && mediaFilesInput.length > 0) {
-      // Use media file info provided by client (includes mimeType)
+      // Use media file info provided by client (includes mimeType and fileSizeBytes)
       mediaFiles = mediaFilesInput.map(file => ({
         fileId: file.fileId,
         mimeType: file.mimeType,
         s3Key: file.fileId,
-        fileSizeBytes: 0, // Size will be tracked separately in storage
+        fileSizeBytes: file.fileSizeBytes || 0, // Use file size from upload response
       }));
     }
 
