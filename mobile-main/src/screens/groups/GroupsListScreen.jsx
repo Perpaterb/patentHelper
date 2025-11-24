@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
+import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton, Portal, Modal, TextInput, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
@@ -33,6 +33,9 @@ export default function GroupsListScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [invitationCount, setInvitationCount] = useState(0);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [sendingFeedback, setSendingFeedback] = useState(false);
 
   useEffect(() => {
     loadGroups(true); // Show loading spinner on initial mount
@@ -133,6 +136,54 @@ export default function GroupsListScreen({ navigation }) {
    */
   const handleCreateGroup = () => {
     navigation.navigate('CreateGroup');
+  };
+
+  /**
+   * Handle contact support / feedback - open modal
+   */
+  const handleContactSupport = () => {
+    setFeedbackModalVisible(true);
+  };
+
+  /**
+   * Send feedback email via backend
+   */
+  const handleSendFeedback = async () => {
+    if (!feedbackMessage.trim()) {
+      Alert.alert('Error', 'Please enter your feedback message');
+      return;
+    }
+
+    setSendingFeedback(true);
+    try {
+      await api.post('/feedback', {
+        message: feedbackMessage.trim(),
+      });
+
+      Alert.alert(
+        'Thank You!',
+        'Your feedback has been sent. We appreciate your input!',
+        [{ text: 'OK' }]
+      );
+
+      setFeedbackMessage('');
+      setFeedbackModalVisible(false);
+    } catch (err) {
+      console.error('Error sending feedback:', err);
+
+      // Don't show error if it's an auth error
+      if (err.isAuthError) {
+        return;
+      }
+
+      Alert.alert(
+        'Error',
+        err.response?.data?.message || 'Failed to send feedback. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSendingFeedback(false);
+    }
   };
 
   /**
@@ -398,11 +449,67 @@ export default function GroupsListScreen({ navigation }) {
       />
 
       <FAB
+        style={styles.fabSupport}
+        label={"Support\nFeedback"}
+        size="small"
+        onPress={handleContactSupport}
+      />
+
+      <FAB
         style={styles.fab}
         icon="plus"
         label="Create Group"
         onPress={handleCreateGroup}
       />
+
+      {/* Feedback Modal */}
+      <Portal>
+        <Modal
+          visible={feedbackModalVisible}
+          onDismiss={() => {
+            setFeedbackModalVisible(false);
+            setFeedbackMessage('');
+          }}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <Text style={styles.modalTitle}>Contact Support</Text>
+          <Text style={styles.modalSubtitle}>
+            Share your feedback, suggest new features, or report issues
+          </Text>
+          <TextInput
+            mode="outlined"
+            label="Your message"
+            value={feedbackMessage}
+            onChangeText={setFeedbackMessage}
+            multiline
+            numberOfLines={6}
+            style={styles.feedbackInput}
+            placeholder="Tell us what you think..."
+          />
+          <View style={styles.modalButtons}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                setFeedbackModalVisible(false);
+                setFeedbackMessage('');
+              }}
+              style={styles.modalButton}
+              disabled={sendingFeedback}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleSendFeedback}
+              style={styles.modalButton}
+              loading={sendingFeedback}
+              disabled={sendingFeedback || !feedbackMessage.trim()}
+            >
+              Send
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     </View>
   );
 }
@@ -525,5 +632,40 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: '#6200ee',
+  },
+  fabSupport: {
+    position: 'absolute',
+    margin: 16,
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#757575',
+    paddingHorizontal: 0,
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  feedbackInput: {
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalButton: {
+    minWidth: 80,
   },
 });
