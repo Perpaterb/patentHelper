@@ -108,6 +108,7 @@ const linking = {
       Subscription: 'subscription',
       Storage: 'storage',
       AuditLogs: 'audit-logs',
+      MyAccount: 'my-account',
       // Mobile app screens with unique URLs
       Groups: 'web-app',
       GroupDashboard: 'web-app/group/:groupId',
@@ -132,7 +133,6 @@ const linking = {
       CreateSecretSanta: 'web-app/group/:groupId/secret-santa/create',
       ApprovalsList: 'web-app/group/:groupId/approvals',
       AutoApproveSettings: 'web-app/group/:groupId/approvals/auto-approve',
-      MyAccount: 'web-app/my-account',
     },
   },
 };
