@@ -10,6 +10,24 @@ const logsController = require('../controllers/logs.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 /**
+ * GET /logs/groups/:groupId
+ * Get audit logs for a group
+ *
+ * Requires authentication
+ *
+ * Query params:
+ * - page: Page number (default 1)
+ * - limit: Items per page (default 20)
+ *
+ * Response:
+ * - 200: Audit logs returned
+ * - 401: Not authenticated
+ * - 403: Not admin of group
+ * - 500: Server error
+ */
+router.get('/groups/:groupId', requireAuth, logsController.getAuditLogs);
+
+/**
  * POST /logs/exports
  * Request a new log export
  *

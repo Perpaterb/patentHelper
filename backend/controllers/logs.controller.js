@@ -9,6 +9,100 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const encryptionService = require('../services/encryption.service');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+/**
+ * Get audit logs for a group
+ * GET /logs/groups/:groupId
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function getAuditLogs(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is admin of this group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 'admin',
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin of this group to view audit logs',
+      });
+    }
+
+    // Get total count for pagination
+    const totalLogs = await prisma.auditLog.count({
+      where: { groupId: groupId },
+    });
+
+    // Get logs with pagination
+    const logs = await prisma.auditLog.findMany({
+      where: { groupId: groupId },
+      orderBy: { performedAt: 'desc' },
+      skip: skip,
+      take: limit,
+      select: {
+        logId: true,
+        action: true,
+        actionLocation: true,
+        performedByName: true,
+        performedByEmail: true,
+        performedAt: true,
+        messageContent: true,
+        mediaLinks: true,
+      },
+    });
+
+    // Map the response to match frontend expectations
+    const formattedLogs = logs.map(log => ({
+      logId: log.logId,
+      action: log.action,
+      actionLocation: log.actionLocation || 'Unknown',
+      performedByName: log.performedByName || 'Unknown',
+      performedByEmail: log.performedByEmail,
+      createdAt: log.performedAt,
+      messageContent: log.messageContent || '',
+      mediaLinks: log.mediaLinks || [],
+    }));
+
+    res.status(200).json({
+      success: true,
+      logs: formattedLogs,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: totalLogs,
+        totalPages: Math.ceil(totalLogs / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Get audit logs error:', error);
+    res.status(500).json({
+      error: 'Failed to get audit logs',
+      message: error.message,
+    });
+  }
+}
 
 /**
  * Request a new log export
@@ -252,6 +346,7 @@ async function downloadExport(req, res) {
 }
 
 module.exports = {
+  getAuditLogs,
   requestExport,
   getExports,
   downloadExport,
