@@ -145,8 +145,10 @@ function Landing() {
         }}
       >
         <Container maxWidth="md">
-          <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-            Co-Parenting & Family Management Made Easy
+          <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
+            Co-Parenting & Family Management
+            <br />
+            Made Easy
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
             All-in-one family and co-parenting app. Coordinate schedules, share expenses,
