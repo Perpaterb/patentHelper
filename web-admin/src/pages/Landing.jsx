@@ -146,7 +146,9 @@ function Landing() {
       >
         <Container maxWidth="md">
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Family Coordination Made Easy
+            Co-Parenting & Family Management
+            <br />
+            Made Easy
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
             Coordinate schedules, share expenses, and communicate securely with your family.
@@ -221,8 +223,49 @@ function Landing() {
               <CircularProgress />
             </Box>
           ) : pricing ? (
-            <Grid container spacing={4} justifyContent="center">
-              <Grid item xs={12} md={6}>
+            <Grid container spacing={3} justifyContent="center">
+              {/* Free Members Card */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  sx={{
+                    p: 4,
+                    textAlign: 'center',
+                    borderRadius: 2,
+                    height: '100%',
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Group Members
+                  </Typography>
+                  <Typography variant="h3" color="success.main" sx={{ mb: 1 }}>
+                    Free
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    forever
+                  </Typography>
+
+                  <Box sx={{ textAlign: 'left', mb: 3 }}>
+                    {[
+                      'Parents',
+                      'Children',
+                      'Caregivers',
+                      'Supervisors',
+                    ].map((item, index) => (
+                      <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                        <Typography variant="body2">{item}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary">
+                    All features included when invited to a group
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              {/* Admin Subscription Card */}
+              <Grid item xs={12} md={4}>
                 <Paper
                   sx={{
                     p: 4,
@@ -230,6 +273,7 @@ function Landing() {
                     border: '2px solid',
                     borderColor: 'primary.main',
                     borderRadius: 2,
+                    height: '100%',
                   }}
                 >
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -263,18 +307,25 @@ function Landing() {
                     fullWidth
                     size="large"
                     onClick={() => register()}
+                    sx={{ mb: 2 }}
                   >
                     Start Free Trial
                   </Button>
+
+                  <Typography variant="caption" color="text.secondary">
+                    Minimum 1 admin per group
+                  </Typography>
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              {/* Additional Storage Card */}
+              <Grid item xs={12} md={4}>
                 <Paper
                   sx={{
                     p: 4,
                     textAlign: 'center',
                     borderRadius: 2,
+                    height: '100%',
                   }}
                 >
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -301,8 +352,12 @@ function Landing() {
                     ))}
                   </Box>
 
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Only charged when you exceed 10GB
+                  </Typography>
+
+                  <Typography variant="caption" color="text.secondary">
+                    Only for admins
                   </Typography>
                 </Paper>
               </Grid>
