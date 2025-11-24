@@ -23,6 +23,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import GroupIcon from '@mui/icons-material/Group';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -50,6 +51,7 @@ function AppLayout({ children }) {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'My Groups', icon: <GroupIcon />, path: '/groups' },
     { text: 'Subscription', icon: <SubscriptionsIcon />, path: '/subscription' },
     { text: 'My Account', icon: <AccountCircleIcon />, path: '/account' },
     { text: 'Log Exports', icon: <DownloadIcon />, path: '/logs' },

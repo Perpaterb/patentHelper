@@ -24,6 +24,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import SubscriptionsIcon from '@mui/icons-material/Subscriptions';
 import DownloadIcon from '@mui/icons-material/Download';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import GroupIcon from '@mui/icons-material/Group';
 import WarningIcon from '@mui/icons-material/Warning';
 import api from '../services/api';
 
@@ -301,6 +302,27 @@ function Dashboard() {
       </Typography>
 
       <Grid container spacing={3}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Paper
+            sx={{
+              p: 3,
+              cursor: 'pointer',
+              '&:hover': {
+                boxShadow: 6,
+              },
+            }}
+            onClick={() => navigate('/groups')}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <GroupIcon color="primary" sx={{ mr: 1 }} />
+              <Typography variant="h6">My Groups</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              View and manage your groups
+            </Typography>
+          </Paper>
+        </Grid>
+
         <Grid item xs={12} sm={6} md={4}>
           <Paper
             sx={{

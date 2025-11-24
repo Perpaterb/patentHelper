@@ -17,10 +17,15 @@ import AppLayout from './components/layout/AppLayout';
 // Pages
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import Landing from './pages/Landing';
 import Subscription from './pages/Subscription';
 import Account from './pages/Account';
 import Logs from './pages/Logs';
 import AuthCallback from './pages/AuthCallback';
+
+// App Pages (ported from mobile)
+import Groups from './pages/app/Groups';
+import GroupDashboard from './pages/app/GroupDashboard';
 
 // Create Material-UI theme
 const theme = createTheme({
@@ -126,10 +131,11 @@ function AppRoutes() {
       <Router>
         <Routes>
           {/* Public Routes */}
+          <Route path="/welcome" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* Protected Routes */}
+          {/* Admin Dashboard Routes */}
           <Route
             path="/"
             element={
@@ -159,6 +165,24 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <Logs />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* App Routes (ported from mobile) */}
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute>
+                <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups/:groupId/*"
+            element={
+              <ProtectedRoute>
+                <GroupDashboard />
               </ProtectedRoute>
             }
           />
