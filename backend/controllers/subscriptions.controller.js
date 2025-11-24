@@ -138,6 +138,45 @@ async function getCurrentSubscription(req, res) {
       });
     }
 
+    // Calculate storage used by user (files in groups where they are admin)
+    // Get all groups where user is admin
+    const adminGroups = await prisma.groupMember.findMany({
+      where: {
+        userId: req.user.userId,
+        role: 'admin',
+      },
+      select: {
+        groupId: true,
+      },
+    });
+
+    const adminGroupIds = adminGroups.map(g => g.groupId);
+
+    // Sum all file sizes from MessageMedia in those groups
+    let storageUsedBytes = BigInt(0);
+
+    if (adminGroupIds.length > 0) {
+      const mediaResult = await prisma.messageMedia.aggregate({
+        where: {
+          message: {
+            messageGroup: {
+              groupId: {
+                in: adminGroupIds,
+              },
+            },
+          },
+        },
+        _sum: {
+          fileSizeBytes: true,
+        },
+      });
+
+      storageUsedBytes = mediaResult._sum.fileSizeBytes || BigInt(0);
+    }
+
+    // Convert bytes to GB (divide by 1024^3)
+    const storageUsedGb = (Number(storageUsedBytes) / (1024 * 1024 * 1024)).toFixed(2);
+
     // TODO: Replace with actual subscription data from Stripe
     // For now, return trial/subscription info based on isSubscribed flag
     if (user.isSubscribed) {
@@ -162,7 +201,7 @@ async function getCurrentSubscription(req, res) {
           // Frontend compatibility fields
           startDate: user.subscriptionStartDate || user.createdAt, // Fallback to account creation if not set
           endDate: hasScheduledCancellation ? user.subscriptionEndDate : null, // Only set if canceling
-          storageUsedGb: '0.00', // TODO: Calculate from actual storage usage
+          storageUsedGb: storageUsedGb,
           stripe: {
             currentPeriodEnd: new Date(periodEnd).toISOString(),
           },
@@ -184,6 +223,7 @@ async function getCurrentSubscription(req, res) {
           daysRemaining: daysRemaining,
           trialEndsAt: new Date(new Date(user.createdAt).getTime() + 20 * 24 * 60 * 60 * 1000).toISOString(),
           createdAt: user.createdAt, // For frontend trial calculation
+          storageUsedGb: storageUsedGb,
         },
       });
     }
