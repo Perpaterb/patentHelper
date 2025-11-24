@@ -64,7 +64,7 @@ export default function AuditLogsScreen({ navigation }) {
     try {
       const response = await api.get('/groups');
       const adminGroups = response.data.groups.filter(
-        (g) => g.currentUserRole === 'admin'
+        (g) => g.role === 'admin'
       );
       setGroups(adminGroups);
       if (adminGroups.length > 0) {
