@@ -7,12 +7,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import * as SecureStore from 'expo-secure-store';
 import config from './src/config/env';
+
+// Layout components
+import AppLayout from './src/components/AppLayout';
+import PhoneFrame from './src/components/PhoneFrame';
 
 // Import screens from mobile-main (single source of truth)
 import GroupsListScreen from '../mobile-main/src/screens/groups/GroupsListScreen';
@@ -25,7 +29,8 @@ import MessageGroupsListScreen from '../mobile-main/src/screens/groups/MessageGr
 import MessagesScreen from '../mobile-main/src/screens/groups/MessagesScreen';
 import CreateMessageGroupScreen from '../mobile-main/src/screens/groups/CreateMessageGroupScreen';
 import MessageGroupSettingsScreen from '../mobile-main/src/screens/groups/MessageGroupSettingsScreen';
-import MyAccountScreen from '../mobile-main/src/screens/account/MyAccountScreen';
+// Web-admin My Account (different from mobile)
+import MyAccountScreen from './src/screens/MyAccountScreen';
 
 // Import calendar screens
 import CalendarScreen from '../mobile-main/src/screens/calendar/CalendarScreen';
@@ -56,6 +61,41 @@ import StorageScreen from './src/screens/StorageScreen';
 import AuditLogsScreen from './src/screens/AuditLogsScreen';
 
 const Stack = createStackNavigator();
+
+// Wrapper to add PhoneFrame around mobile screens
+function withPhoneFrame(ScreenComponent) {
+  return function WrappedScreen(props) {
+    return (
+      <PhoneFrame>
+        <ScreenComponent {...props} />
+      </PhoneFrame>
+    );
+  };
+}
+
+// Wrapper to add AppLayout around admin screens
+function withAppLayout(ScreenComponent, routeName) {
+  return function WrappedScreen(props) {
+    return (
+      <AppLayout navigation={props.navigation} currentRoute={routeName}>
+        <ScreenComponent {...props} />
+      </AppLayout>
+    );
+  };
+}
+
+// Wrapper for mobile screens: AppLayout + PhoneFrame
+function withAppLayoutAndPhoneFrame(ScreenComponent, routeName) {
+  return function WrappedScreen(props) {
+    return (
+      <AppLayout navigation={props.navigation} currentRoute={routeName}>
+        <PhoneFrame>
+          <ScreenComponent {...props} />
+        </PhoneFrame>
+      </AppLayout>
+    );
+  };
+}
 
 // Linking configuration for web URLs
 const linking = {
@@ -164,56 +204,56 @@ function AppNavigator() {
         }}
       >
         {!isAuthenticated ? (
-          // Auth screens
+          // Auth screens (no layout)
           <>
             <Stack.Screen name="Landing" component={LandingScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
           </>
         ) : (
-          // Authenticated screens
+          // Authenticated screens (with AppLayout)
           <>
-            {/* Groups */}
-            <Stack.Screen name="Groups" component={GroupsListScreen} />
-            <Stack.Screen name="GroupDashboard" component={GroupDashboardScreen} />
-            <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
-            <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
-            <Stack.Screen name="Invites" component={InvitesScreen} />
-            <Stack.Screen name="InviteMember" component={InviteMemberScreen} />
+            {/* Mobile app screens - AppLayout + PhoneFrame */}
+            <Stack.Screen name="Groups" component={withAppLayoutAndPhoneFrame(GroupsListScreen, 'Groups')} />
+            <Stack.Screen name="GroupDashboard" component={withAppLayoutAndPhoneFrame(GroupDashboardScreen, 'Groups')} />
+            <Stack.Screen name="GroupSettings" component={withAppLayoutAndPhoneFrame(GroupSettingsScreen, 'Groups')} />
+            <Stack.Screen name="CreateGroup" component={withAppLayoutAndPhoneFrame(CreateGroupScreen, 'Groups')} />
+            <Stack.Screen name="Invites" component={withAppLayoutAndPhoneFrame(InvitesScreen, 'Groups')} />
+            <Stack.Screen name="InviteMember" component={withAppLayoutAndPhoneFrame(InviteMemberScreen, 'Groups')} />
 
             {/* Messages */}
-            <Stack.Screen name="MessageGroupsList" component={MessageGroupsListScreen} />
-            <Stack.Screen name="Messages" component={MessagesScreen} />
-            <Stack.Screen name="CreateMessageGroup" component={CreateMessageGroupScreen} />
-            <Stack.Screen name="MessageGroupSettings" component={MessageGroupSettingsScreen} />
+            <Stack.Screen name="MessageGroupsList" component={withAppLayoutAndPhoneFrame(MessageGroupsListScreen, 'Groups')} />
+            <Stack.Screen name="Messages" component={withAppLayoutAndPhoneFrame(MessagesScreen, 'Groups')} />
+            <Stack.Screen name="CreateMessageGroup" component={withAppLayoutAndPhoneFrame(CreateMessageGroupScreen, 'Groups')} />
+            <Stack.Screen name="MessageGroupSettings" component={withAppLayoutAndPhoneFrame(MessageGroupSettingsScreen, 'Groups')} />
 
             {/* Calendar */}
-            <Stack.Screen name="Calendar" component={CalendarScreen} />
-            <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
-            <Stack.Screen name="EditEvent" component={EditEventScreen} />
+            <Stack.Screen name="Calendar" component={withAppLayoutAndPhoneFrame(CalendarScreen, 'Groups')} />
+            <Stack.Screen name="CreateEvent" component={withAppLayoutAndPhoneFrame(CreateEventScreen, 'Groups')} />
+            <Stack.Screen name="EditEvent" component={withAppLayoutAndPhoneFrame(EditEventScreen, 'Groups')} />
 
             {/* Finance */}
-            <Stack.Screen name="Finance" component={FinanceListScreen} />
+            <Stack.Screen name="Finance" component={withAppLayoutAndPhoneFrame(FinanceListScreen, 'Groups')} />
 
             {/* Registries */}
-            <Stack.Screen name="GiftRegistryList" component={GiftRegistryListScreen} />
-            <Stack.Screen name="GiftRegistryDetail" component={GiftRegistryDetailScreen} />
-            <Stack.Screen name="ItemRegistryList" component={ItemRegistryListScreen} />
-            <Stack.Screen name="ItemRegistryDetail" component={ItemRegistryDetailScreen} />
-            <Stack.Screen name="SecretSantaList" component={SecretSantaListScreen} />
-            <Stack.Screen name="SecretSantaDetail" component={SecretSantaDetailScreen} />
-            <Stack.Screen name="CreateSecretSanta" component={CreateSecretSantaScreen} />
+            <Stack.Screen name="GiftRegistryList" component={withAppLayoutAndPhoneFrame(GiftRegistryListScreen, 'Groups')} />
+            <Stack.Screen name="GiftRegistryDetail" component={withAppLayoutAndPhoneFrame(GiftRegistryDetailScreen, 'Groups')} />
+            <Stack.Screen name="ItemRegistryList" component={withAppLayoutAndPhoneFrame(ItemRegistryListScreen, 'Groups')} />
+            <Stack.Screen name="ItemRegistryDetail" component={withAppLayoutAndPhoneFrame(ItemRegistryDetailScreen, 'Groups')} />
+            <Stack.Screen name="SecretSantaList" component={withAppLayoutAndPhoneFrame(SecretSantaListScreen, 'Groups')} />
+            <Stack.Screen name="SecretSantaDetail" component={withAppLayoutAndPhoneFrame(SecretSantaDetailScreen, 'Groups')} />
+            <Stack.Screen name="CreateSecretSanta" component={withAppLayoutAndPhoneFrame(CreateSecretSantaScreen, 'Groups')} />
 
             {/* Approvals */}
-            <Stack.Screen name="ApprovalsList" component={ApprovalsListScreen} />
-            <Stack.Screen name="AutoApproveSettings" component={AutoApproveSettingsScreen} />
+            <Stack.Screen name="ApprovalsList" component={withAppLayoutAndPhoneFrame(ApprovalsListScreen, 'Groups')} />
+            <Stack.Screen name="AutoApproveSettings" component={withAppLayoutAndPhoneFrame(AutoApproveSettingsScreen, 'Groups')} />
 
-            {/* Account */}
-            <Stack.Screen name="MyAccount" component={MyAccountScreen} />
+            {/* Account - web-admin version (no phone frame) */}
+            <Stack.Screen name="MyAccount" component={withAppLayout(MyAccountScreen, 'MyAccount')} />
 
-            {/* Admin-only (web) */}
-            <Stack.Screen name="Subscription" component={SubscriptionScreen} />
-            <Stack.Screen name="Storage" component={StorageScreen} />
-            <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
+            {/* Admin-only screens - AppLayout only (no phone frame) */}
+            <Stack.Screen name="Subscription" component={withAppLayout(SubscriptionScreen, 'Subscription')} />
+            <Stack.Screen name="Storage" component={withAppLayout(StorageScreen, 'Storage')} />
+            <Stack.Screen name="AuditLogs" component={withAppLayout(AuditLogsScreen, 'AuditLogs')} />
           </>
         )}
       </Stack.Navigator>

@@ -36,7 +36,8 @@ config.resolver.extraNodeModules = new Proxy(
     'react-native-paper': path.resolve(webAdminNodeModules, 'react-native-paper'),
     '@react-navigation/native': path.resolve(webAdminNodeModules, '@react-navigation/native'),
     '@react-navigation/stack': path.resolve(webAdminNodeModules, '@react-navigation/stack'),
-    'expo-secure-store': path.resolve(webAdminNodeModules, 'expo-secure-store'),
+    // Use web polyfill for expo-secure-store (localStorage instead of native)
+    'expo-secure-store': path.resolve(__dirname, 'src/polyfills/expo-secure-store.js'),
     '@expo/vector-icons': path.resolve(webAdminNodeModules, '@expo/vector-icons'),
   },
   {
