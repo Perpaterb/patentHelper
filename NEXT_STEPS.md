@@ -1,14 +1,22 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-11-23)
+## Current Status (Updated: 2025-11-24)
 
-Currently working on: **Feature Complete - Testing Phase**
+Currently working on: **Mobile App Feature Complete - Ready for Web Admin App**
 
-**Just completed (2025-11-23):**
+**Just completed (2025-11-24):**
+- ✅ USER_STORIES.md created with 100+ test scenarios
+- ✅ Testing infrastructure set up (Jest, React Testing Library)
+- ✅ Support/Feedback button on Groups List screen
+- ✅ Verified all major features implemented
+
+**Previously completed (2025-11-23):**
 - ✅ Wiki feature with Markdown editing and document management
 - ✅ Secure Document Storage (upload, download, hide/unhide by admins)
 - ✅ Comprehensive audit logging for ALL member actions
 - ✅ API documentation updated for all new endpoints
+- ✅ Photo/Video upload in Messages, Gift Registry, Profile
+- ✅ Calendar event dots and child event lines in Month view
 
 **Audit Logging Coverage:**
 - Messages: send, read, hide
@@ -31,10 +39,10 @@ Currently working on: **Feature Complete - Testing Phase**
 - ✅ Tappable day cells navigate to Day view at 12pm
 - ✅ Swipe left/right to navigate between months
 
-**TODO:**
-- Add event dots at bottom of calendar cells
-- Add child event lines in top 70% of cells
-- Testing and bug fixes
+**Completed (previously listed as TODO):**
+- ✅ Event dots at bottom of calendar cells
+- ✅ Child event lines in top 70% of cells
+- ✅ Photo/Video upload in Messages, Gift Registry, Profile
 
 ## Recently Completed Tasks
 
@@ -445,19 +453,24 @@ Currently working on: **Feature Complete - Testing Phase**
 **Files modified:**
 - `mobile-main/src/screens/calendar/CalendarScreen.jsx`
 
-## Pending Calendar Tasks
+## Calendar Tasks Status
 
-### High Priority
+### Completed
 - [x] Make child event lines tappable (navigate to edit screen)
-- [ ] Implement handoff indicator at event end time
 - [x] Create EditChildEventScreen with delete functionality
-- [ ] Add event color coding by category/member
-- [ ] Add member tagging to events for notifications
-- [ ] Add event reminder/notification settings
+- [x] Event dots in Month view cells
+- [x] Child event lines rendering with overlap algorithm
 
-### Backend Integration (Deferred to Phase 6)
-- [ ] Add event approval workflows for admin-restricted groups
-- [ ] Implement event notifications (push/email)
+### UI Only (Backend Integration Deferred to Phase 6)
+- [ ] Handoff indicator at event end time (UI placeholder exists)
+- [ ] Event color coding by category/member (uses default colors)
+- [ ] Member tagging to events for notifications
+- [ ] Event reminder/notification settings
+
+### Backend Integration (Phase 6 - AWS Deployment)
+- [ ] Push notification delivery
+- [ ] Email notification delivery
+- [ ] Event approval workflows for admin-restricted groups
 
 ## Git Commit Rules (MANDATORY)
 
@@ -511,32 +524,29 @@ Currently working on: **Feature Complete - Testing Phase**
 - Toggle button text can highlight on some devices (removed background styling to fix)
 - Time component must be preserved when changing dates in Day view
 
-## Photo/Video Upload Implementation (In Progress)
+## Photo/Video Upload Implementation (COMPLETE)
 
-### Current Status (2025-11-14)
-Currently working on: **Photo/Video Upload System - Backend Complete**
+### Status (2025-11-24)
+**All mobile app upload features implemented and tested.**
 
-**Just completed:**
-- ✅ Implemented admin storage tracking in localStorageService
-  - Tracks storage against ALL admins in group (not just uploader)
+**Backend - Complete:**
+- ✅ Admin storage tracking in localStorageService
+  - Tracks storage against ALL admins in group
   - Updates storage_usage table per user+group+mediaType
   - Updates users.storageUsedBytes for billing
   - Returns chargedAdminIds for audit logging
-- ✅ Updated file upload endpoints with authentication
-  - Added requireAuth middleware to upload routes
+- ✅ File upload endpoints with authentication
+  - requireAuth middleware on all upload routes
   - Group membership validation
   - File size limits per category (5MB-100MB)
-  - Expanded category support (gift-registry, wiki, item-registry)
-- ✅ Implemented audit logging for all uploads
-  - Logs file details and charged admin names
-  - Complete paper trail for compliance
+  - Category support: messages, gift-registry, wiki, item-registry, profile-photos
+- ✅ Audit logging for all uploads
 
-**Next tasks:**
-- [ ] Create mobile MediaPicker component (Expo ImagePicker)
-- [ ] Integrate photo upload into Messages
-- [ ] Integrate photo upload into Gift Registry items
-- [ ] Integrate photo upload into User Profile (My Account)
-- [ ] Test upload functionality in mobile app
+**Frontend - Complete:**
+- ✅ MediaPicker component (Expo ImagePicker)
+- ✅ Photo/Video upload in Messages (with preview and send)
+- ✅ Photo upload in Gift Registry items
+- ✅ Profile photo upload (My Account/Settings)
 
 ### Future: Admin File Deletion (Web App Only)
 
@@ -566,9 +576,31 @@ See `PHOTO_VIDEO_UPLOAD_PLAN.md` Section 8 for complete specification:
 - Email notification system
 - Scheduled task system (for 24hr grace period)
 
-## Next Session Priorities
+## Next Phase: Web Admin App Development
 
-1. Create MediaPicker component for mobile photo/video selection
-2. Integrate upload functionality into Messages screen
-3. Integrate upload functionality into Gift Registry items
-4. Test upload flow end-to-end on real device
+**Mobile App Status: FEATURE COMPLETE** (as of 2025-11-24)
+
+All core features for mobile-main are implemented:
+- Authentication (Kinde)
+- Groups & Members management
+- Messaging with media upload
+- Calendar (Month/Day views, events, child responsibilities)
+- Finance tracking
+- Gift Registry with photos
+- Wiki with document management
+- Secure Document Storage
+- Profile photos
+- Support/Feedback form
+- Audit logging (all actions)
+
+**Not Implemented (Deferred to Phase 6):**
+- Push notifications (requires AWS SNS)
+- Email notifications (requires AWS SES)
+- Event approval workflows
+
+**Next Steps:**
+1. Begin web-admin app development (React)
+2. Implement subscription management with Stripe
+3. Create admin dashboard and storage management
+4. Build audit log export functionality
+5. Test web-mobile integration (subscribe on web → access on mobile)
