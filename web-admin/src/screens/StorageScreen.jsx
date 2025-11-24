@@ -2,11 +2,14 @@
  * Storage Screen
  *
  * Admin-only screen for viewing and managing storage usage.
+ * Shows breakdown by groups, with ability to drill into each group
+ * and manage individual files with admin approval for deletion.
+ *
  * React Native Paper version for web-admin.
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
 import {
   Text,
   Button,
@@ -17,7 +20,14 @@ import {
   ActivityIndicator,
   ProgressBar,
   Divider,
+  IconButton,
+  Chip,
+  Portal,
+  Dialog,
+  Menu,
+  DataTable,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../services/api';
 
 export default function StorageScreen({ navigation }) {
@@ -25,12 +35,34 @@ export default function StorageScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Group detail view state
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupFiles, setGroupFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('size'); // 'size', 'name', 'date'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+
+  // Delete confirmation state
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+
   useEffect(() => {
     fetchStorage();
   }, []);
 
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchGroupFiles(selectedGroup.groupId);
+    }
+  }, [selectedGroup, sortBy, sortOrder]);
+
   async function fetchStorage() {
     try {
+      setLoading(true);
+      setError(null);
       const response = await api.get('/storage/usage');
       setStorage(response.data.storage);
     } catch (err) {
@@ -41,12 +73,61 @@ export default function StorageScreen({ navigation }) {
     }
   }
 
+  async function fetchGroupFiles(groupId) {
+    try {
+      setFilesLoading(true);
+      const response = await api.get(`/storage/groups/${groupId}/files`, {
+        params: { sortBy, sortOrder }
+      });
+      setGroupFiles(response.data.files || []);
+    } catch (err) {
+      console.error('Failed to fetch group files:', err);
+      setGroupFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  }
+
+  async function handleDeleteFile() {
+    if (!fileToDelete) return;
+
+    try {
+      setDeleting(true);
+      await api.post(`/storage/files/${fileToDelete.mediaId}/delete-request`);
+
+      setSuccessMessage(
+        'Deletion request submitted. Other admins will be notified for approval (requires >50% admin votes).'
+      );
+      setDeleteDialogVisible(false);
+      setFileToDelete(null);
+
+      // Refresh the file list
+      if (selectedGroup) {
+        fetchGroupFiles(selectedGroup.groupId);
+      }
+    } catch (err) {
+      console.error('Failed to request deletion:', err);
+      setError(err.response?.data?.message || 'Failed to request file deletion');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-AU', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   function getUsageColor(percentage) {
@@ -55,10 +136,30 @@ export default function StorageScreen({ navigation }) {
     return '#4caf50';
   }
 
+  function getFileIcon(mimeType) {
+    if (!mimeType) return 'file';
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'music';
+    if (mimeType.includes('pdf')) return 'file-pdf-box';
+    return 'file-document';
+  }
+
+  function toggleSort(field) {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+    setSortMenuVisible(false);
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>Loading storage information...</Text>
       </View>
     );
   }
@@ -67,138 +168,353 @@ export default function StorageScreen({ navigation }) {
     ? (storage.usedBytes / storage.totalBytes) * 100
     : 0;
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Button
-          mode="text"
-          onPress={() => navigation.goBack()}
-          icon="arrow-left"
-        >
-          Back
-        </Button>
-        <Title style={styles.headerTitle}>Storage</Title>
-        <View style={{ width: 80 }} />
-      </View>
+  // If viewing a specific group's files
+  if (selectedGroup) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          {/* Back button and group title */}
+          <View style={styles.groupHeader}>
+            <Button
+              mode="text"
+              onPress={() => {
+                setSelectedGroup(null);
+                setGroupFiles([]);
+              }}
+              icon="arrow-left"
+            >
+              Back to Overview
+            </Button>
+          </View>
 
-      {error ? (
-        <Surface style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Button mode="contained" onPress={fetchStorage}>
-            Retry
-          </Button>
-        </Surface>
-      ) : storage ? (
-        <>
-          {/* Usage Overview */}
+          <Title style={styles.pageTitle}>{selectedGroup.name} - Storage</Title>
+          <Paragraph style={styles.pageSubtitle}>
+            {formatBytes(selectedGroup.usedBytes)} used across {groupFiles.length} files
+          </Paragraph>
+
+          {/* Success Message */}
+          {successMessage && (
+            <Surface style={styles.alertSuccess}>
+              <Text style={styles.alertSuccessText}>{successMessage}</Text>
+              <Button compact onPress={() => setSuccessMessage(null)}>Dismiss</Button>
+            </Surface>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <Surface style={styles.alertError}>
+              <Text style={styles.alertErrorText}>{error}</Text>
+              <Button compact onPress={() => setError(null)}>Dismiss</Button>
+            </Surface>
+          )}
+
+          {/* Sort controls */}
           <Card style={styles.card}>
             <Card.Content>
-              <Title>Storage Usage</Title>
-              <Divider style={styles.divider} />
-              <View style={styles.usageContainer}>
-                <View style={styles.usageHeader}>
-                  <Text style={styles.usageText}>
-                    {formatBytes(storage.usedBytes)} of {formatBytes(storage.totalBytes)} used
-                  </Text>
-                  <Text style={[styles.usagePercent, { color: getUsageColor(usagePercentage) }]}>
-                    {usagePercentage.toFixed(1)}%
-                  </Text>
-                </View>
-                <ProgressBar
-                  progress={usagePercentage / 100}
-                  color={getUsageColor(usagePercentage)}
-                  style={styles.progressBar}
-                />
+              <View style={styles.sortRow}>
+                <Text style={styles.sortLabel}>Sort by:</Text>
+                <Menu
+                  visible={sortMenuVisible}
+                  onDismiss={() => setSortMenuVisible(false)}
+                  anchor={
+                    <Button
+                      mode="outlined"
+                      onPress={() => setSortMenuVisible(true)}
+                      icon={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
+                    >
+                      {sortBy === 'size' ? 'Size' : sortBy === 'name' ? 'Name' : 'Date'}
+                    </Button>
+                  }
+                >
+                  <Menu.Item
+                    onPress={() => toggleSort('size')}
+                    title="Size"
+                    leadingIcon={sortBy === 'size' ? 'check' : undefined}
+                  />
+                  <Menu.Item
+                    onPress={() => toggleSort('name')}
+                    title="Name"
+                    leadingIcon={sortBy === 'name' ? 'check' : undefined}
+                  />
+                  <Menu.Item
+                    onPress={() => toggleSort('date')}
+                    title="Date"
+                    leadingIcon={sortBy === 'date' ? 'check' : undefined}
+                  />
+                </Menu>
               </View>
-              {usagePercentage >= 80 && (
-                <Surface style={styles.warningBanner}>
-                  <Text style={styles.warningText}>
-                    {usagePercentage >= 90
-                      ? 'Storage almost full! Consider upgrading or removing files.'
-                      : 'Storage is getting full. Consider upgrading soon.'}
-                  </Text>
-                </Surface>
+            </Card.Content>
+          </Card>
+
+          {/* Files list */}
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title>Files</Title>
+              <Divider style={styles.divider} />
+
+              {filesLoading ? (
+                <View style={styles.filesLoading}>
+                  <ActivityIndicator size="small" />
+                  <Text style={styles.filesLoadingText}>Loading files...</Text>
+                </View>
+              ) : groupFiles.length === 0 ? (
+                <Text style={styles.noFilesText}>No files in this group</Text>
+              ) : (
+                groupFiles.map((file) => (
+                  <View key={file.mediaId} style={styles.fileRow}>
+                    <View style={styles.fileInfo}>
+                      <MaterialCommunityIcons
+                        name={getFileIcon(file.mimeType)}
+                        size={24}
+                        color="#666"
+                        style={styles.fileIcon}
+                      />
+                      <View style={styles.fileDetails}>
+                        <Text style={styles.fileName} numberOfLines={1}>
+                          {file.fileName || 'Unnamed file'}
+                        </Text>
+                        <Text style={styles.fileMeta}>
+                          {formatBytes(file.fileSizeBytes)} • {formatDate(file.uploadedAt)}
+                        </Text>
+                        {file.pendingDeletion && (
+                          <Chip style={styles.pendingChip} textStyle={styles.pendingChipText}>
+                            Pending deletion approval
+                          </Chip>
+                        )}
+                      </View>
+                    </View>
+                    {!file.pendingDeletion && !file.isLog && (
+                      <IconButton
+                        icon="delete"
+                        iconColor="#d32f2f"
+                        size={20}
+                        onPress={() => {
+                          setFileToDelete(file);
+                          setDeleteDialogVisible(true);
+                        }}
+                      />
+                    )}
+                    {file.isLog && (
+                      <Chip style={styles.logChip} textStyle={styles.logChipText}>
+                        Log
+                      </Chip>
+                    )}
+                  </View>
+                ))
               )}
             </Card.Content>
           </Card>
 
-          {/* Breakdown by Type */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <Title>Breakdown</Title>
-              <Divider style={styles.divider} />
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Images</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatBytes(storage.breakdown?.images || 0)}
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Videos</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatBytes(storage.breakdown?.videos || 0)}
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Documents</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatBytes(storage.breakdown?.documents || 0)}
-                </Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Audit Logs</Text>
-                <Text style={styles.breakdownValue}>
-                  {formatBytes(storage.breakdown?.logs || 0)}
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
+          {/* Important note about logs */}
+          <Surface style={styles.infoBox}>
+            <MaterialCommunityIcons name="information" size={20} color="#1976d2" />
+            <Text style={styles.infoText}>
+              Audit logs cannot be deleted as they are required for compliance.
+              File deletions require approval from more than 50% of group admins
+              and will remove the file from all admins' storage.
+            </Text>
+          </Surface>
+        </View>
 
-          {/* Storage by Group */}
-          {storage.groups?.length > 0 && (
+        {/* Delete Confirmation Dialog */}
+        <Portal>
+          <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+            <Dialog.Title>Request File Deletion</Dialog.Title>
+            <Dialog.Content>
+              <Paragraph>
+                Request to delete "{fileToDelete?.fileName || 'this file'}"?
+              </Paragraph>
+              <Paragraph style={styles.dialogWarning}>
+                This will require approval from more than 50% of group admins.
+                Once approved, the file will be permanently deleted from all admins' storage.
+              </Paragraph>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
+              <Button
+                onPress={handleDeleteFile}
+                loading={deleting}
+                textColor="#d32f2f"
+              >
+                Request Deletion
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+      </ScrollView>
+    );
+  }
+
+  // Main storage overview
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
+        <Title style={styles.pageTitle}>Storage Management</Title>
+        <Paragraph style={styles.pageSubtitle}>
+          View and manage storage usage across your groups
+        </Paragraph>
+
+        {/* Error Message */}
+        {error && (
+          <Surface style={styles.alertError}>
+            <Text style={styles.alertErrorText}>{error}</Text>
+            <Button compact onPress={() => setError(null)}>Dismiss</Button>
+          </Surface>
+        )}
+
+        {storage ? (
+          <>
+            {/* Usage Overview */}
             <Card style={styles.card}>
               <Card.Content>
-                <Title>By Group</Title>
+                <Title>Total Storage Usage</Title>
                 <Divider style={styles.divider} />
-                {storage.groups.map((group, index) => (
-                  <View key={index} style={styles.groupRow}>
-                    <Text style={styles.groupName} numberOfLines={1}>
-                      {group.name}
+                <View style={styles.usageContainer}>
+                  <View style={styles.usageHeader}>
+                    <Text style={styles.usageText}>
+                      {formatBytes(storage.usedBytes)} of {formatBytes(storage.totalBytes)} used
                     </Text>
-                    <Text style={styles.groupUsage}>
-                      {formatBytes(group.usedBytes)}
+                    <Text style={[styles.usagePercent, { color: getUsageColor(usagePercentage) }]}>
+                      {usagePercentage.toFixed(1)}%
                     </Text>
                   </View>
-                ))}
+                  <ProgressBar
+                    progress={usagePercentage / 100}
+                    color={getUsageColor(usagePercentage)}
+                    style={styles.progressBar}
+                  />
+                </View>
+                {usagePercentage >= 80 && (
+                  <Surface style={styles.warningBanner}>
+                    <Text style={styles.warningText}>
+                      {usagePercentage >= 90
+                        ? 'Storage almost full! Consider removing files or upgrading.'
+                        : 'Storage is getting full. Consider reviewing large files.'}
+                    </Text>
+                  </Surface>
+                )}
               </Card.Content>
             </Card>
-          )}
 
-          {/* Upgrade Storage */}
+            {/* Breakdown by Type */}
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title>Breakdown by Type</Title>
+                <Divider style={styles.divider} />
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="image" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Images</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.images || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="video" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Videos</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.videos || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="file-document" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Documents</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.documents || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="history" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Audit Logs</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.logs || 0)}
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+
+            {/* Storage by Group - Clickable */}
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title>Storage by Group</Title>
+                <Paragraph style={styles.groupsSubtitle}>
+                  Click a group to view and manage its files
+                </Paragraph>
+                <Divider style={styles.divider} />
+                {storage.groups?.length > 0 ? (
+                  storage.groups.map((group) => (
+                    <Pressable
+                      key={group.groupId}
+                      style={({ pressed }) => [
+                        styles.groupRow,
+                        pressed && styles.groupRowPressed,
+                      ]}
+                      onPress={() => setSelectedGroup(group)}
+                    >
+                      <View style={styles.groupInfo}>
+                        <Text style={styles.groupName} numberOfLines={1}>
+                          {group.name}
+                        </Text>
+                        <Text style={styles.groupMeta}>
+                          {group.fileCount || 0} files
+                        </Text>
+                      </View>
+                      <View style={styles.groupRight}>
+                        <Text style={styles.groupUsage}>
+                          {formatBytes(group.usedBytes)}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#666" />
+                      </View>
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text style={styles.noGroupsText}>
+                    No groups found. You need to be an admin of a group to see its storage.
+                  </Text>
+                )}
+              </Card.Content>
+            </Card>
+
+            {/* Storage Pricing Info */}
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title>Storage Pricing</Title>
+                <Divider style={styles.divider} />
+                <Paragraph>
+                  Your subscription includes 10GB of storage. Additional storage is automatically
+                  added at $AUD 1.00 per 2GB per month when you exceed your base allocation.
+                </Paragraph>
+                <Surface style={styles.infoBox}>
+                  <MaterialCommunityIcons name="information" size={20} color="#1976d2" />
+                  <Text style={styles.infoText}>
+                    When you become an admin of a group, you receive a copy of all existing
+                    files and audit logs. This counts towards your storage usage.
+                  </Text>
+                </Surface>
+              </Card.Content>
+            </Card>
+          </>
+        ) : (
           <Card style={styles.card}>
             <Card.Content>
-              <Title>Need More Storage?</Title>
-              <Divider style={styles.divider} />
+              <Title>No Storage Data</Title>
               <Paragraph>
-                Additional storage is available at $2 per 2GB per month.
-                Storage is automatically added when you exceed your limit.
+                Unable to load storage information at this time.
               </Paragraph>
-              <Button mode="contained" style={styles.button}>
-                Manage Storage Plan
+              <Button mode="contained" onPress={fetchStorage} style={styles.retryButton}>
+                Retry
               </Button>
             </Card.Content>
           </Card>
-        </>
-      ) : (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>No Storage Data</Title>
-            <Paragraph>
-              Unable to load storage information at this time.
-            </Paragraph>
-          </Card.Content>
-        </Card>
-      )}
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -208,37 +524,67 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  content: {
+    padding: 24,
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  loadingText: {
+    marginTop: 16,
+    color: '#666',
+  },
+  pageTitle: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  pageSubtitle: {
+    color: '#666',
+    marginBottom: 24,
+  },
+  groupHeader: {
+    marginBottom: 16,
+  },
+  // Alert styles
+  alertError: {
+    backgroundColor: '#ffebee',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  alertErrorText: {
+    color: '#c62828',
+    flex: 1,
+  },
+  alertSuccess: {
+    backgroundColor: '#e8f5e9',
     padding: 16,
-    backgroundColor: '#fff',
-  },
-  headerTitle: {
-    fontSize: 20,
-  },
-  card: {
-    margin: 16,
-    marginBottom: 8,
-  },
-  errorCard: {
-    margin: 16,
-    padding: 24,
+    borderRadius: 8,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  errorText: {
-    color: '#d32f2f',
+  alertSuccessText: {
+    color: '#2e7d32',
+    flex: 1,
+  },
+  // Cards
+  card: {
     marginBottom: 16,
   },
   divider: {
     marginVertical: 12,
   },
+  // Usage display
   usageContainer: {
     marginBottom: 16,
   },
@@ -267,34 +613,163 @@ const styles = StyleSheet.create({
     color: '#e65100',
     fontSize: 12,
   },
+  // Breakdown
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  breakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   breakdownLabel: {
     color: '#666',
+    marginLeft: 8,
   },
   breakdownValue: {
     fontWeight: '500',
   },
+  // Groups list
+  groupsSubtitle: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 8,
+  },
   groupRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    borderRadius: 4,
+  },
+  groupRowPressed: {
+    backgroundColor: '#f0f0f0',
+  },
+  groupInfo: {
+    flex: 1,
   },
   groupName: {
-    flex: 1,
-    marginRight: 16,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  groupMeta: {
+    fontSize: 12,
+    color: '#666',
+  },
+  groupRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   groupUsage: {
     fontWeight: '500',
+    marginRight: 8,
   },
-  button: {
+  noGroupsText: {
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  // Sort controls
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sortLabel: {
+    marginRight: 12,
+    color: '#666',
+  },
+  // Files list
+  filesLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  filesLoadingText: {
+    marginLeft: 8,
+    color: '#666',
+  },
+  noFilesText: {
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  fileRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  fileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  fileIcon: {
+    marginRight: 12,
+  },
+  fileDetails: {
+    flex: 1,
+  },
+  fileName: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  fileMeta: {
+    fontSize: 12,
+    color: '#666',
+  },
+  pendingChip: {
+    marginTop: 4,
+    backgroundColor: '#fff3e0',
+    alignSelf: 'flex-start',
+  },
+  pendingChipText: {
+    fontSize: 10,
+    color: '#e65100',
+  },
+  logChip: {
+    backgroundColor: '#e3f2fd',
+  },
+  logChipText: {
+    fontSize: 10,
+    color: '#1565c0',
+  },
+  // Info box
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#e3f2fd',
+    padding: 16,
+    borderRadius: 8,
     marginTop: 16,
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 12,
+    color: '#1565c0',
+    lineHeight: 18,
+  },
+  // Dialog
+  dialogWarning: {
+    marginTop: 8,
+    color: '#e65100',
+    fontSize: 12,
+  },
+  retryButton: {
+    marginTop: 16,
+    alignSelf: 'flex-start',
   },
 });
