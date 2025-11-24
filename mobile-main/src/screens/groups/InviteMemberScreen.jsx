@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import {
   TextInput,
   Button,
@@ -102,16 +102,24 @@ export default function InviteMemberScreen({ navigation, route }) {
         iconColor: iconColor,
       });
 
-      Alert.alert(
-        'Invitation Sent',
-        `Invitation sent to ${email}. They will be added as a ${role}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      // On web, Alert.alert callbacks don't work, so navigate immediately
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Invitation sent to ${email}. They will be added as a ${role}.`);
+        }
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          'Invitation Sent',
+          `Invitation sent to ${email}. They will be added as a ${role}.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (err) {
       console.error('Invite member error:', err);
 

@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
@@ -77,16 +77,24 @@ export default function EditGroupScreen({ navigation, route }) {
         backgroundColor: backgroundColor,
       });
 
-      Alert.alert(
-        'Success',
-        `Group "${groupName}" updated successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      // On web, Alert.alert callbacks don't work, so navigate immediately
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Group "${groupName}" updated successfully!`);
+        }
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          'Success',
+          `Group "${groupName}" updated successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (err) {
       console.error('Update group error:', err);
 

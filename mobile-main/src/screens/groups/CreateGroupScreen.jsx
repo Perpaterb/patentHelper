@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { TextInput, Button, Title, Text, HelperText } from 'react-native-paper';
 import api from '../../services/api';
 import ColorPickerModal from '../../components/ColorPickerModal';
@@ -72,16 +72,26 @@ export default function CreateGroupScreen({ navigation }) {
         backgroundColor: backgroundColor,
       });
 
-      Alert.alert(
-        'Success',
-        `Group "${groupName}" created successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      // On web, Alert.alert callbacks don't work, so navigate immediately
+      if (Platform.OS === 'web') {
+        // Use window.alert for web
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Group "${groupName}" created successfully!`);
+        }
+        navigation.goBack();
+      } else {
+        // On mobile, use Alert.alert with callback
+        Alert.alert(
+          'Success',
+          `Group "${groupName}" created successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (err) {
       console.error('Create group error:', err);
 
