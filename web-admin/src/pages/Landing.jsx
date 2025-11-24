@@ -145,7 +145,7 @@ function Landing() {
         }}
       >
         <Container maxWidth="md">
-          <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
             Co-Parenting & Family Management Made Easy
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
@@ -223,7 +223,7 @@ function Landing() {
           ) : pricing ? (
             <Grid container spacing={2} justifyContent="center">
               {/* Free Members Card */}
-              <Grid item xs={12} sm={6} lg={4}>
+              <Grid item xs={12} md={4}>
                 <Paper
                   sx={{
                     p: 4,
@@ -263,7 +263,7 @@ function Landing() {
               </Grid>
 
               {/* Admin Subscription Card */}
-              <Grid item xs={12} sm={6} lg={4}>
+              <Grid item xs={12} md={4}>
                 <Paper
                   sx={{
                     p: 4,
@@ -317,7 +317,7 @@ function Landing() {
               </Grid>
 
               {/* Additional Storage Card */}
-              <Grid item xs={12} sm={6} lg={4}>
+              <Grid item xs={12} md={4}>
                 <Paper
                   sx={{
                     p: 4,
