@@ -403,9 +403,9 @@ export default function SubscriptionScreen({ navigation }) {
 
                 <View style={styles.statusColumn}>
                   <Text style={styles.statusLabel}>Storage Used</Text>
-                  <Text style={styles.statusValue}>{subscription.storageUsedGb} GB</Text>
+                  <Text style={styles.statusValue}>{subscription.storageUsedGb || '0.00'} GB</Text>
 
-                  {parseFloat(subscription.storageUsedGb) > 10 && (
+                  {parseFloat(subscription.storageUsedGb || 0) > 10 && (
                     <>
                       <Text style={styles.statusLabel}>Additional Storage Charges</Text>
                       <Text style={styles.statusValue}>

@@ -126,7 +126,7 @@ export default function MyAccountScreen({ navigation }) {
                 <>
                   <View style={styles.storageDisplay}>
                     <Text style={styles.storageLabel}>Storage Used</Text>
-                    <Text style={styles.storageValue}>{subscription.storageUsedGb} GB</Text>
+                    <Text style={styles.storageValue}>{subscription.storageUsedGb || '0.00'} GB</Text>
                   </View>
 
                   {additionalCharges.overageGb > 0 ? (
@@ -142,7 +142,7 @@ export default function MyAccountScreen({ navigation }) {
                   ) : (
                     <Surface style={styles.successBox}>
                       <Text style={styles.successText}>
-                        You're using {subscription.storageUsedGb} GB of your base 10GB storage allocation.
+                        You're using {subscription.storageUsedGb || '0.00'} GB of your base 10GB storage allocation.
                       </Text>
                     </Surface>
                   )}

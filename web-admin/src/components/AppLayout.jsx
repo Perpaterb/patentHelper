@@ -39,7 +39,7 @@ function AppLayout({ children, navigation, currentRoute }) {
     { label: 'Subscription', icon: 'credit-card', route: 'Subscription' },
     { label: 'My Account', icon: 'account-circle', route: 'WebAdminMyAccount' },
     ...(isAdmin ? [
-      { label: 'Storage Management', icon: 'database', route: 'Storage' },
+      { label: 'Storage', icon: 'database', route: 'Storage' },
       { label: 'Audit Logs', icon: 'history', route: 'AuditLogs' },
     ] : []),
   ];
