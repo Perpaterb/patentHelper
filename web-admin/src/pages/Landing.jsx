@@ -144,7 +144,7 @@ function Landing() {
           textAlign: 'center',
         }}
       >
-        <Container maxWidth="md">
+        <Container maxWidth="lg">
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
             Co-Parenting & Family Management
             <br />
@@ -213,7 +213,7 @@ function Landing() {
 
       {/* Pricing Section */}
       <Box sx={{ backgroundColor: 'white', py: 8 }}>
-        <Container maxWidth="md">
+        <Container maxWidth="lg">
           <Typography variant="h4" textAlign="center" gutterBottom sx={{ fontWeight: 'bold', mb: 4 }}>
             Simple, Transparent Pricing
           </Typography>
