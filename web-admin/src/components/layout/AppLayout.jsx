@@ -50,7 +50,7 @@ function AppLayout({ children }) {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'My Groups', icon: <GroupIcon />, path: '/groups' },
     { text: 'Subscription', icon: <SubscriptionsIcon />, path: '/subscription' },
     { text: 'My Account', icon: <AccountCircleIcon />, path: '/account' },
@@ -61,7 +61,7 @@ function AppLayout({ children }) {
     <Box>
       <Toolbar>
         <Typography variant="h6" noWrap>
-          PH Admin
+          FH Admin
         </Typography>
       </Toolbar>
       <Divider />
@@ -115,7 +115,7 @@ function AppLayout({ children }) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            Parenting Helper Admin
+            Family Helper
           </Typography>
         </Toolbar>
       </AppBar>

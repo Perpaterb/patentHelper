@@ -20,15 +20,15 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import MessageIcon from '@mui/icons-material/Message';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import ArticleIcon from '@mui/icons-material/Article';
 import FolderIcon from '@mui/icons-material/Folder';
-import SecurityIcon from '@mui/icons-material/Security';
 import HistoryIcon from '@mui/icons-material/History';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CelebrationIcon from '@mui/icons-material/Celebration';
+import LockIcon from '@mui/icons-material/Lock';
 import api from '../services/api';
 
 function Landing() {
@@ -40,7 +40,7 @@ function Landing() {
   useEffect(() => {
     // Redirect to dashboard if already authenticated
     if (!isLoading && isAuthenticated) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [isAuthenticated, isLoading, navigate]);
 
@@ -69,9 +69,9 @@ function Landing() {
 
   const features = [
     {
-      icon: <MessageIcon sx={{ fontSize: 40 }} />,
-      title: 'Messaging',
-      description: 'Secure group messaging with media sharing, mentions, and read receipts.',
+      icon: <LockIcon sx={{ fontSize: 40 }} />,
+      title: 'Secure & Encrypted Messaging',
+      description: 'End-to-end encrypted group messaging with media sharing, mentions, and read receipts.',
     },
     {
       icon: <CalendarMonthIcon sx={{ fontSize: 40 }} />,
@@ -89,6 +89,11 @@ function Landing() {
       description: 'Manage wish lists and gift registries for birthdays and holidays.',
     },
     {
+      icon: <CelebrationIcon sx={{ fontSize: 40 }} />,
+      title: 'Secret Santa',
+      description: 'Organize gift exchanges with automatic matching and anonymous wishlists.',
+    },
+    {
       icon: <ArticleIcon sx={{ fontSize: 40 }} />,
       title: 'Wiki Documents',
       description: 'Create and share important documents with rich text editing.',
@@ -97,11 +102,6 @@ function Landing() {
       icon: <FolderIcon sx={{ fontSize: 40 }} />,
       title: 'Secure Storage',
       description: 'Upload and manage important documents securely.',
-    },
-    {
-      icon: <SecurityIcon sx={{ fontSize: 40 }} />,
-      title: 'Role-Based Access',
-      description: 'Control who can view and edit with admin, parent, caregiver, and child roles.',
     },
     {
       icon: <HistoryIcon sx={{ fontSize: 40 }} />,
@@ -124,7 +124,7 @@ function Landing() {
       <AppBar position="static" color="transparent" elevation={0}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold', color: 'primary.main' }}>
-            Parenting Helper
+            Family Helper
           </Typography>
           <Button color="primary" onClick={() => login()}>
             Login
@@ -146,11 +146,11 @@ function Landing() {
       >
         <Container maxWidth="md">
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Co-Parenting Made Easy
+            Family Coordination Made Easy
           </Typography>
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
-            Coordinate schedules, share expenses, and communicate effectively with your co-parent.
-            All in one secure, organized platform.
+            Coordinate schedules, share expenses, and communicate securely with your family.
+            All in one encrypted, organized platform.
           </Typography>
           <Button
             variant="contained"
@@ -180,7 +180,7 @@ function Landing() {
         <Typography variant="h4" textAlign="center" gutterBottom sx={{ fontWeight: 'bold', mb: 4 }}>
           Everything You Need
         </Typography>
-        <Grid container spacing={3}>
+        <Grid container spacing={3} justifyContent="center">
           {features.map((feature, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <Card
@@ -322,7 +322,7 @@ function Landing() {
             Ready to Get Started?
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            Join families who are already using Parenting Helper to coordinate their co-parenting.
+            Join families who are already using Family Helper to stay organized and connected.
           </Typography>
           <Button
             variant="contained"
@@ -339,7 +339,7 @@ function Landing() {
       <Box sx={{ backgroundColor: '#333', color: 'white', py: 4 }}>
         <Container maxWidth="lg">
           <Typography variant="body2" textAlign="center">
-            &copy; {new Date().getFullYear()} Parenting Helper. All rights reserved.
+            &copy; {new Date().getFullYear()} Family Helper. All rights reserved.
           </Typography>
         </Container>
       </Box>

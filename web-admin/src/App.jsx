@@ -131,13 +131,13 @@ function AppRoutes() {
       <Router>
         <Routes>
           {/* Public Routes */}
-          <Route path="/welcome" element={<Landing />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
 
           {/* Admin Dashboard Routes */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
@@ -187,7 +187,7 @@ function AppRoutes() {
             }
           />
 
-          {/* Fallback - redirect to dashboard */}
+          {/* Fallback - redirect to landing */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
