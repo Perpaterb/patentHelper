@@ -75,30 +75,6 @@ export default function MessagesScreen({ navigation, route }) {
     }
   }, []);
 
-  useEffect(() => {
-    loadMessageGroupInfo();
-    loadMessages();
-  }, [messageGroupId]);
-
-  // Real-time polling: Check for new messages every 3 seconds
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadMessages(true); // true = silent refresh (no loading spinner)
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [messageGroupId, loadMessages]);
-
-  // Scroll to bottom when messages load
-  useEffect(() => {
-    if (messages.length > 0) {
-      // Longer timeout on initial load to ensure FlatList is fully rendered
-      setTimeout(() => {
-        scrollToBottom(false); // No animation on initial load
-      }, 300);
-    }
-  }, [messages.length, scrollToBottom]);
-
   /**
    * Load message group information
    */
@@ -181,6 +157,31 @@ export default function MessagesScreen({ navigation, route }) {
       setLoading(false);
     }
   }, [groupId, messageGroupId, messages]);
+
+  // Initial load of messages when messageGroupId changes
+  useEffect(() => {
+    loadMessageGroupInfo();
+    loadMessages();
+  }, [messageGroupId, loadMessages]);
+
+  // Real-time polling: Check for new messages every 3 seconds
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadMessages(true); // true = silent refresh (no loading spinner)
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [loadMessages]);
+
+  // Scroll to bottom when messages load
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Longer timeout on initial load to ensure FlatList is fully rendered
+      setTimeout(() => {
+        scrollToBottom(false); // No animation on initial load
+      }, 300);
+    }
+  }, [messages.length, scrollToBottom]);
 
   /**
    * Load more older messages
