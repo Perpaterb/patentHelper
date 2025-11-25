@@ -5,7 +5,7 @@
  * Main messaging interface for message group communication.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Image, ActivityIndicator } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
@@ -80,6 +80,15 @@ export default function MessagesScreen({ navigation, route }) {
     loadMessages();
   }, [messageGroupId]);
 
+  // Real-time polling: Check for new messages every 3 seconds
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadMessages(true); // true = silent refresh (no loading spinner)
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [messageGroupId, loadMessages]);
+
   // Scroll to bottom when messages load
   useEffect(() => {
     if (messages.length > 0) {
@@ -123,27 +132,41 @@ export default function MessagesScreen({ navigation, route }) {
 
   /**
    * Load messages from API (last 50 messages)
+   * @param {boolean} silent - If true, don't show loading spinner (for polling)
    */
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async (silent = false) => {
     try {
-      setError(null);
+      if (!silent) {
+        setError(null);
+      }
       const response = await api.get(`/groups/${groupId}/message-groups/${messageGroupId}/messages?limit=50`);
       const fetchedMessages = response.data.messages || [];
-      setMessages(fetchedMessages);
-      setHasMore(response.data.hasMore || false);
 
-      // Mark messages as read
-      try {
-        await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/mark-read`);
-      } catch (markReadErr) {
-        console.error('Mark as read error:', markReadErr);
-        // Don't fail the whole operation if mark-as-read fails
+      // Only update if messages have changed (prevents unnecessary re-renders)
+      const messagesChanged = JSON.stringify(fetchedMessages.map(m => m.messageId)) !==
+                              JSON.stringify(messages.map(m => m.messageId));
+
+      if (messagesChanged) {
+        setMessages(fetchedMessages);
+        setHasMore(response.data.hasMore || false);
+
+        // Mark messages as read (only if not silent refresh)
+        if (!silent) {
+          try {
+            await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/mark-read`);
+          } catch (markReadErr) {
+            console.error('Mark as read error:', markReadErr);
+            // Don't fail the whole operation if mark-as-read fails
+          }
+        }
+
+        // Scroll to bottom after messages load (only on initial load, not polling)
+        if (!silent) {
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+        }
       }
-
-      // Scroll to bottom after messages load
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 100);
     } catch (err) {
       console.error('Load messages error:', err);
 
@@ -157,7 +180,7 @@ export default function MessagesScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId, messageGroupId, messages]);
 
   /**
    * Load more older messages
