@@ -279,7 +279,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
             <Switch
               value={groupSettings[`${featureKey}VisibleTo${role.key}`] ?? true}
               onValueChange={(value) => handleToggleSetting(`${featureKey}VisibleTo${role.key}`, value)}
-              disabled={savingSettings || (role.key === 'Supervisors')}
+              disabled={savingSettings}
             />
           </View>
         ))}
