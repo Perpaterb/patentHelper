@@ -511,9 +511,22 @@ async function sendMessageGroupMessage(req, res) {
       },
     });
 
-    // Create audit log for sent message
-    const mediaInfo = mediaFiles.length > 0 ? ` with ${mediaFiles.length} media file(s)` : '';
-    const mentionInfo = validMentions.length > 0 ? ` (mentioned ${validMentions.length} member(s))` : '';
+    // Create audit log for sent message with complete details
+    let auditLogContent = `Message Group: "${messageGroup.name}" (ID: ${messageGroupId})\n`;
+    auditLogContent += `Message ID: ${message.messageId}\n`;
+    auditLogContent += `Content: "${messageContent}"\n`;
+
+    if (message.media && message.media.length > 0) {
+      auditLogContent += `Media Files (${message.media.length}):\n`;
+      message.media.forEach((media, index) => {
+        auditLogContent += `  ${index + 1}. ${media.mediaType} - Media ID: ${media.mediaId}\n`;
+      });
+    }
+
+    if (validMentions.length > 0) {
+      auditLogContent += `Mentions: ${validMentions.length} member(s)`;
+    }
+
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
@@ -522,7 +535,7 @@ async function sendMessageGroupMessage(req, res) {
         performedByName: groupMembership.displayName,
         performedByEmail: groupMembership.email || 'N/A',
         actionLocation: 'messages',
-        messageContent: `Sent message in "${messageGroup.name}"${mediaInfo}${mentionInfo}: "${messageContent.substring(0, 100)}${messageContent.length > 100 ? '...' : ''}" (Message ID: ${message.messageId})`,
+        messageContent: auditLogContent,
       },
     });
 
@@ -639,35 +652,47 @@ async function markMessageGroupAsRead(req, res) {
         select: { name: true },
       });
 
-      // Create audit log for message reads
-      const messageIds = unreadMessages.map(m => m.messageId).join(', ');
-
-      // Decrypt message content for audit log (admins need to see actual content in exports)
-      let messageContent;
-      if (unreadMessages.length === 1) {
+      // Create individual audit log for each message read
+      for (const msg of unreadMessages) {
         try {
-          const decryptedContent = encryptionService.decrypt(unreadMessages[0].content);
-          const truncated = decryptedContent.substring(0, 50);
-          messageContent = `Read message in "${messageGroup?.name || 'Unknown'}": "${truncated}${decryptedContent.length > 50 ? '...' : ''}"`;
+          const decryptedContent = encryptionService.decrypt(msg.content);
+
+          let auditLogContent = `Message Group: "${messageGroup?.name || 'Unknown'}" (ID: ${messageGroupId})\n`;
+          auditLogContent += `Message ID: ${msg.messageId}\n`;
+          auditLogContent += `Content: "${decryptedContent}"`;
+
+          await prisma.auditLog.create({
+            data: {
+              groupId: groupId,
+              action: 'read_messages',
+              performedBy: groupMembership.groupMemberId,
+              performedByName: groupMembership.displayName,
+              performedByEmail: groupMembership.email || 'N/A',
+              actionLocation: 'messages',
+              messageContent: auditLogContent,
+            },
+          });
         } catch (err) {
           console.error('Failed to decrypt message for audit log:', err);
-          messageContent = `Read message in "${messageGroup?.name || 'Unknown'}": [encrypted content]`;
-        }
-      } else {
-        messageContent = `Read ${unreadMessages.length} messages in "${messageGroup?.name || 'Unknown'}"`;
-      }
 
-      await prisma.auditLog.create({
-        data: {
-          groupId: groupId,
-          action: 'read_messages',
-          performedBy: groupMembership.groupMemberId,
-          performedByName: groupMembership.displayName,
-          performedByEmail: groupMembership.email || 'N/A',
-          actionLocation: 'messages',
-          messageContent: `${messageContent}. Message IDs: ${messageIds}`,
-        },
-      });
+          // Still log it even if decryption fails
+          let auditLogContent = `Message Group: "${messageGroup?.name || 'Unknown'}" (ID: ${messageGroupId})\n`;
+          auditLogContent += `Message ID: ${msg.messageId}\n`;
+          auditLogContent += `Content: [Failed to decrypt]`;
+
+          await prisma.auditLog.create({
+            data: {
+              groupId: groupId,
+              action: 'read_messages',
+              performedBy: groupMembership.groupMemberId,
+              performedByName: groupMembership.displayName,
+              performedByEmail: groupMembership.email || 'N/A',
+              actionLocation: 'messages',
+              messageContent: auditLogContent,
+            },
+          });
+        }
+      }
     }
 
     // Update lastReadAt for this message group member
