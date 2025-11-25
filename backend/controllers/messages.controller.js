@@ -632,9 +632,21 @@ async function markMessageGroupAsRead(req, res) {
 
       // Create audit log for message reads
       const messageIds = unreadMessages.map(m => m.messageId).join(', ');
-      const messageContent = unreadMessages.length === 1
-        ? `Read message: "${unreadMessages[0].content.substring(0, 50)}${unreadMessages[0].content.length > 50 ? '...' : ''}"`
-        : `Read ${unreadMessages.length} messages`;
+
+      // Decrypt message content for audit log (admins need to see actual content in exports)
+      let messageContent;
+      if (unreadMessages.length === 1) {
+        try {
+          const decryptedContent = encryptionService.decrypt(unreadMessages[0].content);
+          const truncated = decryptedContent.substring(0, 50);
+          messageContent = `Read message: "${truncated}${decryptedContent.length > 50 ? '...' : ''}"`;
+        } catch (err) {
+          console.error('Failed to decrypt message for audit log:', err);
+          messageContent = `Read message: [encrypted content]`;
+        }
+      } else {
+        messageContent = `Read ${unreadMessages.length} messages`;
+      }
 
       await prisma.auditLog.create({
         data: {
