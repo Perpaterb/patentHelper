@@ -231,15 +231,15 @@ async function createMessageGroup(req, res) {
     }
 
     // Check permissions based on group settings
-    const group = await prisma.group.findUnique({
+    const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
     });
 
     const canCreateMessageGroup =
       userMembership.role === 'admin' ||
-      (userMembership.role === 'parent' && group.parentCanCreateMessageGroup) ||
-      (userMembership.role === 'child' && group.childCanCreateMessageGroup) ||
-      (userMembership.role === 'caregiver' && group.caregiverCanCreateMessageGroup);
+      (userMembership.role === 'parent' && groupSettings?.parentsCreateMessageGroups) ||
+      (userMembership.role === 'child' && groupSettings?.childrenCreateMessageGroups) ||
+      (userMembership.role === 'caregiver' && groupSettings?.caregiversCreateMessageGroups);
 
     if (!canCreateMessageGroup) {
       return res.status(403).json({
