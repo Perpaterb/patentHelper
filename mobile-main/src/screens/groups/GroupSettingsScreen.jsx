@@ -112,6 +112,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const loadGroupSettings = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/settings`);
+      console.log('[GroupSettings] Loaded settings:', JSON.stringify(response.data.settings, null, 2));
       if (response.data.success) {
         setGroupSettings(response.data.settings);
       }
@@ -138,6 +139,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
 
   /**
    * Handle settings toggle
+   * Enforces dependency: If feature visibility is turned off, turn off creation permission
    */
   const handleToggleSetting = (key, value) => {
     setGroupSettings(prev => ({
@@ -145,16 +147,22 @@ export default function GroupSettingsScreen({ navigation, route }) {
       [key]: value,
     }));
 
-    // Enforce dependency: If finance visible is turned off, turn off finance creatable
-    if (key === 'financeVisibleToParents' && !value) {
-      setGroupSettings(prev => ({ ...prev, financeCreatableByParents: false }));
-    }
-    if (key === 'financeVisibleToCaregivers' && !value) {
-      setGroupSettings(prev => ({ ...prev, financeCreatableByCaregivers: false }));
-    }
-    if (key === 'financeVisibleToChildren' && !value) {
-      setGroupSettings(prev => ({ ...prev, financeCreatableByChildren: false }));
-    }
+    // Enforce dependency for ALL features: If visibility is turned off, turn off creatable
+    // Pattern: {feature}VisibleTo{Role} -> {feature}CreatableBy{Role}
+    const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
+    const roles = ['Parents', 'Caregivers', 'Children'];
+
+    features.forEach(feature => {
+      roles.forEach(role => {
+        const visibleKey = `${feature}VisibleTo${role}`;
+        const creatableKey = `${feature}CreatableBy${role}`;
+
+        if (key === visibleKey && !value) {
+          // If turning off visibility, also turn off creatable
+          setGroupSettings(prev => ({ ...prev, [creatableKey]: false }));
+        }
+      });
+    });
   };
 
   /**
@@ -193,7 +201,9 @@ export default function GroupSettingsScreen({ navigation, route }) {
     try {
       setSavingSettings(true);
 
-      await api.put(`/groups/${groupId}/settings`, groupSettings);
+      console.log('[GroupSettings] Saving settings:', JSON.stringify(groupSettings, null, 2));
+      const response = await api.put(`/groups/${groupId}/settings`, groupSettings);
+      console.log('[GroupSettings] Save response:', JSON.stringify(response.data, null, 2));
 
       CustomAlert.alert('Success', 'Group settings saved successfully');
     } catch (err) {
@@ -241,6 +251,65 @@ export default function GroupSettingsScreen({ navigation, route }) {
       await loadGroupSettings();
       CustomAlert.alert('Error', err.response?.data?.message || 'Failed to change currency');
     }
+  };
+
+  /**
+   * Render a feature permission section
+   * @param {string} featureName - Display name (e.g., "Message Groups")
+   * @param {string} featureKey - camelCase key (e.g., "messageGroups")
+   */
+  const renderFeatureSection = (featureName, featureKey) => {
+    const roles = [
+      { name: 'Parents', key: 'Parents' },
+      { name: 'Caregivers', key: 'Caregivers' },
+      { name: 'Children', key: 'Children' },
+      { name: 'Supervisors', key: 'Supervisors' },
+    ];
+
+    return (
+      <View key={featureKey}>
+        <Text style={styles.subsectionTitle}>{featureName}</Text>
+
+        {/* Visibility switches for all roles */}
+        {roles.map(role => (
+          <View key={`${featureKey}-visible-${role.key}`} style={styles.settingRow}>
+            <Text style={styles.settingLabel}>
+              {role.name} can see {featureName}
+            </Text>
+            <Switch
+              value={groupSettings[`${featureKey}VisibleTo${role.key}`] ?? true}
+              onValueChange={(value) => handleToggleSetting(`${featureKey}VisibleTo${role.key}`, value)}
+              disabled={savingSettings || (role.key === 'Supervisors')}
+            />
+          </View>
+        ))}
+
+        {/* Creation switches for Parents, Caregivers, Children (grayed out if not visible) */}
+        {roles.filter(r => r.key !== 'Supervisors').map(role => {
+          const visibleKey = `${featureKey}VisibleTo${role.key}`;
+          const creatableKey = `${featureKey}CreatableBy${role.key}`;
+          const isVisible = groupSettings[visibleKey] ?? true;
+
+          return (
+            <View key={`${featureKey}-create-${role.key}`} style={styles.settingRow}>
+              <Text style={[
+                styles.settingLabel,
+                !isVisible && styles.settingLabelDisabled
+              ]}>
+                {role.name} can create {featureName}
+              </Text>
+              <Switch
+                value={groupSettings[creatableKey] ?? false}
+                onValueChange={(value) => handleToggleSetting(creatableKey, value)}
+                disabled={savingSettings || !isVisible}
+              />
+            </View>
+          );
+        })}
+
+        <Divider style={styles.sectionDivider} />
+      </View>
+    );
   };
 
   /**
@@ -639,260 +708,16 @@ export default function GroupSettingsScreen({ navigation, route }) {
             <Title style={styles.sectionTitle}>Group Permissions</Title>
             <Divider style={styles.divider} />
 
-            {/* Message Groups Permissions */}
-            <Text style={styles.subsectionTitle}>Message Groups</Text>
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Parents can create message groups</Text>
-              <Switch
-                value={groupSettings.parentsCreateMessageGroups ?? true}
-                onValueChange={(value) => handleToggleSetting('parentsCreateMessageGroups', value)}
-                disabled={savingSettings}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Children can create message groups</Text>
-              <Switch
-                value={groupSettings.childrenCreateMessageGroups ?? false}
-                onValueChange={(value) => handleToggleSetting('childrenCreateMessageGroups', value)}
-                disabled={savingSettings}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Caregivers can create message groups</Text>
-              <Switch
-                value={groupSettings.caregiversCreateMessageGroups ?? false}
-                onValueChange={(value) => handleToggleSetting('caregiversCreateMessageGroups', value)}
-                disabled={savingSettings}
-              />
-            </View>
+            {/* All Feature Permissions - Grouped by Feature */}
+            {renderFeatureSection('Message Groups', 'messageGroups')}
 
-            <Divider style={styles.sectionDivider} />
-
-            {/* Finance Permissions */}
-            <Text style={styles.subsectionTitle}>Finance</Text>
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Finance visible to parents</Text>
-              <Switch
-                value={groupSettings.financeVisibleToParents ?? true}
-                onValueChange={(value) => handleToggleSetting('financeVisibleToParents', value)}
-                disabled={savingSettings}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <Text style={[
-                styles.settingLabel,
-                !groupSettings.financeVisibleToParents && styles.settingLabelDisabled
-              ]}>
-                Finance can be created by parents
-              </Text>
-              <Switch
-                value={groupSettings.financeCreatableByParents ?? false}
-                onValueChange={(value) => handleToggleSetting('financeCreatableByParents', value)}
-                disabled={savingSettings || !groupSettings.financeVisibleToParents}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Finance visible to caregivers</Text>
-              <Switch
-                value={groupSettings.financeVisibleToCaregivers ?? false}
-                onValueChange={(value) => handleToggleSetting('financeVisibleToCaregivers', value)}
-                disabled={savingSettings}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <Text style={[
-                styles.settingLabel,
-                !groupSettings.financeVisibleToCaregivers && styles.settingLabelDisabled
-              ]}>
-                Finance can be created by caregivers
-              </Text>
-              <Switch
-                value={groupSettings.financeCreatableByCaregivers ?? false}
-                onValueChange={(value) => handleToggleSetting('financeCreatableByCaregivers', value)}
-                disabled={savingSettings || !groupSettings.financeVisibleToCaregivers}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Finance visible to children</Text>
-              <Switch
-                value={groupSettings.financeVisibleToChildren ?? false}
-                onValueChange={(value) => handleToggleSetting('financeVisibleToChildren', value)}
-                disabled={savingSettings}
-              />
-            </View>
-            <View style={styles.settingRow}>
-              <Text style={[
-                styles.settingLabel,
-                !groupSettings.financeVisibleToChildren && styles.settingLabelDisabled
-              ]}>
-                Finance can be created by children
-              </Text>
-              <Switch
-                value={groupSettings.financeCreatableByChildren ?? false}
-                onValueChange={(value) => handleToggleSetting('financeCreatableByChildren', value)}
-                disabled={savingSettings || !groupSettings.financeVisibleToChildren}
-              />
-            </View>
-
-            <Divider style={styles.sectionDivider} />
-
-            {/* Feature Visibility Controls */}
-            <Text style={styles.subsectionTitle}>Feature Visibility</Text>
-            <Text style={styles.helperText}>
-              Control which features are visible to different role types
-            </Text>
-
-            {/* Adults Feature Visibility */}
-            <Text style={styles.subSubsectionTitle}>Adults (Parents, Caregivers, Supervisors)</Text>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Messages</Text>
-              <Switch
-                value={groupSettings.adultsSeeMessages ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeMessages', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Calendar</Text>
-              <Switch
-                value={groupSettings.adultsSeeCalendar ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeCalendar', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Finance</Text>
-              <Switch
-                value={groupSettings.adultsSeeFinance ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeFinance', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Gift Registry</Text>
-              <Switch
-                value={groupSettings.adultsSeeGiftRegistry ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeGiftRegistry', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Secret Santa</Text>
-              <Switch
-                value={groupSettings.adultsSeeSecretSanta ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeSecretSanta', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Item Registry</Text>
-              <Switch
-                value={groupSettings.adultsSeeLibrary ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeLibrary', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Wiki</Text>
-              <Switch
-                value={groupSettings.adultsSeeWiki ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeWiki', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow adults to see Secure Documents</Text>
-              <Switch
-                value={groupSettings.adultsSeeSecureDocuments ?? true}
-                onValueChange={(value) => handleToggleSetting('adultsSeeSecureDocuments', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            {/* Children Feature Visibility */}
-            <Text style={styles.subSubsectionTitle}>Children</Text>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Messages</Text>
-              <Switch
-                value={groupSettings.childrenSeeMessages ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeMessages', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Calendar</Text>
-              <Switch
-                value={groupSettings.childrenSeeCalendar ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeCalendar', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Finance</Text>
-              <Switch
-                value={groupSettings.childrenSeeFinance ?? false}
-                onValueChange={(value) => handleToggleSetting('childrenSeeFinance', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Gift Registry</Text>
-              <Switch
-                value={groupSettings.childrenSeeGiftRegistry ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeGiftRegistry', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Secret Santa</Text>
-              <Switch
-                value={groupSettings.childrenSeeSecretSanta ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeSecretSanta', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Item Registry</Text>
-              <Switch
-                value={groupSettings.childrenSeeLibrary ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeLibrary', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Wiki</Text>
-              <Switch
-                value={groupSettings.childrenSeeWiki ?? true}
-                onValueChange={(value) => handleToggleSetting('childrenSeeWiki', value)}
-                disabled={savingSettings}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>Allow children to see Secure Documents</Text>
-              <Switch
-                value={groupSettings.childrenSeeSecureDocuments ?? false}
-                onValueChange={(value) => handleToggleSetting('childrenSeeSecureDocuments', value)}
-                disabled={savingSettings}
-              />
-            </View>
+            {renderFeatureSection('Calendar', 'calendar')}
+            {renderFeatureSection('Finance', 'finance')}
+            {renderFeatureSection('Gift Registry', 'giftRegistry')}
+            {renderFeatureSection('Secret Santa', 'secretSanta')}
+            {renderFeatureSection('Item Registry', 'itemRegistry')}
+            {renderFeatureSection('Wiki', 'wiki')}
+            {renderFeatureSection('Secure Documents', 'documents')}
 
             <Button
               mode="contained"

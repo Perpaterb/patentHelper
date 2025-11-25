@@ -2599,6 +2599,8 @@ async function getGroupSettings(req, res) {
       });
     }
 
+    console.log('[GET /groups/:groupId/settings] Returning settings:', JSON.stringify(settings, null, 2));
+
     res.status(200).json({
       success: true,
       settings: settings,
@@ -2620,18 +2622,8 @@ async function updateGroupSettings(req, res) {
   try {
     const { groupId } = req.params;
     const userId = req.user.userId;
-    const {
-      parentsCreateMessageGroups,
-      childrenCreateMessageGroups,
-      caregiversCreateMessageGroups,
-      financeVisibleToParents,
-      financeCreatableByParents,
-      financeVisibleToCaregivers,
-      financeCreatableByCaregivers,
-      financeVisibleToChildren,
-      financeCreatableByChildren,
-      defaultCurrency,
-    } = req.body;
+
+    console.log('[PUT /groups/:groupId/settings] Received request body:', JSON.stringify(req.body, null, 2));
 
     // Verify user is an admin
     const membership = await prisma.groupMember.findFirst({
@@ -2649,23 +2641,31 @@ async function updateGroupSettings(req, res) {
       });
     }
 
-    // Enforce dependency: finance creatable requires finance visible
-    const updatedData = {
-      parentsCreateMessageGroups,
-      childrenCreateMessageGroups,
-      caregiversCreateMessageGroups,
-      financeVisibleToParents,
-      financeCreatableByParents: financeVisibleToParents ? financeCreatableByParents : false,
-      financeVisibleToCaregivers,
-      financeCreatableByCaregivers: financeVisibleToCaregivers ? financeCreatableByCaregivers : false,
-      financeVisibleToChildren,
-      financeCreatableByChildren: financeVisibleToChildren ? financeCreatableByChildren : false,
-    };
+    // Extract all settings from request body (excluding groupId, updatedAt, and other meta fields)
+    const {
+      groupId: _ignoreGroupId,
+      updatedAt: _ignoreUpdatedAt,
+      ...settingsData
+    } = req.body;
 
-    // Add defaultCurrency if provided
-    if (defaultCurrency !== undefined) {
-      updatedData.defaultCurrency = defaultCurrency;
-    }
+    // Enforce dependency: creatable requires visible for all features
+    // For each role (Parents, Caregivers, Children), if feature is not visible, set creatable to false
+    const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
+    const roles = ['Parents', 'Caregivers', 'Children'];
+
+    const updatedData = { ...settingsData };
+
+    features.forEach(feature => {
+      roles.forEach(role => {
+        const visibleKey = `${feature}VisibleTo${role}`;
+        const creatableKey = `${feature}CreatableBy${role}`;
+
+        // If visibility is turned off, force creatable to false
+        if (updatedData[visibleKey] === false && updatedData[creatableKey] !== undefined) {
+          updatedData[creatableKey] = false;
+        }
+      });
+    });
 
     // Update or create settings
     const settings = await prisma.groupSettings.upsert({
@@ -2677,7 +2677,33 @@ async function updateGroupSettings(req, res) {
       },
     });
 
-    // Create audit log
+    console.log('[PUT /groups/:groupId/settings] Saved to database:', JSON.stringify(settings, null, 2));
+
+    // Create detailed audit log showing what changed
+    const changedSettings = [];
+    Object.keys(updatedData).forEach(key => {
+      if (key !== 'defaultCurrency' && key !== 'updatedAt') {
+        // Convert camelCase to readable format
+        const readable = key
+          .replace(/([A-Z])/g, ' $1')
+          .replace(/^./, str => str.toUpperCase())
+          .trim();
+        changedSettings.push(`${readable}: ${updatedData[key]}`);
+      }
+    });
+
+    let auditMessage = 'Updated group permission settings:\n';
+    if (changedSettings.length > 0) {
+      auditMessage += changedSettings.slice(0, 10).join('\n'); // Limit to first 10 to avoid huge logs
+      if (changedSettings.length > 10) {
+        auditMessage += `\n... and ${changedSettings.length - 10} more settings`;
+      }
+    }
+
+    if (updatedData.defaultCurrency) {
+      auditMessage += `\nDefault Currency: ${updatedData.defaultCurrency}`;
+    }
+
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
@@ -2686,9 +2712,11 @@ async function updateGroupSettings(req, res) {
         performedByEmail: membership.email || req.user?.email,
         action: 'update_group_settings',
         actionLocation: 'group_settings',
-        messageContent: 'Updated group permission settings',
+        messageContent: auditMessage,
       },
     });
+
+    console.log('[PUT /groups/:groupId/settings] Returning response');
 
     res.status(200).json({
       success: true,
