@@ -40,7 +40,7 @@ model Group {
   groupId                   String                          @id @default(uuid()) @map("group_id") @db.Uuid
   name                      String                          @db.VarChar(255)
   icon                      String?                         @db.VarChar(255)
-  backgroundImageUrl        String?                         @map("background_image_url")
+  backgroundImageId         String?                         @map("background_image_id") @db.Uuid
   backgroundColor           String?                         @map("background_color") @db.VarChar(7)
   createdAt                 DateTime                        @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt                 DateTime                        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)

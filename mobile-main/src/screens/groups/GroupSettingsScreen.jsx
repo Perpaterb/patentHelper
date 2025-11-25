@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
@@ -24,6 +24,8 @@ import {
   HelperText,
 } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import UserAvatar from '../../components/shared/UserAvatar';
@@ -61,6 +63,9 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const [editGroupName, setEditGroupName] = useState('');
   const [editIcon, setEditIcon] = useState('');
   const [editBackgroundColor, setEditBackgroundColor] = useState('#6200ee');
+  const [editBackgroundImageId, setEditBackgroundImageId] = useState(null);
+  const [editBackgroundImageUri, setEditBackgroundImageUri] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [updatingGroup, setUpdatingGroup] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
@@ -98,6 +103,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         name: group.name,
         icon: group.icon,
         backgroundColor: group.backgroundColor,
+        backgroundImageId: group.backgroundImageId,
         createdAt: group.createdAt,
       });
 
@@ -105,6 +111,14 @@ export default function GroupSettingsScreen({ navigation, route }) {
       setEditGroupName(group.name);
       setEditIcon(group.icon || '');
       setEditBackgroundColor(group.backgroundColor || '#6200ee');
+      setEditBackgroundImageId(group.backgroundImageId || null);
+
+      // Fetch image URL if backgroundImageId exists
+      if (group.backgroundImageId) {
+        setEditBackgroundImageUri(`${api.defaults.baseURL}/files/${group.backgroundImageId}`);
+      } else {
+        setEditBackgroundImageUri(null);
+      }
 
       setMembers(group.members || []);
       setUserRole(group.userRole);
@@ -348,6 +362,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         name: editGroupName.trim(),
         icon: editIcon.trim() || undefined,
         backgroundColor: editBackgroundColor,
+        backgroundImageId: editBackgroundImageId,
       });
 
       // Update local state
@@ -356,6 +371,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
         name: editGroupName.trim(),
         icon: editIcon.trim(),
         backgroundColor: editBackgroundColor,
+        backgroundImageId: editBackgroundImageId,
       });
 
       // Show success message
@@ -395,6 +411,201 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const handleColorConfirm = (color) => {
     setEditBackgroundColor(color);
     setColorPickerVisible(false);
+  };
+
+  /**
+   * Handle background image selection
+   */
+  const handleSelectBackgroundImage = async () => {
+    try {
+      // On web, use file input instead of image picker
+      if (Platform.OS === 'web') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          try {
+            setUploadingImage(true);
+            setGroupDetailsError(null);
+
+            // Resize image to 16:9 aspect ratio (800x450px) using canvas
+            const resizedBlob = await new Promise((resolve, reject) => {
+              const img = new window.Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Target dimensions: 800x450 (16:9)
+                const targetWidth = 800;
+                const targetHeight = 450;
+
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                // Calculate scaling to cover the canvas while maintaining aspect ratio
+                const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
+                const scaledWidth = img.width * scale;
+                const scaledHeight = img.height * scale;
+
+                // Center the image
+                const x = (targetWidth - scaledWidth) / 2;
+                const y = (targetHeight - scaledHeight) / 2;
+
+                // Draw image centered and scaled
+                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+
+                canvas.toBlob(
+                  (blob) => {
+                    if (blob) {
+                      resolve(blob);
+                    } else {
+                      reject(new Error('Failed to create blob'));
+                    }
+                  },
+                  'image/jpeg',
+                  0.8 // quality
+                );
+              };
+              img.onerror = reject;
+              img.src = URL.createObjectURL(file);
+            });
+
+            const formData = new FormData();
+            formData.append('file', resizedBlob, 'group-background.jpg');
+            formData.append('category', 'profiles');
+            formData.append('groupId', groupId);
+
+            const uploadResponse = await api.post('/files/upload', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+
+            const fileId = uploadResponse.data.file.fileId;
+
+            // Update local state with uploaded image
+            setEditBackgroundImageId(fileId);
+            setEditBackgroundImageUri(URL.createObjectURL(resizedBlob));
+
+            if (window.alert) {
+              window.alert('Background image resized to 16:9 and selected. Click "Save Changes" to apply.');
+            }
+          } catch (err) {
+            console.error('Upload error:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Failed to upload image';
+            setGroupDetailsError(errorMessage);
+          } finally {
+            setUploadingImage(false);
+          }
+        };
+        input.click();
+        return;
+      }
+
+      // On mobile, use expo-image-picker
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        CustomAlert.alert('Permission Required', 'Please grant photo library access to upload an image');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false, // We'll handle cropping ourselves
+        quality: 1.0, // Start with full quality, we'll compress after resize
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+
+        setUploadingImage(true);
+        setGroupDetailsError(null);
+
+        // Resize and crop to 16:9 aspect ratio (800x450px)
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          selectedImage.uri,
+          [
+            { resize: { width: 800 } }, // Resize width to 800px (maintains aspect ratio)
+          ],
+          {
+            compress: 0.8,
+            format: ImageManipulator.SaveFormat.JPEG,
+          }
+        );
+
+        // Now crop to 16:9 if needed
+        const targetAspectRatio = 16 / 9;
+        const currentAspectRatio = manipulatedImage.width / manipulatedImage.height;
+
+        let finalImage = manipulatedImage;
+
+        if (Math.abs(currentAspectRatio - targetAspectRatio) > 0.01) {
+          // Need to crop to 16:9
+          const targetWidth = 800;
+          const targetHeight = Math.round(targetWidth / targetAspectRatio); // 450px
+
+          const cropX = 0;
+          const cropY = Math.round((manipulatedImage.height - targetHeight) / 2);
+
+          finalImage = await ImageManipulator.manipulateAsync(
+            manipulatedImage.uri,
+            [
+              {
+                crop: {
+                  originX: cropX,
+                  originY: Math.max(0, cropY),
+                  width: targetWidth,
+                  height: Math.min(targetHeight, manipulatedImage.height),
+                },
+              },
+            ],
+            {
+              compress: 0.8,
+              format: ImageManipulator.SaveFormat.JPEG,
+            }
+          );
+        }
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri: finalImage.uri,
+          type: 'image/jpeg',
+          name: 'group-background.jpg',
+        });
+        formData.append('category', 'profiles');
+        formData.append('groupId', groupId);
+
+        const uploadResponse = await api.post('/files/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        const fileId = uploadResponse.data.file.fileId;
+
+        setEditBackgroundImageId(fileId);
+        setEditBackgroundImageUri(finalImage.uri);
+
+        CustomAlert.alert('Success', 'Background image selected. Click "Save Changes" to apply.');
+      }
+    } catch (err) {
+      console.error('Select background image error:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to upload image';
+      setGroupDetailsError(errorMessage);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  /**
+   * Handle removing background image
+   */
+  const handleRemoveBackgroundImage = () => {
+    setEditBackgroundImageId(null);
+    setEditBackgroundImageUri(null);
   };
 
   /**
@@ -777,8 +988,55 @@ export default function GroupSettingsScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
+            <View style={styles.backgroundImageSection}>
+              <Text style={styles.colorLabel}>Card Background Image</Text>
+              <Text style={styles.helperText}>Portrait rectangle (16:9) - shown on group list card</Text>
+
+              {editBackgroundImageUri ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image
+                    source={{ uri: editBackgroundImageUri }}
+                    style={styles.backgroundImagePreview}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.imageButtonsRow}>
+                    <Button
+                      mode="outlined"
+                      onPress={handleSelectBackgroundImage}
+                      disabled={updatingGroup || uploadingImage}
+                      style={styles.changeImageButton}
+                      icon="image-edit"
+                    >
+                      Change Image
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      onPress={handleRemoveBackgroundImage}
+                      disabled={updatingGroup || uploadingImage}
+                      style={styles.removeImageButton}
+                      icon="delete"
+                      textColor="#d32f2f"
+                    >
+                      Remove
+                    </Button>
+                  </View>
+                </View>
+              ) : (
+                <Button
+                  mode="outlined"
+                  onPress={handleSelectBackgroundImage}
+                  disabled={updatingGroup || uploadingImage}
+                  loading={uploadingImage}
+                  style={styles.uploadButton}
+                  icon="image-plus"
+                >
+                  {uploadingImage ? 'Uploading...' : 'Upload Background Image'}
+                </Button>
+              )}
+            </View>
+
             <View style={styles.preview}>
-              <Text style={styles.previewLabel}>Preview:</Text>
+              <Text style={styles.previewLabel}>Icon Preview:</Text>
               <View
                 style={[
                   styles.previewBox,
@@ -1269,5 +1527,37 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 16,
     lineHeight: 20,
+  },
+  backgroundImageSection: {
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 12,
+  },
+  imagePreviewContainer: {
+    marginTop: 8,
+  },
+  backgroundImagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  imageButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  changeImageButton: {
+    flex: 1,
+  },
+  removeImageButton: {
+    flex: 1,
+    borderColor: '#d32f2f',
+  },
+  uploadButton: {
+    marginTop: 8,
   },
 });

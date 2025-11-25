@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, ImageBackground } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton, Portal, Modal, TextInput, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -277,15 +277,13 @@ export default function GroupsListScreen({ navigation }) {
   /**
    * Render group item
    */
-  const renderGroupItem = ({ item }) => (
-    <Card
-      style={[
-        styles.groupCard,
-        { borderLeftColor: item.backgroundColor || '#6200ee' }
-      ]}
-      onPress={() => handleGroupPress(item)}
-    >
-      <Card.Content style={styles.groupContent}>
+  const renderGroupItem = ({ item }) => {
+    const backgroundImageUri = item.backgroundImageId
+      ? `${api.defaults.baseURL}/files/${item.backgroundImageId}`
+      : null;
+
+    const cardContent = (
+      <>
         <View style={styles.groupHeader}>
           <Avatar.Text
             size={48}
@@ -358,9 +356,38 @@ export default function GroupsListScreen({ navigation }) {
             style={styles.muteButton}
           />
         </View>
-      </Card.Content>
-    </Card>
-  );
+      </>
+    );
+
+    return (
+      <Card
+        style={[
+          styles.groupCard,
+          { borderLeftColor: item.backgroundColor || '#6200ee' }
+        ]}
+        onPress={() => handleGroupPress(item)}
+      >
+        {backgroundImageUri ? (
+          <ImageBackground
+            source={{ uri: backgroundImageUri }}
+            style={styles.cardBackgroundImage}
+            imageStyle={{ borderRadius: 8 }}
+            resizeMode="cover"
+          >
+            <View style={styles.imageOverlay}>
+              <Card.Content style={styles.groupContent}>
+                {cardContent}
+              </Card.Content>
+            </View>
+          </ImageBackground>
+        ) : (
+          <Card.Content style={styles.groupContent}>
+            {cardContent}
+          </Card.Content>
+        )}
+      </Card>
+    );
+  };
 
   /**
    * Render empty state
@@ -681,5 +708,17 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     minWidth: 80,
+  },
+  cardBackgroundImage: {
+    width: '100%',
+  },
+  imageOverlay: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 8,
+  },
+  groupNameWithImage: {
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });

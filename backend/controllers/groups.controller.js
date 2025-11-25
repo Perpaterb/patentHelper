@@ -175,7 +175,7 @@ async function getGroups(req, res) {
             name: true,
             icon: true,
             backgroundColor: true,
-            backgroundImageUrl: true,
+            backgroundImageId: true,
             createdAt: true,
             isHidden: true,
             createdByUserId: true, // Include creator to check if user created this group
@@ -335,7 +335,7 @@ async function getGroups(req, res) {
             name: membership.group.name,
             icon: membership.group.icon,
             backgroundColor: membership.group.backgroundColor,
-            backgroundImageUrl: membership.group.backgroundImageUrl,
+            backgroundImageId: membership.group.backgroundImageId,
             createdAt: membership.group.createdAt,
             isHidden: membership.group.isHidden,
             role: effectiveRole, // Use effective role (admin during trial)
@@ -431,7 +431,7 @@ async function getGroupById(req, res) {
         name: true,
         icon: true,
         backgroundColor: true,
-        backgroundImageUrl: true,
+        backgroundImageId: true,
         createdAt: true,
         isHidden: true,
         createdByUserId: true, // Include creator to check if user created this group
@@ -1065,7 +1065,7 @@ async function updateGroup(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId } = req.params;
-    const { name, icon, backgroundColor } = req.body;
+    const { name, icon, backgroundColor, backgroundImageId } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -1106,23 +1106,38 @@ async function updateGroup(req, res) {
       });
     }
 
+    // Build update data object
+    const updateData = {
+      name: name.trim(),
+      icon: icon?.trim() || null,
+      backgroundColor: backgroundColor || '#6200ee',
+    };
+
+    // Only update backgroundImageId if provided (allows setting to null to remove)
+    if (backgroundImageId !== undefined) {
+      updateData.backgroundImageId = backgroundImageId || null;
+    }
+
     // Update group
     const updatedGroup = await prisma.group.update({
       where: { groupId: groupId },
-      data: {
-        name: name.trim(),
-        icon: icon?.trim() || null,
-        backgroundColor: backgroundColor || '#6200ee',
-      },
+      data: updateData,
     });
 
     // Create audit log with detailed changes
-    const detailsMessage = [
+    const detailsArray = [
       `Updated group details:`,
       `Name: ${name.trim()}`,
       `Icon: ${icon?.trim() || '(none)'}`,
       `Background Color: ${backgroundColor || '#6200ee'}`,
-    ].join('\n');
+    ];
+
+    // Add background image to audit log if provided
+    if (backgroundImageId !== undefined) {
+      detailsArray.push(`Background Image ID: ${backgroundImageId || '(removed)'}`);
+    }
+
+    const detailsMessage = detailsArray.join('\n');
 
     await prisma.auditLog.create({
       data: {
