@@ -60,6 +60,20 @@ export default function GroupDashboardScreen({ navigation, route }) {
   );
 
   /**
+   * Real-time polling: Refresh all badge counts every 5 seconds
+   * Updates approvals, finance, and message notification counts
+   */
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadPendingApprovalsCount();
+      loadPendingFinanceCount();
+      loadMessageBadgeCounts();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [groupId]);
+
+  /**
    * Load group information
    */
   const loadGroupInfo = async () => {

@@ -115,6 +115,7 @@ export default function MessagesScreen({ navigation, route }) {
       if (!silent) {
         setError(null);
       }
+
       const response = await api.get(`/groups/${groupId}/message-groups/${messageGroupId}/messages?limit=50`);
       const fetchedMessages = response.data.messages || [];
 
@@ -129,19 +130,19 @@ export default function MessagesScreen({ navigation, route }) {
       })));
       const messagesChanged = currentSnapshot !== newSnapshot;
 
+      // Mark messages as read if user is viewing the screen (initial load only)
+      // This creates read receipts for other users to see
+      if (!silent) {
+        try {
+          await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/mark-read`);
+        } catch (markReadErr) {
+          console.error('Mark as read error:', markReadErr);
+        }
+      }
+
       if (messagesChanged) {
         setMessages(fetchedMessages);
         setHasMore(response.data.hasMore || false);
-
-        // Mark messages as read (only if not silent refresh)
-        if (!silent) {
-          try {
-            await api.put(`/groups/${groupId}/message-groups/${messageGroupId}/mark-read`);
-          } catch (markReadErr) {
-            console.error('Mark as read error:', markReadErr);
-            // Don't fail the whole operation if mark-as-read fails
-          }
-        }
 
         // Scroll to bottom after messages load (only on initial load, not polling)
         if (!silent) {
@@ -149,11 +150,14 @@ export default function MessagesScreen({ navigation, route }) {
             flatListRef.current?.scrollToEnd({ animated: false });
           }, 100);
         }
+      } else if (silent) {
+        // During polling, even if message IDs haven't changed, ALWAYS update
+        // to get latest read receipts (they change independently of messages)
+        setMessages(fetchedMessages);
       }
     } catch (err) {
       console.error('Load messages error:', err);
 
-      // Don't show error if it's an auth error
       if (err.isAuthError) {
         console.log('[Messages] Auth error detected - user will be logged out');
         return;

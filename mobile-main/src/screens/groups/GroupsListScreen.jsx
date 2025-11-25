@@ -60,6 +60,19 @@ export default function GroupsListScreen({ navigation }) {
   );
 
   /**
+   * Real-time polling: Refresh groups and invitation count every 5 seconds
+   * Updates unread message counts and invitation badges
+   */
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadGroups(); // Silent refresh
+      loadInvitationCount();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  /**
    * Load groups from API
    */
   const loadGroups = async (showLoader = false) => {

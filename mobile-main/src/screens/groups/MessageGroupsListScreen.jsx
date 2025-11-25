@@ -47,6 +47,18 @@ export default function MessageGroupsListScreen({ navigation, route }) {
   );
 
   /**
+   * Real-time polling: Refresh message groups every 5 seconds
+   * Updates unread message counts and last message previews
+   */
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      loadMessageGroups();
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [groupId]);
+
+  /**
    * Load group information
    */
   const loadGroupInfo = async () => {
