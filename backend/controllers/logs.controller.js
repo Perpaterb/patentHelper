@@ -27,6 +27,9 @@ async function getAuditLogs(req, res) {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
+    // Filter parameters
+    const { actions, users, fromDate, toDate } = req.query;
+
     if (!userId) {
       return res.status(401).json({
         error: 'Unauthorized',
@@ -50,14 +53,47 @@ async function getAuditLogs(req, res) {
       });
     }
 
-    // Get total count for pagination
+    // Build where clause with filters
+    const whereClause = { groupId: groupId };
+
+    // Filter by actions (comma-separated string)
+    if (actions && actions.trim()) {
+      const actionsList = actions.split(',').map(a => a.trim()).filter(Boolean);
+      if (actionsList.length > 0) {
+        whereClause.action = { in: actionsList };
+      }
+    }
+
+    // Filter by users (comma-separated emails)
+    if (users && users.trim()) {
+      const usersList = users.split(',').map(u => u.trim()).filter(Boolean);
+      if (usersList.length > 0) {
+        whereClause.performedByEmail = { in: usersList };
+      }
+    }
+
+    // Filter by date range
+    if (fromDate || toDate) {
+      whereClause.performedAt = {};
+      if (fromDate) {
+        whereClause.performedAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        // Add 1 day to toDate to include the entire day
+        const endDate = new Date(toDate);
+        endDate.setDate(endDate.getDate() + 1);
+        whereClause.performedAt.lt = endDate;
+      }
+    }
+
+    // Get total count for pagination (with filters)
     const totalLogs = await prisma.auditLog.count({
-      where: { groupId: groupId },
+      where: whereClause,
     });
 
-    // Get logs with pagination
+    // Get logs with pagination and filters
     const logs = await prisma.auditLog.findMany({
-      where: { groupId: groupId },
+      where: whereClause,
       orderBy: { performedAt: 'desc' },
       skip: skip,
       take: limit,
@@ -74,16 +110,57 @@ async function getAuditLogs(req, res) {
     });
 
     // Map the response to match frontend expectations
-    const formattedLogs = logs.map(log => ({
-      logId: log.logId,
-      action: log.action,
-      actionLocation: log.actionLocation || 'Unknown',
-      performedByName: log.performedByName || 'Unknown',
-      performedByEmail: log.performedByEmail,
-      createdAt: log.performedAt,
-      messageContent: log.messageContent || '',
-      mediaLinks: log.mediaLinks || [],
-    }));
+    // Decrypt message content if it contains encrypted messages
+    const formattedLogs = logs.map(log => {
+      let messageContent = log.messageContent || '';
+
+      // Check if this is a message-related action that might contain encrypted content
+      if (log.action === 'send_message' || log.action === 'edit_message') {
+        // Try to find and decrypt encrypted message content
+        // Format: 'Sent message: "encrypted_text"' or 'Edited message from "old" to "new"'
+        const messageMatch = messageContent.match(/"([^"]+)"/g);
+        if (messageMatch) {
+          messageMatch.forEach(encryptedMsg => {
+            const encrypted = encryptedMsg.slice(1, -1); // Remove quotes
+            if (encryptionService.isEncrypted(encrypted)) {
+              try {
+                const decrypted = encryptionService.decrypt(encrypted);
+                messageContent = messageContent.replace(encryptedMsg, `"${decrypted}"`);
+              } catch (err) {
+                console.error('Failed to decrypt message in audit log:', err);
+                // Keep original if decryption fails
+              }
+            }
+          });
+        }
+      } else if (log.action === 'read_messages') {
+        // For read_messages, the format is: 'Read message: "encrypted"' or 'Read X messages. Message IDs: ...'
+        // Only decrypt if it contains actual message content
+        const messageMatch = messageContent.match(/Read message: "([^"]+)"/);
+        if (messageMatch && messageMatch[1]) {
+          const encrypted = messageMatch[1];
+          if (encryptionService.isEncrypted(encrypted)) {
+            try {
+              const decrypted = encryptionService.decrypt(encrypted);
+              messageContent = messageContent.replace(`"${encrypted}"`, `"${decrypted}"`);
+            } catch (err) {
+              console.error('Failed to decrypt message in audit log:', err);
+            }
+          }
+        }
+      }
+
+      return {
+        logId: log.logId,
+        action: log.action,
+        actionLocation: log.actionLocation || 'Unknown',
+        performedByName: log.performedByName || 'Unknown',
+        performedByEmail: log.performedByEmail,
+        createdAt: log.performedAt,
+        messageContent: messageContent,
+        mediaLinks: log.mediaLinks || [],
+      };
+    });
 
     res.status(200).json({
       success: true,

@@ -49,6 +49,18 @@ export default function AuditLogsScreen({ navigation }) {
   const [previousExports, setPreviousExports] = useState([]);
   const [loadingExports, setLoadingExports] = useState(false);
 
+  // Filters
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [selectedActions, setSelectedActions] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [availableActions, setAvailableActions] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
+
+  // Expanded rows
+  const [expandedRows, setExpandedRows] = useState({});
+
   useEffect(() => {
     fetchGroups();
     fetchPreviousExports();
@@ -57,8 +69,29 @@ export default function AuditLogsScreen({ navigation }) {
   useEffect(() => {
     if (selectedGroup) {
       fetchLogs();
+      fetchFilterOptions();
     }
-  }, [selectedGroup, page]);
+  }, [selectedGroup, page, selectedActions, selectedUsers, fromDate, toDate]);
+
+  async function fetchFilterOptions() {
+    try {
+      // Fetch all logs for this group to get unique actions and users
+      const response = await api.get(
+        `/logs/groups/${selectedGroup.groupId}?page=1&limit=1000`
+      );
+      const allLogs = response.data.logs || [];
+
+      // Extract unique actions
+      const actions = [...new Set(allLogs.map(log => log.action))].sort();
+      setAvailableActions(actions);
+
+      // Extract unique users (email)
+      const users = [...new Set(allLogs.map(log => log.performedByEmail))].filter(Boolean).sort();
+      setAvailableUsers(users);
+    } catch (err) {
+      console.error('Failed to fetch filter options:', err);
+    }
+  }
 
   async function fetchGroups() {
     try {
@@ -81,8 +114,27 @@ export default function AuditLogsScreen({ navigation }) {
   async function fetchLogs() {
     try {
       setLoading(true);
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('page', page + 1);
+      params.append('limit', 20);
+
+      if (selectedActions.length > 0) {
+        params.append('actions', selectedActions.join(','));
+      }
+      if (selectedUsers.length > 0) {
+        params.append('users', selectedUsers.join(','));
+      }
+      if (fromDate) {
+        params.append('fromDate', fromDate);
+      }
+      if (toDate) {
+        params.append('toDate', toDate);
+      }
+
       const response = await api.get(
-        `/logs/groups/${selectedGroup.groupId}?page=${page + 1}&limit=20`
+        `/logs/groups/${selectedGroup.groupId}?${params.toString()}`
       );
       setLogs(response.data.logs || []);
       setTotalPages(response.data.pagination?.totalPages || 1);
@@ -93,6 +145,45 @@ export default function AuditLogsScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleRefresh() {
+    fetchLogs();
+    fetchFilterOptions();
+    fetchPreviousExports();
+  }
+
+  function handleClearFilters() {
+    setSelectedActions([]);
+    setSelectedUsers([]);
+    setFromDate('');
+    setToDate('');
+    setPage(0);
+  }
+
+  function toggleActionFilter(action) {
+    setSelectedActions(prev =>
+      prev.includes(action)
+        ? prev.filter(a => a !== action)
+        : [...prev, action]
+    );
+    setPage(0); // Reset to first page
+  }
+
+  function toggleUserFilter(user) {
+    setSelectedUsers(prev =>
+      prev.includes(user)
+        ? prev.filter(u => u !== user)
+        : [...prev, user]
+    );
+    setPage(0); // Reset to first page
+  }
+
+  function toggleRowExpanded(logId) {
+    setExpandedRows(prev => ({
+      ...prev,
+      [logId]: !prev[logId]
+    }));
   }
 
   async function fetchPreviousExports() {
@@ -259,15 +350,113 @@ export default function AuditLogsScreen({ navigation }) {
                 ))}
               </Menu>
 
-              <Button
-                mode="contained"
-                onPress={() => setExportDialogVisible(true)}
-                icon="download"
-                disabled={!selectedGroup}
-              >
-                Export Logs
-              </Button>
+              <View style={styles.toolbarRight}>
+                <IconButton
+                  icon="refresh"
+                  mode="outlined"
+                  onPress={handleRefresh}
+                  disabled={!selectedGroup}
+                />
+                <Button
+                  mode={filterVisible ? 'contained' : 'outlined'}
+                  onPress={() => setFilterVisible(!filterVisible)}
+                  icon="filter"
+                  disabled={!selectedGroup}
+                >
+                  Filters
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={() => setExportDialogVisible(true)}
+                  icon="download"
+                  disabled={!selectedGroup}
+                >
+                  Export Logs
+                </Button>
+              </View>
             </View>
+
+            {/* Filters Panel */}
+            {filterVisible && selectedGroup && (
+              <Card style={styles.filterCard}>
+                <Card.Content>
+                  <View style={styles.filterHeader}>
+                    <Title style={styles.filterTitle}>Filters</Title>
+                    <Button
+                      mode="text"
+                      onPress={handleClearFilters}
+                      disabled={selectedActions.length === 0 && selectedUsers.length === 0 && !fromDate && !toDate}
+                    >
+                      Clear All
+                    </Button>
+                  </View>
+
+                  {/* Action Filters */}
+                  <Text style={styles.filterSectionTitle}>Actions</Text>
+                  <View style={styles.chipContainer}>
+                    {availableActions.map(action => (
+                      <Chip
+                        key={action}
+                        selected={selectedActions.includes(action)}
+                        onPress={() => toggleActionFilter(action)}
+                        style={styles.filterChip}
+                      >
+                        {action}
+                      </Chip>
+                    ))}
+                  </View>
+
+                  {/* User Filters */}
+                  <Text style={styles.filterSectionTitle}>Users</Text>
+                  <View style={styles.chipContainer}>
+                    {availableUsers.map(user => (
+                      <Chip
+                        key={user}
+                        selected={selectedUsers.includes(user)}
+                        onPress={() => toggleUserFilter(user)}
+                        style={styles.filterChip}
+                      >
+                        {user}
+                      </Chip>
+                    ))}
+                  </View>
+
+                  {/* Date Range Filters */}
+                  <Text style={styles.filterSectionTitle}>Date Range</Text>
+                  <View style={styles.dateRow}>
+                    <TextInput
+                      label="From Date"
+                      value={fromDate}
+                      onChangeText={setFromDate}
+                      placeholder="YYYY-MM-DD"
+                      mode="outlined"
+                      style={styles.dateInput}
+                      dense
+                    />
+                    <TextInput
+                      label="To Date"
+                      value={toDate}
+                      onChangeText={setToDate}
+                      placeholder="YYYY-MM-DD"
+                      mode="outlined"
+                      style={styles.dateInput}
+                      dense
+                    />
+                  </View>
+
+                  {/* Active Filters Summary */}
+                  {(selectedActions.length > 0 || selectedUsers.length > 0 || fromDate || toDate) && (
+                    <View style={styles.activeFiltersSummary}>
+                      <Text style={styles.activeFiltersText}>
+                        Active filters: {selectedActions.length} actions, {selectedUsers.length} users
+                        {fromDate && `, from ${fromDate}`}
+                        {toDate && `, to ${toDate}`}
+                      </Text>
+                    </View>
+                  )}
+                </Card.Content>
+              </Card>
+            )}
 
             {/* Info Box */}
             <Card style={styles.infoCard}>
@@ -320,25 +509,40 @@ export default function AuditLogsScreen({ navigation }) {
                       <Text>No audit logs found for this group.</Text>
                     </View>
                   ) : (
-                    logs.map((log, index) => (
-                      <DataTable.Row key={log.logId || index}>
-                        <DataTable.Cell style={styles.columnDate}>
-                          {formatDate(log.createdAt)}
-                        </DataTable.Cell>
-                        <DataTable.Cell style={styles.columnAction}>
-                          {log.action}
-                        </DataTable.Cell>
-                        <DataTable.Cell style={styles.columnUser}>
-                          {log.performedByName}
-                        </DataTable.Cell>
-                        <DataTable.Cell style={styles.columnLocation}>
-                          {log.actionLocation}
-                        </DataTable.Cell>
-                        <DataTable.Cell style={styles.columnContent}>
-                          <Text numberOfLines={2}>{log.messageContent}</Text>
-                        </DataTable.Cell>
-                      </DataTable.Row>
-                    ))
+                    logs.map((log, index) => {
+                      const isExpanded = expandedRows[log.logId];
+                      return (
+                        <DataTable.Row key={log.logId || index}>
+                          <DataTable.Cell style={styles.columnDate}>
+                            {formatDate(log.createdAt)}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnAction}>
+                            {log.action}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnUser}>
+                            {log.performedByName}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnLocation}>
+                            {log.actionLocation}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnContent}>
+                            <View style={styles.contentCell}>
+                              <Text numberOfLines={isExpanded ? undefined : 2}>
+                                {log.messageContent}
+                              </Text>
+                              {log.messageContent && log.messageContent.length > 100 && (
+                                <IconButton
+                                  icon={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                  size={16}
+                                  onPress={() => toggleRowExpanded(log.logId)}
+                                  style={styles.expandButton}
+                                />
+                              )}
+                            </View>
+                          </DataTable.Cell>
+                        </DataTable.Row>
+                      );
+                    })
                   )}
 
                   <DataTable.Pagination
@@ -664,5 +868,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  toolbarRight: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  filterCard: {
+    margin: 16,
+    marginTop: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  filterTitle: {
+    fontSize: 16,
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dateInput: {
+    flex: 1,
+  },
+  activeFiltersSummary: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 4,
+  },
+  activeFiltersText: {
+    fontSize: 13,
+    color: '#1976d2',
+  },
+  contentCell: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  expandButton: {
+    margin: 0,
+    marginLeft: 4,
   },
 });
