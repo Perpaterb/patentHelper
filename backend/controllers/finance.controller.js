@@ -291,6 +291,14 @@ async function createFinanceMatter(req, res) {
     const userRole = groupMembership.role;
     const isAdmin = userRole === 'admin';
 
+    // CRITICAL: Supervisors cannot create finance matters (view-only role)
+    if (userRole === 'supervisor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Supervisors cannot create finance matters',
+      });
+    }
+
     // Get group settings to check finance creation permissions
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
@@ -996,6 +1004,14 @@ async function sendFinanceMatterMessage(req, res) {
     const userRole = groupMembership.role;
     const isAdmin = userRole === 'admin';
 
+    // CRITICAL: Supervisors cannot send finance messages (view-only role)
+    if (userRole === 'supervisor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Supervisors cannot send finance matter messages',
+      });
+    }
+
     // Get group settings to check finance visibility permissions
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
@@ -1190,6 +1206,14 @@ async function recordPayment(req, res) {
     const userRole = groupMembership.role;
     const isAdmin = userRole === 'admin';
 
+    // CRITICAL: Supervisors cannot record payments (view-only role)
+    if (userRole === 'supervisor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Supervisors cannot record payments',
+      });
+    }
+
     // Get group settings to check finance visibility permissions
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
@@ -1334,6 +1358,14 @@ async function confirmPayment(req, res) {
       return res.status(403).json({
         success: false,
         message: 'You are not a member of this group',
+      });
+    }
+
+    // CRITICAL: Supervisors cannot confirm payments (view-only role)
+    if (groupMembership.role === 'supervisor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Supervisors cannot confirm payments',
       });
     }
 
@@ -1560,6 +1592,14 @@ async function rejectPayment(req, res) {
       return res.status(403).json({
         success: false,
         message: 'You are not a member of this group',
+      });
+    }
+
+    // CRITICAL: Supervisors cannot reject payments (view-only role)
+    if (groupMembership.role === 'supervisor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Supervisors cannot reject payments',
       });
     }
 

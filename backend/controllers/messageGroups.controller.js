@@ -230,6 +230,14 @@ async function createMessageGroup(req, res) {
       });
     }
 
+    // CRITICAL: Supervisors cannot create message groups (view-only role)
+    if (userMembership.role === 'supervisor') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Supervisors cannot create message groups',
+      });
+    }
+
     // Check permissions based on group settings
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
