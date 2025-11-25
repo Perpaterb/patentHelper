@@ -68,6 +68,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
   useFocusEffect(
     React.useCallback(() => {
       loadGroupDetails();
+      loadGroupSettings();
     }, [groupId])
   );
 
