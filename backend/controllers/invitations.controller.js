@@ -27,12 +27,16 @@ async function getInvitations(req, res) {
 
     // Find all group memberships where:
     // 1. Email matches user's email
-    // 2. isRegistered is false (meaning it's a pending invitation)
-    // 3. userId doesn't match (to exclude already accepted invitations)
+    // 2. EITHER:
+    //    a) isRegistered is false (normal pending invitation), OR
+    //    b) isRegistered is true AND userId is null (placeholder created before user registered)
     const pendingInvitations = await prisma.groupMember.findMany({
       where: {
         email: userEmail.toLowerCase(),
-        isRegistered: false,
+        OR: [
+          { isRegistered: false }, // Normal invitation
+          { isRegistered: true, userId: null }, // Placeholder from before user registered
+        ],
       },
       include: {
         group: {
@@ -90,11 +94,14 @@ async function getInvitationCount(req, res) {
       });
     }
 
-    // Count pending invitations
+    // Count pending invitations (including placeholders created before user registered)
     const count = await prisma.groupMember.count({
       where: {
         email: userEmail.toLowerCase(),
-        isRegistered: false,
+        OR: [
+          { isRegistered: false }, // Normal invitation
+          { isRegistered: true, userId: null }, // Placeholder from before user registered
+        ],
       },
     });
 
@@ -160,7 +167,11 @@ async function acceptInvitation(req, res) {
     }
 
     // Verify it's still pending
-    if (invitation.isRegistered) {
+    // Two valid cases:
+    // 1. Normal invitation: isRegistered = false, userId can be set or null
+    // 2. Placeholder: isRegistered = true, userId = null (created before user registered)
+    // Invalid case: isRegistered = true AND userId is set (already accepted)
+    if (invitation.isRegistered && invitation.userId !== null) {
       return res.status(400).json({
         error: 'Already Accepted',
         message: 'This invitation has already been accepted',
@@ -254,7 +265,11 @@ async function declineInvitation(req, res) {
     }
 
     // Verify it's still pending
-    if (invitation.isRegistered) {
+    // Two valid cases:
+    // 1. Normal invitation: isRegistered = false, userId can be set or null
+    // 2. Placeholder: isRegistered = true, userId = null (created before user registered)
+    // Invalid case: isRegistered = true AND userId is set (already accepted)
+    if (invitation.isRegistered && invitation.userId !== null) {
       return res.status(400).json({
         error: 'Already Accepted',
         message: 'This invitation has already been accepted',
