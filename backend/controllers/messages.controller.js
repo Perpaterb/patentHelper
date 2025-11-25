@@ -498,13 +498,16 @@ async function sendMessageGroupMessage(req, res) {
       })),
     };
 
-    // Update lastMessageAt on the message group
-    await prisma.messageGroup.update({
+    // Update lastMessageAt on the message group and get message group name for audit log
+    const messageGroup = await prisma.messageGroup.update({
       where: {
         messageGroupId: messageGroupId,
       },
       data: {
         lastMessageAt: new Date(),
+      },
+      select: {
+        name: true,
       },
     });
 
@@ -519,7 +522,7 @@ async function sendMessageGroupMessage(req, res) {
         performedByName: groupMembership.displayName,
         performedByEmail: groupMembership.email || 'N/A',
         actionLocation: 'messages',
-        messageContent: `Sent message${mediaInfo}${mentionInfo}: "${messageContent.substring(0, 100)}${messageContent.length > 100 ? '...' : ''}" (Message ID: ${message.messageId})`,
+        messageContent: `Sent message in "${messageGroup.name}"${mediaInfo}${mentionInfo}: "${messageContent.substring(0, 100)}${messageContent.length > 100 ? '...' : ''}" (Message ID: ${message.messageId})`,
       },
     });
 
@@ -630,6 +633,12 @@ async function markMessageGroupAsRead(req, res) {
         skipDuplicates: true, // Skip if read receipt already exists
       });
 
+      // Get message group name for audit log
+      const messageGroup = await prisma.messageGroup.findUnique({
+        where: { messageGroupId: messageGroupId },
+        select: { name: true },
+      });
+
       // Create audit log for message reads
       const messageIds = unreadMessages.map(m => m.messageId).join(', ');
 
@@ -639,13 +648,13 @@ async function markMessageGroupAsRead(req, res) {
         try {
           const decryptedContent = encryptionService.decrypt(unreadMessages[0].content);
           const truncated = decryptedContent.substring(0, 50);
-          messageContent = `Read message: "${truncated}${decryptedContent.length > 50 ? '...' : ''}"`;
+          messageContent = `Read message in "${messageGroup?.name || 'Unknown'}": "${truncated}${decryptedContent.length > 50 ? '...' : ''}"`;
         } catch (err) {
           console.error('Failed to decrypt message for audit log:', err);
-          messageContent = `Read message: [encrypted content]`;
+          messageContent = `Read message in "${messageGroup?.name || 'Unknown'}": [encrypted content]`;
         }
       } else {
-        messageContent = `Read ${unreadMessages.length} messages`;
+        messageContent = `Read ${unreadMessages.length} messages in "${messageGroup?.name || 'Unknown'}"`;
       }
 
       await prisma.auditLog.create({
