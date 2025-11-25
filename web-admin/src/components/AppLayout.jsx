@@ -6,9 +6,8 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  Appbar,
   Drawer,
   Text,
   Divider,
@@ -88,16 +87,6 @@ function AppLayout({ children, navigation, currentRoute }) {
 
       {/* Main Content Area */}
       <View style={styles.mainArea}>
-        {/* App Bar */}
-        <Appbar.Header style={styles.appBar}>
-          <Appbar.Action
-            icon="menu"
-            onPress={() => setMobileMenuVisible(true)}
-            style={styles.mobileMenuButton}
-          />
-          <Appbar.Content title="Family Helper" />
-        </Appbar.Header>
-
         {/* Content */}
         <View style={styles.content}>
           {children}
@@ -153,14 +142,6 @@ const styles = StyleSheet.create({
   mainArea: {
     flex: 1,
     flexDirection: 'column',
-  },
-  appBar: {
-    backgroundColor: '#1976d2',
-    elevation: 4,
-  },
-  mobileMenuButton: {
-    // Hide on desktop, show on mobile
-    // For now, always visible - can be improved with media queries
   },
   content: {
     flex: 1,
