@@ -118,9 +118,16 @@ export default function MessagesScreen({ navigation, route }) {
       const response = await api.get(`/groups/${groupId}/message-groups/${messageGroupId}/messages?limit=50`);
       const fetchedMessages = response.data.messages || [];
 
-      // Only update if messages have changed (prevents unnecessary re-renders)
-      const messagesChanged = JSON.stringify(fetchedMessages.map(m => m.messageId)) !==
-                              JSON.stringify(messages.map(m => m.messageId));
+      // Check if messages or read receipts have changed (for live status updates)
+      const currentSnapshot = JSON.stringify(messages.map(m => ({
+        id: m.messageId,
+        readCount: m.readReceipts?.length || 0
+      })));
+      const newSnapshot = JSON.stringify(fetchedMessages.map(m => ({
+        id: m.messageId,
+        readCount: m.readReceipts?.length || 0
+      })));
+      const messagesChanged = currentSnapshot !== newSnapshot;
 
       if (messagesChanged) {
         setMessages(fetchedMessages);
