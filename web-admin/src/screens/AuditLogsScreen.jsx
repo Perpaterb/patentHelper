@@ -66,12 +66,19 @@ export default function AuditLogsScreen({ navigation }) {
     fetchPreviousExports();
   }, []);
 
+  // Fetch logs when filters change
   useEffect(() => {
     if (selectedGroup) {
       fetchLogs();
-      fetchFilterOptions();
     }
   }, [selectedGroup, page, selectedActions, selectedUsers, fromDate, toDate]);
+
+  // Fetch filter options only when group changes (not when filters change)
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchFilterOptions();
+    }
+  }, [selectedGroup]);
 
   async function fetchFilterOptions() {
     try {
@@ -520,14 +527,14 @@ export default function AuditLogsScreen({ navigation }) {
                             {log.action}
                           </DataTable.Cell>
                           <DataTable.Cell style={styles.columnUser}>
-                            {log.performedByName}
+                            {log.performedByEmail}
                           </DataTable.Cell>
                           <DataTable.Cell style={styles.columnLocation}>
                             {log.actionLocation}
                           </DataTable.Cell>
                           <DataTable.Cell style={styles.columnContent}>
                             <View style={styles.contentCell}>
-                              <Text numberOfLines={isExpanded ? undefined : 2}>
+                              <Text style={styles.contentText} numberOfLines={isExpanded ? undefined : 2}>
                                 {log.messageContent}
                               </Text>
                               {log.messageContent && log.messageContent.length > 100 && (
@@ -921,12 +928,19 @@ const styles = StyleSheet.create({
     color: '#1976d2',
   },
   contentCell: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 4,
+    width: '100%',
+  },
+  contentText: {
+    flex: 1,
+    flexWrap: 'wrap',
+    wordBreak: 'break-word',
+    width: '100%',
   },
   expandButton: {
     margin: 0,
-    marginLeft: 4,
+    alignSelf: 'center',
   },
 });
