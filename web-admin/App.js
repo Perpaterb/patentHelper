@@ -126,7 +126,7 @@ const linking = {
       Invites: 'web-app/invites',
       InviteMember: 'web-app/group/:groupId/invite',
       MessageGroupsList: 'web-app/group/:groupId/messages',
-      Messages: 'web-app/group/:groupId/messages/:messageGroupId',
+      GroupMessages: 'web-app/group/:groupId/messages/:messageGroupId',
       CreateMessageGroup: 'web-app/group/:groupId/messages/create',
       MessageGroupSettings: 'web-app/group/:groupId/messages/:messageGroupId/settings',
       Calendar: 'web-app/group/:groupId/calendar',
@@ -234,7 +234,7 @@ function AppNavigator() {
 
             {/* Messages */}
             <Stack.Screen name="MessageGroupsList" component={withAppLayoutAndPhoneFrame(MessageGroupsListScreen, 'Groups')} />
-            <Stack.Screen name="Messages" component={withAppLayoutAndPhoneFrame(MessagesScreen, 'Groups')} />
+            <Stack.Screen name="GroupMessages" component={withAppLayoutAndPhoneFrame(MessagesScreen, 'Groups')} />
             <Stack.Screen name="CreateMessageGroup" component={withAppLayoutAndPhoneFrame(CreateMessageGroupScreen, 'Groups')} />
             <Stack.Screen name="MessageGroupSettings" component={withAppLayoutAndPhoneFrame(MessageGroupSettingsScreen, 'Groups')} />
 
