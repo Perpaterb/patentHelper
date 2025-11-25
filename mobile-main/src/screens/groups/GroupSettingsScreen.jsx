@@ -58,7 +58,6 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
 
   // Group details editing state
-  const [editingGroupDetails, setEditingGroupDetails] = useState(false);
   const [editGroupName, setEditGroupName] = useState('');
   const [editIcon, setEditIcon] = useState('');
   const [editBackgroundColor, setEditBackgroundColor] = useState('#6200ee');
@@ -101,6 +100,12 @@ export default function GroupSettingsScreen({ navigation, route }) {
         backgroundColor: group.backgroundColor,
         createdAt: group.createdAt,
       });
+
+      // Initialize editing fields with current values
+      setEditGroupName(group.name);
+      setEditIcon(group.icon || '');
+      setEditBackgroundColor(group.backgroundColor || '#6200ee');
+
       setMembers(group.members || []);
       setUserRole(group.userRole);
       setCurrentUserId(group.currentUserId);
@@ -326,25 +331,6 @@ export default function GroupSettingsScreen({ navigation, route }) {
   };
 
   /**
-   * Start editing group details
-   */
-  const handleStartEditGroup = () => {
-    setEditGroupName(groupInfo.name);
-    setEditIcon(groupInfo.icon || '');
-    setEditBackgroundColor(groupInfo.backgroundColor || '#6200ee');
-    setEditingGroupDetails(true);
-    setGroupDetailsError(null);
-  };
-
-  /**
-   * Cancel editing group details
-   */
-  const handleCancelEditGroup = () => {
-    setEditingGroupDetails(false);
-    setGroupDetailsError(null);
-  };
-
-  /**
    * Save group details
    */
   const handleSaveGroupDetails = async () => {
@@ -371,8 +357,6 @@ export default function GroupSettingsScreen({ navigation, route }) {
         icon: editIcon.trim(),
         backgroundColor: editBackgroundColor,
       });
-
-      setEditingGroupDetails(false);
 
       // Show success message
       if (Platform.OS === 'web') {
@@ -745,130 +729,80 @@ export default function GroupSettingsScreen({ navigation, route }) {
       ) : (
         <ScrollView style={styles.scrollView}>
       {/* Group Details Section */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Title style={styles.sectionTitle}>Group Details</Title>
+      {userRole === 'admin' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>Group Details</Title>
 
-          {!editingGroupDetails ? (
-            <>
-              <View style={styles.groupHeader}>
-                <Avatar.Text
-                  size={64}
-                  label={groupInfo.icon || groupInfo.name[0]}
-                  style={[styles.avatar, { backgroundColor: groupInfo.backgroundColor || '#6200ee' }]}
-                  color={getContrastTextColor(groupInfo.backgroundColor || '#6200ee')}
-                />
-                <View style={styles.groupHeaderInfo}>
-                  <Title style={styles.groupName}>{groupInfo.name}</Title>
-                </View>
+            {groupDetailsError && (
+              <HelperText type="error" visible={!!groupDetailsError} style={styles.errorText}>
+                {groupDetailsError}
+              </HelperText>
+            )}
+
+            <TextInput
+              label="Group Name *"
+              value={editGroupName}
+              onChangeText={setEditGroupName}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g., Family Chat, Weekend Plans"
+              maxLength={255}
+              disabled={updatingGroup}
+            />
+
+            <TextInput
+              label="Icon (emoji or single character)"
+              value={editIcon}
+              onChangeText={setEditIcon}
+              mode="outlined"
+              style={styles.input}
+              placeholder="e.g., 🏠, 👨‍👩‍👧‍👦, F"
+              maxLength={2}
+              disabled={updatingGroup}
+            />
+
+            <View style={styles.colorSection}>
+              <Text style={styles.colorLabel}>Group Color</Text>
+              <TouchableOpacity
+                style={styles.colorButton}
+                onPress={handleOpenColorPicker}
+                disabled={updatingGroup}
+              >
+                <View style={[styles.colorPreview, { backgroundColor: editBackgroundColor }]} />
+                <Text style={styles.colorButtonText}>
+                  {editBackgroundColor.toUpperCase()}
+                </Text>
+                <Text style={styles.colorButtonLabel}>Tap to change</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.preview}>
+              <Text style={styles.previewLabel}>Preview:</Text>
+              <View
+                style={[
+                  styles.previewBox,
+                  { backgroundColor: editBackgroundColor || '#6200ee' },
+                ]}
+              >
+                <Text style={styles.previewIcon}>
+                  {editIcon || editGroupName[0] || '?'}
+                </Text>
               </View>
+            </View>
 
-              {userRole === 'admin' && (
-                <View style={styles.groupActionsContainer}>
-                  <Button
-                    mode="outlined"
-                    icon="pencil"
-                    onPress={handleStartEditGroup}
-                    style={styles.editButton}
-                  >
-                    Edit Group Details
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    icon="delete"
-                    onPress={handleDeleteGroup}
-                    loading={deletingGroup}
-                    disabled={deletingGroup}
-                    style={[styles.editButton, styles.deleteButton]}
-                    textColor="#d32f2f"
-                  >
-                    Delete Group
-                  </Button>
-                </View>
-              )}
-            </>
-          ) : (
-            <>
-              {groupDetailsError && (
-                <HelperText type="error" visible={!!groupDetailsError} style={styles.errorText}>
-                  {groupDetailsError}
-                </HelperText>
-              )}
-
-              <TextInput
-                label="Group Name *"
-                value={editGroupName}
-                onChangeText={setEditGroupName}
-                mode="outlined"
-                style={styles.input}
-                placeholder="e.g., Family Chat, Weekend Plans"
-                maxLength={255}
-                disabled={updatingGroup || deletingGroup}
-              />
-
-              <TextInput
-                label="Icon (emoji or single character)"
-                value={editIcon}
-                onChangeText={setEditIcon}
-                mode="outlined"
-                style={styles.input}
-                placeholder="e.g., 🏠, 👨‍👩‍👧‍👦, F"
-                maxLength={2}
-                disabled={updatingGroup || deletingGroup}
-              />
-
-              <View style={styles.colorSection}>
-                <Text style={styles.colorLabel}>Group Color</Text>
-                <TouchableOpacity
-                  style={styles.colorButton}
-                  onPress={handleOpenColorPicker}
-                  disabled={updatingGroup || deletingGroup}
-                >
-                  <View style={[styles.colorPreview, { backgroundColor: editBackgroundColor }]} />
-                  <Text style={styles.colorButtonText}>
-                    {editBackgroundColor.toUpperCase()}
-                  </Text>
-                  <Text style={styles.colorButtonLabel}>Tap to change</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.preview}>
-                <Text style={styles.previewLabel}>Preview:</Text>
-                <View
-                  style={[
-                    styles.previewBox,
-                    { backgroundColor: editBackgroundColor || '#6200ee' },
-                  ]}
-                >
-                  <Text style={styles.previewIcon}>
-                    {editIcon || editGroupName[0] || '?'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.editButtonsContainer}>
-                <Button
-                  mode="contained"
-                  onPress={handleSaveGroupDetails}
-                  loading={updatingGroup}
-                  disabled={updatingGroup || deletingGroup || !editGroupName.trim()}
-                  style={styles.saveButton}
-                >
-                  Save Changes
-                </Button>
-                <Button
-                  mode="text"
-                  onPress={handleCancelEditGroup}
-                  disabled={updatingGroup || deletingGroup}
-                  style={styles.cancelEditButton}
-                >
-                  Cancel
-                </Button>
-              </View>
-            </>
-          )}
-        </Card.Content>
-      </Card>
+            <Button
+              mode="contained"
+              onPress={handleSaveGroupDetails}
+              loading={updatingGroup}
+              disabled={updatingGroup || !editGroupName.trim()}
+              style={styles.saveButton}
+            >
+              Save Changes
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Members Section */}
       <Card style={styles.card}>
@@ -1015,6 +949,34 @@ export default function GroupSettingsScreen({ navigation, route }) {
             >
               Manage Auto-Approve Permissions
             </Button>
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Delete Group Button (for admins) */}
+      {userRole === 'admin' && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              <Text style={styles.dangerZoneText}>
+                Deleting a group is permanent and cannot be undone. All messages, calendar events, and finance records will be hidden but preserved in audit logs.
+              </Text>
+              <Text style={styles.dangerZoneText}>
+                If there are multiple admins, approval requests will be sent to all other admins. The group will be deleted if more than 75% of admins approve.
+              </Text>
+              <Button
+                mode="outlined"
+                icon="delete"
+                textColor="#d32f2f"
+                onPress={handleDeleteGroup}
+                loading={deletingGroup}
+                disabled={deletingGroup}
+                style={styles.deleteButton}
+              >
+                Delete Group
+              </Button>
+            </View>
           </Card.Content>
         </Card>
       )}
@@ -1288,5 +1250,24 @@ const styles = StyleSheet.create({
   },
   cancelEditButton: {
     marginTop: 8,
+  },
+  dangerZone: {
+    padding: 16,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  dangerZoneTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#d32f2f',
+    marginBottom: 8,
+  },
+  dangerZoneText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
   },
 });
