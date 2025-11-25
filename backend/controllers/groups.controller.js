@@ -1116,7 +1116,14 @@ async function updateGroup(req, res) {
       },
     });
 
-    // Create audit log
+    // Create audit log with detailed changes
+    const detailsMessage = [
+      `Updated group details:`,
+      `Name: ${name.trim()}`,
+      `Icon: ${icon?.trim() || '(none)'}`,
+      `Background Color: ${backgroundColor || '#6200ee'}`,
+    ].join('\n');
+
     await prisma.auditLog.create({
       data: {
         groupId: groupId,
@@ -1125,7 +1132,7 @@ async function updateGroup(req, res) {
         performedByName: membership.displayName,
         performedByEmail: membership.email,
         actionLocation: 'group_settings',
-        messageContent: `Updated group details for "${name}"`,
+        messageContent: detailsMessage,
       },
     });
 
@@ -2694,10 +2701,7 @@ async function updateGroupSettings(req, res) {
 
     let auditMessage = 'Updated group permission settings:\n';
     if (changedSettings.length > 0) {
-      auditMessage += changedSettings.slice(0, 10).join('\n'); // Limit to first 10 to avoid huge logs
-      if (changedSettings.length > 10) {
-        auditMessage += `\n... and ${changedSettings.length - 10} more settings`;
-      }
+      auditMessage += changedSettings.join('\n'); // Show all settings, no truncation
     }
 
     if (updatedData.defaultCurrency) {
