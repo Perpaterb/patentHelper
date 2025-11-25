@@ -22,7 +22,6 @@ import AddEditPersonalGiftItemScreen from '../screens/account/AddEditPersonalGif
 import AddEditPersonalItemRegistryItemScreen from '../screens/account/AddEditPersonalItemRegistryItemScreen';
 import GroupsListScreen from '../screens/groups/GroupsListScreen';
 import CreateGroupScreen from '../screens/groups/CreateGroupScreen';
-import EditGroupScreen from '../screens/groups/EditGroupScreen';
 import GroupDashboardScreen from '../screens/groups/GroupDashboardScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
 import InviteMemberScreen from '../screens/groups/InviteMemberScreen';
@@ -105,7 +104,6 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="AddEditPersonalItemRegistryItem" component={AddEditPersonalItemRegistryItemScreen} />
             <Stack.Screen name="Invites" component={InvitesScreen} />
             <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
-            <Stack.Screen name="EditGroup" component={EditGroupScreen} />
             <Stack.Screen name="GroupDashboard" component={GroupDashboardScreen} />
             <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
             <Stack.Screen name="InviteMember" component={InviteMemberScreen} />

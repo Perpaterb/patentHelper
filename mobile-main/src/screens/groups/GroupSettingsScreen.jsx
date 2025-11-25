@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import {
   Card,
@@ -20,12 +20,15 @@ import {
   Divider,
   Switch,
   Menu,
+  TextInput,
+  HelperText,
 } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import UserAvatar from '../../components/shared/UserAvatar';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import ColorPickerModal from '../../components/ColorPickerModal';
 
 /**
  * @typedef {Object} GroupSettingsScreenProps
@@ -53,6 +56,16 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const [adminPermissions, setAdminPermissions] = useState([]);
   const [savingSettings, setSavingSettings] = useState(false);
   const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
+
+  // Group details editing state
+  const [editingGroupDetails, setEditingGroupDetails] = useState(false);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editIcon, setEditIcon] = useState('');
+  const [editBackgroundColor, setEditBackgroundColor] = useState('#6200ee');
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [updatingGroup, setUpdatingGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+  const [groupDetailsError, setGroupDetailsError] = useState(null);
 
   useEffect(() => {
     loadGroupDetails();
@@ -313,15 +326,170 @@ export default function GroupSettingsScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to edit group screen
+   * Start editing group details
    */
-  const handleEditGroup = () => {
-    navigation.navigate('EditGroup', {
-      groupId: groupInfo.groupId,
-      groupName: groupInfo.name,
-      groupIcon: groupInfo.icon,
-      groupColor: groupInfo.backgroundColor,
-    });
+  const handleStartEditGroup = () => {
+    setEditGroupName(groupInfo.name);
+    setEditIcon(groupInfo.icon || '');
+    setEditBackgroundColor(groupInfo.backgroundColor || '#6200ee');
+    setEditingGroupDetails(true);
+    setGroupDetailsError(null);
+  };
+
+  /**
+   * Cancel editing group details
+   */
+  const handleCancelEditGroup = () => {
+    setEditingGroupDetails(false);
+    setGroupDetailsError(null);
+  };
+
+  /**
+   * Save group details
+   */
+  const handleSaveGroupDetails = async () => {
+    // Validate
+    if (!editGroupName.trim()) {
+      setGroupDetailsError('Group name is required');
+      return;
+    }
+
+    try {
+      setUpdatingGroup(true);
+      setGroupDetailsError(null);
+
+      await api.put(`/groups/${groupId}`, {
+        name: editGroupName.trim(),
+        icon: editIcon.trim() || undefined,
+        backgroundColor: editBackgroundColor,
+      });
+
+      // Update local state
+      setGroupInfo({
+        ...groupInfo,
+        name: editGroupName.trim(),
+        icon: editIcon.trim(),
+        backgroundColor: editBackgroundColor,
+      });
+
+      setEditingGroupDetails(false);
+
+      // Show success message
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`Group "${editGroupName}" updated successfully!`);
+        }
+      } else {
+        CustomAlert.alert('Success', `Group "${editGroupName}" updated successfully!`);
+      }
+    } catch (err) {
+      console.error('Update group error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[GroupSettings] Auth error detected - user will be logged out');
+        return;
+      }
+
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update group';
+      setGroupDetailsError(errorMessage);
+    } finally {
+      setUpdatingGroup(false);
+    }
+  };
+
+  /**
+   * Open color picker
+   */
+  const handleOpenColorPicker = () => {
+    setColorPickerVisible(true);
+  };
+
+  /**
+   * Handle color selection
+   */
+  const handleColorConfirm = (color) => {
+    setEditBackgroundColor(color);
+    setColorPickerVisible(false);
+  };
+
+  /**
+   * Handle color picker cancel
+   */
+  const handleColorCancel = () => {
+    setColorPickerVisible(false);
+  };
+
+  /**
+   * Handle delete group
+   */
+  const handleDeleteGroup = () => {
+    CustomAlert.alert(
+      'Delete Group',
+      `Are you sure you want to delete "${groupInfo.name}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: confirmDeleteGroup,
+        },
+      ]
+    );
+  };
+
+  /**
+   * Confirm delete group
+   */
+  const confirmDeleteGroup = async () => {
+    try {
+      setDeletingGroup(true);
+      setGroupDetailsError(null);
+
+      const response = await api.delete(`/groups/${groupId}`);
+
+      // Check if approval is required
+      if (response.data.requiresApproval) {
+        CustomAlert.alert(
+          'Approval Requested',
+          `Your request to delete "${groupInfo.name}" requires approval from other admins. Check the Approvals screen to track its status.`,
+          [
+            { text: 'OK', onPress: () => navigation.navigate('Groups') },
+          ]
+        );
+        return;
+      }
+
+      CustomAlert.alert(
+        'Success',
+        'Group deleted successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to groups list
+              navigation.navigate('Groups');
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error('Delete group error:', err);
+
+      // Don't show error if it's an auth error - logout happens automatically
+      if (err.isAuthError) {
+        console.log('[GroupSettings] Auth error detected - user will be logged out');
+        return;
+      }
+
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to delete group';
+      setGroupDetailsError(errorMessage);
+    } finally {
+      setDeletingGroup(false);
+    }
   };
 
   /**
@@ -576,30 +744,128 @@ export default function GroupSettingsScreen({ navigation, route }) {
         </View>
       ) : (
         <ScrollView style={styles.scrollView}>
-      {/* Group Info Section */}
+      {/* Group Details Section */}
       <Card style={styles.card}>
         <Card.Content>
-          <View style={styles.groupHeader}>
-            <Avatar.Text
-              size={64}
-              label={groupInfo.icon || groupInfo.name[0]}
-              style={[styles.avatar, { backgroundColor: groupInfo.backgroundColor || '#6200ee' }]}
-              color={getContrastTextColor(groupInfo.backgroundColor || '#6200ee')}
-            />
-            <View style={styles.groupHeaderInfo}>
-              <Title style={styles.groupName}>{groupInfo.name}</Title>
-            </View>
-          </View>
+          <Title style={styles.sectionTitle}>Group Details</Title>
 
-          {userRole === 'admin' && (
-            <Button
-              mode="outlined"
-              icon="pencil"
-              onPress={handleEditGroup}
-              style={styles.editButton}
-            >
-              Edit Group Details
-            </Button>
+          {!editingGroupDetails ? (
+            <>
+              <View style={styles.groupHeader}>
+                <Avatar.Text
+                  size={64}
+                  label={groupInfo.icon || groupInfo.name[0]}
+                  style={[styles.avatar, { backgroundColor: groupInfo.backgroundColor || '#6200ee' }]}
+                  color={getContrastTextColor(groupInfo.backgroundColor || '#6200ee')}
+                />
+                <View style={styles.groupHeaderInfo}>
+                  <Title style={styles.groupName}>{groupInfo.name}</Title>
+                </View>
+              </View>
+
+              {userRole === 'admin' && (
+                <View style={styles.groupActionsContainer}>
+                  <Button
+                    mode="outlined"
+                    icon="pencil"
+                    onPress={handleStartEditGroup}
+                    style={styles.editButton}
+                  >
+                    Edit Group Details
+                  </Button>
+                  <Button
+                    mode="outlined"
+                    icon="delete"
+                    onPress={handleDeleteGroup}
+                    loading={deletingGroup}
+                    disabled={deletingGroup}
+                    style={[styles.editButton, styles.deleteButton]}
+                    textColor="#d32f2f"
+                  >
+                    Delete Group
+                  </Button>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {groupDetailsError && (
+                <HelperText type="error" visible={!!groupDetailsError} style={styles.errorText}>
+                  {groupDetailsError}
+                </HelperText>
+              )}
+
+              <TextInput
+                label="Group Name *"
+                value={editGroupName}
+                onChangeText={setEditGroupName}
+                mode="outlined"
+                style={styles.input}
+                placeholder="e.g., Family Chat, Weekend Plans"
+                maxLength={255}
+                disabled={updatingGroup || deletingGroup}
+              />
+
+              <TextInput
+                label="Icon (emoji or single character)"
+                value={editIcon}
+                onChangeText={setEditIcon}
+                mode="outlined"
+                style={styles.input}
+                placeholder="e.g., 🏠, 👨‍👩‍👧‍👦, F"
+                maxLength={2}
+                disabled={updatingGroup || deletingGroup}
+              />
+
+              <View style={styles.colorSection}>
+                <Text style={styles.colorLabel}>Group Color</Text>
+                <TouchableOpacity
+                  style={styles.colorButton}
+                  onPress={handleOpenColorPicker}
+                  disabled={updatingGroup || deletingGroup}
+                >
+                  <View style={[styles.colorPreview, { backgroundColor: editBackgroundColor }]} />
+                  <Text style={styles.colorButtonText}>
+                    {editBackgroundColor.toUpperCase()}
+                  </Text>
+                  <Text style={styles.colorButtonLabel}>Tap to change</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.preview}>
+                <Text style={styles.previewLabel}>Preview:</Text>
+                <View
+                  style={[
+                    styles.previewBox,
+                    { backgroundColor: editBackgroundColor || '#6200ee' },
+                  ]}
+                >
+                  <Text style={styles.previewIcon}>
+                    {editIcon || editGroupName[0] || '?'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.editButtonsContainer}>
+                <Button
+                  mode="contained"
+                  onPress={handleSaveGroupDetails}
+                  loading={updatingGroup}
+                  disabled={updatingGroup || deletingGroup || !editGroupName.trim()}
+                  style={styles.saveButton}
+                >
+                  Save Changes
+                </Button>
+                <Button
+                  mode="text"
+                  onPress={handleCancelEditGroup}
+                  disabled={updatingGroup || deletingGroup}
+                  style={styles.cancelEditButton}
+                >
+                  Cancel
+                </Button>
+              </View>
+            </>
           )}
         </Card.Content>
       </Card>
@@ -768,6 +1034,14 @@ export default function GroupSettingsScreen({ navigation, route }) {
           </Card.Content>
         </Card>
       )}
+
+      {/* Color Picker Modal */}
+      <ColorPickerModal
+        visible={colorPickerVisible}
+        initialColor={editBackgroundColor}
+        onConfirm={handleColorConfirm}
+        onCancel={handleColorCancel}
+      />
         </ScrollView>
       )}
     </View>
@@ -932,5 +1206,87 @@ const styles = StyleSheet.create({
   },
   currencyButtonContent: {
     height: 48,
+  },
+  // Group details editing styles
+  groupActionsContainer: {
+    marginTop: 16,
+    gap: 8,
+  },
+  deleteButton: {
+    borderColor: '#d32f2f',
+    marginTop: 8,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  colorSection: {
+    marginBottom: 16,
+  },
+  colorLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  colorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  colorPreview: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#ddd',
+  },
+  colorButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  colorButtonLabel: {
+    fontSize: 12,
+    color: '#999',
+  },
+  preview: {
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  previewBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewIcon: {
+    fontSize: 40,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  editButtonsContainer: {
+    marginTop: 20,
+  },
+  saveButton: {
+    paddingVertical: 6,
+  },
+  cancelEditButton: {
+    marginTop: 8,
   },
 });
