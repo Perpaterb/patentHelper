@@ -22,39 +22,14 @@ const CONTENT_WIDTH = PHONE_WIDTH - (PHONE_BORDER * 2);
 const CONTENT_HEIGHT = PHONE_HEIGHT - (PHONE_BORDER * 2) - NOTCH_HEIGHT;
 
 function PhoneFrame({ children }) {
-  // Override Dimensions.get('window') for web to return phone dimensions
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const originalGet = Dimensions.get;
-
-      Dimensions.get = function(dimension) {
-        if (dimension === 'window' || dimension === 'screen') {
-          return {
-            width: CONTENT_WIDTH,
-            height: CONTENT_HEIGHT,
-            scale: 2,
-            fontScale: 1,
-          };
-        }
-        return originalGet.call(Dimensions, dimension);
-      };
-
-      return () => {
-        Dimensions.get = originalGet;
-      };
-    }
-  }, []);
-
   return (
     <View style={styles.container}>
       <View style={styles.phone}>
         {/* Phone notch */}
         <View style={styles.notch} />
-        {/* Phone content area - constrained to phone dimensions */}
+        {/* Phone content area */}
         <View style={styles.content}>
-          <View style={styles.innerContent}>
-            {children}
-          </View>
+          {children}
         </View>
       </View>
     </View>
@@ -95,12 +70,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: NOTCH_HEIGHT,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  innerContent: {
-    width: CONTENT_WIDTH,
-    height: CONTENT_HEIGHT,
   },
 });
 

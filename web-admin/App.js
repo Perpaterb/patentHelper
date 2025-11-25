@@ -5,6 +5,9 @@
  * Uses React Navigation and React Native Paper.
  */
 
+// CRITICAL: Patch Dimensions.get() BEFORE importing any screens
+import './src/utils/patchDimensions';
+
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
