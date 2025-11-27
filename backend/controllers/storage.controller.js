@@ -58,26 +58,12 @@ async function getStorageUsage(req, res) {
       });
     }
 
-    // Get all media files from message groups in admin groups
-    const mediaFiles = await prisma.messageMedia.findMany({
+    // Get storage usage from storageUsage table for this user
+    const storageRecords = await prisma.storageUsage.findMany({
       where: {
-        message: {
-          messageGroup: {
-            groupId: {
-              in: groupIds,
-            },
-          },
-        },
-      },
-      include: {
-        message: {
-          include: {
-            messageGroup: {
-              select: {
-                groupId: true,
-              },
-            },
-          },
+        userId: userId,
+        groupId: {
+          in: groupIds,
         },
       },
     });
@@ -91,29 +77,29 @@ async function getStorageUsage(req, res) {
 
     const groupUsage = {};
 
-    for (const file of mediaFiles) {
-      const bytes = file.fileSizeBytes || BigInt(0);
+    for (const record of storageRecords) {
+      const bytes = record.totalBytes || BigInt(0);
       totalBytes += bytes;
 
-      const groupId = file.message.messageGroup.groupId;
+      const groupId = record.groupId;
       if (!groupUsage[groupId]) {
         groupUsage[groupId] = { bytes: BigInt(0), count: 0 };
       }
       groupUsage[groupId].bytes += bytes;
-      groupUsage[groupId].count += 1;
+      groupUsage[groupId].count += record.fileCount;
 
       // Categorize by media type
-      const mediaType = file.mediaType || '';
-      if (mediaType.startsWith('image/')) {
+      const mediaType = record.mediaType;
+      if (mediaType === 'image') {
         imageBytes += bytes;
-      } else if (mediaType.startsWith('video/')) {
+      } else if (mediaType === 'video') {
         videoBytes += bytes;
+      } else if (mediaType === 'log') {
+        logBytes += bytes;
       } else {
         documentBytes += bytes;
       }
     }
-
-    // TODO: Add audit log size calculation when logs are stored as files
 
     // Build groups array
     const groups = adminGroups.map(ag => ({
