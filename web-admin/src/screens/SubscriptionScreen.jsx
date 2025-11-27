@@ -412,7 +412,7 @@ export default function SubscriptionScreen({ navigation }) {
                         {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 10)} × $2.00 USD/month
                       </Text>
                       <Text style={styles.storageNote}>
-                        ({(parseFloat(subscription.storageUsedGb) - 10).toFixed(2)} GB over base 10GB)
+                        ({(parseFloat(subscription.storageUsedGb) - 10).toFixed(2)} GB over base 10GB - billed in 10GB chunks)
                       </Text>
                     </>
                   )}

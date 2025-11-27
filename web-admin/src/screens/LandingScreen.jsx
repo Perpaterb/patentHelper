@@ -153,7 +153,7 @@ export default function LandingScreen({ navigation }) {
                 </Text>
                 <Text style={styles.priceInterval}>per {pricing.adminSubscription.interval}</Text>
                 <View style={styles.featureList}>
-                  {['Full admin access', '10GB storage included', 'Unlimited groups', 'Audit log exports', 'Secure messaging', 'Shared calendar'].map((item, i) => (
+                  {['Full admin access', '10GB storage included', 'Unlimited groups', 'Audit log exports'].map((item, i) => (
                     <Text key={i} style={styles.featureItem}>✓ {item}</Text>
                   ))}
                 </View>
@@ -173,11 +173,13 @@ export default function LandingScreen({ navigation }) {
                 </Text>
                 <Text style={styles.priceInterval}>per {pricing.additionalStorage.unit} / {pricing.additionalStorage.interval}</Text>
                 <View style={styles.featureList}>
-                  {['Automatic billing as needed', 'Store more media files', 'Keep more documents', 'No storage limits'].map((item, i) => (
+                  {['Charged in 10GB blocks', 'Automatic billing as needed', 'Store more media files', 'Keep more documents', 'No storage limits'].map((item, i) => (
                     <Text key={i} style={styles.featureItem}>✓ {item}</Text>
                   ))}
                 </View>
-                <Paragraph style={styles.pricingNote}>Only for admins</Paragraph>
+                <Paragraph style={styles.pricingNote}>
+                  Only for admins. Billed per 10GB chunk when you exceed your base 10GB allocation.
+                </Paragraph>
               </Card.Content>
             </Card>
           </View>

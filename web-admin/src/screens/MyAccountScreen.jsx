@@ -149,7 +149,7 @@ export default function MyAccountScreen({ navigation }) {
 
                   <Text style={styles.storageNote}>
                     Storage includes audit logs, images, and videos from all groups where you are an
-                    admin. Additional storage is automatically charged at $2.00 USD per 10GB per month.
+                    admin. Additional storage is automatically charged at $2.00 USD per 10GB chunk (billed in 10GB blocks).
                   </Text>
                 </>
               ) : (

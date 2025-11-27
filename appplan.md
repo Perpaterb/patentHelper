@@ -20,7 +20,7 @@ This platform consists of 3 separate products sharing one backend:
    - BUILT THIRD (after main app)
 
 **Pricing:**
-This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of **$4 USD per month** (managed via web app). This gets them 10GB of storage. Each additional 10GB of storage over the 10GB limit will be an extra **$2 USD per month** (metered billing).
+This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of **$4 USD per month** (managed via web app). This gets them 10GB of storage. Additional storage is charged in **10GB chunks** at **$2 USD per 10GB block per month** (metered billing).
 
 **Competitive Advantage:** Our main competitor charges $9 USD/month - we're offering the same features for less than half the price.
 
@@ -40,8 +40,9 @@ This app can be used by any non-group admin parent for free. Anyone wanting to a
 
 **Storage Management Rules:**
 - Base plan: 10GB included at $4 USD/month
-- Overage: $2 USD per 10GB over 10GB limit (metered billing via Stripe)
-- When storage exceeds limit: Automatically charge for additional 10GB blocks ($2 USD per 10GB)
+- Overage: $2 USD per 10GB chunk (metered billing via Stripe)
+- **Billing in chunks**: Storage is charged in 10GB blocks. If you use 11GB, you're charged for 1 additional 10GB block ($2). If you use 19GB, you're charged for 1 block. If you use 21GB, you're charged for 2 blocks ($4).
+- When storage exceeds limit: Automatically charge for additional 10GB blocks ($2 USD per 10GB chunk)
 - Send email notification: "Your storage has been increased to XGB. You'll be charged $X USD on your next billing cycle"
 - Show warning at 80% capacity in My Account
 - Additional Storage card displays "Automatically charged as needed" (no manual add storage button)
