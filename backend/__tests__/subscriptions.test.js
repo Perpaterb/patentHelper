@@ -50,9 +50,9 @@ describe('Subscription Endpoints', () => {
       expect(pricing.additionalStorage).toHaveProperty('unit', '10GB');
       expect(pricing.additionalStorage).toHaveProperty('description');
 
-      // Validate storage amount is in cents (should be 20 for $2.00 per 10GB = $0.20/GB)
+      // Validate storage amount is in cents (should be 200 for $2.00 per 10GB)
       expect(typeof pricing.additionalStorage.amount).toBe('number');
-      expect(pricing.additionalStorage.amount).toBe(20);
+      expect(pricing.additionalStorage.amount).toBe(200);
     });
 
     it('should NOT return an array (common mistake)', async () => {

@@ -332,7 +332,7 @@ export default function SubscriptionScreen({ navigation }) {
                 <Title style={styles.cardTitle}>{pricing.additionalStorage.name}</Title>
                 <View style={styles.priceRow}>
                   <Text style={styles.price}>
-                    {formatPrice(pricing.additionalStorage.amount * 10, pricing.additionalStorage.currency)}
+                    {formatPrice(pricing.additionalStorage.amount, pricing.additionalStorage.currency)}
                   </Text>
                   <Text style={styles.interval}>per {pricing.additionalStorage.unit}/{pricing.additionalStorage.interval}</Text>
                 </View>
