@@ -409,7 +409,7 @@ export default function SubscriptionScreen({ navigation }) {
                     <>
                       <Text style={styles.statusLabel}>Additional Storage Charges</Text>
                       <Text style={styles.statusValue}>
-                        {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 2)} × $AUD 1.00/month
+                        {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 10)} × $2.00 USD/month
                       </Text>
                       <Text style={styles.storageNote}>
                         ({(parseFloat(subscription.storageUsedGb) - 10).toFixed(2)} GB over base 10GB)

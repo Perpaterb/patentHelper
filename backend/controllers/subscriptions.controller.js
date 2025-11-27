@@ -85,11 +85,11 @@ async function getPricing(req, res) {
       additionalStorage: {
         priceId: 'price_storage_metered', // TODO: Replace with actual Stripe metered price ID
         name: 'Additional Storage',
-        amount: 100, // $1.00 USD per GB in cents (metered billing)
+        amount: 20, // $2.00 USD per 10GB in cents (metered billing) = $0.20 per GB
         currency: 'usd',
         interval: 'month',
-        unit: 'GB',
-        description: 'Additional storage beyond the included 10GB. $1 USD per GB automatically charged.',
+        unit: '10GB',
+        description: 'Additional storage beyond the included 10GB. $2 USD per 10GB automatically charged.',
         billingType: 'metered', // Automatically charged based on usage
       },
     };

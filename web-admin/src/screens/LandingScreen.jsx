@@ -171,7 +171,7 @@ export default function LandingScreen({ navigation }) {
                 <Text style={styles.priceAmount}>
                   {formatPrice(pricing.additionalStorage.amount, pricing.additionalStorage.currency)}
                 </Text>
-                <Text style={styles.priceInterval}>per 2GB / {pricing.additionalStorage.interval}</Text>
+                <Text style={styles.priceInterval}>per {pricing.additionalStorage.unit} / {pricing.additionalStorage.interval}</Text>
                 <View style={styles.featureList}>
                   {['Automatic billing as needed', 'Store more media files', 'Keep more documents', 'No storage limits'].map((item, i) => (
                     <Text key={i} style={styles.featureItem}>✓ {item}</Text>

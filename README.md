@@ -17,7 +17,7 @@ A cross-platform family and co-parenting helper application designed to facilita
 - **$4 USD per admin per month** - Competitive pricing (competitor charges $9/month)
 - 20-day free trial with full admin access (no restrictions)
 - Only admins pay - all other members (parents, children, caregivers, supervisors) are free
-- Storage: 10GB included, then $1 USD per GB over limit
+- Storage: 10GB included, then $2 USD per 10GB over limit
 - Storage tracked per admin across all their groups
 - Stripe payments and subscription management
 
@@ -37,7 +37,7 @@ A cross-platform family and co-parenting helper application designed to facilita
 **Key Architecture Decisions:**
 - **Subscription Model**: $4/month per admin, 20-day free trial
 - **Authentication**: Kinde (single sign-on)
-- **Storage**: AWS S3 (10GB included, $1/GB overage)
+- **Storage**: AWS S3 (10GB included, $2 per 10GB overage)
 - **Payments**: Stripe (subscription management, metered billing for storage)
 - All 3 products share same backend API/database
 - Web app and mobile apps have identical features (just different UI frameworks)
