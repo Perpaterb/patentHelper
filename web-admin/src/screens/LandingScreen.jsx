@@ -16,6 +16,7 @@ import {
   Surface,
   ActivityIndicator,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import api from '../services/api';
 
@@ -135,7 +136,10 @@ export default function LandingScreen({ navigation }) {
                 <Text style={styles.priceInterval}>forever</Text>
                 <View style={styles.featureList}>
                   {['Parents', 'Children', 'Caregivers', 'Supervisors'].map((item, i) => (
-                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
+                    <View key={i} style={styles.featureRow}>
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                      <Text style={styles.featureText}>{item}</Text>
+                    </View>
                   ))}
                 </View>
                 <Paragraph style={styles.pricingNote}>
@@ -154,7 +158,10 @@ export default function LandingScreen({ navigation }) {
                 <Text style={styles.priceInterval}>per {pricing.adminSubscription.interval}</Text>
                 <View style={styles.featureList}>
                   {['Full admin access', '10GB storage included', 'Unlimited groups', 'Audit log exports'].map((item, i) => (
-                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
+                    <View key={i} style={styles.featureRow}>
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                      <Text style={styles.featureText}>{item}</Text>
+                    </View>
                   ))}
                 </View>
                 <Button mode="contained" onPress={() => register()} style={styles.pricingButton}>
@@ -173,9 +180,18 @@ export default function LandingScreen({ navigation }) {
                 </Text>
                 <Text style={styles.priceInterval}>per {pricing.additionalStorage.unit} / {pricing.additionalStorage.interval}</Text>
                 <View style={styles.featureList}>
-                  {['Charged in 10GB blocks', 'Automatic billing as needed', 'Store more media files', 'Keep more documents', 'No storage limits'].map((item, i) => (
-                    <Text key={i} style={styles.featureItem}>✓ {item}</Text>
-                  ))}
+                  <View style={styles.featureRow}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                    <Text style={styles.featureText}>Charged in 10GB blocks</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                    <Text style={styles.featureText}>Automatic billing as needed</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                    <Text style={styles.featureText}>No storage limits</Text>
+                  </View>
                 </View>
                 <Paragraph style={styles.pricingNote}>
                   Only for admins. Billed per 10GB chunk when you exceed your base 10GB allocation.
@@ -346,6 +362,16 @@ const styles = StyleSheet.create({
   featureItem: {
     fontSize: 14,
     marginBottom: 4,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  featureText: {
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
   },
   pricingButton: {
     marginBottom: 8,

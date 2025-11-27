@@ -303,6 +303,10 @@ export default function SubscriptionScreen({ navigation }) {
                   </View>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                    <Text style={styles.featureText}>Unlimited groups</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
                     <Text style={styles.featureText}>Audit log exports</Text>
                   </View>
                 </View>
@@ -348,14 +352,6 @@ export default function SubscriptionScreen({ navigation }) {
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
                     <Text style={styles.featureText}>Automatic billing as needed</Text>
-                  </View>
-                  <View style={styles.featureRow}>
-                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
-                    <Text style={styles.featureText}>Store more media files</Text>
-                  </View>
-                  <View style={styles.featureRow}>
-                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
-                    <Text style={styles.featureText}>Keep more documents</Text>
                   </View>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
