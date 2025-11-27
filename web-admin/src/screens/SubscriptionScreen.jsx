@@ -332,9 +332,9 @@ export default function SubscriptionScreen({ navigation }) {
                 <Title style={styles.cardTitle}>{pricing.additionalStorage.name}</Title>
                 <View style={styles.priceRow}>
                   <Text style={styles.price}>
-                    {formatPrice(pricing.additionalStorage.amount, pricing.additionalStorage.currency)}
+                    {formatPrice(pricing.additionalStorage.amount * 10, pricing.additionalStorage.currency)}
                   </Text>
-                  <Text style={styles.interval}>/{pricing.additionalStorage.interval}</Text>
+                  <Text style={styles.interval}>per {pricing.additionalStorage.unit}/{pricing.additionalStorage.interval}</Text>
                 </View>
                 <Paragraph style={styles.cardDescription}>
                   {pricing.additionalStorage.description}
@@ -343,7 +343,11 @@ export default function SubscriptionScreen({ navigation }) {
                 <View style={styles.features}>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
-                    <Text style={styles.featureText}>Additional 2GB storage</Text>
+                    <Text style={styles.featureText}>Charged in 10GB blocks</Text>
+                  </View>
+                  <View style={styles.featureRow}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
+                    <Text style={styles.featureText}>Automatic billing as needed</Text>
                   </View>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
@@ -351,13 +355,16 @@ export default function SubscriptionScreen({ navigation }) {
                   </View>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
-                    <Text style={styles.featureText}>Keep more audit logs</Text>
+                    <Text style={styles.featureText}>Keep more documents</Text>
                   </View>
                   <View style={styles.featureRow}>
                     <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
-                    <Text style={styles.featureText}>Automatically charged as needed</Text>
+                    <Text style={styles.featureText}>No storage limits</Text>
                   </View>
                 </View>
+                <Paragraph style={styles.cardNote}>
+                  Only for admins. Billed per 10GB chunk when you exceed your base 10GB allocation.
+                </Paragraph>
               </Card.Content>
             </Card>
           </View>

@@ -169,7 +169,7 @@ export default function LandingScreen({ navigation }) {
               <Card.Content>
                 <Title style={styles.pricingTitle}>{pricing.additionalStorage.name}</Title>
                 <Text style={styles.priceAmount}>
-                  {formatPrice(pricing.additionalStorage.amount, pricing.additionalStorage.currency)}
+                  {formatPrice(pricing.additionalStorage.amount * 10, pricing.additionalStorage.currency)}
                 </Text>
                 <Text style={styles.priceInterval}>per {pricing.additionalStorage.unit} / {pricing.additionalStorage.interval}</Text>
                 <View style={styles.featureList}>
