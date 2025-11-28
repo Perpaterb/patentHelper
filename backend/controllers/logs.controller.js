@@ -422,9 +422,363 @@ async function downloadExport(req, res) {
   }
 }
 
+/**
+ * Export audit logs as PDF
+ * POST /logs/:groupId/export
+ *
+ * Generates a PDF export of audit logs with applied filters
+ * and stores the export metadata in the database.
+ *
+ * @param {Object} req - Express request
+ * @param {Object} req.body.filters - Filter parameters
+ * @param {Date} [req.body.filters.dateFrom] - Start date filter
+ * @param {Date} [req.body.filters.dateTo] - End date filter
+ * @param {string[]} [req.body.filters.actionTypes] - Array of action types
+ * @param {string[]} [req.body.filters.userIds] - Array of group member IDs
+ * @param {Object} res - Express response
+ */
+async function exportLogsAsPDF(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+    const { filters = {} } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is admin of this group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 'admin',
+      },
+      include: {
+        group: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin of this group to export logs',
+      });
+    }
+
+    const groupName = groupMember.group.name;
+
+    // Build filter conditions for Prisma query
+    const whereConditions = {
+      groupId: groupId,
+    };
+
+    // Date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      whereConditions.performedAt = {};
+      if (filters.dateFrom) {
+        whereConditions.performedAt.gte = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        whereConditions.performedAt.lte = new Date(filters.dateTo);
+      }
+    }
+
+    // Action types filter
+    if (filters.actionTypes && filters.actionTypes.length > 0) {
+      whereConditions.action = {
+        in: filters.actionTypes,
+      };
+    }
+
+    // Users filter
+    if (filters.userIds && filters.userIds.length > 0) {
+      whereConditions.performedBy = {
+        in: filters.userIds,
+      };
+    }
+
+    // Fetch filtered audit logs
+    const logs = await prisma.auditLog.findMany({
+      where: whereConditions,
+      orderBy: {
+        performedAt: 'desc',
+      },
+      include: {
+        performer: {
+          select: {
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Get user names for filter display
+    let userNames = [];
+    if (filters.userIds && filters.userIds.length > 0) {
+      const users = await prisma.groupMember.findMany({
+        where: {
+          groupMemberId: {
+            in: filters.userIds,
+          },
+        },
+        select: {
+          displayName: true,
+        },
+      });
+      userNames = users.map(u => u.displayName);
+    }
+
+    // Generate PDF using the PDF service
+    const pdfService = require('../services/pdf.service');
+    const pdfBuffer = pdfService.generateAuditLogPDF({
+      groupName,
+      filters: {
+        ...filters,
+        userNames,
+      },
+      logs,
+      createdAt: new Date(),
+    });
+
+    // Generate filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `AuditLog_${groupName.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.pdf`;
+
+    // Save PDF to storage (local for now, S3 in production)
+    const uploadsDir = path.join(__dirname, '../uploads/log-exports');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const filePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    // Store export metadata in database
+    const logExport = await prisma.logExport.create({
+      data: {
+        groupId: groupId,
+        createdBy: groupMember.groupMemberId,
+        filters: filters,
+        filePath: `uploads/log-exports/${fileName}`,
+        fileName: fileName,
+        fileSizeBytes: BigInt(pdfBuffer.length),
+      },
+    });
+
+    // Create audit log entry for this export
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'export_logs',
+        actionLocation: 'logs',
+        performedBy: groupMember.groupMemberId,
+        performedByName: groupMember.displayName,
+        performedByEmail: groupMember.email || 'N/A',
+        messageContent: `Exported ${logs.length} audit log entries to PDF`,
+        mediaLinks: [],
+        logData: filters,
+      },
+    });
+
+    // Return the PDF file for download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+
+    // Also return export metadata in response headers for frontend to save
+    res.setHeader('X-Export-Id', logExport.exportId);
+    res.setHeader('X-Export-Filename', fileName);
+    res.setHeader('X-Export-Size', pdfBuffer.length.toString());
+  } catch (error) {
+    console.error('Export logs as PDF error:', error);
+    res.status(500).json({
+      error: 'Failed to export logs',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get all previous exports for a group
+ * GET /logs/:groupId/exports
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function getPreviousExports(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is admin of this group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 'admin',
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin of this group to view exports',
+      });
+    }
+
+    // Fetch all non-hidden exports for this group
+    const exports = await prisma.logExport.findMany({
+      where: {
+        groupId: groupId,
+        isHidden: false,
+      },
+      include: {
+        creator: {
+          select: {
+            displayName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      exports: exports.map(exp => ({
+        exportId: exp.exportId,
+        createdAt: exp.createdAt,
+        createdBy: exp.creator.displayName,
+        createdByEmail: exp.creator.email,
+        fileName: exp.fileName,
+        fileSizeBytes: exp.fileSizeBytes.toString(),
+        filters: exp.filters,
+      })),
+    });
+  } catch (error) {
+    console.error('Get previous exports error:', error);
+    res.status(500).json({
+      error: 'Failed to get exports',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Download a previous export
+ * GET /logs/:groupId/exports/:exportId/download
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function downloadPreviousExport(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, exportId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is admin of this group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 'admin',
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin of this group to download exports',
+      });
+    }
+
+    // Fetch the export
+    const logExport = await prisma.logExport.findUnique({
+      where: {
+        exportId: exportId,
+      },
+    });
+
+    if (!logExport) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Export not found',
+      });
+    }
+
+    // Verify export belongs to this group
+    if (logExport.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'This export does not belong to the specified group',
+      });
+    }
+
+    // Check if export is hidden
+    if (logExport.isHidden) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Export has been deleted',
+      });
+    }
+
+    // Read the PDF file
+    const fullPath = path.join(__dirname, '..', logExport.filePath);
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Export file not found on server',
+      });
+    }
+
+    const pdfBuffer = fs.readFileSync(fullPath);
+
+    // Return the PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${logExport.fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Download previous export error:', error);
+    res.status(500).json({
+      error: 'Failed to download export',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getAuditLogs,
   requestExport,
   getExports,
   downloadExport,
+  exportLogsAsPDF,
+  getPreviousExports,
+  downloadPreviousExport,
 };

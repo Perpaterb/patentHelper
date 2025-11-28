@@ -74,4 +74,54 @@ router.get('/exports', requireAuth, logsController.getExports);
  */
 router.get('/exports/:id/download', requireAuth, logsController.downloadExport);
 
+/**
+ * POST /logs/:groupId/export
+ * Export audit logs as PDF with filters
+ *
+ * Requires authentication (admin only)
+ *
+ * Request body:
+ * - filters: Object containing filter parameters
+ *   - dateFrom: Start date (ISO string)
+ *   - dateTo: End date (ISO string)
+ *   - actionTypes: Array of action types to filter
+ *   - userIds: Array of group member IDs to filter
+ *
+ * Response:
+ * - 200: PDF file download
+ * - 401: Not authenticated
+ * - 403: Not admin of group
+ * - 500: Server error
+ */
+router.post('/:groupId/export', requireAuth, logsController.exportLogsAsPDF);
+
+/**
+ * GET /logs/:groupId/exports
+ * Get all previous exports for a group
+ *
+ * Requires authentication (admin only)
+ *
+ * Response:
+ * - 200: List of previous exports
+ * - 401: Not authenticated
+ * - 403: Not admin of group
+ * - 500: Server error
+ */
+router.get('/:groupId/exports', requireAuth, logsController.getPreviousExports);
+
+/**
+ * GET /logs/:groupId/exports/:exportId/download
+ * Download a previous export
+ *
+ * Requires authentication (admin only)
+ *
+ * Response:
+ * - 200: PDF file download
+ * - 401: Not authenticated
+ * - 403: Not admin of group
+ * - 404: Export not found
+ * - 500: Server error
+ */
+router.get('/:groupId/exports/:exportId/download', requireAuth, logsController.downloadPreviousExport);
+
 module.exports = router;
