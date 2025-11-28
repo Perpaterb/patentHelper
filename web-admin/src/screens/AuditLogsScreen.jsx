@@ -19,11 +19,7 @@ import {
   DataTable,
   Menu,
   IconButton,
-  Dialog,
-  Portal,
-  TextInput,
   Chip,
-  ProgressBar,
 } from 'react-native-paper';
 import api from '../services/api';
 
@@ -39,11 +35,6 @@ export default function AuditLogsScreen({ navigation }) {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
-
-  // Export dialog
-  const [exportDialogVisible, setExportDialogVisible] = useState(false);
-  const [exportPassword, setExportPassword] = useState('');
-  const [passwordVisible, setPasswordVisible] = useState(false);
 
   // Previous exports
   const [previousExports, setPreviousExports] = useState([]);
@@ -63,8 +54,13 @@ export default function AuditLogsScreen({ navigation }) {
 
   useEffect(() => {
     fetchGroups();
-    fetchPreviousExports();
   }, []);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchPreviousExports();
+    }
+  }, [selectedGroup]);
 
   // Fetch logs when filters change
   useEffect(() => {
@@ -194,9 +190,11 @@ export default function AuditLogsScreen({ navigation }) {
   }
 
   async function fetchPreviousExports() {
+    if (!selectedGroup) return;
+
     try {
       setLoadingExports(true);
-      const response = await api.get('/logs/exports');
+      const response = await api.get(`/logs/${selectedGroup.groupId}/exports`);
       setPreviousExports(response.data.exports || []);
     } catch (err) {
       console.error('Failed to fetch exports:', err);
@@ -205,49 +203,104 @@ export default function AuditLogsScreen({ navigation }) {
     }
   }
 
-  async function handleRequestExport() {
-    if (!exportPassword || exportPassword.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
+  async function handleExportLogs() {
     try {
       setExporting(true);
-      await api.post('/logs/exports', {
-        groupId: selectedGroup.groupId,
-        password: exportPassword,
-      });
+      setError(null);
 
-      setSuccess('Export request submitted. You will receive an email when it is ready.');
-      setExportDialogVisible(false);
-      setExportPassword('');
+      // Build filters object
+      const filters = {};
 
-      // Refresh previous exports
+      if (fromDate) {
+        filters.dateFrom = fromDate;
+      }
+      if (toDate) {
+        filters.dateTo = toDate;
+      }
+      if (selectedActions.length > 0) {
+        filters.actionTypes = selectedActions;
+      }
+      if (selectedUsers.length > 0) {
+        // Convert emails to group member IDs
+        const memberIds = await getUserIdsFromEmails(selectedUsers);
+        filters.userIds = memberIds;
+      }
+
+      // Call backend to generate PDF
+      const response = await api.post(
+        `/logs/${selectedGroup.groupId}/export`,
+        { filters },
+        { responseType: 'blob' }
+      );
+
+      // Get filename from response headers or use default
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `AuditLog_${selectedGroup.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create download link
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setSuccess('Audit log PDF exported successfully!');
+
+      // Refresh previous exports list
       fetchPreviousExports();
     } catch (err) {
-      console.error('Failed to request export:', err);
-      setError(err.response?.data?.message || 'Failed to request export');
+      console.error('Failed to export logs:', err);
+      setError(err.response?.data?.message || 'Failed to export logs');
     } finally {
       setExporting(false);
     }
   }
 
-  async function handleDownloadExport(exportId) {
+  async function getUserIdsFromEmails(emails) {
+    // Fetch all group members to map emails to group member IDs
     try {
-      const response = await api.get(`/logs/exports/${exportId}/download`, {
-        responseType: 'blob',
-      });
+      const response = await api.get(`/groups/${selectedGroup.groupId}/members`);
+      const members = response.data.members || [];
+
+      return members
+        .filter(m => emails.includes(m.email))
+        .map(m => m.groupMemberId);
+    } catch (err) {
+      console.error('Failed to fetch members for email mapping:', err);
+      return [];
+    }
+  }
+
+  async function handleDownloadExport(exportId, fileName) {
+    try {
+      const response = await api.get(
+        `/logs/${selectedGroup.groupId}/exports/${exportId}/download`,
+        { responseType: 'blob' }
+      );
 
       // Create download link
-      const blob = new Blob([response.data], { type: 'application/zip' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `audit-logs-${exportId}.zip`;
+      link.download = fileName || `audit-log-${exportId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      setSuccess('Export downloaded successfully!');
     } catch (err) {
       console.error('Failed to download export:', err);
       setError(err.response?.data?.message || 'Failed to download export');
@@ -265,19 +318,39 @@ export default function AuditLogsScreen({ navigation }) {
     });
   }
 
-  function getStatusColor(status) {
-    switch (status) {
-      case 'completed':
-        return '#4caf50';
-      case 'processing':
-        return '#ff9800';
-      case 'pending':
-        return '#2196f3';
-      case 'failed':
-        return '#f44336';
-      default:
-        return '#9e9e9e';
+  function formatFileSize(bytes) {
+    if (!bytes) return '0 B';
+    const sizeInBytes = typeof bytes === 'bigint' ? Number(bytes) : bytes;
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = sizeInBytes;
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
     }
+
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+  }
+
+  function getFilterSummary(filters) {
+    const parts = [];
+
+    if (filters.dateFrom || filters.dateTo) {
+      const from = filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString() : 'start';
+      const to = filters.dateTo ? new Date(filters.dateTo).toLocaleDateString() : 'now';
+      parts.push(`Date: ${from} to ${to}`);
+    }
+
+    if (filters.actionTypes && filters.actionTypes.length > 0) {
+      parts.push(`Actions: ${filters.actionTypes.length}`);
+    }
+
+    if (filters.userIds && filters.userIds.length > 0) {
+      parts.push(`Users: ${filters.userIds.length}`);
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'No filters';
   }
 
   if (loading && groups.length === 0) {
@@ -374,11 +447,12 @@ export default function AuditLogsScreen({ navigation }) {
                 </Button>
                 <Button
                   mode="contained"
-                  onPress={() => setExportDialogVisible(true)}
+                  onPress={handleExportLogs}
                   icon="download"
-                  disabled={!selectedGroup}
+                  disabled={!selectedGroup || exporting}
+                  loading={exporting}
                 >
-                  Export Logs
+                  {exporting ? 'Exporting...' : 'Export Logs'}
                 </Button>
               </View>
             </View>
@@ -471,8 +545,8 @@ export default function AuditLogsScreen({ navigation }) {
                 <View style={styles.infoRow}>
                   <IconButton icon="information" size={20} iconColor="#1976d2" />
                   <Text style={styles.infoText}>
-                    Audit logs are immutable records of all group actions. Exports are password-protected ZIP files
-                    containing decrypted messages and activity data. Keep your export password secure.
+                    Audit logs are immutable records of all group actions. Click "Export Logs" to download a PDF
+                    with the current filter settings. All exports are saved and can be re-downloaded from "Previous Exports".
                   </Text>
                 </View>
               </Card.Content>
@@ -576,36 +650,32 @@ export default function AuditLogsScreen({ navigation }) {
                   previousExports.map((exp) => (
                     <View key={exp.exportId} style={styles.exportItem}>
                       <View style={styles.exportInfo}>
-                        <Text style={styles.exportGroup}>{exp.groupName}</Text>
+                        <Text style={styles.exportFileName}>{exp.fileName}</Text>
                         <Text style={styles.exportDate}>
-                          Requested: {formatDate(exp.requestedAt)}
+                          Created: {formatDate(exp.createdAt)}
                         </Text>
-                        <View style={styles.exportStatusRow}>
-                          <Chip
-                            mode="flat"
-                            textStyle={{ fontSize: 12 }}
-                            style={[
-                              styles.statusChip,
-                              { backgroundColor: getStatusColor(exp.status) + '20' },
-                            ]}
-                          >
-                            {exp.status}
-                          </Chip>
-                          <Text style={styles.expiresText}>
-                            Expires: {formatDate(exp.expiresAt)}
-                          </Text>
-                        </View>
+                        <Text style={styles.exportSize}>
+                          Size: {formatFileSize(exp.fileSizeBytes)}
+                        </Text>
+                        {exp.filters && Object.keys(exp.filters).length > 0 && (
+                          <View style={styles.filtersSummary}>
+                            <Text style={styles.filtersSummaryText}>
+                              Filters: {getFilterSummary(exp.filters)}
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      {exp.status === 'completed' && (
+                      <View style={styles.exportActions}>
                         <Button
                           mode="outlined"
-                          onPress={() => handleDownloadExport(exp.exportId)}
+                          onPress={() => handleDownloadExport(exp.exportId, exp.fileName)}
                           icon="download"
                           compact
                         >
                           Download
                         </Button>
-                      )}
+                        {/* TODO: Add delete button with admin approval */}
+                      </View>
                     </View>
                   ))
                 )}
@@ -614,64 +684,6 @@ export default function AuditLogsScreen({ navigation }) {
           </>
         )}
       </ScrollView>
-
-      {/* Export Dialog */}
-      <Portal>
-        <Dialog
-          visible={exportDialogVisible}
-          onDismiss={() => {
-            setExportDialogVisible(false);
-            setExportPassword('');
-          }}
-        >
-          <Dialog.Title>Export Audit Logs</Dialog.Title>
-          <Dialog.Content>
-            <Paragraph>
-              Create a password-protected ZIP file containing all audit logs for{' '}
-              <Text style={{ fontWeight: 'bold' }}>{selectedGroup?.name}</Text>.
-            </Paragraph>
-            <Paragraph style={styles.dialogNote}>
-              The export will include decrypted message content, timestamps, and user activity.
-              Keep your password secure - you will need it to open the ZIP file.
-            </Paragraph>
-            <TextInput
-              label="Export Password"
-              value={exportPassword}
-              onChangeText={setExportPassword}
-              secureTextEntry={!passwordVisible}
-              mode="outlined"
-              style={styles.passwordInput}
-              right={
-                <TextInput.Icon
-                  icon={passwordVisible ? 'eye-off' : 'eye'}
-                  onPress={() => setPasswordVisible(!passwordVisible)}
-                />
-              }
-            />
-            <Text style={styles.passwordHint}>
-              Password must be at least 8 characters
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => {
-                setExportDialogVisible(false);
-                setExportPassword('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleRequestExport}
-              loading={exporting}
-              disabled={exporting || exportPassword.length < 8}
-            >
-              Request Export
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
     </View>
   );
 }
@@ -833,48 +845,44 @@ const styles = StyleSheet.create({
   exportItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
   exportInfo: {
     flex: 1,
+    marginRight: 16,
   },
-  exportGroup: {
+  exportFileName: {
     fontWeight: '600',
     fontSize: 14,
+    marginBottom: 4,
   },
   exportDate: {
     color: '#666',
     fontSize: 12,
     marginTop: 2,
   },
-  exportStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+  exportSize: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  filtersSummary: {
+    marginTop: 6,
+    padding: 6,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 4,
+  },
+  filtersSummaryText: {
+    fontSize: 11,
+    color: '#1976d2',
+  },
+  exportActions: {
+    flexDirection: 'column',
     gap: 8,
-  },
-  statusChip: {
-    height: 24,
-  },
-  expiresText: {
-    color: '#666',
-    fontSize: 12,
-  },
-  dialogNote: {
-    marginTop: 8,
-    color: '#666',
-    fontSize: 13,
-  },
-  passwordInput: {
-    marginTop: 16,
-  },
-  passwordHint: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    justifyContent: 'flex-start',
   },
   toolbarRight: {
     flexDirection: 'row',
