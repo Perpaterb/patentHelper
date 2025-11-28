@@ -68,6 +68,7 @@ model Group {
   itemRegistries            ItemRegistry[]                  @relation("ItemRegistries")
   wikiDocuments             WikiDocument[]
   groupDocuments            GroupDocument[]
+  logExports                LogExport[]
 
   @@index([createdAt])
   @@map("groups")
@@ -135,6 +136,7 @@ model GroupMember {
   wikiRevisionsEdited        WikiRevision[]                  @relation("WikiRevisionEditor")
   documentsUploaded          GroupDocument[]                 @relation("DocumentUploader")
   documentsHidden            GroupDocument[]                 @relation("DocumentHider")
+  logExportsCreated          LogExport[]                     @relation("LogExportCreator")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -558,14 +560,16 @@ model AuditLog {
 }
 
 model MediaLogLink {
-  linkId        String       @id @default(uuid()) @map("link_id") @db.Uuid
-  logExportId   String       @map("log_export_id") @db.Uuid
-  mediaId       String       @map("media_id") @db.Uuid
-  accessToken   String       @map("access_token") @db.VarChar(500)
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
-  expiresAt     DateTime     @map("expires_at") @db.Timestamp(6)
-  accessedCount Int          @default(0) @map("accessed_count")
-  media         MessageMedia @relation(fields: [mediaId], references: [mediaId])
+  linkId            String       @id @default(uuid()) @map("link_id") @db.Uuid
+  logExportId       String       @map("log_export_id") @db.Uuid
+  mediaId           String       @map("media_id") @db.Uuid
+  accessToken       String       @map("access_token") @db.VarChar(500)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamp(6)
+  accessedCount     Int          @default(0) @map("accessed_count")
+  media             MessageMedia @relation(fields: [mediaId], references: [mediaId])
+  LogExport         LogExport?   @relation(fields: [logExportExportId], references: [exportId])
+  logExportExportId String?      @db.Uuid
 
   @@index([logExportId])
   @@index([expiresAt])
@@ -1028,4 +1032,23 @@ model GroupDocument {
   @@index([groupId])
   @@index([uploadedAt])
   @@map("group_documents")
+}
+
+model LogExport {
+  exportId      String         @id @default(uuid()) @map("export_id") @db.Uuid
+  groupId       String         @map("group_id") @db.Uuid
+  createdBy     String         @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
+  filters       Json           @map("filters")
+  filePath      String         @map("file_path") @db.VarChar(500)
+  fileName      String         @map("file_name") @db.VarChar(255)
+  fileSizeBytes BigInt         @map("file_size_bytes")
+  isHidden      Boolean        @default(false) @map("is_hidden")
+  group         Group          @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator       GroupMember    @relation("LogExportCreator", fields: [createdBy], references: [groupMemberId])
+  mediaLinks    MediaLogLink[]
+
+  @@index([groupId])
+  @@index([createdAt])
+  @@map("log_exports")
 }
