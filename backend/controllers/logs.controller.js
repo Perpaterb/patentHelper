@@ -589,16 +589,14 @@ async function exportLogsAsPDF(req, res) {
       },
     });
 
-    // Return the PDF file for download
+    // Return the PDF file for download with metadata in headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
-    res.send(pdfBuffer);
-
-    // Also return export metadata in response headers for frontend to save
     res.setHeader('X-Export-Id', logExport.exportId);
     res.setHeader('X-Export-Filename', fileName);
     res.setHeader('X-Export-Size', pdfBuffer.length.toString());
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('Export logs as PDF error:', error);
     res.status(500).json({
