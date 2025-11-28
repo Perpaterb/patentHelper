@@ -773,6 +773,178 @@ async function downloadPreviousExport(req, res) {
   }
 }
 
+/**
+ * Request deletion of a log export (requires admin approval)
+ * DELETE /logs/:groupId/exports/:exportId
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function requestDeleteExport(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, exportId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is admin of this group
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 'admin',
+      },
+    });
+
+    if (!groupMember) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin of this group to delete exports',
+      });
+    }
+
+    // Check if export exists and belongs to this group
+    const logExport = await prisma.logExport.findFirst({
+      where: {
+        exportId: exportId,
+        groupId: groupId,
+        isHidden: false,
+      },
+    });
+
+    if (!logExport) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Export not found or already deleted',
+      });
+    }
+
+    // Check if there's already a pending approval for this export deletion
+    const existingApproval = await prisma.approval.findFirst({
+      where: {
+        groupId: groupId,
+        approvalType: 'delete_log_export',
+        relatedEntityId: exportId,
+        status: 'pending',
+      },
+    });
+
+    if (existingApproval) {
+      return res.status(400).json({
+        error: 'Approval Pending',
+        message: 'There is already a pending approval request to delete this export',
+      });
+    }
+
+    // Create approval request
+    const approval = await prisma.approval.create({
+      data: {
+        groupId: groupId,
+        approvalType: 'delete_log_export',
+        requestedBy: groupMember.groupMemberId,
+        relatedEntityType: 'log_export',
+        relatedEntityId: exportId,
+        approvalData: {
+          fileName: logExport.fileName,
+          createdAt: logExport.createdAt,
+          fileSizeBytes: logExport.fileSizeBytes.toString(),
+        },
+        requiresAllAdmins: false,
+        requiredApprovalPercentage: 50.0,
+      },
+    });
+
+    // Auto-approve for the requester
+    await prisma.approvalVote.create({
+      data: {
+        approvalId: approval.approvalId,
+        adminId: groupMember.groupMemberId,
+        vote: 'approve',
+        isAutoApproved: true,
+      },
+    });
+
+    // Check if approval threshold is met
+    const totalAdmins = await prisma.groupMember.count({
+      where: {
+        groupId: groupId,
+        role: 'admin',
+      },
+    });
+
+    const approvedVotes = 1; // Just the requester so far
+
+    if ((approvedVotes / totalAdmins) * 100 >= 50) {
+      // Threshold met, soft delete the export
+      await prisma.logExport.update({
+        where: {
+          exportId: exportId,
+        },
+        data: {
+          isHidden: true,
+        },
+      });
+
+      // Update approval status
+      await prisma.approval.update({
+        where: {
+          approvalId: approval.approvalId,
+        },
+        data: {
+          status: 'approved',
+          completedAt: new Date(),
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'delete_log_export',
+          actionLocation: 'logs',
+          performedBy: groupMember.groupMemberId,
+          performedByName: groupMember.displayName,
+          performedByEmail: groupMember.email || 'N/A',
+          messageContent: `Deleted log export: ${logExport.fileName}`,
+          mediaLinks: [],
+          logData: {
+            exportId: exportId,
+            fileName: logExport.fileName,
+            approvalId: approval.approvalId,
+          },
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Export deleted successfully',
+        approvalId: approval.approvalId,
+      });
+    }
+
+    // Threshold not met yet, return pending approval
+    res.status(200).json({
+      success: true,
+      message: 'Delete request created. Waiting for admin approvals.',
+      approvalId: approval.approvalId,
+      status: 'pending',
+      requiredVotes: Math.ceil(totalAdmins * 0.5),
+      currentVotes: approvedVotes,
+    });
+  } catch (error) {
+    console.error('Request delete export error:', error);
+    res.status(500).json({
+      error: 'Failed to request export deletion',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getAuditLogs,
   requestExport,
@@ -781,4 +953,5 @@ module.exports = {
   exportLogsAsPDF,
   getPreviousExports,
   downloadPreviousExport,
+  requestDeleteExport,
 };

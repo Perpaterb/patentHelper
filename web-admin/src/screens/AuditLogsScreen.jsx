@@ -307,6 +307,27 @@ export default function AuditLogsScreen({ navigation }) {
     }
   }
 
+  async function handleDeleteExport(exportId, fileName) {
+    if (!window.confirm(`Are you sure you want to delete the export "${fileName}"? This action requires approval from >50% of admins.`)) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/logs/${selectedGroup.groupId}/exports/${exportId}`);
+
+      if (response.data.status === 'pending') {
+        setSuccess(`Delete request created. ${response.data.currentVotes}/${response.data.requiredVotes} votes received. Waiting for admin approvals.`);
+      } else {
+        setSuccess('Export deleted successfully!');
+        // Refresh exports list
+        fetchPreviousExports();
+      }
+    } catch (err) {
+      console.error('Failed to delete export:', err);
+      setError(err.response?.data?.message || 'Failed to delete export');
+    }
+  }
+
   function formatDate(dateString) {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString('en-AU', {
@@ -674,7 +695,15 @@ export default function AuditLogsScreen({ navigation }) {
                         >
                           Download
                         </Button>
-                        {/* TODO: Add delete button with admin approval */}
+                        <Button
+                          mode="outlined"
+                          onPress={() => handleDeleteExport(exp.exportId, exp.fileName)}
+                          icon="delete"
+                          compact
+                          style={styles.deleteButton}
+                        >
+                          Delete
+                        </Button>
                       </View>
                     </View>
                   ))
@@ -883,6 +912,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 8,
     justifyContent: 'flex-start',
+  },
+  deleteButton: {
+    borderColor: '#f44336',
   },
   toolbarRight: {
     flexDirection: 'row',

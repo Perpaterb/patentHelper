@@ -124,4 +124,20 @@ router.get('/:groupId/exports', requireAuth, logsController.getPreviousExports);
  */
 router.get('/:groupId/exports/:exportId/download', requireAuth, logsController.downloadPreviousExport);
 
+/**
+ * DELETE /logs/:groupId/exports/:exportId
+ * Request deletion of a log export (requires >50% admin approval)
+ *
+ * Requires authentication (admin only)
+ *
+ * Response:
+ * - 200: Delete request created or export deleted (if threshold met)
+ * - 400: Approval already pending
+ * - 401: Not authenticated
+ * - 403: Not admin of group
+ * - 404: Export not found
+ * - 500: Server error
+ */
+router.delete('/:groupId/exports/:exportId', requireAuth, logsController.requestDeleteExport);
+
 module.exports = router;
