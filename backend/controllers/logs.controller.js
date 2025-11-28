@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const encryptionService = require('../services/encryption.service');
+const pdfService = require('../services/pdf.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -538,7 +539,6 @@ async function exportLogsAsPDF(req, res) {
     }
 
     // Generate PDF using the PDF service
-    const pdfService = require('../services/pdf.service');
     const pdfBuffer = pdfService.generateAuditLogPDF({
       groupName,
       filters: {
