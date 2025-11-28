@@ -8,7 +8,7 @@
  */
 
 const { jsPDF } = require('jspdf');
-require('jspdf-autotable');
+const { autoTable } = require('jspdf-autotable');
 
 /**
  * Generate a PDF for audit log export
@@ -117,8 +117,8 @@ function generateAuditLogPDF({ groupName, filters, logs, createdAt }) {
     log.mediaLinks && log.mediaLinks.length > 0 ? log.mediaLinks.join(', ') : '-',
   ]);
 
-  // Add table
-  doc.autoTable({
+  // Add table using autoTable function
+  autoTable(doc, {
     startY: yPosition,
     head: [['Date/Time', 'Action', 'Location', 'User Name', 'User Email', 'Content', 'Media Links']],
     body: tableData,
