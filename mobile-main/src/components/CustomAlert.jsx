@@ -24,7 +24,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { Portal, Dialog, Button, Paragraph, Text } from 'react-native-paper';
+import { Portal, Dialog, Button, Text } from 'react-native-paper';
 import { Alert as RNAlert } from 'react-native';
 
 const CustomAlertContext = createContext(null);
@@ -74,8 +74,8 @@ export function CustomAlertProvider({ children }) {
           {title && (
             <Dialog.Title style={styles.title}>{title}</Dialog.Title>
           )}
-          <Dialog.Content>
-            <Paragraph style={styles.message}>{message}</Paragraph>
+          <Dialog.Content style={styles.content}>
+            <Text style={styles.message}>{message}</Text>
           </Dialog.Content>
           <Dialog.Actions style={styles.actions}>
             {buttons.map((button, index) => {
@@ -85,18 +85,15 @@ export function CustomAlertProvider({ children }) {
               return (
                 <Button
                   key={index}
-                  mode={isCancelButton ? 'outlined' : 'contained'}
+                  mode="text"
                   onPress={() => handleButtonPress(button)}
-                  style={[
-                    styles.button,
-                    isCancelButton && styles.cancelButton,
-                  ]}
+                  style={styles.button}
                   labelStyle={[
-                    isDestructiveButton && styles.destructiveLabel,
+                    styles.buttonLabel,
+                    isCancelButton && styles.cancelButtonLabel,
+                    isDestructiveButton && styles.destructiveButtonLabel,
                   ]}
-                  buttonColor={
-                    isDestructiveButton ? '#d32f2f' : undefined
-                  }
+                  uppercase={false}
                 >
                   {button.text}
                 </Button>
@@ -159,28 +156,53 @@ export const CustomAlert = {
 
 const styles = StyleSheet.create({
   dialog: {
-    maxWidth: 400,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    maxWidth: 320,
+    minWidth: 280,
     alignSelf: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   title: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    paddingTop: 4,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   message: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#555',
+    textAlign: 'center',
   },
   actions: {
     paddingHorizontal: 8,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   button: {
-    marginLeft: 8,
+    marginHorizontal: 4,
+    minWidth: 80,
   },
-  cancelButton: {
-    borderColor: '#ccc',
+  buttonLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6200ee',
   },
-  destructiveLabel: {
-    color: '#fff',
+  cancelButtonLabel: {
+    color: '#999',
+  },
+  destructiveButtonLabel: {
+    color: '#d32f2f',
   },
 });
