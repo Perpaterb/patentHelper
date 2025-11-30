@@ -1030,7 +1030,7 @@ const styles = StyleSheet.create({
   messageBubble: {
     flex: 1,
     borderRadius: 12,
-    padding: 12,
+    padding: 8,
     elevation: 1,
   },
   messageBubbleLeft: {
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
     lineHeight: 20,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   messageTime: {
     fontSize: 10,
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 0,
   },
   timeAndReceipt: {
     flexDirection: 'row',
