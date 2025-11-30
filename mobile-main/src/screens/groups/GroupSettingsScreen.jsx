@@ -375,13 +375,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
       });
 
       // Show success message
-      if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert(`Group "${editGroupName}" updated successfully!`);
-        }
-      } else {
-        CustomAlert.alert('Success', `Group "${editGroupName}" updated successfully!`);
-      }
+      CustomAlert.alert('Success', `Group "${editGroupName}" updated successfully!`);
     } catch (err) {
       console.error('Update group error:', err);
 
@@ -490,9 +484,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
             setEditBackgroundImageId(fileId);
             setEditBackgroundImageUri(URL.createObjectURL(resizedBlob));
 
-            if (window.alert) {
-              window.alert('Background image resized to 16:9 and selected. Click "Save Changes" to apply.');
-            }
+            CustomAlert.alert('Success', 'Background image resized to 16:9 and selected. Click "Save Changes" to apply.');
           } catch (err) {
             console.error('Upload error:', err);
             const errorMessage = err.response?.data?.message || err.message || 'Failed to upload image';

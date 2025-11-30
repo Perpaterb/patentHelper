@@ -73,25 +73,21 @@ export default function CreateGroupScreen({ navigation }) {
         backgroundColor: backgroundColor,
       });
 
-      // On web, CustomAlert.alert callbacks don't work, so navigate immediately
+      // Show success message and navigate back
+      CustomAlert.alert(
+        'Success',
+        `Group "${groupName}" created successfully!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+
+      // On web, also navigate immediately since alert is non-blocking
       if (Platform.OS === 'web') {
-        // Use window.alert for web
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert(`Group "${groupName}" created successfully!`);
-        }
         navigation.goBack();
-      } else {
-        // On mobile, use CustomAlert.alert with callback
-        CustomAlert.alert(
-          'Success',
-          `Group "${groupName}" created successfully!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
       }
     } catch (err) {
       console.error('Create group error:', err);

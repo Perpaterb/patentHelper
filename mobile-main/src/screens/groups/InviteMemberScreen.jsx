@@ -103,23 +103,21 @@ export default function InviteMemberScreen({ navigation, route }) {
         iconColor: iconColor,
       });
 
-      // On web, CustomAlert.alert callbacks don't work, so navigate immediately
+      // Show success message and navigate back
+      CustomAlert.alert(
+        'Invitation Sent',
+        `Invitation sent to ${email}. They will be added as a ${role}.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+
+      // On web, also navigate immediately since alert is non-blocking
       if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined' && window.alert) {
-          window.alert(`Invitation sent to ${email}. They will be added as a ${role}.`);
-        }
         navigation.goBack();
-      } else {
-        CustomAlert.alert(
-          'Invitation Sent',
-          `Invitation sent to ${email}. They will be added as a ${role}.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
       }
     } catch (err) {
       console.error('Invite member error:', err);
