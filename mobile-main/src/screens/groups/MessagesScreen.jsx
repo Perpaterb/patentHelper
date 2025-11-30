@@ -401,23 +401,38 @@ export default function MessagesScreen({ navigation, route }) {
 
   /**
    * Format message timestamp
+   * If today: "10:23am"
+   * If before today: "10-May-25 10:23am"
    */
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
+    // Check if message is from today
+    const isToday = date.getDate() === now.getDate() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear();
 
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
+    // Format time as "10:23am"
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    const displayHours = hours % 12 || 12; // Convert 0 to 12 for midnight
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    const timeString = `${displayHours}:${displayMinutes}${ampm}`;
 
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
+    // If today, just show time
+    if (isToday) {
+      return timeString;
+    }
 
-    return date.toLocaleDateString();
+    // If before today, show date + time
+    const day = date.getDate().toString().padStart(2, '0');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear().toString().slice(-2); // Last 2 digits of year
+
+    return `${day}-${month}-${year} ${timeString}`;
   };
 
   /**
@@ -581,9 +596,6 @@ export default function MessagesScreen({ navigation, route }) {
                 <Text style={styles.hiddenText}>Hidden Message</Text>
               </View>
             )}
-            <Text style={styles.senderName}>
-              {item.sender?.displayName || 'Unknown'}
-            </Text>
 
             {/* Render attached media */}
             {item.media && item.media.length > 0 && (
@@ -613,8 +625,13 @@ export default function MessagesScreen({ navigation, route }) {
 
             <Text style={styles.messageContent}>{item.content}</Text>
             <View style={styles.messageFooter}>
-              <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
-              {isMyMessage && renderReadReceipt(item)}
+              <Text style={styles.senderName}>
+                {item.sender?.displayName || 'Unknown'}
+              </Text>
+              <View style={styles.timeAndReceipt}>
+                <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+                {isMyMessage && renderReadReceipt(item)}
+              </View>
             </View>
           </View>
         </View>
@@ -1045,10 +1062,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   senderName: {
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 11,
+    fontWeight: '600',
     color: '#666',
-    marginBottom: 4,
   },
   messageContent: {
     fontSize: 15,
@@ -1063,7 +1079,12 @@ const styles = StyleSheet.create({
   messageFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  timeAndReceipt: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   readReceipt: {
