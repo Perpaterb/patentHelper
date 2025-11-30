@@ -27,20 +27,6 @@ const renderWithProvider = (component) => {
   );
 };
 
-// Mock useFocusEffect to run callback immediately
-jest.mock('@react-navigation/native', () => {
-  const actual = jest.requireActual('@react-navigation/native');
-  const { useEffect } = require('react');
-  return {
-    ...actual,
-    useFocusEffect: (callback) => {
-      useEffect(() => {
-        callback();
-      }, []);
-    },
-  };
-});
-
 // Mock the CustomNavigationHeader component
 jest.mock('../../../components/CustomNavigationHeader', () => {
   const { View, Text, TouchableOpacity } = require('react-native');

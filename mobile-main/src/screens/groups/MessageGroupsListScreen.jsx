@@ -39,24 +39,24 @@ export default function MessageGroupsListScreen({ navigation, route }) {
     loadGroupInfo();
   }, [groupId]);
 
-  // Reload message groups when screen comes into focus (e.g., after creating a new message group)
+  /**
+   * Reload message groups when screen comes into focus and start polling
+   * Polling stops when screen loses focus to reduce unnecessary API calls
+   */
   useFocusEffect(
     React.useCallback(() => {
+      // Refresh immediately on focus
       loadMessageGroups();
+
+      // Start polling (only while focused)
+      const pollInterval = setInterval(() => {
+        loadMessageGroups();
+      }, 5000); // Poll every 5 seconds
+
+      // Stop polling when screen loses focus
+      return () => clearInterval(pollInterval);
     }, [groupId])
   );
-
-  /**
-   * Real-time polling: Refresh message groups every 5 seconds
-   * Updates unread message counts and last message previews
-   */
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadMessageGroups();
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [groupId]);
 
   /**
    * Load group information

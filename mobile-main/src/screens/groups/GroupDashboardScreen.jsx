@@ -48,30 +48,28 @@ export default function GroupDashboardScreen({ navigation, route }) {
   }, [groupId]);
 
   /**
-   * Refresh on screen focus
+   * Refresh on screen focus and start polling
+   * Polling stops when screen loses focus to reduce unnecessary API calls
    */
   useFocusEffect(
     React.useCallback(() => {
+      // Refresh immediately on focus
       loadGroupInfo();
       loadPendingApprovalsCount();
       loadPendingFinanceCount();
       loadMessageBadgeCounts();
+
+      // Start polling (only while focused)
+      const pollInterval = setInterval(() => {
+        loadPendingApprovalsCount();
+        loadPendingFinanceCount();
+        loadMessageBadgeCounts();
+      }, 5000); // Poll every 5 seconds
+
+      // Stop polling when screen loses focus
+      return () => clearInterval(pollInterval);
     }, [groupId])
   );
-
-  /**
-   * Real-time polling: Refresh all badge counts every 5 seconds
-   * Updates approvals, finance, and message notification counts
-   */
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadPendingApprovalsCount();
-      loadPendingFinanceCount();
-      loadMessageBadgeCounts();
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [groupId]);
 
   /**
    * Load group information

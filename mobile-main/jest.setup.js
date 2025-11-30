@@ -156,10 +156,11 @@ jest.mock('@react-navigation/native', () => {
     useRoute: () => mockRoute,
     useFocusEffect: (callback) => {
       // Use useEffect to run the callback after component mounts
+      // NOTE: For testing, we intentionally DON'T call the cleanup function
+      // to prevent intervals from being cleared during the test run.
+      // The intervals will be cleaned up when the test suite completes.
       React.useEffect(() => {
-        const result = callback();
-        // Handle cleanup function if returned
-        return typeof result === 'function' ? result : undefined;
+        callback();
       }, []);
     },
   };

@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Image, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
 import api from '../../services/api';
@@ -175,14 +176,16 @@ export default function MessagesScreen({ navigation, route }) {
     loadMessages();
   }, [messageGroupId, loadMessages]);
 
-  // Real-time polling: Check for new messages every 3 seconds
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadMessages(true); // true = silent refresh (no loading spinner)
-    }, 3000); // Poll every 3 seconds
+  // Real-time polling: Check for new messages every 3 seconds (only when screen is focused)
+  useFocusEffect(
+    useCallback(() => {
+      const pollInterval = setInterval(() => {
+        loadMessages(true); // true = silent refresh (no loading spinner)
+      }, 3000); // Poll every 3 seconds
 
-    return () => clearInterval(pollInterval);
-  }, [loadMessages]);
+      return () => clearInterval(pollInterval);
+    }, [loadMessages])
+  );
 
   // Scroll to bottom when messages load
   useEffect(() => {

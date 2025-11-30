@@ -51,26 +51,24 @@ export default function GroupsListScreen({ navigation }) {
   /**
    * Refresh groups list when screen comes into focus
    * This ensures newly created groups appear immediately
+   * Also starts polling which stops when screen loses focus
    */
   useFocusEffect(
     useCallback(() => {
+      // Refresh immediately on focus
       loadGroups();
       loadInvitationCount();
+
+      // Start polling (only while focused)
+      const pollInterval = setInterval(() => {
+        loadGroups(); // Silent refresh
+        loadInvitationCount();
+      }, 5000); // Poll every 5 seconds
+
+      // Stop polling when screen loses focus
+      return () => clearInterval(pollInterval);
     }, [])
   );
-
-  /**
-   * Real-time polling: Refresh groups and invitation count every 5 seconds
-   * Updates unread message counts and invitation badges
-   */
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadGroups(); // Silent refresh
-      loadInvitationCount();
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval);
-  }, []);
 
   /**
    * Load groups from API
