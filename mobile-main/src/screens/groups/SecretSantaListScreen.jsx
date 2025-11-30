@@ -204,8 +204,9 @@ export default function SecretSantaListScreen({ navigation, route }) {
       <FAB
         icon="plus"
         style={styles.fab}
-        onPress={handleCreate}
         label="New Secret Santa"
+        color="#fff"
+        onPress={handleCreate}
       />
     </View>
   );

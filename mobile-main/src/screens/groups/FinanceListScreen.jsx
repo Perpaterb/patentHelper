@@ -288,6 +288,7 @@ export default function FinanceListScreen({ navigation, route }) {
           style={styles.fab}
           icon="plus"
           label="New Finance Request"
+          color="#fff"
           onPress={handleCreateFinanceMatter}
         />
       )}

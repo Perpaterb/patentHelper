@@ -434,8 +434,9 @@ export default function GiftRegistryListScreen({ navigation, route }) {
       <FAB
         style={styles.fab}
         icon="plus"
-        onPress={handleShowAddModal}
         label="New Registry"
+        color="#fff"
+        onPress={handleShowAddModal}
       />
 
       {/* Add Options Modal */}

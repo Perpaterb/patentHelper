@@ -425,8 +425,9 @@ export default function PersonalGiftRegistryDetailScreen({ navigation, route }) 
         <FAB
           icon="plus"
           style={styles.fab}
-          onPress={handleAddItem}
           label="Add Item"
+          color="#fff"
+          onPress={handleAddItem}
         />
       )}
 

@@ -350,6 +350,7 @@ export default function MessageGroupsListScreen({ navigation, route }) {
             style={styles.fab}
             icon="plus"
             label="New Message Group"
+            color="#fff"
             onPress={handleCreateMessageGroup}
           />
         </>

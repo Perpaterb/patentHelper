@@ -455,8 +455,9 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
         <FAB
           style={styles.fab}
           icon="plus"
-          onPress={handleAddItem}
           label="Add Item"
+          color="#fff"
+          onPress={handleAddItem}
         />
       )}
 

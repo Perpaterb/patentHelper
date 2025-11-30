@@ -493,6 +493,7 @@ export default function GroupsListScreen({ navigation }) {
         style={styles.fabSupport}
         label={"Support\nFeedback"}
         size="small"
+        color="#fff"
         onPress={handleContactSupport}
       />
 
@@ -500,6 +501,7 @@ export default function GroupsListScreen({ navigation }) {
         style={styles.fab}
         icon="plus"
         label="Create Group"
+        color="#fff"
         onPress={handleCreateGroup}
       />
 

@@ -22,6 +22,7 @@ import {
   Chip,
 } from 'react-native-paper';
 import api from '../services/api';
+import { CustomAlert } from '../components/CustomAlert';
 
 export default function AuditLogsScreen({ navigation }) {
   const [logs, setLogs] = useState([]);
@@ -308,10 +309,26 @@ export default function AuditLogsScreen({ navigation }) {
   }
 
   async function handleDeleteExport(exportId, fileName) {
-    if (!window.confirm(`Are you sure you want to delete the export "${fileName}"? This action requires approval from >50% of admins.`)) {
-      return;
-    }
+    CustomAlert.alert(
+      'Delete Export',
+      `Are you sure you want to delete the export "${fileName}"? This action requires approval from >50% of admins.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await performDelete(exportId);
+          },
+        },
+      ]
+    );
+  }
 
+  async function performDelete(exportId) {
     try {
       const response = await api.delete(`/logs/${selectedGroup.groupId}/exports/${exportId}`);
 

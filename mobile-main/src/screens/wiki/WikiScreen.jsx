@@ -450,8 +450,8 @@ export default function WikiScreen({ navigation, route }) {
       <FAB
         icon="plus"
         style={[styles.fab, { backgroundColor: groupInfo?.backgroundColor || '#6200ee' }]}
-        onPress={() => setShowCreateModal(true)}
         color="#fff"
+        onPress={() => setShowCreateModal(true)}
       />
 
       {/* Create document modal */}

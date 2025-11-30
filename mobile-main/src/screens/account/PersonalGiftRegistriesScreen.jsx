@@ -255,8 +255,9 @@ export default function PersonalGiftRegistriesScreen({ navigation }) {
       <FAB
         style={styles.fab}
         icon="plus"
-        onPress={handleCreateRegistry}
         label="New Registry"
+        color="#fff"
+        onPress={handleCreateRegistry}
       />
     </View>
   );

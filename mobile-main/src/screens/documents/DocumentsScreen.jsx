@@ -424,9 +424,9 @@ export default function DocumentsScreen({ navigation, route }) {
           styles.fab,
           { backgroundColor: groupInfo?.backgroundColor || '#6200ee' },
         ]}
+        color="#fff"
         onPress={handleUpload}
         disabled={uploading}
-        color="#fff"
         loading={uploading}
       />
     </View>

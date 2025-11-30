@@ -20,6 +20,7 @@ import config from './src/config/env';
 // Layout components
 import AppLayout from './src/components/AppLayout';
 import PhoneFrame from './src/components/PhoneFrame';
+import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
 
 // Import screens from mobile-main (single source of truth)
 import GroupsListScreen from '../mobile-main/src/screens/groups/GroupsListScreen';
@@ -70,6 +71,19 @@ import StorageScreen from './src/screens/StorageScreen';
 import AuditLogsScreen from './src/screens/AuditLogsScreen';
 
 const Stack = createStackNavigator();
+
+/**
+ * Component to initialize the global alert handler
+ */
+function AlertHandlerInitializer() {
+  const { showAlert } = useCustomAlert();
+
+  useEffect(() => {
+    setGlobalAlertHandler(showAlert);
+  }, [showAlert]);
+
+  return null;
+}
 
 // Wrapper to add PhoneFrame around mobile screens
 function withPhoneFrame(ScreenComponent) {
@@ -289,7 +303,10 @@ export default function App() {
       logoutUri={config.kinde.logoutRedirectUri}
     >
       <PaperProvider>
-        <AppNavigator />
+        <CustomAlertProvider>
+          <AlertHandlerInitializer />
+          <AppNavigator />
+        </CustomAlertProvider>
       </PaperProvider>
     </KindeProvider>
   );
