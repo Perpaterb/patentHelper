@@ -21,6 +21,8 @@ import config from './src/config/env';
 import AppLayout from './src/components/AppLayout';
 import PhoneFrame from './src/components/PhoneFrame';
 import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
+// Also import from mobile-main's CustomAlert to set its global handler
+import { setGlobalAlertHandler as setMobileGlobalAlertHandler } from '../mobile-main/src/components/CustomAlert';
 
 // Import screens from mobile-main (single source of truth)
 import GroupsListScreen from '../mobile-main/src/screens/groups/GroupsListScreen';
@@ -74,12 +76,17 @@ const Stack = createStackNavigator();
 
 /**
  * Component to initialize the global alert handler
+ * Sets handler on BOTH web-admin and mobile-main's CustomAlert modules
+ * since mobile-main screens import their own CustomAlert
  */
 function AlertHandlerInitializer() {
   const { showAlert } = useCustomAlert();
 
   useEffect(() => {
+    // Set handler on web-admin's CustomAlert
     setGlobalAlertHandler(showAlert);
+    // Also set handler on mobile-main's CustomAlert (used by imported screens)
+    setMobileGlobalAlertHandler(showAlert);
   }, [showAlert]);
 
   return null;
