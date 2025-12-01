@@ -20,6 +20,7 @@ import {
   Menu,
   IconButton,
   Chip,
+  TextInput,
 } from 'react-native-paper';
 import api from '../services/api';
 import { CustomAlert } from '../components/CustomAlert';
