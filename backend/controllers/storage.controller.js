@@ -635,8 +635,8 @@ async function requestFileDeletion(req, res) {
  * Execute file deletion after approval
  * Internal function - not exposed as route
  *
- * Performs HARD DELETE - completely removes file from storage and database.
- * The file will no longer be visible anywhere including messages.
+ * Hard deletes file data from storage but keeps database record with isHidden=true
+ * so we can show "Deleted by Admin" placeholder with file name in messages.
  */
 async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
   const storageService = require('../services/storage');
@@ -671,7 +671,7 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
     data: { status: 'approved' },
   });
 
-  // Hard delete from file storage (the actual file)
+  // Hard delete from file storage (the actual file data)
   try {
     if (media.url) {
       await storageService.hardDeleteFile(media.url);
@@ -679,12 +679,18 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
     }
   } catch (storageError) {
     console.error(`[executeFileDeletion] Storage deletion error (continuing): ${storageError.message}`);
-    // Continue even if storage delete fails - we still want to remove DB record
+    // Continue even if storage delete fails - we still want to mark as hidden
   }
 
-  // Hard delete from database - this removes the file from messages too
-  await prisma.messageMedia.delete({
+  // Soft delete in database - keep record so we can show "Deleted by Admin" placeholder
+  // This allows users to see the file name even after deletion
+  await prisma.messageMedia.update({
     where: { mediaId: mediaId },
+    data: {
+      isHidden: true,
+      hiddenAt: new Date(),
+      hiddenBy: requestedBy,
+    },
   });
 
   // Create audit log with detailed info
@@ -696,11 +702,11 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
       performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
       performedByEmail: requester?.user?.email || 'system@app',
       actionLocation: 'storage',
-      messageContent: `File permanently deleted: "${fileName}" (${formatFileSize(fileSizeBytes)}). File ID: ${mediaId}`,
+      messageContent: `File deleted: "${fileName}" (${formatFileSize(fileSizeBytes)}). File ID: ${mediaId}`,
     },
   });
 
-  console.log(`[executeFileDeletion] Permanently deleted file: ${fileName} (${mediaId})`);
+  console.log(`[executeFileDeletion] Deleted file: ${fileName} (${mediaId})`);
 }
 
 /**

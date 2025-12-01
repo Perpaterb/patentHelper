@@ -104,7 +104,8 @@ async function executeApprovedAction(approval) {
         break;
 
       case 'delete_file':
-        // HARD delete file - completely remove from storage and database
+        // Hard delete file data from storage, soft delete in database
+        // Keeps DB record so "Deleted by Admin" placeholder shows file name
         if (approval.relatedEntityId) {
           const storageService = require('../services/storage');
           const mediaId = approval.relatedEntityId;
@@ -128,7 +129,7 @@ async function executeApprovedAction(approval) {
               },
             });
 
-            // Hard delete from file storage
+            // Hard delete from file storage (actual file data)
             try {
               if (media.url) {
                 await storageService.hardDeleteFile(media.url);
@@ -138,9 +139,14 @@ async function executeApprovedAction(approval) {
               console.error(`[executeApprovedAction] Storage deletion error (continuing): ${storageError.message}`);
             }
 
-            // Hard delete from database
-            await prisma.messageMedia.delete({
+            // Soft delete in database - keep record for "Deleted by Admin" placeholder
+            await prisma.messageMedia.update({
               where: { mediaId: mediaId },
+              data: {
+                isHidden: true,
+                hiddenAt: new Date(),
+                hiddenBy: approval.requestedBy,
+              },
             });
 
             // Format file size for audit log

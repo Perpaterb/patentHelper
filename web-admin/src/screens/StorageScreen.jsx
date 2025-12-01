@@ -374,6 +374,25 @@ export default function StorageScreen({ navigation }) {
                     )}
                   </View>
 
+                  {/* Status Filter - only show if there are pending deletion or deleted files */}
+                  {(groupFiles.some(f => f.pendingDeletion) || groupFiles.some(f => f.isDeleted)) && (
+                    <>
+                      <Text style={styles.filterSectionTitle}>Status</Text>
+                      <View style={styles.filterChipsRow}>
+                        {groupFiles.some(f => f.pendingDeletion) && (
+                          <Chip
+                            selected={showPendingDeletion}
+                            onPress={() => setShowPendingDeletion(!showPendingDeletion)}
+                            style={[styles.filterChip, showPendingDeletion && styles.pendingDeletionFilterChip]}
+                            icon={showPendingDeletion ? 'check' : 'clock-outline'}
+                          >
+                            Pending Deletion
+                          </Chip>
+                        )}
+                      </View>
+                    </>
+                  )}
+
                   {/* Uploader filter - show email addresses */}
                   <Text style={styles.filterSectionTitle}>Uploaded By</Text>
                   <View style={styles.filterChipsRow}>
@@ -410,19 +429,6 @@ export default function StorageScreen({ navigation }) {
                       style={styles.dateInput}
                       dense
                     />
-                  </View>
-
-                  {/* Status Filter */}
-                  <Text style={styles.filterSectionTitle}>Status</Text>
-                  <View style={styles.filterChipsRow}>
-                    <Chip
-                      selected={showPendingDeletion}
-                      onPress={() => setShowPendingDeletion(!showPendingDeletion)}
-                      style={[styles.filterChip, showPendingDeletion && styles.pendingDeletionFilterChip]}
-                      icon={showPendingDeletion ? 'check' : 'clock-outline'}
-                    >
-                      Pending Deletion
-                    </Chip>
                   </View>
 
                   {/* Active Filters Summary */}
