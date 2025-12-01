@@ -474,12 +474,25 @@ async function sendMessageGroupMessage(req, res) {
         content: encryptedContent, // Store encrypted content
         mentions: validMentions,
         media: {
-          create: mediaFiles.map(file => ({
-            mediaType: file.mimeType.startsWith('image/') ? 'image' : 'video',
-            s3Key: file.s3Key,
-            url: file.fileId, // Store fileId as URL for retrieval
-            fileSizeBytes: file.fileSizeBytes,
-          })),
+          create: mediaFiles.map(file => {
+            // Determine media type - default to 'image' for unknown types
+            // Only classify as 'video' if explicitly a video mimeType
+            let mediaType = 'image'; // Default to image
+            if (file.mimeType) {
+              if (file.mimeType.startsWith('video/')) {
+                mediaType = 'video';
+              } else if (file.mimeType.startsWith('image/')) {
+                mediaType = 'image';
+              }
+              // For other mimeTypes (e.g., application/octet-stream), keep default 'image'
+            }
+            return {
+              mediaType: mediaType,
+              s3Key: file.s3Key,
+              url: file.fileId, // Store fileId as URL for retrieval
+              fileSizeBytes: file.fileSizeBytes,
+            };
+          }),
         },
       },
       include: {

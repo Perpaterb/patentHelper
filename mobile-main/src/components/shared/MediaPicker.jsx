@@ -208,33 +208,60 @@ const MediaPicker = ({
         }
 
         // Determine MIME type and file extension
+        // Note: expo-image-picker may return different type values on different platforms
+        // Also check file extension and mimeType from asset for robustness
         let mimeType = 'application/octet-stream';
         let ext = 'bin';
 
-        if (asset.type === 'image') {
+        // Get file extension from URI
+        const fileExt = asset.uri.split('.').pop()?.toLowerCase() || '';
+
+        // Check if this is an image based on type, mimeType, or extension
+        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp', 'avif', 'tiff', 'bmp'];
+        const videoExtensions = ['mp4', 'mov', 'avi', 'webm', 'mpeg', 'm4v', '3gp'];
+
+        const isImage = asset.type === 'image' ||
+          asset.type === 'photo' ||  // iOS may return 'photo'
+          (asset.mimeType && asset.mimeType.startsWith('image/')) ||
+          imageExtensions.includes(fileExt);
+
+        const isVideo = asset.type === 'video' ||
+          (asset.mimeType && asset.mimeType.startsWith('video/')) ||
+          videoExtensions.includes(fileExt);
+
+        if (isImage) {
           if (isNonBrowserFormat) {
             // For non-browser formats, preserve original type - backend will convert to PNG
-            const imageExt = asset.uri.split('.').pop()?.toLowerCase() || 'heic';
-            ext = imageExt;
-            if (imageExt === 'heic' || imageExt === 'heif') {
+            ext = fileExt || 'heic';
+            if (ext === 'heic' || ext === 'heif') {
               mimeType = 'image/heic';
-            } else if (imageExt === 'webp') {
+            } else if (ext === 'webp') {
               mimeType = 'image/webp';
-            } else if (imageExt === 'avif') {
+            } else if (ext === 'avif') {
               mimeType = 'image/avif';
             } else {
-              mimeType = `image/${imageExt}`;
+              mimeType = `image/${ext}`;
             }
           } else {
             // Standard images are compressed to JPEG format
             mimeType = 'image/jpeg';
             ext = 'jpg';
           }
-        } else if (asset.type === 'video') {
+        } else if (isVideo) {
           // Determine video extension from URI
-          const videoExt = asset.uri.split('.').pop()?.toLowerCase();
-          ext = videoExt || 'mp4';
+          ext = fileExt || 'mp4';
           mimeType = ext === 'mov' ? 'video/quicktime' : 'video/mp4';
+        } else {
+          // Fallback: try to determine from extension
+          if (imageExtensions.includes(fileExt)) {
+            mimeType = `image/${fileExt}`;
+            ext = fileExt;
+          } else if (videoExtensions.includes(fileExt)) {
+            mimeType = fileExt === 'mov' ? 'video/quicktime' : 'video/mp4';
+            ext = fileExt;
+          }
+          // If still unknown, keep application/octet-stream
+          console.warn('Unknown media type:', { type: asset.type, mimeType: asset.mimeType, ext: fileExt });
         }
 
         // Generate filename
