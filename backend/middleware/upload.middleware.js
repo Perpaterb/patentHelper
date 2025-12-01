@@ -26,9 +26,32 @@ const FILE_SIZE_LIMITS = {
  */
 const ALLOWED_MIME_TYPES = {
   image: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-  video: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'],
-  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  default: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+  video: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp'],
+  document: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv'
+  ],
+  // Default allows ALL valid types since category may not be parsed yet when file filter runs
+  // (multipart form fields are parsed in order, and file may come before category field)
+  default: [
+    // Images
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    // Videos
+    'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp',
+    // Documents
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv'
+  ]
 };
 
 /**
@@ -56,12 +79,14 @@ function fileFilter(req, file, cb) {
 
 /**
  * Multer configuration for single file upload
+ * Note: Using video size limit as max since we can't determine category at this point
+ * The controller will enforce category-specific limits after parsing the full request
  */
 const uploadSingle = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: FILE_SIZE_LIMITS.default
+    fileSize: FILE_SIZE_LIMITS.video // Use largest limit (100MB), controller validates per-category
   }
 }).single('file');
 
@@ -72,7 +97,7 @@ const uploadMultiple = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: FILE_SIZE_LIMITS.default,
+    fileSize: FILE_SIZE_LIMITS.video, // Use largest limit (100MB), controller validates per-category
     files: 10
   }
 }).array('files', 10);
