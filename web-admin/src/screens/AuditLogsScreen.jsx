@@ -608,71 +608,73 @@ export default function AuditLogsScreen({ navigation }) {
             )}
 
             {/* Logs Table */}
-            <ScrollView horizontal>
-              <Card style={styles.tableCard}>
-                <DataTable>
-                  <DataTable.Header>
-                    <DataTable.Title style={styles.columnDate}>Date</DataTable.Title>
-                    <DataTable.Title style={styles.columnAction}>Action</DataTable.Title>
-                    <DataTable.Title style={styles.columnUser}>User</DataTable.Title>
-                    <DataTable.Title style={styles.columnLocation}>Location</DataTable.Title>
-                    <DataTable.Title style={styles.columnContent}>Content</DataTable.Title>
-                  </DataTable.Header>
+            <Card style={styles.tableCard}>
+              <View style={styles.tableScrollContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <DataTable style={styles.dataTable}>
+                    <DataTable.Header>
+                      <DataTable.Title style={styles.columnDate}>Date</DataTable.Title>
+                      <DataTable.Title style={styles.columnAction}>Action</DataTable.Title>
+                      <DataTable.Title style={styles.columnUser}>User</DataTable.Title>
+                      <DataTable.Title style={styles.columnLocation}>Location</DataTable.Title>
+                      <DataTable.Title style={styles.columnContent}>Content</DataTable.Title>
+                    </DataTable.Header>
 
-                  {loading ? (
-                    <View style={styles.tableLoading}>
-                      <ActivityIndicator />
-                    </View>
-                  ) : logs.length === 0 ? (
-                    <View style={styles.emptyTable}>
-                      <Text>No audit logs found for this group.</Text>
-                    </View>
-                  ) : (
-                    logs.map((log, index) => {
-                      const isExpanded = expandedRows[log.logId];
-                      return (
-                        <DataTable.Row key={log.logId || index}>
-                          <DataTable.Cell style={styles.columnDate}>
-                            {formatDate(log.createdAt)}
-                          </DataTable.Cell>
-                          <DataTable.Cell style={styles.columnAction}>
-                            {log.action}
-                          </DataTable.Cell>
-                          <DataTable.Cell style={styles.columnUser}>
-                            {log.performedByEmail}
-                          </DataTable.Cell>
-                          <DataTable.Cell style={styles.columnLocation}>
-                            {log.actionLocation}
-                          </DataTable.Cell>
-                          <DataTable.Cell style={styles.columnContent}>
-                            <View style={styles.contentCell}>
-                              <Text style={styles.contentText} numberOfLines={isExpanded ? undefined : 2}>
-                                {log.messageContent}
-                              </Text>
-                              {log.messageContent && log.messageContent.length > 100 && (
-                                <IconButton
-                                  icon={isExpanded ? 'chevron-up' : 'chevron-down'}
-                                  size={16}
-                                  onPress={() => toggleRowExpanded(log.logId)}
-                                  style={styles.expandButton}
-                                />
-                              )}
-                            </View>
-                          </DataTable.Cell>
-                        </DataTable.Row>
-                      );
-                    })
-                  )}
+                    {loading ? (
+                      <View style={styles.tableLoading}>
+                        <ActivityIndicator />
+                      </View>
+                    ) : logs.length === 0 ? (
+                      <View style={styles.emptyTable}>
+                        <Text>No audit logs found for this group.</Text>
+                      </View>
+                    ) : (
+                      logs.map((log, index) => {
+                        const isExpanded = expandedRows[log.logId];
+                        return (
+                          <DataTable.Row key={log.logId || index}>
+                            <DataTable.Cell style={styles.columnDate}>
+                              {formatDate(log.createdAt)}
+                            </DataTable.Cell>
+                            <DataTable.Cell style={styles.columnAction}>
+                              {log.action}
+                            </DataTable.Cell>
+                            <DataTable.Cell style={styles.columnUser}>
+                              {log.performedByEmail}
+                            </DataTable.Cell>
+                            <DataTable.Cell style={styles.columnLocation}>
+                              {log.actionLocation}
+                            </DataTable.Cell>
+                            <DataTable.Cell style={styles.columnContent}>
+                              <View style={styles.contentCell}>
+                                <Text style={styles.contentText} numberOfLines={isExpanded ? undefined : 2}>
+                                  {log.messageContent}
+                                </Text>
+                                {log.messageContent && log.messageContent.length > 100 && (
+                                  <IconButton
+                                    icon={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                    size={16}
+                                    onPress={() => toggleRowExpanded(log.logId)}
+                                    style={styles.expandButton}
+                                  />
+                                )}
+                              </View>
+                            </DataTable.Cell>
+                          </DataTable.Row>
+                        );
+                      })
+                    )}
 
-                  <DataTable.Pagination
-                    page={page}
-                    numberOfPages={totalPages}
-                    onPageChange={(newPage) => setPage(newPage)}
-                    label={`Page ${page + 1} of ${totalPages}`}
-                  />
-                </DataTable>
-              </Card>
-            </ScrollView>
+                    <DataTable.Pagination
+                      page={page}
+                      numberOfPages={totalPages}
+                      onPageChange={(newPage) => setPage(newPage)}
+                      label={`Page ${page + 1} of ${totalPages}`}
+                    />
+                  </DataTable>
+                </ScrollView>
+              </View>
+            </Card>
 
             {/* Previous Exports */}
             <Card style={styles.exportsCard}>
@@ -839,6 +841,11 @@ const styles = StyleSheet.create({
   tableCard: {
     margin: 16,
     marginTop: 8,
+  },
+  tableScrollContainer: {
+    width: '100%',
+  },
+  dataTable: {
     minWidth: 900,
   },
   columnDate: {
