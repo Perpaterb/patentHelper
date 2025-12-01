@@ -87,7 +87,7 @@ export function CustomAlertProvider({ children }) {
                   key={index}
                   mode="text"
                   onPress={() => handleButtonPress(button)}
-                  style={[styles.button, { flex: 1 }]}
+                  style={styles.button}
                   contentStyle={styles.buttonContent}
                   labelStyle={[
                     styles.buttonLabel,
@@ -186,17 +186,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     marginTop: 8,
   },
   button: {
     borderRadius: 0,
-    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   buttonContent: {
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   buttonLabel: {
     fontSize: 15,
