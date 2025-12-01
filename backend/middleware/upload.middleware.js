@@ -15,10 +15,10 @@ const path = require('path');
  * Note: Per appplan.md, storage is tracked per admin per group
  */
 const FILE_SIZE_LIMITS = {
-  image: 10 * 1024 * 1024,    // 10 MB for images
-  video: 200 * 1024 * 1024,   // 200 MB for videos
-  document: 25 * 1024 * 1024, // 25 MB for documents
-  default: 10 * 1024 * 1024   // 10 MB default
+  image: 10 * 1024 * 1024,     // 10 MB for images
+  video: 200 * 1024 * 1024,    // 200 MB for videos
+  document: 100 * 1024 * 1024, // 100 MB for documents
+  default: 10 * 1024 * 1024    // 10 MB default
 };
 
 /**
