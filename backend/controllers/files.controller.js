@@ -59,6 +59,51 @@ async function uploadFile(req, res) {
           message: 'You are not a member of this group'
         });
       }
+
+      // Check if group has any paying admins (not on trial)
+      const payingAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          user: {
+            subscriptionStatus: 'active',
+          },
+        },
+      });
+
+      const hasPayingAdmin = payingAdmins.length > 0;
+
+      // If no paying admins, limit file size to 10MB
+      if (!hasPayingAdmin && req.file.size > 10 * 1024 * 1024) {
+        return res.status(403).json({
+          error: 'File size limit exceeded',
+          message: 'This group requires a paying admin to upload files larger than 10MB. Please ask an admin to subscribe.'
+        });
+      }
+    }
+
+    // Get current user to check trial status and storage limits
+    const currentUser = await prisma.user.findUnique({
+      where: { userId: userId },
+      select: {
+        subscriptionStatus: true,
+        storageUsedBytes: true,
+      },
+    });
+
+    // Trial users are limited to 10GB total storage
+    const TRIAL_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10GB
+    if (currentUser?.subscriptionStatus !== 'active') {
+      const currentUsage = Number(currentUser?.storageUsedBytes || 0);
+      const newTotal = currentUsage + req.file.size;
+
+      if (newTotal > TRIAL_STORAGE_LIMIT) {
+        const remainingBytes = Math.max(0, TRIAL_STORAGE_LIMIT - currentUsage);
+        return res.status(403).json({
+          error: 'Storage limit exceeded',
+          message: `Trial users are limited to 10GB of storage. You have ${formatBytes(remainingBytes)} remaining. Please subscribe to upload more files.`
+        });
+      }
     }
 
     // Validate file size limits
@@ -185,6 +230,7 @@ async function uploadMultipleFiles(req, res) {
     }
 
     // For group-related uploads, verify user is a member of the group
+    let hasPayingAdmin = true; // Default to true for non-group uploads
     if (groupId) {
       const membership = await prisma.groupMember.findFirst({
         where: {
@@ -197,6 +243,46 @@ async function uploadMultipleFiles(req, res) {
         return res.status(403).json({
           error: 'Access denied',
           message: 'You are not a member of this group'
+        });
+      }
+
+      // Check if group has any paying admins (not on trial)
+      const payingAdmins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+          user: {
+            subscriptionStatus: 'active',
+          },
+        },
+      });
+
+      hasPayingAdmin = payingAdmins.length > 0;
+    }
+
+    // Get current user to check trial status and storage limits
+    const currentUser = await prisma.user.findUnique({
+      where: { userId: userId },
+      select: {
+        subscriptionStatus: true,
+        storageUsedBytes: true,
+      },
+    });
+
+    // Calculate total upload size
+    const totalUploadSize = req.files.reduce((sum, file) => sum + file.size, 0);
+
+    // Trial users are limited to 10GB total storage
+    const TRIAL_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10GB
+    if (currentUser?.subscriptionStatus !== 'active') {
+      const currentUsage = Number(currentUser?.storageUsedBytes || 0);
+      const newTotal = currentUsage + totalUploadSize;
+
+      if (newTotal > TRIAL_STORAGE_LIMIT) {
+        const remainingBytes = Math.max(0, TRIAL_STORAGE_LIMIT - currentUsage);
+        return res.status(403).json({
+          error: 'Storage limit exceeded',
+          message: `Trial users are limited to 10GB of storage. You have ${formatBytes(remainingBytes)} remaining. Please subscribe to upload more files.`
         });
       }
     }
@@ -220,6 +306,14 @@ async function uploadMultipleFiles(req, res) {
         return res.status(400).json({
           error: 'File too large',
           message: `File "${file.originalname}" exceeds ${(maxSize / (1024 * 1024)).toFixed(0)}MB limit for ${category}`
+        });
+      }
+
+      // If no paying admins, limit file size to 10MB
+      if (!hasPayingAdmin && file.size > 10 * 1024 * 1024) {
+        return res.status(403).json({
+          error: 'File size limit exceeded',
+          message: `File "${file.originalname}" exceeds 10MB limit. This group requires a paying admin to upload files larger than 10MB. Please ask an admin to subscribe.`
         });
       }
     }
@@ -448,6 +542,19 @@ async function getStorageUsage(req, res) {
       message: error.message
     });
   }
+}
+
+/**
+ * Format bytes to human-readable string
+ * @param {number} bytes - Bytes to format
+ * @returns {string} Formatted string (e.g., "1.5 GB")
+ */
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 module.exports = {
