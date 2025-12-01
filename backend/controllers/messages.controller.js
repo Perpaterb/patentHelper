@@ -245,6 +245,24 @@ async function getMessageGroupMessages(req, res) {
             thumbnailUrl: true,
             fileSizeBytes: true,
             uploadedAt: true,
+            isHidden: true,
+            hiddenAt: true,
+            hiddenBy: true,
+            s3Key: true,
+            hider: {
+              select: {
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -295,10 +313,31 @@ async function getMessageGroupMessages(req, res) {
             : null,
         })),
         // Convert BigInt fileSizeBytes to Number for JSON serialization
-        media: message.media?.map(m => ({
-          ...m,
-          fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : 0,
-        })),
+        // Include isHidden flag and deleted info for media
+        media: message.media?.map(m => {
+          // Extract filename from s3Key
+          const s3KeyParts = m.s3Key ? m.s3Key.split('/') : [];
+          const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : 'Deleted file';
+
+          return {
+            mediaId: m.mediaId,
+            mediaType: m.mediaType,
+            // Don't send URL for hidden/deleted files - they can't be viewed
+            url: m.isHidden ? null : m.url,
+            thumbnailUrl: m.isHidden ? null : m.thumbnailUrl,
+            fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : 0,
+            uploadedAt: m.uploadedAt,
+            // Deletion info
+            isDeleted: m.isHidden || false,
+            deletedAt: m.hiddenAt,
+            fileName: fileName,
+            deletedBy: m.isHidden && m.hider ? {
+              displayName: m.hider.user?.displayName || m.hider.displayName,
+              iconLetters: m.hider.user?.memberIcon || m.hider.iconLetters,
+              iconColor: m.hider.user?.iconColor || m.hider.iconColor,
+            } : null,
+          };
+        }),
       };
     });
 

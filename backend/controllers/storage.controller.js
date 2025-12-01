@@ -682,7 +682,7 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
     // Continue even if storage delete fails - we still want to mark as hidden
   }
 
-  // Soft delete in database - keep record so we can show "Deleted by Admin" placeholder
+  // Mark as deleted in database - keep record so we can show "Deleted by Admin" placeholder
   // This allows users to see the file name even after deletion
   await prisma.messageMedia.update({
     where: { mediaId: mediaId },
@@ -693,6 +693,55 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
     },
   });
 
+  // Decrement storage usage for all admins in the group
+  // Storage was charged to all admins when file was uploaded
+  const admins = await prisma.groupMember.findMany({
+    where: {
+      groupId: groupId,
+      role: 'admin',
+    },
+    select: {
+      userId: true,
+    },
+  });
+
+  // Determine media type from the file
+  let mediaType = 'document';
+  if (media.mediaType === 'image' || media.mediaType?.startsWith('image/')) {
+    mediaType = 'image';
+  } else if (media.mediaType === 'video' || media.mediaType?.startsWith('video/')) {
+    mediaType = 'video';
+  }
+
+  // Decrement storage for each admin
+  for (const admin of admins) {
+    if (!admin.userId) continue;
+
+    // Decrement storageUsage table
+    await prisma.storageUsage.updateMany({
+      where: {
+        userId: admin.userId,
+        groupId: groupId,
+        mediaType: mediaType,
+      },
+      data: {
+        fileCount: { decrement: 1 },
+        totalBytes: { decrement: BigInt(fileSizeBytes) },
+        lastCalculatedAt: new Date(),
+      },
+    });
+
+    // Decrement user's total storage
+    await prisma.user.update({
+      where: { userId: admin.userId },
+      data: {
+        storageUsedBytes: { decrement: BigInt(fileSizeBytes) },
+      },
+    });
+  }
+
+  console.log(`[executeFileDeletion] Decremented storage by ${fileSizeBytes} bytes for ${admins.length} admin(s)`);
+
   // Create audit log with detailed info
   await prisma.auditLog.create({
     data: {
@@ -702,7 +751,7 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
       performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
       performedByEmail: requester?.user?.email || 'system@app',
       actionLocation: 'storage',
-      messageContent: `File deleted: "${fileName}" (${formatFileSize(fileSizeBytes)}). File ID: ${mediaId}`,
+      messageContent: `File deleted: "${fileName}" (${formatFileSize(fileSizeBytes)}). File ID: ${mediaId}. Storage freed for ${admins.length} admin(s).`,
     },
   });
 

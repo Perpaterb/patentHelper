@@ -604,24 +604,37 @@ export default function MessagesScreen({ navigation, route }) {
             {item.media && item.media.length > 0 && (
               <View style={styles.mediaContainer}>
                 {item.media.map((media) => (
-                  <TouchableOpacity
-                    key={media.mediaId}
-                    onPress={() => handleMediaTap(media)}
-                    style={styles.mediaThumbnail}
-                  >
-                    {media.mediaType === 'image' ? (
-                      <Image
-                        source={{ uri: getFileUrl(media.url) }}
-                        style={styles.mediaImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.videoThumbnail}>
-                        <IconButton icon="play-circle" size={48} iconColor="#fff" />
-                        <Text style={styles.videoText}>Video</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  media.isDeleted ? (
+                    // Deleted file placeholder
+                    <View key={media.mediaId} style={styles.deletedMediaPlaceholder}>
+                      <IconButton icon="delete-circle" size={32} iconColor="#d32f2f" />
+                      <Text style={styles.deletedMediaText} numberOfLines={1}>
+                        {media.fileName || 'Deleted file'}
+                      </Text>
+                      <Text style={styles.deletedByText}>
+                        Deleted by {media.deletedBy?.displayName || 'Admin'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      key={media.mediaId}
+                      onPress={() => handleMediaTap(media)}
+                      style={styles.mediaThumbnail}
+                    >
+                      {media.mediaType === 'image' ? (
+                        <Image
+                          source={{ uri: getFileUrl(media.url) }}
+                          style={styles.mediaImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.videoThumbnail}>
+                          <IconButton icon="play-circle" size={48} iconColor="#fff" />
+                          <Text style={styles.videoText}>Video</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )
                 ))}
               </View>
             )}
@@ -1277,6 +1290,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     marginTop: 4,
+  },
+  deletedMediaPlaceholder: {
+    width: 200,
+    height: 120,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+    padding: 8,
+  },
+  deletedMediaText: {
+    color: '#d32f2f',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  deletedByText: {
+    color: '#999',
+    fontSize: 10,
+    marginTop: 2,
   },
   attachedMediaContainer: {
     backgroundColor: '#f5f5f5',

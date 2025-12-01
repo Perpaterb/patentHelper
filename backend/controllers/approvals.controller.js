@@ -139,7 +139,7 @@ async function executeApprovedAction(approval) {
               console.error(`[executeApprovedAction] Storage deletion error (continuing): ${storageError.message}`);
             }
 
-            // Soft delete in database - keep record for "Deleted by Admin" placeholder
+            // Mark as deleted in database - keep record for "Deleted by Admin" placeholder
             await prisma.messageMedia.update({
               where: { mediaId: mediaId },
               data: {
@@ -148,6 +148,50 @@ async function executeApprovedAction(approval) {
                 hiddenBy: approval.requestedBy,
               },
             });
+
+            // Decrement storage usage for all admins in the group
+            const admins = await prisma.groupMember.findMany({
+              where: {
+                groupId: approval.groupId,
+                role: 'admin',
+              },
+              select: { userId: true },
+            });
+
+            // Determine media type
+            let mediaTypeForStorage = 'document';
+            if (media.mediaType === 'image' || media.mediaType?.startsWith('image/')) {
+              mediaTypeForStorage = 'image';
+            } else if (media.mediaType === 'video' || media.mediaType?.startsWith('video/')) {
+              mediaTypeForStorage = 'video';
+            }
+
+            // Decrement storage for each admin
+            for (const admin of admins) {
+              if (!admin.userId) continue;
+
+              await prisma.storageUsage.updateMany({
+                where: {
+                  userId: admin.userId,
+                  groupId: approval.groupId,
+                  mediaType: mediaTypeForStorage,
+                },
+                data: {
+                  fileCount: { decrement: 1 },
+                  totalBytes: { decrement: BigInt(fileSizeBytes) },
+                  lastCalculatedAt: new Date(),
+                },
+              });
+
+              await prisma.user.update({
+                where: { userId: admin.userId },
+                data: {
+                  storageUsedBytes: { decrement: BigInt(fileSizeBytes) },
+                },
+              });
+            }
+
+            console.log(`[executeApprovedAction] Decremented storage by ${fileSizeBytes} bytes for ${admins.length} admin(s)`);
 
             // Format file size for audit log
             const formatSize = (bytes) => {
@@ -165,11 +209,11 @@ async function executeApprovedAction(approval) {
                 performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
                 performedByEmail: requester?.user?.email || 'N/A',
                 actionLocation: 'storage',
-                messageContent: `File permanently deleted: "${fileName}" (${formatSize(fileSizeBytes)}). Approved via admin voting workflow.`,
+                messageContent: `File deleted: "${fileName}" (${formatSize(fileSizeBytes)}). Storage freed for ${admins.length} admin(s).`,
               },
             });
 
-            console.log(`[executeApprovedAction] Permanently deleted file: ${fileName} (${mediaId})`);
+            console.log(`[executeApprovedAction] Deleted file: ${fileName} (${mediaId})`);
           } else {
             console.log(`[executeApprovedAction] File ${mediaId} already deleted or not found`);
           }
