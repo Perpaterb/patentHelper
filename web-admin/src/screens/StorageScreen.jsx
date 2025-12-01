@@ -61,6 +61,7 @@ export default function StorageScreen({ navigation }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [showPendingDeletion, setShowPendingDeletion] = useState(false); // Filter to show only pending deletion
+  const [showDeleted, setShowDeleted] = useState(false); // Filter to show only deleted files
 
   // Preview modal state
   const [previewFile, setPreviewFile] = useState(null);
@@ -147,6 +148,7 @@ export default function StorageScreen({ navigation }) {
     setFromDate('');
     setToDate('');
     setShowPendingDeletion(false);
+    setShowDeleted(false);
   }
 
   function openPreview(file) {
@@ -242,12 +244,21 @@ export default function StorageScreen({ navigation }) {
     : 0;
 
   // Check if any filters are active
-  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate || showPendingDeletion;
+  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate || showPendingDeletion || showDeleted;
 
-  // Filter files client-side for pending deletion (backend returns all files, we filter here)
-  const displayedFiles = showPendingDeletion
-    ? groupFiles.filter(file => file.pendingDeletion === true)
-    : groupFiles;
+  // Filter files client-side for status filters (backend returns all files, we filter here)
+  const displayedFiles = (() => {
+    let files = groupFiles;
+
+    // Apply status filters (these are mutually exclusive for clarity)
+    if (showPendingDeletion) {
+      files = files.filter(file => file.pendingDeletion === true);
+    } else if (showDeleted) {
+      files = files.filter(file => file.isDeleted === true);
+    }
+
+    return files;
+  })();
 
   // If viewing a specific group's files
   if (selectedGroup) {
@@ -382,11 +393,27 @@ export default function StorageScreen({ navigation }) {
                         {groupFiles.some(f => f.pendingDeletion) && (
                           <Chip
                             selected={showPendingDeletion}
-                            onPress={() => setShowPendingDeletion(!showPendingDeletion)}
+                            onPress={() => {
+                              setShowPendingDeletion(!showPendingDeletion);
+                              if (!showPendingDeletion) setShowDeleted(false); // Mutually exclusive
+                            }}
                             style={[styles.filterChip, showPendingDeletion && styles.pendingDeletionFilterChip]}
                             icon={showPendingDeletion ? 'check' : 'clock-outline'}
                           >
-                            Pending Deletion
+                            Pending Deletion ({groupFiles.filter(f => f.pendingDeletion).length})
+                          </Chip>
+                        )}
+                        {groupFiles.some(f => f.isDeleted) && (
+                          <Chip
+                            selected={showDeleted}
+                            onPress={() => {
+                              setShowDeleted(!showDeleted);
+                              if (!showDeleted) setShowPendingDeletion(false); // Mutually exclusive
+                            }}
+                            style={[styles.filterChip, showDeleted && styles.deletedFilterChip]}
+                            icon={showDeleted ? 'check' : 'delete-outline'}
+                          >
+                            Deleted ({groupFiles.filter(f => f.isDeleted).length})
                           </Chip>
                         )}
                       </View>
@@ -439,6 +466,7 @@ export default function StorageScreen({ navigation }) {
                         {fromDate && `, from ${fromDate}`}
                         {toDate && `, to ${toDate}`}
                         {showPendingDeletion && ', pending deletion only'}
+                        {showDeleted && ', deleted only'}
                       </Text>
                     </View>
                   )}
@@ -1175,6 +1203,9 @@ const styles = StyleSheet.create({
   },
   pendingDeletionFilterChip: {
     backgroundColor: '#fff3e0',
+  },
+  deletedFilterChip: {
+    backgroundColor: '#ffebee',
   },
   activeFiltersSummary: {
     marginTop: 16,
