@@ -9,7 +9,7 @@
  * React Native Paper version for web-admin.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Image, Modal } from 'react-native';
 import {
   Text,
@@ -67,6 +67,12 @@ export default function StorageScreen({ navigation }) {
   const [previewFile, setPreviewFile] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
+  const ITEMS_PER_PAGE = 50;
+  const scrollViewRef = useRef(null);
+
   useEffect(() => {
     fetchStorage();
   }, []);
@@ -74,6 +80,8 @@ export default function StorageScreen({ navigation }) {
   useEffect(() => {
     if (selectedGroup) {
       fetchGroupFiles(selectedGroup.groupId);
+      setCurrentPage(1);
+      setPageInput('1');
     }
   }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploaders, fromDate, toDate]);
 
@@ -81,6 +89,8 @@ export default function StorageScreen({ navigation }) {
     try {
       setLoading(true);
       setError(null);
+      // Auto-recalculate storage on page load
+      await api.post('/storage/recalculate');
       const response = await api.get('/storage/usage');
       setStorage(response.data.storage);
     } catch (err) {
@@ -188,24 +198,6 @@ export default function StorageScreen({ navigation }) {
     }
   }
 
-  async function handleRecalculateStorage() {
-    try {
-      setLoading(true);
-      setError(null);
-      await api.post('/storage/recalculate');
-      setSuccessMessage('Storage usage recalculated successfully');
-      // Refresh storage data
-      await fetchStorage();
-      if (selectedGroup) {
-        await fetchGroupFiles(selectedGroup.groupId);
-      }
-    } catch (err) {
-      console.error('Failed to recalculate storage:', err);
-      setError(err.response?.data?.message || 'Failed to recalculate storage');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function formatBytes(bytes) {
     if (!bytes || bytes === 0) return '0 B';
@@ -287,10 +279,36 @@ export default function StorageScreen({ navigation }) {
     return files;
   })();
 
+  // Pagination calculations
+  const totalPages = Math.ceil(displayedFiles.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedFiles = displayedFiles.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    const validPage = Math.max(1, Math.min(page, totalPages || 1));
+    setCurrentPage(validPage);
+    setPageInput(String(validPage));
+    // Scroll to top
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  };
+
+  const handlePageInputSubmit = () => {
+    const page = parseInt(pageInput, 10);
+    if (!isNaN(page) && page >= 1 && page <= totalPages) {
+      goToPage(page);
+    } else {
+      setPageInput(String(currentPage));
+    }
+  };
+
   // If viewing a specific group's files
   if (selectedGroup) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} ref={scrollViewRef}>
         <View style={styles.content}>
           {/* Back button and group title */}
           <View style={styles.groupHeader}>
@@ -518,7 +536,7 @@ export default function StorageScreen({ navigation }) {
                   {hasActiveFilters ? 'No files match the selected filters' : 'No files in this group'}
                 </Text>
               ) : (
-                displayedFiles.map((file) => (
+                paginatedFiles.map((file) => (
                   <Pressable
                     key={file.mediaId}
                     style={({ pressed }) => [
@@ -667,6 +685,56 @@ export default function StorageScreen({ navigation }) {
             </Card.Content>
           </Card>
 
+          {/* Pagination Controls */}
+          {displayedFiles.length > ITEMS_PER_PAGE && (
+            <Card style={styles.card}>
+              <Card.Content>
+                <View style={styles.paginationContainer}>
+                  <View style={styles.paginationInfo}>
+                    <Text style={styles.paginationText}>
+                      Showing {startIndex + 1}-{Math.min(endIndex, displayedFiles.length)} of {displayedFiles.length} files
+                    </Text>
+                  </View>
+                  <View style={styles.paginationControls}>
+                    <Button
+                      mode="outlined"
+                      onPress={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      compact
+                      icon="chevron-left"
+                    >
+                      Previous
+                    </Button>
+                    <View style={styles.pageInputContainer}>
+                      <Text style={styles.pageLabel}>Page</Text>
+                      <TextInput
+                        value={pageInput}
+                        onChangeText={setPageInput}
+                        onSubmitEditing={handlePageInputSubmit}
+                        onBlur={handlePageInputSubmit}
+                        keyboardType="number-pad"
+                        style={styles.pageInput}
+                        mode="outlined"
+                        dense
+                      />
+                      <Text style={styles.pageLabel}>of {totalPages}</Text>
+                    </View>
+                    <Button
+                      mode="outlined"
+                      onPress={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      compact
+                      icon="chevron-right"
+                      contentStyle={{ flexDirection: 'row-reverse' }}
+                    >
+                      Next
+                    </Button>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
+
           {/* Important note about logs */}
           <Surface style={styles.infoBox}>
             <MaterialCommunityIcons name="information" size={20} color="#1976d2" />
@@ -781,18 +849,7 @@ export default function StorageScreen({ navigation }) {
             {/* Usage Overview */}
             <Card style={styles.card}>
               <Card.Content>
-                <View style={styles.cardHeader}>
-                  <Title>Total Storage Usage</Title>
-                  <Button
-                    mode="outlined"
-                    onPress={handleRecalculateStorage}
-                    loading={loading}
-                    icon="refresh"
-                    compact
-                  >
-                    Recalculate
-                  </Button>
-                </View>
+                <Title>Total Storage Usage</Title>
                 <Divider style={styles.divider} />
                 <View style={styles.usageContainer}>
                   <View style={styles.usageHeader}>
@@ -1179,6 +1236,40 @@ const styles = StyleSheet.create({
   logChipText: {
     fontSize: 10,
     color: '#1565c0',
+  },
+  // Pagination
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  paginationInfo: {
+    flex: 1,
+    minWidth: 150,
+  },
+  paginationText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  pageInput: {
+    width: 60,
+    textAlign: 'center',
   },
   // Info box
   infoBox: {
