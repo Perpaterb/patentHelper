@@ -42,9 +42,6 @@ export default function GroupDashboardScreen({ navigation, route }) {
 
   useEffect(() => {
     loadGroupInfo();
-    loadPendingApprovalsCount();
-    loadPendingFinanceCount();
-    loadMessageBadgeCounts();
   }, [groupId]);
 
   /**
@@ -55,21 +52,56 @@ export default function GroupDashboardScreen({ navigation, route }) {
     React.useCallback(() => {
       // Refresh immediately on focus
       loadGroupInfo();
-      loadPendingApprovalsCount();
-      loadPendingFinanceCount();
-      loadMessageBadgeCounts();
-
-      // Start polling (only while focused)
-      const pollInterval = setInterval(() => {
-        loadPendingApprovalsCount();
-        loadPendingFinanceCount();
-        loadMessageBadgeCounts();
-      }, 5000); // Poll every 5 seconds
 
       // Stop polling when screen loses focus
-      return () => clearInterval(pollInterval);
+      return () => {};
     }, [groupId])
   );
+
+  /**
+   * Load badge counts after groupInfo is available (to check permissions)
+   */
+  useEffect(() => {
+    if (!groupInfo || !groupInfo.settings) return;
+
+    const role = groupInfo.userRole;
+    const settings = groupInfo.settings;
+
+    // Helper to check feature visibility
+    const canSeeFeature = (featureKey) => {
+      if (role === 'admin') return true;
+      if (role === 'supervisor') return settings[`${featureKey}VisibleToSupervisors`] !== false;
+      if (role === 'parent') return settings[`${featureKey}VisibleToParents`] === true || settings[`${featureKey}VisibleToParents`] === undefined;
+      if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] === true || settings[`${featureKey}VisibleToCaregivers`] === undefined;
+      if (role === 'child') return settings[`${featureKey}VisibleToChildren`] === true || settings[`${featureKey}VisibleToChildren`] === undefined;
+      return false;
+    };
+
+    // Load counts based on permissions
+    const loadCounts = () => {
+      // Always try to load approvals for admins
+      if (role === 'admin') {
+        loadPendingApprovalsCount();
+      }
+
+      // Only load finance count if user can see finance
+      if (canSeeFeature('finance')) {
+        loadPendingFinanceCount();
+      }
+
+      // Only load message counts if user can see messages
+      if (canSeeFeature('messageGroups')) {
+        loadMessageBadgeCounts();
+      }
+    };
+
+    loadCounts();
+
+    // Start polling (only while focused and only for visible features)
+    const pollInterval = setInterval(loadCounts, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [groupInfo, currentUserGroupMemberId]);
 
   /**
    * Load group information
@@ -82,11 +114,8 @@ export default function GroupDashboardScreen({ navigation, route }) {
       // Store current user's groupMemberId for finance count calculation
       const groupMemberId = response.data.group.currentUserMember?.groupMemberId || null;
       setCurrentUserGroupMemberId(groupMemberId);
-
-      // Now load finance count after we have the groupMemberId
-      if (groupMemberId) {
-        await loadPendingFinanceCountWithMemberId(groupMemberId);
-      }
+      // Note: Finance count loading is handled in the separate useEffect that depends on groupInfo
+      // This ensures we check permissions before making the API call
     } catch (err) {
       console.error('Load group info error:', err);
 
@@ -199,13 +228,29 @@ export default function GroupDashboardScreen({ navigation, route }) {
     const role = groupInfo.userRole;
     const settings = groupInfo.settings;
 
-    // Admins and supervisors always have view access
-    if (role === 'admin' || role === 'supervisor') return true;
+    // Admins always have view access
+    if (role === 'admin') return true;
 
-    // Check role-based permissions
-    if (role === 'parent') return settings[`${featureKey}VisibleToParents`] !== false;
-    if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] !== false;
-    if (role === 'child') return settings[`${featureKey}VisibleToChildren`] !== false;
+    // Supervisors check their own visibility settings
+    if (role === 'supervisor') {
+      return settings[`${featureKey}VisibleToSupervisors`] !== false;
+    }
+
+    // Check role-based permissions - explicitly check for true since false means hidden
+    if (role === 'parent') {
+      const key = `${featureKey}VisibleToParents`;
+      // If the setting is explicitly false, hide the feature
+      // If undefined or true, show it (default to visible)
+      return settings[key] === true || settings[key] === undefined;
+    }
+    if (role === 'caregiver') {
+      const key = `${featureKey}VisibleToCaregivers`;
+      return settings[key] === true || settings[key] === undefined;
+    }
+    if (role === 'child') {
+      const key = `${featureKey}VisibleToChildren`;
+      return settings[key] === true || settings[key] === undefined;
+    }
 
     return false;
   };
