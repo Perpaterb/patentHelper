@@ -111,8 +111,8 @@ async function uploadFile(req, res) {
     // Validate file size limits
     const maxSizes = {
       'profiles': 5 * 1024 * 1024,      // 5MB for profile icons
-      'messages': 100 * 1024 * 1024,    // 100MB for messages (videos)
-      'calendar': 100 * 1024 * 1024,
+      'messages': 200 * 1024 * 1024,    // 200MB for messages (videos)
+      'calendar': 200 * 1024 * 1024,
       'finance': 25 * 1024 * 1024,      // 25MB for documents
       'gift-registry': 10 * 1024 * 1024, // 10MB for images
       'wiki': 25 * 1024 * 1024,
@@ -294,8 +294,8 @@ async function uploadMultipleFiles(req, res) {
     // Validate file size limits
     const maxSizes = {
       'profiles': 5 * 1024 * 1024,
-      'messages': 100 * 1024 * 1024,
-      'calendar': 100 * 1024 * 1024,
+      'messages': 200 * 1024 * 1024,
+      'calendar': 200 * 1024 * 1024,
       'finance': 25 * 1024 * 1024,
       'gift-registry': 10 * 1024 * 1024,
       'wiki': 25 * 1024 * 1024,

@@ -16,7 +16,7 @@ const path = require('path');
  */
 const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024,    // 10 MB for images
-  video: 100 * 1024 * 1024,   // 100 MB for videos
+  video: 200 * 1024 * 1024,   // 200 MB for videos
   document: 25 * 1024 * 1024, // 25 MB for documents
   default: 10 * 1024 * 1024   // 10 MB default
 };
@@ -86,7 +86,7 @@ const uploadSingle = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: FILE_SIZE_LIMITS.video // Use largest limit (100MB), controller validates per-category
+    fileSize: FILE_SIZE_LIMITS.video // Use largest limit (200MB), controller validates per-category
   }
 }).single('file');
 
