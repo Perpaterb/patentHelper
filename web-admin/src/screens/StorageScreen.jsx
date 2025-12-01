@@ -971,7 +971,7 @@ export default function StorageScreen({ navigation }) {
                 <Divider style={styles.divider} />
                 <Paragraph>
                   Your subscription includes 10GB of storage. Additional storage is automatically
-                  added at $2.00 USD per 10GB chunk when you exceed your base allocation. Storage is billed in 10GB blocks (e.g., 11GB = 1 block, 21GB = 2 blocks).
+                  added at $2.00 USD per 10GB chunk when you exceed your base allocation.
                 </Paragraph>
                 <Surface style={styles.infoBox}>
                   <MaterialCommunityIcons name="information" size={20} color="#1976d2" />
