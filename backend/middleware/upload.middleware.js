@@ -25,7 +25,12 @@ const FILE_SIZE_LIMITS = {
  * Allowed MIME types by category
  */
 const ALLOWED_MIME_TYPES = {
-  image: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+  image: [
+    // Standard formats (no conversion needed)
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+    // Formats that will be converted to PNG
+    'image/webp', 'image/heic', 'image/heif', 'image/avif', 'image/tiff', 'image/bmp', 'image/x-ms-bmp'
+  ],
   video: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp'],
   document: [
     'application/pdf',
@@ -39,8 +44,10 @@ const ALLOWED_MIME_TYPES = {
   // Default allows ALL valid types since category may not be parsed yet when file filter runs
   // (multipart form fields are parsed in order, and file may come before category field)
   default: [
-    // Images
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    // Images - standard formats
+    'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+    // Images - formats that will be converted to PNG
+    'image/webp', 'image/heic', 'image/heif', 'image/avif', 'image/tiff', 'image/bmp', 'image/x-ms-bmp',
     // Videos
     'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp',
     // Documents

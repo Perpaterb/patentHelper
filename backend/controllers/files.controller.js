@@ -9,6 +9,7 @@
 
 const { storageService } = require('../services/storage');
 const { prisma } = require('../config/database');
+const { needsConversion, convertToPng, getConvertedFilename } = require('../services/imageConversion.service');
 
 /**
  * Upload a single file
@@ -128,18 +129,43 @@ async function uploadFile(req, res) {
       });
     }
 
+    // Convert non-standard image formats (HEIC, WebP, etc.) to PNG for universal compatibility
+    let fileBuffer = req.file.buffer;
+    let fileMimeType = req.file.mimetype;
+    let fileName = req.file.originalname;
+    let fileSize = req.file.size;
+    let wasConverted = false;
+
+    if (needsConversion(req.file.mimetype)) {
+      try {
+        const converted = await convertToPng(req.file.buffer, req.file.mimetype);
+        fileBuffer = converted.buffer;
+        fileMimeType = converted.mimeType;
+        fileName = getConvertedFilename(req.file.originalname);
+        fileSize = converted.buffer.length;
+        wasConverted = true;
+        console.log(`Converted ${req.file.originalname} from ${req.file.mimetype} to PNG (${(fileSize / 1024).toFixed(1)}KB)`);
+      } catch (conversionError) {
+        console.error('Image conversion failed:', conversionError);
+        return res.status(400).json({
+          error: 'Image conversion failed',
+          message: `Could not convert ${req.file.mimetype} to PNG: ${conversionError.message}`
+        });
+      }
+    }
+
     // Prepare upload options
     const uploadOptions = {
       category: category,
       userId: userId,
-      originalName: req.file.originalname,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
+      originalName: fileName,
+      mimeType: fileMimeType,
+      size: fileSize,
       groupId: groupId || null
     };
 
     // Upload file using storage service (tracks storage against all admins)
-    const fileMetadata = await storageService.uploadFile(req.file.buffer, uploadOptions);
+    const fileMetadata = await storageService.uploadFile(fileBuffer, uploadOptions);
 
     // Create audit log if group-related upload
     if (groupId && fileMetadata.chargedAdminIds && fileMetadata.chargedAdminIds.length > 0) {
@@ -159,7 +185,8 @@ async function uploadFile(req, res) {
       });
 
       const adminNames = admins.map(a => a.user?.displayName || a.displayName).join(', ');
-      const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+      const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(2);
+      const conversionNote = wasConverted ? ` (converted from ${req.file.mimetype})` : '';
 
       await prisma.auditLog.create({
         data: {
@@ -169,12 +196,15 @@ async function uploadFile(req, res) {
           performedByName: membership.user?.displayName || membership.displayName,
           performedByEmail: membership.user?.email || 'N/A',
           actionLocation: category,
-          messageContent: `Uploaded ${req.file.originalname} (${fileSizeMB}MB) - Charged to admins: ${adminNames}`,
+          messageContent: `Uploaded ${fileName} (${fileSizeMB}MB)${conversionNote} - Charged to admins: ${adminNames}`,
           logData: {
             fileId: fileMetadata.fileId,
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            mimeType: req.file.mimetype,
+            fileName: fileName,
+            originalFileName: req.file.originalname,
+            fileSize: fileSize,
+            mimeType: fileMimeType,
+            originalMimeType: req.file.mimetype,
+            wasConverted: wasConverted,
             category: category,
             groupId: groupId,
             chargedToAdmins: fileMetadata.chargedAdminIds,
@@ -324,20 +354,47 @@ async function uploadMultipleFiles(req, res) {
       }
     }
 
-    // Upload all files
-    const uploadPromises = req.files.map(file => {
+    // Convert and upload all files
+    const uploadedFiles = [];
+    let conversionCount = 0;
+
+    for (const file of req.files) {
+      // Convert non-standard image formats to PNG
+      let fileBuffer = file.buffer;
+      let fileMimeType = file.mimetype;
+      let fileName = file.originalname;
+      let fileSize = file.size;
+
+      if (needsConversion(file.mimetype)) {
+        try {
+          const converted = await convertToPng(file.buffer, file.mimetype);
+          fileBuffer = converted.buffer;
+          fileMimeType = converted.mimeType;
+          fileName = getConvertedFilename(file.originalname);
+          fileSize = converted.buffer.length;
+          conversionCount++;
+          console.log(`Converted ${file.originalname} from ${file.mimetype} to PNG (${(fileSize / 1024).toFixed(1)}KB)`);
+        } catch (conversionError) {
+          console.error('Image conversion failed:', conversionError);
+          return res.status(400).json({
+            error: 'Image conversion failed',
+            message: `Could not convert ${file.originalname} (${file.mimetype}) to PNG: ${conversionError.message}`
+          });
+        }
+      }
+
       const uploadOptions = {
         category: category,
         userId: userId,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
+        originalName: fileName,
+        mimeType: fileMimeType,
+        size: fileSize,
         groupId: groupId || null
       };
-      return storageService.uploadFile(file.buffer, uploadOptions);
-    });
 
-    const uploadedFiles = await Promise.all(uploadPromises);
+      const fileMetadata = await storageService.uploadFile(fileBuffer, uploadOptions);
+      uploadedFiles.push(fileMetadata);
+    }
 
     // Create audit log if group-related upload
     if (groupId && uploadedFiles.length > 0) {
@@ -358,7 +415,7 @@ async function uploadMultipleFiles(req, res) {
 
       const adminNames = admins.map(a => a.user?.displayName || a.displayName).join(', ');
       const totalSizeMB = (uploadedFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2);
-      const fileNames = uploadedFiles.map(f => f.originalName).join(', ');
+      const conversionNote = conversionCount > 0 ? ` (${conversionCount} converted to PNG)` : '';
 
       await prisma.auditLog.create({
         data: {
@@ -368,7 +425,7 @@ async function uploadMultipleFiles(req, res) {
           performedByName: membership.user?.displayName || membership.displayName,
           performedByEmail: membership.user?.email || 'N/A',
           actionLocation: category,
-          messageContent: `Uploaded ${uploadedFiles.length} files (${totalSizeMB}MB total) - Charged to admins: ${adminNames}`,
+          messageContent: `Uploaded ${uploadedFiles.length} files (${totalSizeMB}MB total)${conversionNote} - Charged to admins: ${adminNames}`,
           logData: {
             fileIds: uploadedFiles.map(f => f.fileId),
             fileNames: uploadedFiles.map(f => f.originalName),
@@ -376,6 +433,7 @@ async function uploadMultipleFiles(req, res) {
             category: category,
             groupId: groupId,
             chargedToAdmins: chargedAdminIds,
+            convertedCount: conversionCount,
           }
         }
       });
