@@ -57,6 +57,7 @@ export default function StorageScreen({ navigation }) {
   const [selectedTypes, setSelectedTypes] = useState([]); // ['image', 'video']
   const [selectedUploaders, setSelectedUploaders] = useState([]); // array of email addresses
   const [availableUploaders, setAvailableUploaders] = useState([]);
+  const [availableTypes, setAvailableTypes] = useState([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
@@ -114,6 +115,7 @@ export default function StorageScreen({ navigation }) {
       const response = await api.get(`/storage/groups/${groupId}/files`, { params });
       setGroupFiles(response.data.files || []);
       setAvailableUploaders(response.data.availableUploaders || []);
+      setAvailableTypes(response.data.availableTypes || []);
     } catch (err) {
       console.error('Failed to fetch group files:', err);
       setGroupFiles([]);
@@ -347,23 +349,22 @@ export default function StorageScreen({ navigation }) {
                     </Button>
                   </View>
 
-                  {/* Type filters */}
+                  {/* Type filters - dynamically show only types that exist */}
                   <Text style={styles.filterSectionTitle}>File Type</Text>
                   <View style={styles.filterChipsRow}>
-                    <Chip
-                      selected={selectedTypes.includes('image')}
-                      onPress={() => toggleTypeFilter('image')}
-                      style={styles.filterChip}
-                    >
-                      Images
-                    </Chip>
-                    <Chip
-                      selected={selectedTypes.includes('video')}
-                      onPress={() => toggleTypeFilter('video')}
-                      style={styles.filterChip}
-                    >
-                      Videos
-                    </Chip>
+                    {availableTypes.map(type => (
+                      <Chip
+                        key={type}
+                        selected={selectedTypes.includes(type)}
+                        onPress={() => toggleTypeFilter(type)}
+                        style={styles.filterChip}
+                      >
+                        {type === 'image' ? 'Images' : type === 'video' ? 'Videos' : type}
+                      </Chip>
+                    ))}
+                    {availableTypes.length === 0 && (
+                      <Text style={{ color: '#666', fontStyle: 'italic' }}>No files uploaded yet</Text>
+                    )}
                   </View>
 
                   {/* Uploader filter - show email addresses */}

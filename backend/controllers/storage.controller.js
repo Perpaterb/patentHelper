@@ -182,19 +182,11 @@ async function getGroupFiles(req, res) {
     };
 
     // Filter by type (image/video)
+    // Note: mediaType is stored as simple 'image' or 'video', not full MIME type
     if (filterType && filterType.trim()) {
       const types = filterType.split(',').map(t => t.trim().toLowerCase());
-      // mediaType is stored as full MIME type (e.g., "image/jpeg", "video/mp4")
-      // We need to filter using startsWith pattern
-      const typeConditions = [];
-      if (types.includes('image')) {
-        typeConditions.push({ mediaType: { startsWith: 'image/' } });
-      }
-      if (types.includes('video')) {
-        typeConditions.push({ mediaType: { startsWith: 'video/' } });
-      }
-      if (typeConditions.length > 0) {
-        mediaWhereClause.OR = typeConditions;
+      if (types.length > 0) {
+        mediaWhereClause.mediaType = types.length === 1 ? types[0] : { in: types };
       }
     }
 
@@ -335,10 +327,11 @@ async function getGroupFiles(req, res) {
       }
 
       // Determine file type category
+      // Note: mediaType is stored as simple 'image' or 'video', not full MIME type
       let fileType = 'document';
-      if (file.mediaType?.startsWith('image/')) {
+      if (file.mediaType === 'image') {
         fileType = 'image';
-      } else if (file.mediaType?.startsWith('video/')) {
+      } else if (file.mediaType === 'video') {
         fileType = 'video';
       }
 
@@ -440,11 +433,27 @@ async function getGroupFiles(req, res) {
     // Sort uploaders by email for consistent display
     availableUploaders.sort((a, b) => a.email.localeCompare(b.email));
 
+    // Get distinct file types from the database for this group
+    const distinctTypes = await prisma.messageMedia.findMany({
+      where: {
+        message: {
+          messageGroup: {
+            groupId: groupId,
+          },
+        },
+      },
+      select: {
+        mediaType: true,
+      },
+      distinct: ['mediaType'],
+    });
+    const availableTypes = distinctTypes.map(t => t.mediaType).filter(Boolean).sort();
+
     res.status(200).json({
       success: true,
       files: files,
       availableUploaders: availableUploaders,
-      availableTypes: ['image', 'video'], // Could be dynamic based on actual files
+      availableTypes: availableTypes,
     });
   } catch (error) {
     console.error('Get group files error:', error);
