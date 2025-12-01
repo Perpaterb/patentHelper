@@ -31,13 +31,14 @@ export default function SecretSantaListScreen({ navigation, route }) {
       const settings = response.data.group?.settings;
 
       // Check if user can create secret santa events
+      // Use === true || === undefined to properly handle explicit false values
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.secretSantaCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.secretSantaCreatableByParents === true || settings?.secretSantaCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.secretSantaCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.secretSantaCreatableByCaregivers === true || settings?.secretSantaCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.secretSantaCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.secretSantaCreatableByChildren === true || settings?.secretSantaCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

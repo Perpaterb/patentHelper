@@ -66,14 +66,15 @@ export default function DocumentsScreen({ navigation, route }) {
       setUserRole(role);
 
       // Check if user can upload documents
+      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.documentsCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.documentsCreatableByParents === true || settings?.documentsCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.documentsCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.documentsCreatableByCaregivers === true || settings?.documentsCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.documentsCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.documentsCreatableByChildren === true || settings?.documentsCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

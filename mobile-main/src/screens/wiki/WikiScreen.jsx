@@ -86,13 +86,14 @@ export default function WikiScreen({ navigation, route }) {
       const settings = response.data.group?.settings;
 
       // Check if user can create wiki documents
+      // Use === true || === undefined to properly handle explicit false values
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.wikiCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.wikiCreatableByParents === true || settings?.wikiCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.wikiCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.wikiCreatableByCaregivers === true || settings?.wikiCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.wikiCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.wikiCreatableByChildren === true || settings?.wikiCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

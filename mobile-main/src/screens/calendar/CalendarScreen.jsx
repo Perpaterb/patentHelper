@@ -915,13 +915,14 @@ export default function CalendarScreen({ navigation, route }) {
       const settings = response.data.group?.settings;
 
       // Check if user can create calendar events
+      // Use === true || === undefined to properly handle explicit false values
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.calendarCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.calendarCreatableByParents === true || settings?.calendarCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.calendarCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.calendarCreatableByCaregivers === true || settings?.calendarCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.calendarCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.calendarCreatableByChildren === true || settings?.calendarCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

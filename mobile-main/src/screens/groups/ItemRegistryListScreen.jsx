@@ -65,14 +65,15 @@ export default function ItemRegistryListScreen({ navigation, route }) {
       setCurrentGroupMemberId(response.data.group?.currentGroupMemberId || null);
 
       // Check if user can create item registries
+      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.itemRegistryCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.itemRegistryCreatableByParents === true || settings?.itemRegistryCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.itemRegistryCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.itemRegistryCreatableByCaregivers === true || settings?.itemRegistryCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.itemRegistryCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.itemRegistryCreatableByChildren === true || settings?.itemRegistryCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

@@ -70,14 +70,15 @@ export default function MessageGroupsListScreen({ navigation, route }) {
       setUserRole(role);
 
       // Check if user can create message groups
+      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
       if (role === 'admin') {
         setCanCreate(true);
-      } else if (role === 'parent' && settings?.messageGroupsCreatableByParents !== false) {
+      } else if (role === 'parent' && (settings?.messageGroupsCreatableByParents === true || settings?.messageGroupsCreatableByParents === undefined)) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && settings?.messageGroupsCreatableByCaregivers !== false) {
+      } else if (role === 'caregiver' && (settings?.messageGroupsCreatableByCaregivers === true || settings?.messageGroupsCreatableByCaregivers === undefined)) {
         setCanCreate(true);
-      } else if (role === 'child' && settings?.messageGroupsCreatableByChildren !== false) {
+      } else if (role === 'child' && (settings?.messageGroupsCreatableByChildren === true || settings?.messageGroupsCreatableByChildren === undefined)) {
         setCanCreate(true);
       } else {
         setCanCreate(false);
