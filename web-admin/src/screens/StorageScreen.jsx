@@ -27,6 +27,7 @@ import {
   Dialog,
   Menu,
   Avatar,
+  TextInput,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../services/api';
@@ -54,8 +55,10 @@ export default function StorageScreen({ navigation }) {
   // Filter state
   const [filterVisible, setFilterVisible] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState([]); // ['image', 'video']
-  const [selectedUploaders, setSelectedUploaders] = useState([]); // array of groupMemberIds
+  const [selectedUploaders, setSelectedUploaders] = useState([]); // array of email addresses
   const [availableUploaders, setAvailableUploaders] = useState([]);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   // Preview modal state
   const [previewFile, setPreviewFile] = useState(null);
@@ -69,7 +72,7 @@ export default function StorageScreen({ navigation }) {
     if (selectedGroup) {
       fetchGroupFiles(selectedGroup.groupId);
     }
-  }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploaders]);
+  }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploaders, fromDate, toDate]);
 
   async function fetchStorage() {
     try {
@@ -95,9 +98,17 @@ export default function StorageScreen({ navigation }) {
         params.filterType = selectedTypes.join(',');
       }
 
-      // Add uploader filter if selected (multiple uploaders)
+      // Add uploader filter if selected (multiple uploaders by email)
       if (selectedUploaders.length > 0) {
         params.filterUploader = selectedUploaders.join(',');
+      }
+
+      // Add date range filters
+      if (fromDate) {
+        params.fromDate = fromDate;
+      }
+      if (toDate) {
+        params.toDate = toDate;
       }
 
       const response = await api.get(`/storage/groups/${groupId}/files`, { params });
@@ -119,17 +130,19 @@ export default function StorageScreen({ navigation }) {
     );
   }
 
-  function toggleUploaderFilter(uploaderId) {
+  function toggleUploaderFilter(email) {
     setSelectedUploaders(prev =>
-      prev.includes(uploaderId)
-        ? prev.filter(u => u !== uploaderId)
-        : [...prev, uploaderId]
+      prev.includes(email)
+        ? prev.filter(u => u !== email)
+        : [...prev, email]
     );
   }
 
   function clearFilters() {
     setSelectedTypes([]);
     setSelectedUploaders([]);
+    setFromDate('');
+    setToDate('');
   }
 
   function openPreview(file) {
@@ -225,7 +238,7 @@ export default function StorageScreen({ navigation }) {
     : 0;
 
   // Check if any filters are active
-  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0;
+  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate;
 
   // If viewing a specific group's files
   if (selectedGroup) {
@@ -353,19 +366,42 @@ export default function StorageScreen({ navigation }) {
                     </Chip>
                   </View>
 
-                  {/* Uploader filter */}
+                  {/* Uploader filter - show email addresses */}
                   <Text style={styles.filterSectionTitle}>Uploaded By</Text>
                   <View style={styles.filterChipsRow}>
                     {availableUploaders.map(uploader => (
                       <Chip
-                        key={uploader.groupMemberId}
-                        selected={selectedUploaders.includes(uploader.groupMemberId)}
-                        onPress={() => toggleUploaderFilter(uploader.groupMemberId)}
+                        key={uploader.email}
+                        selected={selectedUploaders.includes(uploader.email)}
+                        onPress={() => toggleUploaderFilter(uploader.email)}
                         style={styles.filterChip}
                       >
-                        {uploader.displayName}
+                        {uploader.email}
                       </Chip>
                     ))}
+                  </View>
+
+                  {/* Date Range Filters */}
+                  <Text style={styles.filterSectionTitle}>Date Range</Text>
+                  <View style={styles.dateRow}>
+                    <TextInput
+                      label="From Date"
+                      value={fromDate}
+                      onChangeText={setFromDate}
+                      placeholder="YYYY-MM-DD"
+                      mode="outlined"
+                      style={styles.dateInput}
+                      dense
+                    />
+                    <TextInput
+                      label="To Date"
+                      value={toDate}
+                      onChangeText={setToDate}
+                      placeholder="YYYY-MM-DD"
+                      mode="outlined"
+                      style={styles.dateInput}
+                      dense
+                    />
                   </View>
 
                   {/* Active Filters Summary */}
@@ -373,6 +409,8 @@ export default function StorageScreen({ navigation }) {
                     <View style={styles.activeFiltersSummary}>
                       <Text style={styles.activeFiltersText}>
                         Active filters: {selectedTypes.length} types, {selectedUploaders.length} uploaders
+                        {fromDate && `, from ${fromDate}`}
+                        {toDate && `, to ${toDate}`}
                       </Text>
                     </View>
                   )}
@@ -1108,6 +1146,15 @@ const styles = StyleSheet.create({
   activeFiltersText: {
     fontSize: 13,
     color: '#1976d2',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  dateInput: {
+    flex: 1,
+    maxWidth: 200,
   },
   // File row with thumbnails
   fileRowClickable: {

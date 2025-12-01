@@ -150,7 +150,9 @@ async function getGroupFiles(req, res) {
       sortBy = 'size',
       sortOrder = 'desc',
       filterType,     // comma-separated: 'image,video' or 'image' or 'video'
-      filterUploader, // groupMemberId of uploader
+      filterUploader, // comma-separated email addresses
+      fromDate,       // YYYY-MM-DD format
+      toDate,         // YYYY-MM-DD format
     } = req.query;
 
     // Verify user is admin of this group
@@ -196,15 +198,25 @@ async function getGroupFiles(req, res) {
       }
     }
 
-    // Filter by uploader(s) - supports comma-separated list
-    if (filterUploader && filterUploader.trim()) {
-      const uploaderIds = filterUploader.split(',').map(u => u.trim()).filter(u => u);
-      if (uploaderIds.length > 0) {
-        mediaWhereClause.message = {
-          ...mediaWhereClause.message,
-          senderId: uploaderIds.length === 1 ? uploaderIds[0] : { in: uploaderIds },
-        };
+    // Filter by uploader email(s) - supports comma-separated list
+    // We'll filter after fetching since we need to join with user email
+    const uploaderEmails = filterUploader
+      ? filterUploader.split(',').map(u => u.trim().toLowerCase()).filter(u => u)
+      : [];
+
+    // Filter by date range
+    if (fromDate || toDate) {
+      const dateFilter = {};
+      if (fromDate) {
+        dateFilter.gte = new Date(fromDate);
       }
+      if (toDate) {
+        // Add one day to include the entire toDate
+        const endDate = new Date(toDate);
+        endDate.setDate(endDate.getDate() + 1);
+        dateFilter.lt = endDate;
+      }
+      mediaWhereClause.uploadedAt = dateFilter;
     }
 
     // Get all media files from this group with uploader and hider info
@@ -224,6 +236,7 @@ async function getGroupFiles(req, res) {
                 iconColor: true,
                 user: {
                   select: {
+                    email: true,
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
@@ -241,6 +254,7 @@ async function getGroupFiles(req, res) {
             iconColor: true,
             user: {
               select: {
+                email: true,
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
@@ -289,17 +303,19 @@ async function getGroupFiles(req, res) {
 
       // Get uploader info (prefer user profile over group member profile)
       const sender = file.message.sender;
+      const uploaderEmail = sender?.user?.email || null;
       const uploader = {
         groupMemberId: sender?.groupMemberId,
+        email: uploaderEmail,
         displayName: sender?.user?.displayName || sender?.displayName || 'Unknown',
         iconLetters: sender?.user?.memberIcon || sender?.iconLetters || '?',
         iconColor: sender?.user?.iconColor || sender?.iconColor || '#6200ee',
       };
 
       // Track unique uploaders for filter options
-      if (uploader.groupMemberId && !uploaderMap.has(uploader.groupMemberId)) {
-        uploaderMap.set(uploader.groupMemberId, {
-          groupMemberId: uploader.groupMemberId,
+      if (uploaderEmail && !uploaderMap.has(uploaderEmail)) {
+        uploaderMap.set(uploaderEmail, {
+          email: uploaderEmail,
           displayName: uploader.displayName,
           iconLetters: uploader.iconLetters,
           iconColor: uploader.iconColor,
@@ -311,6 +327,7 @@ async function getGroupFiles(req, res) {
       if (file.isHidden && file.hider) {
         deletedBy = {
           groupMemberId: file.hider.groupMemberId,
+          email: file.hider.user?.email || null,
           displayName: file.hider.user?.displayName || file.hider.displayName || 'Unknown',
           iconLetters: file.hider.user?.memberIcon || file.hider.iconLetters || '?',
           iconColor: file.hider.user?.iconColor || file.hider.iconColor || '#6200ee',
@@ -343,6 +360,13 @@ async function getGroupFiles(req, res) {
         deletedBy: deletedBy,
       };
     });
+
+    // Filter by uploader emails (post-query filter)
+    if (uploaderEmails.length > 0) {
+      files = files.filter(f =>
+        f.uploader?.email && uploaderEmails.includes(f.uploader.email.toLowerCase())
+      );
+    }
 
     // Sort files
     files.sort((a, b) => {
@@ -383,6 +407,7 @@ async function getGroupFiles(req, res) {
                 iconColor: true,
                 user: {
                   select: {
+                    email: true,
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
@@ -397,19 +422,23 @@ async function getGroupFiles(req, res) {
     });
 
     const availableUploaders = [];
-    const seenUploaderIds = new Set();
+    const seenUploaderEmails = new Set();
     for (const media of allUploaders) {
       const sender = media.message.sender;
-      if (sender && !seenUploaderIds.has(sender.groupMemberId)) {
-        seenUploaderIds.add(sender.groupMemberId);
+      const email = sender?.user?.email;
+      if (sender && email && !seenUploaderEmails.has(email)) {
+        seenUploaderEmails.add(email);
         availableUploaders.push({
-          groupMemberId: sender.groupMemberId,
+          email: email,
           displayName: sender.user?.displayName || sender.displayName || 'Unknown',
           iconLetters: sender.user?.memberIcon || sender.iconLetters || '?',
           iconColor: sender.user?.iconColor || sender.iconColor || '#6200ee',
         });
       }
     }
+
+    // Sort uploaders by email for consistent display
+    availableUploaders.sort((a, b) => a.email.localeCompare(b.email));
 
     res.status(200).json({
       success: true,
