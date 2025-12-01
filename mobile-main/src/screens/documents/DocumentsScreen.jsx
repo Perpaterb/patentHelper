@@ -154,7 +154,7 @@ export default function DocumentsScreen({ navigation, route }) {
           mimeType: file.mimeType,
           name: file.name,
         },
-        'documents',
+        'secure-documents',
         groupId
       );
 
