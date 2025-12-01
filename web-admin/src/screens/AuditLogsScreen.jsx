@@ -846,27 +846,27 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   dataTable: {
-    minWidth: 900,
+    minWidth: 1000,
   },
   columnDate: {
-    flex: 1.5,
-    minWidth: 150,
+    width: 180,
+    minWidth: 180,
   },
   columnAction: {
-    flex: 1,
-    minWidth: 120,
+    width: 150,
+    minWidth: 150,
   },
   columnUser: {
-    flex: 1,
-    minWidth: 120,
+    width: 200,
+    minWidth: 200,
   },
   columnLocation: {
-    flex: 1,
-    minWidth: 100,
+    width: 120,
+    minWidth: 120,
   },
   columnContent: {
-    flex: 2,
-    minWidth: 200,
+    flex: 1,
+    minWidth: 350,
   },
   tableLoading: {
     padding: 40,
