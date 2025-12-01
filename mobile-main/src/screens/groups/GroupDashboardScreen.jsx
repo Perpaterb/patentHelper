@@ -189,24 +189,66 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Check if finance section is visible for current user's role
+   * Generic permission check helper
+   * @param {string} featureKey - The feature prefix (e.g., 'finance', 'messageGroups', 'calendar')
+   * @returns {boolean} - Whether the feature is visible to the current user
    */
-  const isFinanceVisible = () => {
+  const isFeatureVisible = (featureKey) => {
     if (!groupInfo || !groupInfo.settings) return false;
 
     const role = groupInfo.userRole;
     const settings = groupInfo.settings;
 
-    // Admins always have access
-    if (role === 'admin') return true;
+    // Admins and supervisors always have view access
+    if (role === 'admin' || role === 'supervisor') return true;
 
     // Check role-based permissions
-    if (role === 'parent') return settings.financeVisibleToParents;
-    if (role === 'caregiver') return settings.financeVisibleToCaregivers;
-    if (role === 'child') return settings.financeVisibleToChildren;
+    if (role === 'parent') return settings[`${featureKey}VisibleToParents`] !== false;
+    if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] !== false;
+    if (role === 'child') return settings[`${featureKey}VisibleToChildren`] !== false;
 
     return false;
   };
+
+  /**
+   * Check if finance section is visible for current user's role
+   */
+  const isFinanceVisible = () => isFeatureVisible('finance');
+
+  /**
+   * Check if message groups section is visible
+   */
+  const isMessageGroupsVisible = () => isFeatureVisible('messageGroups');
+
+  /**
+   * Check if calendar section is visible
+   */
+  const isCalendarVisible = () => isFeatureVisible('calendar');
+
+  /**
+   * Check if gift registry section is visible
+   */
+  const isGiftRegistryVisible = () => isFeatureVisible('giftRegistry');
+
+  /**
+   * Check if secret santa section is visible
+   */
+  const isSecretSantaVisible = () => isFeatureVisible('secretSanta');
+
+  /**
+   * Check if item registry section is visible
+   */
+  const isItemRegistryVisible = () => isFeatureVisible('itemRegistry');
+
+  /**
+   * Check if wiki section is visible
+   */
+  const isWikiVisible = () => isFeatureVisible('wiki');
+
+  /**
+   * Check if documents section is visible
+   */
+  const isDocumentsVisible = () => isFeatureVisible('documents');
 
   /**
    * Navigate to Message Groups List
@@ -341,51 +383,55 @@ export default function GroupDashboardScreen({ navigation, route }) {
       <View style={styles.sectionsContainer}>
         <Text style={styles.sectionTitle}>Group Features</Text>
 
-        {/* Messages Section */}
-        <Card style={styles.navCard} onPress={goToMessages}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>💬</Text>
-              {(unreadMentionsCount > 0 || unreadMessagesCount > 0) && (
-                <View style={styles.badgesContainer}>
-                  {unreadMentionsCount > 0 && (
-                    <Badge size={20} style={styles.mentionBadge}>
-                      {unreadMentionsCount}
-                    </Badge>
-                  )}
-                  {unreadMessagesCount > 0 && (
-                    <Badge size={20} style={styles.unreadBadge}>
-                      {unreadMessagesCount}
-                    </Badge>
-                  )}
-                </View>
-              )}
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Messaging</Text>
-              <Text style={styles.navCardDescription}>
-                {unreadMentionsCount > 0 || unreadMessagesCount > 0
-                  ? `${unreadMentionsCount > 0 ? `${unreadMentionsCount} @mention${unreadMentionsCount !== 1 ? 's' : ''}` : ''}${unreadMentionsCount > 0 && unreadMessagesCount > 0 ? ', ' : ''}${unreadMessagesCount > 0 ? `${unreadMessagesCount} unread` : ''}`
-                  : 'Secure & Encrypted chat'}
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Messages Section - Show based on role permissions */}
+        {isMessageGroupsVisible() && (
+          <Card style={styles.navCard} onPress={goToMessages}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>💬</Text>
+                {(unreadMentionsCount > 0 || unreadMessagesCount > 0) && (
+                  <View style={styles.badgesContainer}>
+                    {unreadMentionsCount > 0 && (
+                      <Badge size={20} style={styles.mentionBadge}>
+                        {unreadMentionsCount}
+                      </Badge>
+                    )}
+                    {unreadMessagesCount > 0 && (
+                      <Badge size={20} style={styles.unreadBadge}>
+                        {unreadMessagesCount}
+                      </Badge>
+                    )}
+                  </View>
+                )}
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Messaging</Text>
+                <Text style={styles.navCardDescription}>
+                  {unreadMentionsCount > 0 || unreadMessagesCount > 0
+                    ? `${unreadMentionsCount > 0 ? `${unreadMentionsCount} @mention${unreadMentionsCount !== 1 ? 's' : ''}` : ''}${unreadMentionsCount > 0 && unreadMessagesCount > 0 ? ', ' : ''}${unreadMessagesCount > 0 ? `${unreadMessagesCount} unread` : ''}`
+                    : 'Secure & Encrypted chat'}
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
-        {/* Calendar Section */}
-        <Card style={styles.navCard} onPress={goToCalendar}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>📅</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Calendar</Text>
-              <Text style={styles.navCardDescription}>
-                Shared events and schedules
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Calendar Section - Show based on role permissions */}
+        {isCalendarVisible() && (
+          <Card style={styles.navCard} onPress={goToCalendar}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>📅</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Calendar</Text>
+                <Text style={styles.navCardDescription}>
+                  Shared events and schedules
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Finance Section - Show based on role permissions */}
         {isFinanceVisible() && (
@@ -414,80 +460,90 @@ export default function GroupDashboardScreen({ navigation, route }) {
           </Card>
         )}
 
-        {/* Gift Registry Section */}
-        <Card style={styles.navCard} onPress={goToGiftRegistry}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>🎁</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Gift Registry</Text>
-              <Text style={styles.navCardDescription}>
-                Wish lists and gift ideas
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Gift Registry Section - Show based on role permissions */}
+        {isGiftRegistryVisible() && (
+          <Card style={styles.navCard} onPress={goToGiftRegistry}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>🎁</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Gift Registry</Text>
+                <Text style={styles.navCardDescription}>
+                  Wish lists and gift ideas
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
-        {/* Secret Santa Section */}
-        <Card style={styles.navCard} onPress={goToSecretSanta}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>🎅</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Secret Santa</Text>
-              <Text style={styles.navCardDescription}>
-                Holiday gift exchange
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Secret Santa Section - Show based on role permissions */}
+        {isSecretSantaVisible() && (
+          <Card style={styles.navCard} onPress={goToSecretSanta}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>🎅</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Secret Santa</Text>
+                <Text style={styles.navCardDescription}>
+                  Holiday gift exchange
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
-        {/* Library Section */}
-        <Card style={styles.navCard} onPress={goToLibrary}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>📦</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Item Registry</Text>
-              <Text style={styles.navCardDescription}>
-                Books, tools, and borrowable items
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Library Section - Show based on role permissions */}
+        {isItemRegistryVisible() && (
+          <Card style={styles.navCard} onPress={goToLibrary}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>📦</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Item Registry</Text>
+                <Text style={styles.navCardDescription}>
+                  Books, tools, and borrowable items
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
-        {/* Wiki Section */}
-        <Card style={styles.navCard} onPress={goToWiki}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>📖</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Wiki</Text>
-              <Text style={styles.navCardDescription}>
-                Group knowledge base
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Wiki Section - Show based on role permissions */}
+        {isWikiVisible() && (
+          <Card style={styles.navCard} onPress={goToWiki}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>📖</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Wiki</Text>
+                <Text style={styles.navCardDescription}>
+                  Group knowledge base
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
-        {/* Secure Documents Section */}
-        <Card style={styles.navCard} onPress={goToSecureDocuments}>
-          <Card.Content style={styles.navCardContent}>
-            <View style={styles.navCardIcon}>
-              <Text style={styles.navCardEmoji}>🔒</Text>
-            </View>
-            <View style={styles.navCardInfo}>
-              <Text style={styles.navCardTitle}>Secure Documents</Text>
-              <Text style={styles.navCardDescription}>
-                Important files and records
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
+        {/* Secure Documents Section - Show based on role permissions */}
+        {isDocumentsVisible() && (
+          <Card style={styles.navCard} onPress={goToSecureDocuments}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>🔒</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Secure Documents</Text>
+                <Text style={styles.navCardDescription}>
+                  Important files and records
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Approvals Section - Only for admins - Moved to bottom */}
         {groupInfo.userRole === 'admin' && (

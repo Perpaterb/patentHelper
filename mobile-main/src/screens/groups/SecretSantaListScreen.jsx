@@ -19,6 +19,33 @@ export default function SecretSantaListScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [canCreate, setCanCreate] = useState(false);
+
+  /**
+   * Load group info and check permissions
+   */
+  const loadGroupInfo = async () => {
+    try {
+      const response = await api.get(`/groups/${groupId}`);
+      const role = response.data.group?.userRole || null;
+      const settings = response.data.group?.settings;
+
+      // Check if user can create secret santa events
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.secretSantaCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.secretSantaCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.secretSantaCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
+    } catch (err) {
+      console.error('Load group info error:', err);
+    }
+  };
 
   /**
    * Load secret santa events
@@ -46,6 +73,7 @@ export default function SecretSantaListScreen({ navigation, route }) {
   // Load on mount and when screen gains focus
   useFocusEffect(
     useCallback(() => {
+      loadGroupInfo();
       loadSecretSantas();
     }, [groupId])
   );
@@ -201,13 +229,15 @@ export default function SecretSantaListScreen({ navigation, route }) {
         ListEmptyComponent={renderEmpty}
       />
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        label="New Secret Santa"
-        color="#fff"
-        onPress={handleCreate}
-      />
+      {canCreate && (
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          label="New Secret Santa"
+          color="#fff"
+          onPress={handleCreate}
+        />
+      )}
     </View>
   );
 }

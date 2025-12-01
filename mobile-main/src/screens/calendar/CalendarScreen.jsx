@@ -900,6 +900,37 @@ export default function CalendarScreen({ navigation, route }) {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
 
+  // Permission state
+  const [canCreate, setCanCreate] = useState(false);
+  const [groupInfo, setGroupInfo] = useState(null);
+
+  /**
+   * Load group info and check permissions
+   */
+  const loadGroupInfo = async () => {
+    try {
+      const response = await API.get(`/groups/${groupId}`);
+      setGroupInfo(response.data.group);
+      const role = response.data.group?.userRole || null;
+      const settings = response.data.group?.settings;
+
+      // Check if user can create calendar events
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.calendarCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.calendarCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.calendarCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
+    } catch (err) {
+      console.error('Load group info error:', err);
+    }
+  };
+
   /**
    * Fetch events for a date range
    */
@@ -922,9 +953,10 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
-   * Fetch events when component mounts or groupId changes
+   * Fetch events and group info when component mounts or groupId changes
    */
   useEffect(() => {
+    loadGroupInfo();
     fetchEvents();
   }, [groupId]);
 
@@ -1621,12 +1653,14 @@ export default function CalendarScreen({ navigation, route }) {
       )}
 
       {/* Floating Action Button (both Month and Day views) */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowEventTypeModal(true)}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      {canCreate && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowEventTypeModal(true)}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Date Picker */}
       <DateTimeSelector

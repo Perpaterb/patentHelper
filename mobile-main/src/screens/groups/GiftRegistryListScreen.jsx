@@ -50,6 +50,9 @@ export default function GiftRegistryListScreen({ navigation, route }) {
     }, [groupId])
   );
 
+  // Permission state
+  const [canCreate, setCanCreate] = useState(false);
+
   /**
    * Load group information
    */
@@ -57,8 +60,23 @@ export default function GiftRegistryListScreen({ navigation, route }) {
     try {
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
-      setUserRole(response.data.group?.userRole || null);
+      const role = response.data.group?.userRole || null;
+      setUserRole(role);
       setCurrentGroupMemberId(response.data.group?.currentGroupMemberId || null);
+
+      // Check if user can create gift registries
+      const settings = response.data.group?.settings;
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.giftRegistryCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.giftRegistryCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.giftRegistryCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
     } catch (err) {
       console.error('Load group info error:', err);
     }
@@ -431,13 +449,15 @@ export default function GiftRegistryListScreen({ navigation, route }) {
         />
       )}
 
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        label="New Registry"
-        color="#fff"
-        onPress={handleShowAddModal}
-      />
+      {canCreate && (
+        <FAB
+          style={styles.fab}
+          icon="plus"
+          label="New Registry"
+          color="#fff"
+          onPress={handleShowAddModal}
+        />
+      )}
 
       {/* Add Options Modal */}
       <Modal

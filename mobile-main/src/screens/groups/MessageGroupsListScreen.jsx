@@ -33,6 +33,7 @@ export default function MessageGroupsListScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const [groupInfo, setGroupInfo] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [canCreate, setCanCreate] = useState(false);
   const [expandedCards, setExpandedCards] = useState({}); // Track which cards are expanded
 
   useEffect(() => {
@@ -65,7 +66,22 @@ export default function MessageGroupsListScreen({ navigation, route }) {
     try {
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
-      setUserRole(response.data.group?.userRole || null);
+      const role = response.data.group?.userRole || null;
+      setUserRole(role);
+
+      // Check if user can create message groups
+      const settings = response.data.group?.settings;
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.messageGroupsCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.messageGroupsCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.messageGroupsCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
     } catch (err) {
       console.error('Load group info error:', err);
     }
@@ -346,13 +362,15 @@ export default function MessageGroupsListScreen({ navigation, route }) {
         ListEmptyComponent={renderEmptyState}
           />
 
-          <FAB
-            style={styles.fab}
-            icon="plus"
-            label="New Message Group"
-            color="#fff"
-            onPress={handleCreateMessageGroup}
-          />
+          {canCreate && (
+            <FAB
+              style={styles.fab}
+              icon="plus"
+              label="New Message Group"
+              color="#fff"
+              onPress={handleCreateMessageGroup}
+            />
+          )}
         </>
       )}
     </View>

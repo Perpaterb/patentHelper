@@ -75,10 +75,28 @@ export default function WikiScreen({ navigation, route }) {
     }).start();
   }, [drawerOpen]);
 
+  // Permission state
+  const [canCreate, setCanCreate] = useState(false);
+
   const loadGroupInfo = async () => {
     try {
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
+      const role = response.data.group?.userRole || null;
+      const settings = response.data.group?.settings;
+
+      // Check if user can create wiki documents
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.wikiCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.wikiCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.wikiCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
     } catch (err) {
       console.error('Load group info error:', err);
     }
@@ -447,12 +465,14 @@ export default function WikiScreen({ navigation, route }) {
       </View>
 
       {/* FAB for creating new document */}
-      <FAB
-        icon="plus"
-        style={[styles.fab, { backgroundColor: groupInfo?.backgroundColor || '#6200ee' }]}
-        color="#fff"
-        onPress={() => setShowCreateModal(true)}
-      />
+      {canCreate && (
+        <FAB
+          icon="plus"
+          style={[styles.fab, { backgroundColor: groupInfo?.backgroundColor || '#6200ee' }]}
+          color="#fff"
+          onPress={() => setShowCreateModal(true)}
+        />
+      )}
 
       {/* Create document modal */}
       <Modal

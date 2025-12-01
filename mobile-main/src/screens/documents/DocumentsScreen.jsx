@@ -52,6 +52,9 @@ export default function DocumentsScreen({ navigation, route }) {
     }, [groupId])
   );
 
+  // Permission state
+  const [canCreate, setCanCreate] = useState(false);
+
   /**
    * Load group information
    */
@@ -59,7 +62,22 @@ export default function DocumentsScreen({ navigation, route }) {
     try {
       const response = await api.get(`/groups/${groupId}`);
       setGroupInfo(response.data.group);
-      setUserRole(response.data.group?.userRole || null);
+      const role = response.data.group?.userRole || null;
+      setUserRole(role);
+
+      // Check if user can upload documents
+      const settings = response.data.group?.settings;
+      if (role === 'admin') {
+        setCanCreate(true);
+      } else if (role === 'parent' && settings?.documentsCreatableByParents !== false) {
+        setCanCreate(true);
+      } else if (role === 'caregiver' && settings?.documentsCreatableByCaregivers !== false) {
+        setCanCreate(true);
+      } else if (role === 'child' && settings?.documentsCreatableByChildren !== false) {
+        setCanCreate(true);
+      } else {
+        setCanCreate(false);
+      }
     } catch (err) {
       console.error('Load group info error:', err);
     }
@@ -418,17 +436,19 @@ export default function DocumentsScreen({ navigation, route }) {
       />
 
       {/* Upload FAB */}
-      <FAB
-        icon={uploading ? 'loading' : 'plus'}
-        style={[
-          styles.fab,
-          { backgroundColor: groupInfo?.backgroundColor || '#6200ee' },
-        ]}
-        color="#fff"
-        onPress={handleUpload}
-        disabled={uploading}
-        loading={uploading}
-      />
+      {canCreate && (
+        <FAB
+          icon={uploading ? 'loading' : 'plus'}
+          style={[
+            styles.fab,
+            { backgroundColor: groupInfo?.backgroundColor || '#6200ee' },
+          ]}
+          color="#fff"
+          onPress={handleUpload}
+          disabled={uploading}
+          loading={uploading}
+        />
+      )}
     </View>
   );
 }
