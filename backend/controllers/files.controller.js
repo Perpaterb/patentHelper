@@ -67,7 +67,7 @@ async function uploadFile(req, res) {
           role: 'admin',
           user: {
             is: {
-              subscriptionStatus: 'active',
+              isSubscribed: true,
             },
           },
         },
@@ -88,14 +88,14 @@ async function uploadFile(req, res) {
     const currentUser = await prisma.user.findUnique({
       where: { userId: userId },
       select: {
-        subscriptionStatus: true,
+        isSubscribed: true,
         storageUsedBytes: true,
       },
     });
 
-    // Trial users are limited to 10GB total storage
+    // Trial users (not subscribed) are limited to 10GB total storage
     const TRIAL_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10GB
-    if (currentUser?.subscriptionStatus !== 'active') {
+    if (!currentUser?.isSubscribed) {
       const currentUsage = Number(currentUser?.storageUsedBytes || 0);
       const newTotal = currentUsage + req.file.size;
 
@@ -255,7 +255,7 @@ async function uploadMultipleFiles(req, res) {
           role: 'admin',
           user: {
             is: {
-              subscriptionStatus: 'active',
+              isSubscribed: true,
             },
           },
         },
@@ -268,7 +268,7 @@ async function uploadMultipleFiles(req, res) {
     const currentUser = await prisma.user.findUnique({
       where: { userId: userId },
       select: {
-        subscriptionStatus: true,
+        isSubscribed: true,
         storageUsedBytes: true,
       },
     });
@@ -276,9 +276,9 @@ async function uploadMultipleFiles(req, res) {
     // Calculate total upload size
     const totalUploadSize = req.files.reduce((sum, file) => sum + file.size, 0);
 
-    // Trial users are limited to 10GB total storage
+    // Trial users (not subscribed) are limited to 10GB total storage
     const TRIAL_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10GB
-    if (currentUser?.subscriptionStatus !== 'active') {
+    if (!currentUser?.isSubscribed) {
       const currentUsage = Number(currentUser?.storageUsedBytes || 0);
       const newTotal = currentUsage + totalUploadSize;
 
