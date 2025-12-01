@@ -7,8 +7,19 @@
 
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const API_BASE_URL = 'http://localhost:3000'; // Update for production
+
+/**
+ * Convert a URI to a Blob (for web platform)
+ * @param {string} uri - File URI (can be blob URL or data URL)
+ * @returns {Promise<Blob>} Blob object
+ */
+const uriToBlob = async (uri) => {
+  const response = await fetch(uri);
+  return response.blob();
+};
 
 /**
  * Upload a single file
@@ -29,11 +40,22 @@ export const uploadFile = async (file, category, groupId = null, onProgress = nu
 
     // Create FormData
     const formData = new FormData();
-    formData.append('file', {
-      uri: file.uri,
-      type: file.mimeType,
-      name: file.name,
-    });
+
+    // Handle file differently for web vs mobile
+    if (Platform.OS === 'web') {
+      // On web, we need to convert URI to Blob and create a File object
+      const blob = await uriToBlob(file.uri);
+      const fileObj = new File([blob], file.name, { type: file.mimeType });
+      formData.append('file', fileObj);
+    } else {
+      // On mobile, use React Native's FormData format
+      formData.append('file', {
+        uri: file.uri,
+        type: file.mimeType,
+        name: file.name,
+      });
+    }
+
     formData.append('category', category);
     if (groupId) {
       formData.append('groupId', groupId);
@@ -92,13 +114,26 @@ export const uploadMultipleFiles = async (files, category, groupId = null, onPro
 
     // Create FormData
     const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files', {
-        uri: file.uri,
-        type: file.mimeType,
-        name: file.name,
+
+    // Handle files differently for web vs mobile
+    if (Platform.OS === 'web') {
+      // On web, we need to convert URIs to Blobs and create File objects
+      for (const file of files) {
+        const blob = await uriToBlob(file.uri);
+        const fileObj = new File([blob], file.name, { type: file.mimeType });
+        formData.append('files', fileObj);
+      }
+    } else {
+      // On mobile, use React Native's FormData format
+      files.forEach((file) => {
+        formData.append('files', {
+          uri: file.uri,
+          type: file.mimeType,
+          name: file.name,
+        });
       });
-    });
+    }
+
     formData.append('category', category);
     if (groupId) {
       formData.append('groupId', groupId);
