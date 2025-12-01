@@ -580,12 +580,50 @@ async function requestFileDeletion(req, res) {
         approvalId: approval.approvalId,
         adminId: membership.groupMemberId,
         vote: 'approve',
-        isAutoApproved: false,
+        isAutoApproved: admins.length === 1, // Mark as auto-approved if single admin
+      },
+    });
+
+    // Create audit log for the deletion request
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'request_file_deletion',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName || 'Unknown',
+        performedByEmail: req.user.email,
+        actionLocation: 'storage',
+        messageContent: `Requested deletion of file: "${fileName}" (${formatFileSize(Number(media.fileSizeBytes))})`,
+        logData: {
+          approvalId: approval.approvalId,
+          mediaId: mediaId,
+          fileName: fileName,
+          fileSizeBytes: Number(media.fileSizeBytes),
+        },
       },
     });
 
     // Auto-approve if single admin
     if (admins.length === 1) {
+      // Create audit log for auto-approval (single admin)
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'auto_approve_deletion',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName || 'Unknown',
+          performedByEmail: req.user.email,
+          actionLocation: 'storage',
+          messageContent: `Auto-approved file deletion (single admin group): "${fileName}"`,
+          logData: {
+            approvalId: approval.approvalId,
+            mediaId: mediaId,
+            fileName: fileName,
+            reason: 'single_admin_group',
+          },
+        },
+      });
+
       // Single admin - execute deletion immediately
       await executeFileDeletion(mediaId, groupId, approval.approvalId, membership.groupMemberId);
 
@@ -598,19 +636,6 @@ async function requestFileDeletion(req, res) {
         },
       });
     }
-
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        groupId: groupId,
-        action: 'request_file_deletion',
-        performedBy: membership.groupMemberId,
-        performedByName: membership.displayName || 'Unknown',
-        performedByEmail: req.user.email,
-        actionLocation: 'storage',
-        messageContent: `Requested deletion of file: ${fileName}`,
-      },
-    });
 
     res.status(200).json({
       success: true,

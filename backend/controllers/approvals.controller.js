@@ -601,6 +601,24 @@ async function voteOnApproval(req, res) {
       },
     });
 
+    // Create audit log for the vote immediately
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'vote_on_approval',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || req.user.email || 'N/A',
+        actionLocation: 'approvals',
+        messageContent: `Voted "${vote}" on ${approval.approvalType.replace(/_/g, ' ')} request`,
+        logData: {
+          approvalId: approvalId,
+          approvalType: approval.approvalType,
+          vote: vote,
+        },
+      },
+    });
+
     // Get all admins to calculate if approval threshold is met
     const allAdmins = await prisma.groupMember.findMany({
       where: {
@@ -655,37 +673,50 @@ async function voteOnApproval(req, res) {
         },
       });
 
+      // Parse approval data for better audit log message
+      let data = {};
+      try {
+        data = typeof approval.approvalData === 'string'
+          ? JSON.parse(approval.approvalData)
+          : approval.approvalData || {};
+      } catch (err) {
+        data = {};
+      }
+
+      // Build descriptive message based on approval type
+      let actionDescription = approval.approvalType.replace(/_/g, ' ');
+      if (approval.approvalType === 'delete_file' && data.fileName) {
+        actionDescription = `delete file "${data.fileName}"`;
+      }
+
+      // Create audit log for approval completion (threshold reached)
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: newStatus === 'approved' ? 'approval_completed' : 'approval_rejected',
+          performedBy: 'system',
+          performedByName: 'System',
+          performedByEmail: 'system@app',
+          actionLocation: 'approvals',
+          messageContent: `Approval ${newStatus}: ${actionDescription}. Final vote: ${approveVotes} approve, ${rejectVotes} reject (${totalAdmins} total admins)`,
+          logData: {
+            approvalId: approvalId,
+            approvalType: approval.approvalType,
+            finalStatus: newStatus,
+            approveVotes: approveVotes,
+            rejectVotes: rejectVotes,
+            totalAdmins: totalAdmins,
+            lastVoteBy: groupMembership.groupMemberId,
+          },
+        },
+      });
+
       // Execute the approved action if status is approved
       if (newStatus === 'approved') {
         await executeApprovedAction(approval);
       }
-
-      // Create audit log
-      await prisma.auditLog.create({
-        data: {
-          groupId: groupId,
-          action: newStatus === 'approved' ? 'approve_action' : 'reject_action',
-          performedBy: groupMembership.groupMemberId,
-          performedByName: groupMembership.displayName,
-          performedByEmail: groupMembership.email || 'N/A',
-          actionLocation: 'approvals',
-          messageContent: `${vote === 'approve' ? 'Approved' : 'Rejected'} ${approval.approvalType} request. Status: ${newStatus}`,
-        },
-      });
-    } else {
-      // Create audit log for the vote
-      await prisma.auditLog.create({
-        data: {
-          groupId: groupId,
-          action: 'vote_on_approval',
-          performedBy: groupMembership.groupMemberId,
-          performedByName: groupMembership.displayName,
-          performedByEmail: groupMembership.email || 'N/A',
-          actionLocation: 'approvals',
-          messageContent: `Voted "${vote}" on ${approval.approvalType} request (${approveVotes}/${totalAdmins} approvals, ${rejectVotes}/${totalAdmins} rejections)`,
-        },
-      });
     }
+    // Note: Vote audit log is already created above right after the vote is recorded
 
     res.json({
       success: true,
