@@ -60,6 +60,7 @@ export default function StorageScreen({ navigation }) {
   const [availableTypes, setAvailableTypes] = useState([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [showPendingDeletion, setShowPendingDeletion] = useState(false); // Filter to show only pending deletion
 
   // Preview modal state
   const [previewFile, setPreviewFile] = useState(null);
@@ -145,6 +146,7 @@ export default function StorageScreen({ navigation }) {
     setSelectedUploaders([]);
     setFromDate('');
     setToDate('');
+    setShowPendingDeletion(false);
   }
 
   function openPreview(file) {
@@ -240,7 +242,12 @@ export default function StorageScreen({ navigation }) {
     : 0;
 
   // Check if any filters are active
-  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate;
+  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate || showPendingDeletion;
+
+  // Filter files client-side for pending deletion (backend returns all files, we filter here)
+  const displayedFiles = showPendingDeletion
+    ? groupFiles.filter(file => file.pendingDeletion === true)
+    : groupFiles;
 
   // If viewing a specific group's files
   if (selectedGroup) {
@@ -264,7 +271,7 @@ export default function StorageScreen({ navigation }) {
 
           <Title style={styles.pageTitle}>{selectedGroup.name} - Storage</Title>
           <Paragraph style={styles.pageSubtitle}>
-            {formatBytes(selectedGroup.usedBytes)} used across {groupFiles.length} files
+            {formatBytes(selectedGroup.usedBytes)} used across {displayedFiles.length} files
             {hasActiveFilters && ' (filtered)'}
           </Paragraph>
 
@@ -405,6 +412,19 @@ export default function StorageScreen({ navigation }) {
                     />
                   </View>
 
+                  {/* Status Filter */}
+                  <Text style={styles.filterSectionTitle}>Status</Text>
+                  <View style={styles.filterChipsRow}>
+                    <Chip
+                      selected={showPendingDeletion}
+                      onPress={() => setShowPendingDeletion(!showPendingDeletion)}
+                      style={[styles.filterChip, showPendingDeletion && styles.pendingDeletionFilterChip]}
+                      icon={showPendingDeletion ? 'check' : 'clock-outline'}
+                    >
+                      Pending Deletion
+                    </Chip>
+                  </View>
+
                   {/* Active Filters Summary */}
                   {hasActiveFilters && (
                     <View style={styles.activeFiltersSummary}>
@@ -412,6 +432,7 @@ export default function StorageScreen({ navigation }) {
                         Active filters: {selectedTypes.length} types, {selectedUploaders.length} uploaders
                         {fromDate && `, from ${fromDate}`}
                         {toDate && `, to ${toDate}`}
+                        {showPendingDeletion && ', pending deletion only'}
                       </Text>
                     </View>
                   )}
@@ -431,17 +452,18 @@ export default function StorageScreen({ navigation }) {
                   <ActivityIndicator size="small" />
                   <Text style={styles.filesLoadingText}>Loading files...</Text>
                 </View>
-              ) : groupFiles.length === 0 ? (
+              ) : displayedFiles.length === 0 ? (
                 <Text style={styles.noFilesText}>
                   {hasActiveFilters ? 'No files match the selected filters' : 'No files in this group'}
                 </Text>
               ) : (
-                groupFiles.map((file) => (
+                displayedFiles.map((file) => (
                   <Pressable
                     key={file.mediaId}
                     style={({ pressed }) => [
                       styles.fileRow,
                       file.isDeleted && styles.fileRowDeleted,
+                      file.pendingDeletion && styles.fileRowPendingDeletion,
                       !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowClickable,
                       pressed && !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowPressed,
                     ]}
@@ -535,8 +557,12 @@ export default function StorageScreen({ navigation }) {
                           )}
 
                           {file.pendingDeletion && (
-                            <Chip style={styles.pendingChip} textStyle={styles.pendingChipText}>
-                              Pending deletion approval
+                            <Chip
+                              style={styles.pendingChip}
+                              textStyle={styles.pendingChipText}
+                              icon="clock-alert-outline"
+                            >
+                              Awaiting Deletion Approval
                             </Chip>
                           )}
                         </>
@@ -1062,10 +1088,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     backgroundColor: '#fff3e0',
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#ff9800',
   },
   pendingChipText: {
     fontSize: 10,
     color: '#e65100',
+    fontWeight: '600',
   },
   logChip: {
     backgroundColor: '#e3f2fd',
@@ -1138,6 +1167,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
     marginBottom: 4,
   },
+  pendingDeletionFilterChip: {
+    backgroundColor: '#fff3e0',
+  },
   activeFiltersSummary: {
     marginTop: 16,
     padding: 12,
@@ -1167,6 +1199,11 @@ const styles = StyleSheet.create({
   fileRowDeleted: {
     backgroundColor: '#ffebee',
     opacity: 0.8,
+  },
+  fileRowPendingDeletion: {
+    backgroundColor: '#fff8e1',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
   },
   deletedIconContainer: {
     width: 64,

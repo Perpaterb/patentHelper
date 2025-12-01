@@ -104,31 +104,69 @@ async function executeApprovedAction(approval) {
         break;
 
       case 'delete_file':
-        // Soft delete file by setting isHidden flag
+        // HARD delete file - completely remove from storage and database
         if (approval.relatedEntityId) {
-          await prisma.messageMedia.update({
-            where: { mediaId: approval.relatedEntityId },
-            data: {
-              isHidden: true,
-              hiddenAt: new Date(),
-              hiddenBy: approval.requestedBy,
-            },
+          const storageService = require('../services/storage');
+          const mediaId = approval.relatedEntityId;
+
+          // Get file info before deleting
+          const media = await prisma.messageMedia.findUnique({
+            where: { mediaId: mediaId },
           });
 
-          // Create audit log
-          await prisma.auditLog.create({
-            data: {
-              groupId: approval.groupId,
-              action: 'delete_file',
-              performedBy: approval.requestedBy,
-              performedByName: 'Approved by admins',
-              performedByEmail: 'N/A',
-              actionLocation: 'storage',
-              messageContent: `File deleted (ID: ${approval.relatedEntityId}). Reason: Admin approval workflow. File: ${data.fileName || 'Unknown'}`,
-            },
-          });
+          if (media) {
+            // Extract filename
+            const s3KeyParts = media.s3Key ? media.s3Key.split('/') : [];
+            const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : (data.fileName || 'Unknown');
+            const fileSizeBytes = Number(media.fileSizeBytes);
 
-          console.log(`[executeApprovedAction] Soft-deleted file ${approval.relatedEntityId}`);
+            // Get requester info for audit log
+            const requester = await prisma.groupMember.findUnique({
+              where: { groupMemberId: approval.requestedBy },
+              include: {
+                user: { select: { email: true, displayName: true } },
+              },
+            });
+
+            // Hard delete from file storage
+            try {
+              if (media.url) {
+                await storageService.hardDeleteFile(media.url);
+                console.log(`[executeApprovedAction] Hard deleted file from storage: ${media.url}`);
+              }
+            } catch (storageError) {
+              console.error(`[executeApprovedAction] Storage deletion error (continuing): ${storageError.message}`);
+            }
+
+            // Hard delete from database
+            await prisma.messageMedia.delete({
+              where: { mediaId: mediaId },
+            });
+
+            // Format file size for audit log
+            const formatSize = (bytes) => {
+              if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+              if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+              return `${bytes} bytes`;
+            };
+
+            // Create audit log
+            await prisma.auditLog.create({
+              data: {
+                groupId: approval.groupId,
+                action: 'delete_file',
+                performedBy: approval.requestedBy,
+                performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
+                performedByEmail: requester?.user?.email || 'N/A',
+                actionLocation: 'storage',
+                messageContent: `File permanently deleted: "${fileName}" (${formatSize(fileSizeBytes)}). Approved via admin voting workflow.`,
+              },
+            });
+
+            console.log(`[executeApprovedAction] Permanently deleted file: ${fileName} (${mediaId})`);
+          } else {
+            console.log(`[executeApprovedAction] File ${mediaId} already deleted or not found`);
+          }
         }
         break;
 

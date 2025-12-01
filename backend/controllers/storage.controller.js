@@ -635,37 +635,84 @@ async function requestFileDeletion(req, res) {
  * Execute file deletion after approval
  * Internal function - not exposed as route
  *
- * Uses soft delete to preserve file metadata for "Deleted by admin" display
+ * Performs HARD DELETE - completely removes file from storage and database.
+ * The file will no longer be visible anywhere including messages.
  */
 async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
+  const storageService = require('../services/storage');
+
+  // Get file info before deleting
+  const media = await prisma.messageMedia.findUnique({
+    where: { mediaId: mediaId },
+  });
+
+  if (!media) {
+    throw new Error('File not found');
+  }
+
+  // Extract filename for audit log
+  const s3KeyParts = media.s3Key ? media.s3Key.split('/') : [];
+  const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : 'Unknown file';
+  const fileSizeBytes = Number(media.fileSizeBytes);
+
+  // Get requester info for audit log
+  const requester = await prisma.groupMember.findUnique({
+    where: { groupMemberId: requestedBy },
+    include: {
+      user: {
+        select: { email: true, displayName: true },
+      },
+    },
+  });
+
   // Update approval status
   await prisma.approval.update({
     where: { approvalId: approvalId },
     data: { status: 'approved' },
   });
 
-  // Soft delete - mark as hidden instead of deleting
-  await prisma.messageMedia.update({
+  // Hard delete from file storage (the actual file)
+  try {
+    if (media.url) {
+      await storageService.hardDeleteFile(media.url);
+      console.log(`[executeFileDeletion] Hard deleted file from storage: ${media.url}`);
+    }
+  } catch (storageError) {
+    console.error(`[executeFileDeletion] Storage deletion error (continuing): ${storageError.message}`);
+    // Continue even if storage delete fails - we still want to remove DB record
+  }
+
+  // Hard delete from database - this removes the file from messages too
+  await prisma.messageMedia.delete({
     where: { mediaId: mediaId },
-    data: {
-      isHidden: true,
-      hiddenAt: new Date(),
-      hiddenBy: requestedBy,
-    },
   });
 
-  // Create audit log
+  // Create audit log with detailed info
   await prisma.auditLog.create({
     data: {
       groupId: groupId,
       action: 'delete_file',
       performedBy: requestedBy || 'system',
-      performedByName: 'System (Single-Admin Auto-Approval)',
-      performedByEmail: 'system@app',
+      performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
+      performedByEmail: requester?.user?.email || 'system@app',
       actionLocation: 'storage',
-      messageContent: `File soft-deleted (ID: ${mediaId}). File remains hidden in database for compliance.`,
+      messageContent: `File permanently deleted: "${fileName}" (${formatFileSize(fileSizeBytes)}). File ID: ${mediaId}`,
     },
   });
+
+  console.log(`[executeFileDeletion] Permanently deleted file: ${fileName} (${mediaId})`);
+}
+
+/**
+ * Format file size to human-readable string
+ */
+function formatFileSize(bytes) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  }
+  return `${bytes} bytes`;
 }
 
 module.exports = {

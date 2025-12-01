@@ -203,6 +203,72 @@ class LocalStorageService extends StorageInterface {
   }
 
   /**
+   * Hard delete a file from storage (completely removes file and metadata)
+   * Used when admin approval workflow approves file deletion.
+   * @param {string} fileId - File ID
+   * @returns {Promise<{deleted: boolean, bytesFreed: number}>} Delete result
+   */
+  async hardDeleteFile(fileId) {
+    try {
+      // Get file metadata to find file path and size
+      const metadata = await this.getFileMetadata(fileId);
+      const bytesFreed = metadata.size || 0;
+
+      // Find the file in categories
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'temp'];
+
+      for (const category of categories) {
+        const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
+
+        try {
+          await fs.access(metadataPath);
+
+          // Found the file - delete both the actual file and metadata
+          const filePath = path.join(this.baseUploadPath, category, metadata.filename || `${fileId}_file`);
+
+          // Delete the actual file
+          try {
+            await fs.unlink(filePath);
+            console.log(`[hardDeleteFile] Deleted file: ${filePath}`);
+          } catch (unlinkError) {
+            // File might not exist at expected path, try alternative patterns
+            if (unlinkError.code === 'ENOENT') {
+              // Try finding file by fileId pattern in the directory
+              const dirPath = path.join(this.baseUploadPath, category);
+              const files = await fs.readdir(dirPath);
+              for (const file of files) {
+                if (file.startsWith(fileId) && !file.endsWith('.json')) {
+                  await fs.unlink(path.join(dirPath, file));
+                  console.log(`[hardDeleteFile] Deleted file by pattern: ${file}`);
+                  break;
+                }
+              }
+            } else {
+              throw unlinkError;
+            }
+          }
+
+          // Delete metadata file
+          await fs.unlink(metadataPath);
+          console.log(`[hardDeleteFile] Deleted metadata: ${metadataPath}`);
+
+          return { deleted: true, bytesFreed };
+        } catch (error) {
+          // File not in this category, continue searching
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+
+      throw new Error('File not found for hard deletion');
+    } catch (error) {
+      console.error('Hard delete file error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get storage usage for a user
    * @param {string} userId - User ID
    * @returns {Promise<number>} Storage used in bytes
