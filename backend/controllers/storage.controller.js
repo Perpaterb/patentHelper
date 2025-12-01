@@ -335,6 +335,11 @@ async function getGroupFiles(req, res) {
         fileType = 'video';
       }
 
+      // Build full URL from fileId (file.url contains fileId, not actual URL)
+      const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+      const fullUrl = file.url ? `${baseUrl}/files/${file.url}` : null;
+      const fullThumbnailUrl = file.thumbnailUrl ? `${baseUrl}/files/${file.thumbnailUrl}` : null;
+
       return {
         mediaId: file.mediaId,
         fileName: fileName,
@@ -342,8 +347,8 @@ async function getGroupFiles(req, res) {
         mimeType: file.mediaType,
         fileType: fileType,
         uploadedAt: file.uploadedAt,
-        url: file.url,
-        thumbnailUrl: file.thumbnailUrl,
+        url: fullUrl,
+        thumbnailUrl: fullThumbnailUrl,
         pendingDeletion: pendingMediaIds.has(file.mediaId),
         isLog: false,
         uploader: uploader,
