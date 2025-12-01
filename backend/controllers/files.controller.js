@@ -66,7 +66,9 @@ async function uploadFile(req, res) {
           groupId: groupId,
           role: 'admin',
           user: {
-            subscriptionStatus: 'active',
+            is: {
+              subscriptionStatus: 'active',
+            },
           },
         },
       });
@@ -252,7 +254,9 @@ async function uploadMultipleFiles(req, res) {
           groupId: groupId,
           role: 'admin',
           user: {
-            subscriptionStatus: 'active',
+            is: {
+              subscriptionStatus: 'active',
+            },
           },
         },
       });
