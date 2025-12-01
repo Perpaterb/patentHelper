@@ -160,13 +160,14 @@ async function uploadFile(req, res) {
 
     if (needsConversion(fileMimeType)) {
       try {
+        const originalMimeType = fileMimeType; // Save before conversion
         const converted = await convertToPng(req.file.buffer, fileMimeType);
         fileBuffer = converted.buffer;
         fileMimeType = converted.mimeType;
-        fileName = getConvertedFilename(req.file.originalname);
+        fileName = getConvertedFilename(req.file.originalname, originalMimeType);
         fileSize = converted.buffer.length;
         wasConverted = true;
-        console.log(`Converted ${req.file.originalname} from ${req.file.mimetype} to PNG (${(fileSize / 1024).toFixed(1)}KB)`);
+        console.log(`Converted ${req.file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
       } catch (conversionError) {
         console.error('Image conversion failed:', conversionError);
         return res.status(400).json({
@@ -403,13 +404,14 @@ async function uploadMultipleFiles(req, res) {
 
       if (needsConversion(fileMimeType)) {
         try {
+          const originalMimeType = fileMimeType; // Save before conversion
           const converted = await convertToPng(file.buffer, fileMimeType);
           fileBuffer = converted.buffer;
           fileMimeType = converted.mimeType;
-          fileName = getConvertedFilename(file.originalname);
+          fileName = getConvertedFilename(file.originalname, originalMimeType);
           fileSize = converted.buffer.length;
           conversionCount++;
-          console.log(`Converted ${file.originalname} from ${file.mimetype} to PNG (${(fileSize / 1024).toFixed(1)}KB)`);
+          console.log(`Converted ${file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
         } catch (conversionError) {
           console.error('Image conversion failed:', conversionError);
           return res.status(400).json({

@@ -1,13 +1,17 @@
 /**
  * Image Conversion Service
  *
- * Converts non-standard image formats (HEIC, WebP, AVIF, etc.) to PNG
+ * Converts non-standard image formats (HEIC, WebP, AVIF, etc.) to PNG/JPEG
  * for universal browser compatibility.
+ *
+ * Note: HEIC/HEIF files require special handling since Sharp doesn't have
+ * built-in HEIC support. We use heic-convert for HEIC files.
  *
  * @module services/imageConversion
  */
 
 const sharp = require('sharp');
+const heicConvert = require('heic-convert');
 
 /**
  * MIME types that don't need conversion (already universally supported)
@@ -49,12 +53,44 @@ function needsConversion(mimeType) {
 }
 
 /**
- * Detect image format from buffer using sharp
- * Sharp can detect format from file magic bytes even if mimeType is wrong
+ * Check for HEIC/HEIF magic bytes manually
+ * HEIC files start with 'ftyp' at offset 4, followed by brand markers
+ * @param {Buffer} buffer - File buffer
+ * @returns {boolean} True if HEIC/HEIF file
+ */
+function isHeicBuffer(buffer) {
+  if (buffer.length < 12) return false;
+
+  // Check for 'ftyp' box at offset 4
+  const ftyp = buffer.toString('ascii', 4, 8);
+  if (ftyp !== 'ftyp') return false;
+
+  // Check for HEIC/HEIF brand markers
+  const brand = buffer.toString('ascii', 8, 12);
+  const heicBrands = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1', 'avif'];
+
+  return heicBrands.includes(brand.toLowerCase());
+}
+
+/**
+ * Detect image format from buffer
+ * First checks for HEIC (since Sharp can't handle it), then uses Sharp for other formats
  * @param {Buffer} buffer - The file buffer
  * @returns {Promise<{format: string, mimeType: string, isImage: boolean}>}
  */
 async function detectImageFormat(buffer) {
+  // First check for HEIC/HEIF manually (Sharp doesn't support it)
+  if (isHeicBuffer(buffer)) {
+    return {
+      format: 'heic',
+      mimeType: 'image/heic',
+      isImage: true,
+      width: null,
+      height: null,
+    };
+  }
+
+  // Try Sharp for other formats
   try {
     const metadata = await sharp(buffer).metadata();
     if (metadata.format) {
@@ -84,7 +120,7 @@ async function detectImageFormat(buffer) {
     }
     return { format: null, mimeType: null, isImage: false };
   } catch (error) {
-    // Not an image or couldn't be read
+    // Not an image or couldn't be read by Sharp
     return { format: null, mimeType: null, isImage: false };
   }
 }
@@ -112,7 +148,26 @@ function isSupportedImage(mimeType) {
 }
 
 /**
- * Convert an image buffer to PNG format
+ * Convert HEIC/HEIF buffer to JPEG using heic-convert
+ * @param {Buffer} inputBuffer - HEIC file buffer
+ * @returns {Promise<Buffer>} JPEG buffer
+ */
+async function convertHeicToJpeg(inputBuffer) {
+  try {
+    const outputBuffer = await heicConvert({
+      buffer: inputBuffer,
+      format: 'JPEG',
+      quality: 0.9,
+    });
+    return Buffer.from(outputBuffer);
+  } catch (error) {
+    console.error('HEIC conversion error:', error);
+    throw new Error(`Failed to convert HEIC: ${error.message}`);
+  }
+}
+
+/**
+ * Convert an image buffer to a browser-compatible format (PNG or JPEG)
  * @param {Buffer} inputBuffer - The original image buffer
  * @param {string} originalMimeType - The original MIME type
  * @returns {Promise<{buffer: Buffer, mimeType: string, converted: boolean}>}
@@ -135,7 +190,21 @@ async function convertToPng(inputBuffer, originalMimeType) {
   }
 
   try {
-    // Convert to PNG using sharp
+    // HEIC/HEIF requires special handling - Sharp doesn't support it natively
+    if (normalizedType === 'image/heic' || normalizedType === 'image/heif') {
+      console.log('Converting HEIC/HEIF using heic-convert...');
+      const jpegBuffer = await convertHeicToJpeg(inputBuffer);
+
+      // Optionally convert JPEG to PNG for consistency
+      // For now, return JPEG since it's smaller and universally supported
+      return {
+        buffer: jpegBuffer,
+        mimeType: 'image/jpeg',
+        converted: true,
+      };
+    }
+
+    // For other formats (WebP, AVIF, TIFF, BMP), use Sharp
     const outputBuffer = await sharp(inputBuffer)
       .png({
         quality: 90,
@@ -155,20 +224,27 @@ async function convertToPng(inputBuffer, originalMimeType) {
 }
 
 /**
- * Get new filename with .png extension
+ * Get new filename with appropriate extension based on source format
  * @param {string} originalFilename - The original filename
- * @returns {string} Filename with .png extension
+ * @param {string} [sourceMimeType] - Original MIME type (optional, for determining output extension)
+ * @returns {string} Filename with new extension
  */
-function getConvertedFilename(originalFilename) {
-  if (!originalFilename) return 'converted.png';
+function getConvertedFilename(originalFilename, sourceMimeType = '') {
+  if (!originalFilename) return 'converted.jpg';
 
-  // Remove the original extension and add .png
+  // HEIC/HEIF converts to JPEG, others convert to PNG
+  const normalizedType = sourceMimeType.toLowerCase();
+  const newExtension = (normalizedType === 'image/heic' || normalizedType === 'image/heif')
+    ? '.jpg'
+    : '.png';
+
+  // Remove the original extension and add the new one
   const lastDotIndex = originalFilename.lastIndexOf('.');
   if (lastDotIndex === -1) {
-    return `${originalFilename}.png`;
+    return `${originalFilename}${newExtension}`;
   }
 
-  return `${originalFilename.substring(0, lastDotIndex)}.png`;
+  return `${originalFilename.substring(0, lastDotIndex)}${newExtension}`;
 }
 
 module.exports = {
