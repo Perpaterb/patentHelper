@@ -188,6 +188,25 @@ export default function StorageScreen({ navigation }) {
     }
   }
 
+  async function handleRecalculateStorage() {
+    try {
+      setLoading(true);
+      setError(null);
+      await api.post('/storage/recalculate');
+      setSuccessMessage('Storage usage recalculated successfully');
+      // Refresh storage data
+      await fetchStorage();
+      if (selectedGroup) {
+        await fetchGroupFiles(selectedGroup.groupId);
+      }
+    } catch (err) {
+      console.error('Failed to recalculate storage:', err);
+      setError(err.response?.data?.message || 'Failed to recalculate storage');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function formatBytes(bytes) {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -762,7 +781,18 @@ export default function StorageScreen({ navigation }) {
             {/* Usage Overview */}
             <Card style={styles.card}>
               <Card.Content>
-                <Title>Total Storage Usage</Title>
+                <View style={styles.cardHeader}>
+                  <Title>Total Storage Usage</Title>
+                  <Button
+                    mode="outlined"
+                    onPress={handleRecalculateStorage}
+                    loading={loading}
+                    icon="refresh"
+                    compact
+                  >
+                    Recalculate
+                  </Button>
+                </View>
                 <Divider style={styles.divider} />
                 <View style={styles.usageContainer}>
                   <View style={styles.usageHeader}>
@@ -975,6 +1005,11 @@ const styles = StyleSheet.create({
   // Cards
   card: {
     marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   divider: {
     marginVertical: 12,

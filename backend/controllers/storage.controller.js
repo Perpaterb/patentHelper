@@ -770,8 +770,155 @@ function formatFileSize(bytes) {
   return `${bytes} bytes`;
 }
 
+/**
+ * POST /storage/recalculate
+ * Recalculate storage usage based on actual non-deleted files
+ * This fixes any discrepancies from files deleted before storage tracking was added
+ */
+async function recalculateStorage(req, res) {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get all groups where user is admin
+    const adminGroups = await prisma.groupMember.findMany({
+      where: {
+        user: { userId: userId },
+        role: 'admin',
+      },
+      select: {
+        groupId: true,
+        group: {
+          select: { name: true },
+        },
+      },
+    });
+
+    if (adminGroups.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No admin groups found',
+        recalculated: 0,
+      });
+    }
+
+    const groupIds = adminGroups.map(ag => ag.groupId);
+    let totalRecalculated = 0;
+
+    // For each group, recalculate storage based on actual files
+    for (const groupId of groupIds) {
+      // Get all non-deleted media files in this group's messages
+      const mediaFiles = await prisma.messageMedia.findMany({
+        where: {
+          isHidden: false, // Only count non-deleted files
+          message: {
+            messageGroup: {
+              groupId: groupId,
+            },
+          },
+        },
+        select: {
+          mediaType: true,
+          fileSizeBytes: true,
+        },
+      });
+
+      // Calculate totals by media type
+      const totals = {
+        image: { count: 0, bytes: BigInt(0) },
+        video: { count: 0, bytes: BigInt(0) },
+        document: { count: 0, bytes: BigInt(0) },
+      };
+
+      for (const file of mediaFiles) {
+        let mediaType = 'document';
+        if (file.mediaType === 'image' || file.mediaType?.startsWith('image/')) {
+          mediaType = 'image';
+        } else if (file.mediaType === 'video' || file.mediaType?.startsWith('video/')) {
+          mediaType = 'video';
+        }
+
+        totals[mediaType].count += 1;
+        totals[mediaType].bytes += file.fileSizeBytes || BigInt(0);
+      }
+
+      // Get all admins for this group
+      const admins = await prisma.groupMember.findMany({
+        where: {
+          groupId: groupId,
+          role: 'admin',
+        },
+        select: { userId: true },
+      });
+
+      // Update storage_usage for each admin and media type
+      for (const admin of admins) {
+        if (!admin.userId) continue;
+
+        for (const [mediaType, data] of Object.entries(totals)) {
+          // Upsert the storage usage record
+          await prisma.storageUsage.upsert({
+            where: {
+              userId_groupId_mediaType: {
+                userId: admin.userId,
+                groupId: groupId,
+                mediaType: mediaType,
+              },
+            },
+            update: {
+              fileCount: data.count,
+              totalBytes: data.bytes,
+              lastCalculatedAt: new Date(),
+            },
+            create: {
+              userId: admin.userId,
+              groupId: groupId,
+              mediaType: mediaType,
+              fileCount: data.count,
+              totalBytes: data.bytes,
+            },
+          });
+        }
+
+        // Recalculate total user storage
+        const allUserStorage = await prisma.storageUsage.aggregate({
+          where: { userId: admin.userId },
+          _sum: { totalBytes: true },
+        });
+
+        await prisma.user.update({
+          where: { userId: admin.userId },
+          data: {
+            storageUsedBytes: allUserStorage._sum.totalBytes || BigInt(0),
+          },
+        });
+
+        totalRecalculated++;
+      }
+    }
+
+    console.log(`[recalculateStorage] Recalculated storage for ${totalRecalculated} admin(s) across ${groupIds.length} group(s)`);
+
+    res.status(200).json({
+      success: true,
+      message: `Storage recalculated for ${groupIds.length} group(s)`,
+      groupsProcessed: groupIds.length,
+    });
+  } catch (error) {
+    console.error('Recalculate storage error:', error);
+    res.status(500).json({
+      error: 'Failed to recalculate storage',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getStorageUsage,
   getGroupFiles,
   requestFileDeletion,
+  recalculateStorage,
 };

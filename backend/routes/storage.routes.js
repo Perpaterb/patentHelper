@@ -33,4 +33,11 @@ router.get('/groups/:groupId/files', storageController.getGroupFiles);
  */
 router.post('/files/:mediaId/delete-request', storageController.requestFileDeletion);
 
+/**
+ * POST /storage/recalculate
+ * Recalculate storage usage based on actual non-deleted files
+ * Use this to fix any discrepancies from files deleted before storage tracking was added
+ */
+router.post('/recalculate', storageController.recalculateStorage);
+
 module.exports = router;
