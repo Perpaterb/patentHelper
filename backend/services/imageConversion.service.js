@@ -33,6 +33,11 @@ const CONVERTIBLE_TYPES = [
 ];
 
 /**
+ * All supported image MIME types
+ */
+const ALL_IMAGE_TYPES = [...PASSTHROUGH_TYPES, ...CONVERTIBLE_TYPES];
+
+/**
  * Check if a MIME type needs conversion
  * @param {string} mimeType - The file's MIME type
  * @returns {boolean} True if conversion is needed
@@ -41,6 +46,58 @@ function needsConversion(mimeType) {
   const normalizedType = mimeType.toLowerCase();
   return !PASSTHROUGH_TYPES.includes(normalizedType) &&
          CONVERTIBLE_TYPES.includes(normalizedType);
+}
+
+/**
+ * Detect image format from buffer using sharp
+ * Sharp can detect format from file magic bytes even if mimeType is wrong
+ * @param {Buffer} buffer - The file buffer
+ * @returns {Promise<{format: string, mimeType: string, isImage: boolean}>}
+ */
+async function detectImageFormat(buffer) {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    if (metadata.format) {
+      // Map sharp format to mimeType
+      const formatToMime = {
+        'jpeg': 'image/jpeg',
+        'jpg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'heif': 'image/heic',
+        'heic': 'image/heic',
+        'avif': 'image/avif',
+        'tiff': 'image/tiff',
+        'svg': 'image/svg+xml',
+        'raw': 'image/raw',
+      };
+
+      const mimeType = formatToMime[metadata.format] || `image/${metadata.format}`;
+      return {
+        format: metadata.format,
+        mimeType: mimeType,
+        isImage: true,
+        width: metadata.width,
+        height: metadata.height,
+      };
+    }
+    return { format: null, mimeType: null, isImage: false };
+  } catch (error) {
+    // Not an image or couldn't be read
+    return { format: null, mimeType: null, isImage: false };
+  }
+}
+
+/**
+ * Check if this buffer might be an image based on content (magic bytes)
+ * Use this when mimeType is unreliable
+ * @param {Buffer} buffer - The file buffer
+ * @returns {Promise<boolean>}
+ */
+async function isImageBuffer(buffer) {
+  const result = await detectImageFormat(buffer);
+  return result.isImage;
 }
 
 /**
@@ -119,6 +176,9 @@ module.exports = {
   isSupportedImage,
   convertToPng,
   getConvertedFilename,
+  detectImageFormat,
+  isImageBuffer,
   PASSTHROUGH_TYPES,
+  ALL_IMAGE_TYPES,
   CONVERTIBLE_TYPES,
 };

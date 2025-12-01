@@ -213,26 +213,55 @@ const MediaPicker = ({
         let mimeType = 'application/octet-stream';
         let ext = 'bin';
 
-        // Get file extension from URI
-        const fileExt = asset.uri.split('.').pop()?.toLowerCase() || '';
-
-        // Check if this is an image based on type, mimeType, or extension
+        // Known file extensions for validation
         const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp', 'avif', 'tiff', 'bmp'];
         const videoExtensions = ['mp4', 'mov', 'avi', 'webm', 'mpeg', 'm4v', '3gp'];
+        const allKnownExtensions = [...imageExtensions, ...videoExtensions];
 
-        const isImage = asset.type === 'image' ||
+        // Get file extension from URI - but validate it's actually an extension
+        // iOS may return URIs like "file://...UUID" without extension
+        const uriParts = asset.uri.split('.');
+        const potentialExt = uriParts.length > 1 ? uriParts.pop()?.toLowerCase() || '' : '';
+        // Only use it if it looks like a real extension (short and known, or at least short)
+        const fileExt = (potentialExt.length <= 5 && allKnownExtensions.includes(potentialExt))
+          ? potentialExt
+          : '';
+
+        // Log for debugging
+        console.log('MediaPicker asset info:', {
+          type: asset.type,
+          mimeType: asset.mimeType,
+          uri: asset.uri.substring(0, 50) + '...',
+          detectedExt: fileExt,
+          potentialExt: potentialExt,
+        });
+
+        // Check if this is an image based on type, mimeType, or extension
+        // Priority: asset.mimeType > asset.type > file extension
+        const isImage = (asset.mimeType && asset.mimeType.startsWith('image/')) ||
+          asset.type === 'image' ||
           asset.type === 'photo' ||  // iOS may return 'photo'
-          (asset.mimeType && asset.mimeType.startsWith('image/')) ||
           imageExtensions.includes(fileExt);
 
-        const isVideo = asset.type === 'video' ||
-          (asset.mimeType && asset.mimeType.startsWith('video/')) ||
+        const isVideo = (asset.mimeType && asset.mimeType.startsWith('video/')) ||
+          asset.type === 'video' ||
           videoExtensions.includes(fileExt);
 
         if (isImage) {
           if (isNonBrowserFormat) {
             // For non-browser formats, preserve original type - backend will convert to PNG
-            ext = fileExt || 'heic';
+            // Determine extension from: fileExt > asset.mimeType > default 'heic'
+            if (fileExt && imageExtensions.includes(fileExt)) {
+              ext = fileExt;
+            } else if (asset.mimeType) {
+              // Extract extension from mimeType like 'image/heic' -> 'heic'
+              const mimeExt = asset.mimeType.split('/')[1]?.toLowerCase();
+              ext = mimeExt || 'heic';
+            } else {
+              ext = 'heic'; // Default for non-browser images without extension
+            }
+
+            // Set mimeType based on extension
             if (ext === 'heic' || ext === 'heif') {
               mimeType = 'image/heic';
             } else if (ext === 'webp') {
@@ -248,20 +277,42 @@ const MediaPicker = ({
             ext = 'jpg';
           }
         } else if (isVideo) {
-          // Determine video extension from URI
-          ext = fileExt || 'mp4';
+          // Determine video extension from URI or mimeType
+          if (fileExt && videoExtensions.includes(fileExt)) {
+            ext = fileExt;
+          } else if (asset.mimeType) {
+            const mimeExt = asset.mimeType.split('/')[1]?.toLowerCase();
+            ext = mimeExt === 'quicktime' ? 'mov' : (mimeExt || 'mp4');
+          } else {
+            ext = 'mp4';
+          }
           mimeType = ext === 'mov' ? 'video/quicktime' : 'video/mp4';
         } else {
-          // Fallback: try to determine from extension
-          if (imageExtensions.includes(fileExt)) {
+          // Fallback: Use asset.mimeType if available, otherwise try to determine from extension
+          if (asset.mimeType && asset.mimeType.startsWith('image/')) {
+            const mimeExt = asset.mimeType.split('/')[1]?.toLowerCase() || 'jpg';
+            mimeType = asset.mimeType;
+            ext = mimeExt;
+          } else if (asset.mimeType && asset.mimeType.startsWith('video/')) {
+            const mimeExt = asset.mimeType.split('/')[1]?.toLowerCase();
+            ext = mimeExt === 'quicktime' ? 'mov' : (mimeExt || 'mp4');
+            mimeType = asset.mimeType;
+          } else if (imageExtensions.includes(fileExt)) {
             mimeType = `image/${fileExt}`;
             ext = fileExt;
           } else if (videoExtensions.includes(fileExt)) {
             mimeType = fileExt === 'mov' ? 'video/quicktime' : 'video/mp4';
             ext = fileExt;
+          } else {
+            // Last resort: assume image if from image picker
+            console.warn('Unknown media type, defaulting to HEIC:', {
+              type: asset.type,
+              mimeType: asset.mimeType,
+              ext: fileExt
+            });
+            mimeType = 'image/heic';
+            ext = 'heic';
           }
-          // If still unknown, keep application/octet-stream
-          console.warn('Unknown media type:', { type: asset.type, mimeType: asset.mimeType, ext: fileExt });
         }
 
         // Generate filename

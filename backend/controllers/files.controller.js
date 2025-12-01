@@ -9,7 +9,14 @@
 
 const { storageService } = require('../services/storage');
 const { prisma } = require('../config/database');
-const { needsConversion, convertToPng, getConvertedFilename } = require('../services/imageConversion.service');
+const {
+  needsConversion,
+  convertToPng,
+  getConvertedFilename,
+  detectImageFormat,
+  PASSTHROUGH_TYPES,
+  ALL_IMAGE_TYPES,
+} = require('../services/imageConversion.service');
 
 /**
  * Upload a single file
@@ -136,9 +143,24 @@ async function uploadFile(req, res) {
     let fileSize = req.file.size;
     let wasConverted = false;
 
-    if (needsConversion(req.file.mimetype)) {
+    // If mimeType is not recognized as an image, try to detect from file content
+    // This handles cases where the client sends wrong mimeType (e.g., text/plain for HEIC)
+    if (!ALL_IMAGE_TYPES.includes(fileMimeType.toLowerCase())) {
+      console.log(`Unrecognized mimeType "${fileMimeType}", attempting to detect from file content...`);
       try {
-        const converted = await convertToPng(req.file.buffer, req.file.mimetype);
+        const detected = await detectImageFormat(req.file.buffer);
+        if (detected.isImage) {
+          console.log(`Detected image format: ${detected.format} (${detected.mimeType})`);
+          fileMimeType = detected.mimeType;
+        }
+      } catch (detectionError) {
+        console.log('Image detection failed, keeping original mimeType:', detectionError.message);
+      }
+    }
+
+    if (needsConversion(fileMimeType)) {
+      try {
+        const converted = await convertToPng(req.file.buffer, fileMimeType);
         fileBuffer = converted.buffer;
         fileMimeType = converted.mimeType;
         fileName = getConvertedFilename(req.file.originalname);
@@ -365,9 +387,23 @@ async function uploadMultipleFiles(req, res) {
       let fileName = file.originalname;
       let fileSize = file.size;
 
-      if (needsConversion(file.mimetype)) {
+      // If mimeType is not recognized as an image, try to detect from file content
+      if (!ALL_IMAGE_TYPES.includes(fileMimeType.toLowerCase())) {
+        console.log(`Unrecognized mimeType "${fileMimeType}" for ${file.originalname}, attempting detection...`);
         try {
-          const converted = await convertToPng(file.buffer, file.mimetype);
+          const detected = await detectImageFormat(file.buffer);
+          if (detected.isImage) {
+            console.log(`Detected image format: ${detected.format} (${detected.mimeType})`);
+            fileMimeType = detected.mimeType;
+          }
+        } catch (detectionError) {
+          console.log('Image detection failed, keeping original mimeType:', detectionError.message);
+        }
+      }
+
+      if (needsConversion(fileMimeType)) {
+        try {
+          const converted = await convertToPng(file.buffer, fileMimeType);
           fileBuffer = converted.buffer;
           fileMimeType = converted.mimeType;
           fileName = getConvertedFilename(file.originalname);

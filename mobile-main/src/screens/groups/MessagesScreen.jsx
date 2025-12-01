@@ -308,13 +308,19 @@ export default function MessagesScreen({ navigation, route }) {
       );
 
       // Add uploaded files to attachedMedia
-      const mediaItems = uploadedFiles.map(file => ({
-        fileId: file.fileId,
-        type: file.mimeType.startsWith('image/') ? 'image' : 'video',
-        url: file.fileId,
-        mimeType: file.mimeType,
-        fileSizeBytes: file.size,
-      }));
+      // Default to 'image' if mimeType doesn't explicitly start with 'video/'
+      // This handles cases where mimeType might be missing or unexpected
+      const mediaItems = uploadedFiles.map(file => {
+        const mimeType = file.mimeType || '';
+        const isVideo = mimeType.startsWith('video/');
+        return {
+          fileId: file.fileId,
+          type: isVideo ? 'video' : 'image',  // Default to image
+          url: file.fileId,
+          mimeType: mimeType || (isVideo ? 'video/mp4' : 'image/png'),
+          fileSizeBytes: file.size || 0,
+        };
+      });
 
       setAttachedMedia([...attachedMedia, ...mediaItems]);
     } catch (err) {
