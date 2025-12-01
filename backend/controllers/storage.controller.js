@@ -196,12 +196,15 @@ async function getGroupFiles(req, res) {
       }
     }
 
-    // Filter by uploader
+    // Filter by uploader(s) - supports comma-separated list
     if (filterUploader && filterUploader.trim()) {
-      mediaWhereClause.message = {
-        ...mediaWhereClause.message,
-        senderId: filterUploader.trim(),
-      };
+      const uploaderIds = filterUploader.split(',').map(u => u.trim()).filter(u => u);
+      if (uploaderIds.length > 0) {
+        mediaWhereClause.message = {
+          ...mediaWhereClause.message,
+          senderId: uploaderIds.length === 1 ? uploaderIds[0] : { in: uploaderIds },
+        };
+      }
     }
 
     // Get all media files from this group with uploader and hider info

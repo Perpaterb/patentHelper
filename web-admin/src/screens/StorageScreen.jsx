@@ -54,9 +54,8 @@ export default function StorageScreen({ navigation }) {
   // Filter state
   const [filterVisible, setFilterVisible] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState([]); // ['image', 'video']
-  const [selectedUploader, setSelectedUploader] = useState(null); // groupMemberId
+  const [selectedUploaders, setSelectedUploaders] = useState([]); // array of groupMemberIds
   const [availableUploaders, setAvailableUploaders] = useState([]);
-  const [uploaderMenuVisible, setUploaderMenuVisible] = useState(false);
 
   // Preview modal state
   const [previewFile, setPreviewFile] = useState(null);
@@ -70,7 +69,7 @@ export default function StorageScreen({ navigation }) {
     if (selectedGroup) {
       fetchGroupFiles(selectedGroup.groupId);
     }
-  }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploader]);
+  }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploaders]);
 
   async function fetchStorage() {
     try {
@@ -96,9 +95,9 @@ export default function StorageScreen({ navigation }) {
         params.filterType = selectedTypes.join(',');
       }
 
-      // Add uploader filter if selected
-      if (selectedUploader) {
-        params.filterUploader = selectedUploader;
+      // Add uploader filter if selected (multiple uploaders)
+      if (selectedUploaders.length > 0) {
+        params.filterUploader = selectedUploaders.join(',');
       }
 
       const response = await api.get(`/storage/groups/${groupId}/files`, { params });
@@ -120,9 +119,17 @@ export default function StorageScreen({ navigation }) {
     );
   }
 
+  function toggleUploaderFilter(uploaderId) {
+    setSelectedUploaders(prev =>
+      prev.includes(uploaderId)
+        ? prev.filter(u => u !== uploaderId)
+        : [...prev, uploaderId]
+    );
+  }
+
   function clearFilters() {
     setSelectedTypes([]);
-    setSelectedUploader(null);
+    setSelectedUploaders([]);
   }
 
   function openPreview(file) {
@@ -217,13 +224,8 @@ export default function StorageScreen({ navigation }) {
     ? (storage.usedBytes / storage.totalBytes) * 100
     : 0;
 
-  // Get selected uploader name for display
-  const selectedUploaderName = selectedUploader
-    ? availableUploaders.find(u => u.groupMemberId === selectedUploader)?.displayName || 'Unknown'
-    : null;
-
   // Check if any filters are active
-  const hasActiveFilters = selectedTypes.length > 0 || selectedUploader;
+  const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0;
 
   // If viewing a specific group's files
   if (selectedGroup) {
@@ -312,7 +314,7 @@ export default function StorageScreen({ navigation }) {
                   icon="filter"
                   style={styles.filterButton}
                 >
-                  Filters {hasActiveFilters && `(${selectedTypes.length + (selectedUploader ? 1 : 0)})`}
+                  Filters
                 </Button>
               </View>
 
@@ -321,6 +323,17 @@ export default function StorageScreen({ navigation }) {
                 <View style={styles.filterPanel}>
                   <Divider style={styles.divider} />
 
+                  <View style={styles.filterHeader}>
+                    <Title style={styles.filterTitle}>Filters</Title>
+                    <Button
+                      mode="text"
+                      onPress={clearFilters}
+                      disabled={!hasActiveFilters}
+                    >
+                      Clear All
+                    </Button>
+                  </View>
+
                   {/* Type filters */}
                   <Text style={styles.filterSectionTitle}>File Type</Text>
                   <View style={styles.filterChipsRow}>
@@ -328,7 +341,6 @@ export default function StorageScreen({ navigation }) {
                       selected={selectedTypes.includes('image')}
                       onPress={() => toggleTypeFilter('image')}
                       style={styles.filterChip}
-                      icon="image"
                     >
                       Images
                     </Chip>
@@ -336,7 +348,6 @@ export default function StorageScreen({ navigation }) {
                       selected={selectedTypes.includes('video')}
                       onPress={() => toggleTypeFilter('video')}
                       style={styles.filterChip}
-                      icon="video"
                     >
                       Videos
                     </Chip>
@@ -344,52 +355,26 @@ export default function StorageScreen({ navigation }) {
 
                   {/* Uploader filter */}
                   <Text style={styles.filterSectionTitle}>Uploaded By</Text>
-                  <Menu
-                    visible={uploaderMenuVisible}
-                    onDismiss={() => setUploaderMenuVisible(false)}
-                    anchor={
-                      <Button
-                        mode="outlined"
-                        onPress={() => setUploaderMenuVisible(true)}
-                        icon="account"
-                        style={styles.uploaderButton}
-                      >
-                        {selectedUploaderName || 'All Uploaders'}
-                      </Button>
-                    }
-                  >
-                    <Menu.Item
-                      onPress={() => {
-                        setSelectedUploader(null);
-                        setUploaderMenuVisible(false);
-                      }}
-                      title="All Uploaders"
-                      leadingIcon={!selectedUploader ? 'check' : undefined}
-                    />
-                    <Divider />
+                  <View style={styles.filterChipsRow}>
                     {availableUploaders.map(uploader => (
-                      <Menu.Item
+                      <Chip
                         key={uploader.groupMemberId}
-                        onPress={() => {
-                          setSelectedUploader(uploader.groupMemberId);
-                          setUploaderMenuVisible(false);
-                        }}
-                        title={uploader.displayName}
-                        leadingIcon={selectedUploader === uploader.groupMemberId ? 'check' : undefined}
-                      />
+                        selected={selectedUploaders.includes(uploader.groupMemberId)}
+                        onPress={() => toggleUploaderFilter(uploader.groupMemberId)}
+                        style={styles.filterChip}
+                      >
+                        {uploader.displayName}
+                      </Chip>
                     ))}
-                  </Menu>
+                  </View>
 
-                  {/* Clear filters button */}
+                  {/* Active Filters Summary */}
                   {hasActiveFilters && (
-                    <Button
-                      mode="text"
-                      onPress={clearFilters}
-                      icon="close"
-                      style={styles.clearFiltersButton}
-                    >
-                      Clear All Filters
-                    </Button>
+                    <View style={styles.activeFiltersSummary}>
+                      <Text style={styles.activeFiltersText}>
+                        Active filters: {selectedTypes.length} types, {selectedUploaders.length} uploaders
+                      </Text>
+                    </View>
                   )}
                 </View>
               )}
@@ -1090,10 +1075,18 @@ const styles = StyleSheet.create({
   filterPanel: {
     marginTop: 8,
   },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  filterTitle: {
+    fontSize: 16,
+  },
   filterSectionTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#666',
     marginTop: 12,
     marginBottom: 8,
   },
@@ -1106,12 +1099,15 @@ const styles = StyleSheet.create({
     marginRight: 4,
     marginBottom: 4,
   },
-  uploaderButton: {
-    alignSelf: 'flex-start',
+  activeFiltersSummary: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 4,
   },
-  clearFiltersButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
+  activeFiltersText: {
+    fontSize: 13,
+    color: '#1976d2',
   },
   // File row with thumbnails
   fileRowClickable: {
