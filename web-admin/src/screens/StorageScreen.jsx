@@ -246,15 +246,23 @@ export default function StorageScreen({ navigation }) {
   // Check if any filters are active
   const hasActiveFilters = selectedTypes.length > 0 || selectedUploaders.length > 0 || fromDate || toDate || showPendingDeletion || showDeleted;
 
-  // Filter files client-side for status filters (backend returns all files, we filter here)
+  // Filter files client-side - all filters work together (AND logic)
+  // By default (no status filter), exclude deleted and pending deletion files
+  // If status filter is selected, show ONLY files matching that status
   const displayedFiles = (() => {
     let files = groupFiles;
 
-    // Apply status filters (these are mutually exclusive for clarity)
-    if (showPendingDeletion) {
-      files = files.filter(file => file.pendingDeletion === true);
-    } else if (showDeleted) {
+    // Status filtering logic:
+    // - No status filter selected: Show only "normal" files (not deleted, not pending)
+    // - Deleted selected: Show only deleted files
+    // - Pending Deletion selected: Show only pending deletion files
+    if (showDeleted) {
       files = files.filter(file => file.isDeleted === true);
+    } else if (showPendingDeletion) {
+      files = files.filter(file => file.pendingDeletion === true);
+    } else {
+      // Default: exclude deleted and pending deletion files
+      files = files.filter(file => !file.isDeleted && !file.pendingDeletion);
     }
 
     return files;
@@ -400,7 +408,7 @@ export default function StorageScreen({ navigation }) {
                             style={[styles.filterChip, showPendingDeletion && styles.pendingDeletionFilterChip]}
                             icon={showPendingDeletion ? 'check' : 'clock-outline'}
                           >
-                            Pending Deletion ({groupFiles.filter(f => f.pendingDeletion).length})
+                            Pending Deletion
                           </Chip>
                         )}
                         {groupFiles.some(f => f.isDeleted) && (
@@ -413,7 +421,7 @@ export default function StorageScreen({ navigation }) {
                             style={[styles.filterChip, showDeleted && styles.deletedFilterChip]}
                             icon={showDeleted ? 'check' : 'delete-outline'}
                           >
-                            Deleted ({groupFiles.filter(f => f.isDeleted).length})
+                            Deleted
                           </Chip>
                         )}
                       </View>
