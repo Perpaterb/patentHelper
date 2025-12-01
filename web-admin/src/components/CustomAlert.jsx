@@ -77,7 +77,7 @@ export function CustomAlertProvider({ children }) {
           <Dialog.Content style={styles.content}>
             <Text style={styles.message}>{message}</Text>
           </Dialog.Content>
-          <Dialog.Actions style={styles.actions}>
+          <View style={styles.actions}>
             {buttons.map((button, index) => {
               const isCancelButton = button.style === 'cancel';
               const isDestructiveButton = button.style === 'destructive';
@@ -87,7 +87,8 @@ export function CustomAlertProvider({ children }) {
                   key={index}
                   mode="text"
                   onPress={() => handleButtonPress(button)}
-                  style={styles.button}
+                  style={[styles.button, { flex: 1 }]}
+                  contentStyle={styles.buttonContent}
                   labelStyle={[
                     styles.buttonLabel,
                     isCancelButton && styles.cancelButtonLabel,
@@ -99,7 +100,7 @@ export function CustomAlertProvider({ children }) {
                 </Button>
               );
             })}
-          </Dialog.Actions>
+          </View>
         </Dialog>
       </Portal>
     </CustomAlertContext.Provider>
@@ -185,14 +186,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    paddingHorizontal: 8,
-    paddingBottom: 12,
-    justifyContent: 'center',
     flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 8,
   },
   button: {
-    marginHorizontal: 4,
-    minWidth: 80,
+    borderRadius: 0,
+    paddingVertical: 4,
+  },
+  buttonContent: {
+    paddingVertical: 8,
   },
   buttonLabel: {
     fontSize: 15,
