@@ -103,6 +103,46 @@ async function executeApprovedAction(approval) {
         }
         break;
 
+      case 'delete_file':
+        // Soft delete file by setting isHidden flag
+        if (approval.relatedEntityId) {
+          await prisma.messageMedia.update({
+            where: { mediaId: approval.relatedEntityId },
+            data: {
+              isHidden: true,
+              hiddenAt: new Date(),
+              hiddenBy: approval.requestedBy,
+            },
+          });
+
+          // Create audit log
+          await prisma.auditLog.create({
+            data: {
+              groupId: approval.groupId,
+              action: 'delete_file',
+              performedBy: approval.requestedBy,
+              performedByName: 'Approved by admins',
+              performedByEmail: 'N/A',
+              actionLocation: 'storage',
+              messageContent: `File deleted (ID: ${approval.relatedEntityId}). Reason: Admin approval workflow. File: ${data.fileName || 'Unknown'}`,
+            },
+          });
+
+          console.log(`[executeApprovedAction] Soft-deleted file ${approval.relatedEntityId}`);
+        }
+        break;
+
+      case 'delete_log_export':
+        // Soft delete log export
+        if (approval.relatedEntityId) {
+          await prisma.logExport.update({
+            where: { exportId: approval.relatedEntityId },
+            data: { isHidden: true },
+          });
+          console.log(`[executeApprovedAction] Soft-deleted log export ${approval.relatedEntityId}`);
+        }
+        break;
+
       default:
         console.log(`[executeApprovedAction] Unknown approval type: ${approval.approvalType}`);
     }

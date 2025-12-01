@@ -4,12 +4,13 @@
  * Admin-only screen for viewing and managing storage usage.
  * Shows breakdown by groups, with ability to drill into each group
  * and manage individual files with admin approval for deletion.
+ * Includes image/video previews and filtering by type and uploader.
  *
  * React Native Paper version for web-admin.
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, Image, Modal } from 'react-native';
 import {
   Text,
   Button,
@@ -25,10 +26,11 @@ import {
   Portal,
   Dialog,
   Menu,
-  DataTable,
+  Avatar,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../services/api';
+import { getContrastTextColor } from '../utils/colorUtils';
 
 export default function StorageScreen({ navigation }) {
   const [storage, setStorage] = useState(null);
@@ -49,6 +51,17 @@ export default function StorageScreen({ navigation }) {
   const [deleting, setDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  // Filter state
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState([]); // ['image', 'video']
+  const [selectedUploader, setSelectedUploader] = useState(null); // groupMemberId
+  const [availableUploaders, setAvailableUploaders] = useState([]);
+  const [uploaderMenuVisible, setUploaderMenuVisible] = useState(false);
+
+  // Preview modal state
+  const [previewFile, setPreviewFile] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+
   useEffect(() => {
     fetchStorage();
   }, []);
@@ -57,7 +70,7 @@ export default function StorageScreen({ navigation }) {
     if (selectedGroup) {
       fetchGroupFiles(selectedGroup.groupId);
     }
-  }, [selectedGroup, sortBy, sortOrder]);
+  }, [selectedGroup, sortBy, sortOrder, selectedTypes, selectedUploader]);
 
   async function fetchStorage() {
     try {
@@ -76,16 +89,52 @@ export default function StorageScreen({ navigation }) {
   async function fetchGroupFiles(groupId) {
     try {
       setFilesLoading(true);
-      const response = await api.get(`/storage/groups/${groupId}/files`, {
-        params: { sortBy, sortOrder }
-      });
+      const params = { sortBy, sortOrder };
+
+      // Add type filter if selected
+      if (selectedTypes.length > 0) {
+        params.filterType = selectedTypes.join(',');
+      }
+
+      // Add uploader filter if selected
+      if (selectedUploader) {
+        params.filterUploader = selectedUploader;
+      }
+
+      const response = await api.get(`/storage/groups/${groupId}/files`, { params });
       setGroupFiles(response.data.files || []);
+      setAvailableUploaders(response.data.availableUploaders || []);
     } catch (err) {
       console.error('Failed to fetch group files:', err);
       setGroupFiles([]);
     } finally {
       setFilesLoading(false);
     }
+  }
+
+  function toggleTypeFilter(type) {
+    setSelectedTypes(prev =>
+      prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  }
+
+  function clearFilters() {
+    setSelectedTypes([]);
+    setSelectedUploader(null);
+  }
+
+  function openPreview(file) {
+    if (file.fileType === 'image' || file.fileType === 'video') {
+      setPreviewFile(file);
+      setPreviewVisible(true);
+    }
+  }
+
+  function closePreview() {
+    setPreviewVisible(false);
+    setPreviewFile(null);
   }
 
   async function handleDeleteFile() {
@@ -168,6 +217,14 @@ export default function StorageScreen({ navigation }) {
     ? (storage.usedBytes / storage.totalBytes) * 100
     : 0;
 
+  // Get selected uploader name for display
+  const selectedUploaderName = selectedUploader
+    ? availableUploaders.find(u => u.groupMemberId === selectedUploader)?.displayName || 'Unknown'
+    : null;
+
+  // Check if any filters are active
+  const hasActiveFilters = selectedTypes.length > 0 || selectedUploader;
+
   // If viewing a specific group's files
   if (selectedGroup) {
     return (
@@ -180,6 +237,7 @@ export default function StorageScreen({ navigation }) {
               onPress={() => {
                 setSelectedGroup(null);
                 setGroupFiles([]);
+                clearFilters();
               }}
               icon="arrow-left"
             >
@@ -190,6 +248,7 @@ export default function StorageScreen({ navigation }) {
           <Title style={styles.pageTitle}>{selectedGroup.name} - Storage</Title>
           <Paragraph style={styles.pageSubtitle}>
             {formatBytes(selectedGroup.usedBytes)} used across {groupFiles.length} files
+            {hasActiveFilters && ' (filtered)'}
           </Paragraph>
 
           {/* Success Message */}
@@ -208,45 +267,136 @@ export default function StorageScreen({ navigation }) {
             </Surface>
           )}
 
-          {/* Sort controls */}
+          {/* Sort and Filter controls */}
           <Card style={styles.card}>
             <Card.Content>
-              <View style={styles.sortRow}>
-                <Text style={styles.sortLabel}>Sort by:</Text>
-                <Menu
-                  visible={sortMenuVisible}
-                  onDismiss={() => setSortMenuVisible(false)}
-                  anchor={
-                    <Button
-                      mode="outlined"
-                      onPress={() => setSortMenuVisible(true)}
-                      icon={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
-                    >
-                      {sortBy === 'size' ? 'Size' : sortBy === 'name' ? 'Name' : 'Date'}
-                    </Button>
-                  }
+              <View style={styles.controlsRow}>
+                {/* Sort controls */}
+                <View style={styles.sortRow}>
+                  <Text style={styles.sortLabel}>Sort by:</Text>
+                  <Menu
+                    visible={sortMenuVisible}
+                    onDismiss={() => setSortMenuVisible(false)}
+                    anchor={
+                      <Button
+                        mode="outlined"
+                        onPress={() => setSortMenuVisible(true)}
+                        icon={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'}
+                      >
+                        {sortBy === 'size' ? 'Size' : sortBy === 'name' ? 'Name' : 'Date'}
+                      </Button>
+                    }
+                  >
+                    <Menu.Item
+                      onPress={() => toggleSort('size')}
+                      title="Size"
+                      leadingIcon={sortBy === 'size' ? 'check' : undefined}
+                    />
+                    <Menu.Item
+                      onPress={() => toggleSort('name')}
+                      title="Name"
+                      leadingIcon={sortBy === 'name' ? 'check' : undefined}
+                    />
+                    <Menu.Item
+                      onPress={() => toggleSort('date')}
+                      title="Date"
+                      leadingIcon={sortBy === 'date' ? 'check' : undefined}
+                    />
+                  </Menu>
+                </View>
+
+                {/* Filter toggle button */}
+                <Button
+                  mode={filterVisible ? 'contained' : 'outlined'}
+                  onPress={() => setFilterVisible(!filterVisible)}
+                  icon="filter"
+                  style={styles.filterButton}
                 >
-                  <Menu.Item
-                    onPress={() => toggleSort('size')}
-                    title="Size"
-                    leadingIcon={sortBy === 'size' ? 'check' : undefined}
-                  />
-                  <Menu.Item
-                    onPress={() => toggleSort('name')}
-                    title="Name"
-                    leadingIcon={sortBy === 'name' ? 'check' : undefined}
-                  />
-                  <Menu.Item
-                    onPress={() => toggleSort('date')}
-                    title="Date"
-                    leadingIcon={sortBy === 'date' ? 'check' : undefined}
-                  />
-                </Menu>
+                  Filters {hasActiveFilters && `(${selectedTypes.length + (selectedUploader ? 1 : 0)})`}
+                </Button>
               </View>
+
+              {/* Expandable filter panel */}
+              {filterVisible && (
+                <View style={styles.filterPanel}>
+                  <Divider style={styles.divider} />
+
+                  {/* Type filters */}
+                  <Text style={styles.filterSectionTitle}>File Type</Text>
+                  <View style={styles.filterChipsRow}>
+                    <Chip
+                      selected={selectedTypes.includes('image')}
+                      onPress={() => toggleTypeFilter('image')}
+                      style={styles.filterChip}
+                      icon="image"
+                    >
+                      Images
+                    </Chip>
+                    <Chip
+                      selected={selectedTypes.includes('video')}
+                      onPress={() => toggleTypeFilter('video')}
+                      style={styles.filterChip}
+                      icon="video"
+                    >
+                      Videos
+                    </Chip>
+                  </View>
+
+                  {/* Uploader filter */}
+                  <Text style={styles.filterSectionTitle}>Uploaded By</Text>
+                  <Menu
+                    visible={uploaderMenuVisible}
+                    onDismiss={() => setUploaderMenuVisible(false)}
+                    anchor={
+                      <Button
+                        mode="outlined"
+                        onPress={() => setUploaderMenuVisible(true)}
+                        icon="account"
+                        style={styles.uploaderButton}
+                      >
+                        {selectedUploaderName || 'All Uploaders'}
+                      </Button>
+                    }
+                  >
+                    <Menu.Item
+                      onPress={() => {
+                        setSelectedUploader(null);
+                        setUploaderMenuVisible(false);
+                      }}
+                      title="All Uploaders"
+                      leadingIcon={!selectedUploader ? 'check' : undefined}
+                    />
+                    <Divider />
+                    {availableUploaders.map(uploader => (
+                      <Menu.Item
+                        key={uploader.groupMemberId}
+                        onPress={() => {
+                          setSelectedUploader(uploader.groupMemberId);
+                          setUploaderMenuVisible(false);
+                        }}
+                        title={uploader.displayName}
+                        leadingIcon={selectedUploader === uploader.groupMemberId ? 'check' : undefined}
+                      />
+                    ))}
+                  </Menu>
+
+                  {/* Clear filters button */}
+                  {hasActiveFilters && (
+                    <Button
+                      mode="text"
+                      onPress={clearFilters}
+                      icon="close"
+                      style={styles.clearFiltersButton}
+                    >
+                      Clear All Filters
+                    </Button>
+                  )}
+                </View>
+              )}
             </Card.Content>
           </Card>
 
-          {/* Files list */}
+          {/* Files list with previews */}
           <Card style={styles.card}>
             <Card.Content>
               <Title>Files</Title>
@@ -258,48 +408,149 @@ export default function StorageScreen({ navigation }) {
                   <Text style={styles.filesLoadingText}>Loading files...</Text>
                 </View>
               ) : groupFiles.length === 0 ? (
-                <Text style={styles.noFilesText}>No files in this group</Text>
+                <Text style={styles.noFilesText}>
+                  {hasActiveFilters ? 'No files match the selected filters' : 'No files in this group'}
+                </Text>
               ) : (
                 groupFiles.map((file) => (
-                  <View key={file.mediaId} style={styles.fileRow}>
-                    <View style={styles.fileInfo}>
-                      <MaterialCommunityIcons
-                        name={getFileIcon(file.mimeType)}
-                        size={24}
-                        color="#666"
-                        style={styles.fileIcon}
-                      />
-                      <View style={styles.fileDetails}>
-                        <Text style={styles.fileName} numberOfLines={1}>
-                          {file.fileName || 'Unnamed file'}
-                        </Text>
-                        <Text style={styles.fileMeta}>
-                          {formatBytes(file.fileSizeBytes)} • {formatDate(file.uploadedAt)}
-                        </Text>
-                        {file.pendingDeletion && (
-                          <Chip style={styles.pendingChip} textStyle={styles.pendingChipText}>
-                            Pending deletion approval
-                          </Chip>
-                        )}
+                  <Pressable
+                    key={file.mediaId}
+                    style={({ pressed }) => [
+                      styles.fileRow,
+                      file.isDeleted && styles.fileRowDeleted,
+                      !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowClickable,
+                      pressed && !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowPressed,
+                    ]}
+                    onPress={() => !file.isDeleted && openPreview(file)}
+                    disabled={file.isDeleted}
+                  >
+                    {/* Deleted file placeholder */}
+                    {file.isDeleted ? (
+                      <View style={styles.deletedIconContainer}>
+                        <MaterialCommunityIcons
+                          name="delete-circle"
+                          size={32}
+                          color="#d32f2f"
+                        />
                       </View>
+                    ) : (
+                      /* Thumbnail preview for images/videos */
+                      (file.fileType === 'image' || file.fileType === 'video') && (file.thumbnailUrl || file.url) ? (
+                        <View style={styles.thumbnailContainer}>
+                          <Image
+                            source={{ uri: file.thumbnailUrl || file.url }}
+                            style={styles.thumbnail}
+                            resizeMode="cover"
+                          />
+                          {file.fileType === 'video' && (
+                            <View style={styles.videoOverlay}>
+                              <MaterialCommunityIcons name="play-circle" size={24} color="#fff" />
+                            </View>
+                          )}
+                        </View>
+                      ) : (
+                        <View style={styles.iconContainer}>
+                          <MaterialCommunityIcons
+                            name={getFileIcon(file.mimeType)}
+                            size={32}
+                            color="#666"
+                          />
+                        </View>
+                      )
+                    )}
+
+                    <View style={styles.fileDetails}>
+                      {file.isDeleted ? (
+                        <>
+                          <Text style={styles.deletedFileName} numberOfLines={1}>
+                            {file.fileName || 'Unnamed file'}
+                          </Text>
+                          <Chip style={styles.deletedChip} textStyle={styles.deletedChipText} icon="delete">
+                            Deleted by Admin
+                          </Chip>
+                          {/* Deleted by info */}
+                          {file.deletedBy && (
+                            <View style={styles.deletedByRow}>
+                              <Avatar.Text
+                                size={18}
+                                label={file.deletedBy.iconLetters || '?'}
+                                style={{ backgroundColor: file.deletedBy.iconColor || '#d32f2f' }}
+                                color={getContrastTextColor(file.deletedBy.iconColor || '#d32f2f')}
+                              />
+                              <Text style={styles.deletedByText}>
+                                {file.deletedBy.displayName} • {formatDate(file.deletedAt)}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={styles.deletedMeta}>
+                            Original: {formatBytes(file.fileSizeBytes)} • {formatDate(file.uploadedAt)}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.fileName} numberOfLines={1}>
+                            {file.fileName || 'Unnamed file'}
+                          </Text>
+                          <Text style={styles.fileMeta}>
+                            {formatBytes(file.fileSizeBytes)} • {formatDate(file.uploadedAt)}
+                          </Text>
+
+                          {/* Uploader info */}
+                          {file.uploader && (
+                            <View style={styles.uploaderRow}>
+                              <Avatar.Text
+                                size={18}
+                                label={file.uploader.iconLetters || '?'}
+                                style={{ backgroundColor: file.uploader.iconColor || '#6200ee' }}
+                                color={getContrastTextColor(file.uploader.iconColor || '#6200ee')}
+                              />
+                              <Text style={styles.uploaderName}>
+                                {file.uploader.displayName}
+                              </Text>
+                            </View>
+                          )}
+
+                          {file.pendingDeletion && (
+                            <Chip style={styles.pendingChip} textStyle={styles.pendingChipText}>
+                              Pending deletion approval
+                            </Chip>
+                          )}
+                        </>
+                      )}
                     </View>
-                    {!file.pendingDeletion && !file.isLog && (
-                      <IconButton
-                        icon="delete"
-                        iconColor="#d32f2f"
-                        size={20}
-                        onPress={() => {
-                          setFileToDelete(file);
-                          setDeleteDialogVisible(true);
-                        }}
-                      />
-                    )}
-                    {file.isLog && (
-                      <Chip style={styles.logChip} textStyle={styles.logChipText}>
-                        Log
-                      </Chip>
-                    )}
-                  </View>
+
+                    <View style={styles.fileActions}>
+                      {/* File type badge */}
+                      {!file.isDeleted && file.fileType === 'image' && (
+                        <Chip style={styles.typeChip} textStyle={styles.typeChipText} icon="image">
+                          Image
+                        </Chip>
+                      )}
+                      {!file.isDeleted && file.fileType === 'video' && (
+                        <Chip style={styles.typeChip} textStyle={styles.typeChipText} icon="video">
+                          Video
+                        </Chip>
+                      )}
+
+                      {!file.isDeleted && !file.pendingDeletion && !file.isLog && (
+                        <IconButton
+                          icon="delete"
+                          iconColor="#d32f2f"
+                          size={20}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setFileToDelete(file);
+                            setDeleteDialogVisible(true);
+                          }}
+                        />
+                      )}
+                      {!file.isDeleted && file.isLog && (
+                        <Chip style={styles.logChip} textStyle={styles.logChipText}>
+                          Log
+                        </Chip>
+                      )}
+                    </View>
+                  </Pressable>
                 ))
               )}
             </Card.Content>
@@ -340,6 +591,58 @@ export default function StorageScreen({ navigation }) {
               </Button>
             </Dialog.Actions>
           </Dialog>
+        </Portal>
+
+        {/* Preview Modal for Images/Videos */}
+        <Portal>
+          <Modal
+            visible={previewVisible}
+            transparent
+            onRequestClose={closePreview}
+          >
+            <Pressable style={styles.previewOverlay} onPress={closePreview}>
+              <View style={styles.previewContainer}>
+                <View style={styles.previewHeader}>
+                  <Text style={styles.previewTitle} numberOfLines={1}>
+                    {previewFile?.fileName || 'Preview'}
+                  </Text>
+                  <IconButton
+                    icon="close"
+                    iconColor="#fff"
+                    size={24}
+                    onPress={closePreview}
+                  />
+                </View>
+
+                {previewFile?.fileType === 'image' && (
+                  <Image
+                    source={{ uri: previewFile.url }}
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                )}
+
+                {previewFile?.fileType === 'video' && (
+                  <video
+                    src={previewFile.url}
+                    controls
+                    style={{ maxWidth: '100%', maxHeight: '80vh' }}
+                  />
+                )}
+
+                <View style={styles.previewInfo}>
+                  <Text style={styles.previewInfoText}>
+                    {formatBytes(previewFile?.fileSizeBytes)} • {formatDate(previewFile?.uploadedAt)}
+                  </Text>
+                  {previewFile?.uploader && (
+                    <Text style={styles.previewInfoText}>
+                      Uploaded by: {previewFile.uploader.displayName}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </Pressable>
+          </Modal>
         </Portal>
       </ScrollView>
     );
@@ -771,5 +1074,191 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 16,
     alignSelf: 'flex-start',
+  },
+  // Controls row (sort + filter)
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  filterButton: {
+    marginLeft: 'auto',
+  },
+  // Filter panel
+  filterPanel: {
+    marginTop: 8,
+  },
+  filterSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  uploaderButton: {
+    alignSelf: 'flex-start',
+  },
+  clearFiltersButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  // File row with thumbnails
+  fileRowClickable: {
+    cursor: 'pointer',
+  },
+  fileRowPressed: {
+    backgroundColor: '#f5f5f5',
+  },
+  fileRowDeleted: {
+    backgroundColor: '#ffebee',
+    opacity: 0.8,
+  },
+  deletedIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#ffcdd2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deletedFileName: {
+    fontSize: 14,
+    marginBottom: 4,
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  deletedChip: {
+    backgroundColor: '#ffebee',
+    borderColor: '#d32f2f',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  deletedChipText: {
+    fontSize: 10,
+    color: '#d32f2f',
+    fontWeight: 'bold',
+  },
+  deletedByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  deletedByText: {
+    fontSize: 11,
+    color: '#d32f2f',
+    marginLeft: 6,
+  },
+  deletedMeta: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  thumbnailContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  videoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  uploaderName: {
+    fontSize: 11,
+    color: '#666',
+    marginLeft: 6,
+  },
+  fileActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeChip: {
+    backgroundColor: '#f3e5f5',
+  },
+  typeChipText: {
+    fontSize: 10,
+    color: '#7b1fa2',
+  },
+  // Preview modal
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  previewContainer: {
+    maxWidth: '90%',
+    maxHeight: '90%',
+    backgroundColor: '#000',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  previewTitle: {
+    color: '#fff',
+    fontSize: 16,
+    flex: 1,
+  },
+  previewImage: {
+    width: '100%',
+    height: 500,
+    maxHeight: '70vh',
+  },
+  previewInfo: {
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  previewInfoText: {
+    color: '#fff',
+    fontSize: 12,
+    marginBottom: 4,
   },
 });

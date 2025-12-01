@@ -136,7 +136,8 @@ async function getStorageUsage(req, res) {
  * Get files for a specific group
  * GET /storage/groups/:groupId/files
  *
- * Returns all files in a group with sorting options.
+ * Returns all files in a group with sorting and filtering options.
+ * Includes uploader information for each file.
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -145,7 +146,12 @@ async function getGroupFiles(req, res) {
   try {
     const userId = req.user.userId;
     const { groupId } = req.params;
-    const { sortBy = 'size', sortOrder = 'desc' } = req.query;
+    const {
+      sortBy = 'size',
+      sortOrder = 'desc',
+      filterType,     // comma-separated: 'image,video' or 'image' or 'video'
+      filterUploader, // groupMemberId of uploader
+    } = req.query;
 
     // Verify user is admin of this group
     const membership = await prisma.groupMember.findFirst({
@@ -163,20 +169,80 @@ async function getGroupFiles(req, res) {
       });
     }
 
-    // Get all media files from this group
-    const mediaFiles = await prisma.messageMedia.findMany({
-      where: {
-        message: {
-          messageGroup: {
-            groupId: groupId,
-          },
+    // Build where clause for filtering
+    // Include hidden files so admins can see "Deleted by admin" notice
+    const mediaWhereClause = {
+      message: {
+        messageGroup: {
+          groupId: groupId,
         },
       },
+    };
+
+    // Filter by type (image/video)
+    if (filterType && filterType.trim()) {
+      const types = filterType.split(',').map(t => t.trim().toLowerCase());
+      // mediaType is stored as full MIME type (e.g., "image/jpeg", "video/mp4")
+      // We need to filter using startsWith pattern
+      const typeConditions = [];
+      if (types.includes('image')) {
+        typeConditions.push({ mediaType: { startsWith: 'image/' } });
+      }
+      if (types.includes('video')) {
+        typeConditions.push({ mediaType: { startsWith: 'video/' } });
+      }
+      if (typeConditions.length > 0) {
+        mediaWhereClause.OR = typeConditions;
+      }
+    }
+
+    // Filter by uploader
+    if (filterUploader && filterUploader.trim()) {
+      mediaWhereClause.message = {
+        ...mediaWhereClause.message,
+        senderId: filterUploader.trim(),
+      };
+    }
+
+    // Get all media files from this group with uploader and hider info
+    const mediaFiles = await prisma.messageMedia.findMany({
+      where: mediaWhereClause,
       include: {
         message: {
           select: {
             messageId: true,
             createdAt: true,
+            senderId: true,
+            sender: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        hider: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
           },
         },
       },
@@ -195,22 +261,83 @@ async function getGroupFiles(req, res) {
     });
     const pendingMediaIds = new Set(pendingDeletions.map(a => a.relatedEntityId));
 
+    // Check for deleted files (isHidden in message or approval status = approved for delete_file)
+    const deletedApprovals = await prisma.approval.findMany({
+      where: {
+        groupId: groupId,
+        approvalType: 'delete_file',
+        status: 'approved',
+      },
+      select: {
+        relatedEntityId: true,
+        approvalData: true,
+      },
+    });
+    const deletedMediaInfo = new Map(deletedApprovals.map(a => [a.relatedEntityId, a.approvalData]));
+
+    // Get unique uploaders for filter options
+    const uploaderMap = new Map();
+
     // Format files
     let files = mediaFiles.map(file => {
       // Extract filename from s3Key (e.g., "uploads/messages/uuid/filename.jpg")
       const s3KeyParts = file.s3Key ? file.s3Key.split('/') : [];
       const fileName = s3KeyParts.length > 0 ? s3KeyParts[s3KeyParts.length - 1] : 'Unnamed file';
 
+      // Get uploader info (prefer user profile over group member profile)
+      const sender = file.message.sender;
+      const uploader = {
+        groupMemberId: sender?.groupMemberId,
+        displayName: sender?.user?.displayName || sender?.displayName || 'Unknown',
+        iconLetters: sender?.user?.memberIcon || sender?.iconLetters || '?',
+        iconColor: sender?.user?.iconColor || sender?.iconColor || '#6200ee',
+      };
+
+      // Track unique uploaders for filter options
+      if (uploader.groupMemberId && !uploaderMap.has(uploader.groupMemberId)) {
+        uploaderMap.set(uploader.groupMemberId, {
+          groupMemberId: uploader.groupMemberId,
+          displayName: uploader.displayName,
+          iconLetters: uploader.iconLetters,
+          iconColor: uploader.iconColor,
+        });
+      }
+
+      // Get hider/deleter info if file was soft-deleted
+      let deletedBy = null;
+      if (file.isHidden && file.hider) {
+        deletedBy = {
+          groupMemberId: file.hider.groupMemberId,
+          displayName: file.hider.user?.displayName || file.hider.displayName || 'Unknown',
+          iconLetters: file.hider.user?.memberIcon || file.hider.iconLetters || '?',
+          iconColor: file.hider.user?.iconColor || file.hider.iconColor || '#6200ee',
+        };
+      }
+
+      // Determine file type category
+      let fileType = 'document';
+      if (file.mediaType?.startsWith('image/')) {
+        fileType = 'image';
+      } else if (file.mediaType?.startsWith('video/')) {
+        fileType = 'video';
+      }
+
       return {
         mediaId: file.mediaId,
         fileName: fileName,
         fileSizeBytes: Number(file.fileSizeBytes),
-        mimeType: file.mediaType, // Use mediaType field from schema
+        mimeType: file.mediaType,
+        fileType: fileType,
         uploadedAt: file.uploadedAt,
         url: file.url,
         thumbnailUrl: file.thumbnailUrl,
         pendingDeletion: pendingMediaIds.has(file.mediaId),
         isLog: false,
+        uploader: uploader,
+        // Soft delete info
+        isDeleted: file.isHidden,
+        deletedAt: file.hiddenAt,
+        deletedBy: deletedBy,
       };
     });
 
@@ -232,9 +359,60 @@ async function getGroupFiles(req, res) {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
+    // Get all unique uploaders from the group (for filter dropdown)
+    // Include all members who have uploaded files, not just from current results
+    const allUploaders = await prisma.messageMedia.findMany({
+      where: {
+        message: {
+          messageGroup: {
+            groupId: groupId,
+          },
+        },
+      },
+      select: {
+        message: {
+          select: {
+            sender: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      distinct: ['messageId'],
+    });
+
+    const availableUploaders = [];
+    const seenUploaderIds = new Set();
+    for (const media of allUploaders) {
+      const sender = media.message.sender;
+      if (sender && !seenUploaderIds.has(sender.groupMemberId)) {
+        seenUploaderIds.add(sender.groupMemberId);
+        availableUploaders.push({
+          groupMemberId: sender.groupMemberId,
+          displayName: sender.user?.displayName || sender.displayName || 'Unknown',
+          iconLetters: sender.user?.memberIcon || sender.iconLetters || '?',
+          iconColor: sender.user?.iconColor || sender.iconColor || '#6200ee',
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       files: files,
+      availableUploaders: availableUploaders,
+      availableTypes: ['image', 'video'], // Could be dynamic based on actual files
     });
   } catch (error) {
     console.error('Get group files error:', error);
@@ -363,7 +541,7 @@ async function requestFileDeletion(req, res) {
     // Auto-approve if single admin
     if (admins.length === 1) {
       // Single admin - execute deletion immediately
-      await executeFileDeletion(mediaId, groupId, approval.approvalId);
+      await executeFileDeletion(mediaId, groupId, approval.approvalId, membership.groupMemberId);
 
       return res.status(200).json({
         success: true,
@@ -410,19 +588,24 @@ async function requestFileDeletion(req, res) {
 /**
  * Execute file deletion after approval
  * Internal function - not exposed as route
+ *
+ * Uses soft delete to preserve file metadata for "Deleted by admin" display
  */
-async function executeFileDeletion(mediaId, groupId, approvalId) {
+async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
   // Update approval status
   await prisma.approval.update({
     where: { approvalId: approvalId },
     data: { status: 'approved' },
   });
 
-  // TODO: Delete from S3 storage
-
-  // Delete from database
-  await prisma.messageMedia.delete({
+  // Soft delete - mark as hidden instead of deleting
+  await prisma.messageMedia.update({
     where: { mediaId: mediaId },
+    data: {
+      isHidden: true,
+      hiddenAt: new Date(),
+      hiddenBy: requestedBy,
+    },
   });
 
   // Create audit log
@@ -430,11 +613,11 @@ async function executeFileDeletion(mediaId, groupId, approvalId) {
     data: {
       groupId: groupId,
       action: 'delete_file',
-      performedBy: 'system',
-      performedByName: 'System (Auto-Approval)',
+      performedBy: requestedBy || 'system',
+      performedByName: 'System (Single-Admin Auto-Approval)',
       performedByEmail: 'system@app',
       actionLocation: 'storage',
-      messageContent: `File deleted (ID: ${mediaId})`,
+      messageContent: `File soft-deleted (ID: ${mediaId}). File remains hidden in database for compliance.`,
     },
   });
 }
