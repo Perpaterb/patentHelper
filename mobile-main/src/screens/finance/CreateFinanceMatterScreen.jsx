@@ -59,13 +59,28 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
   }, [groupId]);
 
   /**
-   * Load group members
+   * Load group members and filter to only those who have finance visibility
    */
   const loadGroupMembers = async () => {
     try {
       setError(null);
       const response = await api.get(`/groups/${groupId}`);
-      setMembers(response.data.group.members || []);
+      const allMembers = response.data.group.members || [];
+      const settings = response.data.group.settings || {};
+
+      // Filter members to only those who can view finance
+      // Admins and supervisors always have access
+      // Other roles check their visibility settings
+      const membersWithFinanceAccess = allMembers.filter((member) => {
+        const memberRole = member.role;
+        if (memberRole === 'admin' || memberRole === 'supervisor') return true;
+        if (memberRole === 'parent') return settings.financeVisibleToParents === true;
+        if (memberRole === 'caregiver') return settings.financeVisibleToCaregivers === true;
+        if (memberRole === 'child') return settings.financeVisibleToChildren === true;
+        return false;
+      });
+
+      setMembers(membersWithFinanceAccess);
     } catch (err) {
       console.error('Load group members error:', err);
 

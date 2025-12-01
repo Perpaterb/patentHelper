@@ -299,13 +299,16 @@ async function createFinanceMatter(req, res) {
       });
     }
 
-    // Get group settings to check finance creation permissions
+    // Get group settings to check finance creation and visibility permissions
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
         financeCreatableByParents: true,
         financeCreatableByCaregivers: true,
         financeCreatableByChildren: true,
+        financeVisibleToParents: true,
+        financeVisibleToCaregivers: true,
+        financeVisibleToChildren: true,
       },
     });
 
@@ -344,6 +347,35 @@ async function createFinanceMatter(req, res) {
       return res.status(400).json({
         success: false,
         message: 'One or more member IDs are invalid or not in this group',
+      });
+    }
+
+    // CRITICAL: Verify all members have permission to view finance
+    // Members who can't see finance shouldn't be added to finance matters
+    const membersWithoutFinanceAccess = existingMembers.filter((member) => {
+      const memberRole = member.role;
+      // Admins always have access
+      if (memberRole === 'admin') return false;
+      // Supervisors have view access (can be added but have read-only)
+      if (memberRole === 'supervisor') return false;
+      // Check role-based visibility permissions
+      if (memberRole === 'parent') {
+        return groupSettings?.financeVisibleToParents !== true;
+      }
+      if (memberRole === 'caregiver') {
+        return groupSettings?.financeVisibleToCaregivers !== true;
+      }
+      if (memberRole === 'child') {
+        return groupSettings?.financeVisibleToChildren !== true;
+      }
+      return true; // Unknown roles don't have access
+    });
+
+    if (membersWithoutFinanceAccess.length > 0) {
+      const memberNames = membersWithoutFinanceAccess.map((m) => m.displayName).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `The following members cannot be added because they don't have permission to view finance: ${memberNames}`,
       });
     }
 
