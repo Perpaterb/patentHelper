@@ -161,13 +161,35 @@ const MediaPicker = ({
         let finalUri = asset.uri;
         let finalSize = asset.fileSize;
 
-        // Compress images (not videos)
-        if (asset.type === 'image') {
-          const compressed = await compressImage(asset.uri);
-          finalUri = compressed.uri;
-          finalSize = await getFileSize(compressed.uri);
+        // Check if this is a format that browsers can't handle (HEIC, HEIF, WebP, AVIF)
+        // These will be converted to PNG on the backend
+        const uriLower = asset.uri.toLowerCase();
+        const isNonBrowserFormat = uriLower.includes('.heic') ||
+          uriLower.includes('.heif') ||
+          uriLower.includes('.webp') ||
+          uriLower.includes('.avif') ||
+          (asset.mimeType && (
+            asset.mimeType.includes('heic') ||
+            asset.mimeType.includes('heif') ||
+            asset.mimeType.includes('webp') ||
+            asset.mimeType.includes('avif')
+          ));
+
+        // Compress images (not videos) - skip for formats that need server-side conversion
+        if (asset.type === 'image' && !isNonBrowserFormat) {
+          try {
+            const compressed = await compressImage(asset.uri);
+            finalUri = compressed.uri;
+            finalSize = await getFileSize(compressed.uri);
+          } catch (compressionError) {
+            // If compression fails, use original file (backend will handle conversion)
+            console.warn('Compression failed, using original:', compressionError);
+            if (!finalSize) {
+              finalSize = await getFileSize(asset.uri);
+            }
+          }
         } else {
-          // For videos, get actual file size if not provided
+          // For videos and non-browser formats, get actual file size if not provided
           if (!finalSize) {
             finalSize = await getFileSize(asset.uri);
           }
@@ -190,9 +212,24 @@ const MediaPicker = ({
         let ext = 'bin';
 
         if (asset.type === 'image') {
-          // Images are always compressed to JPEG format
-          mimeType = 'image/jpeg';
-          ext = 'jpg';
+          if (isNonBrowserFormat) {
+            // For non-browser formats, preserve original type - backend will convert to PNG
+            const imageExt = asset.uri.split('.').pop()?.toLowerCase() || 'heic';
+            ext = imageExt;
+            if (imageExt === 'heic' || imageExt === 'heif') {
+              mimeType = 'image/heic';
+            } else if (imageExt === 'webp') {
+              mimeType = 'image/webp';
+            } else if (imageExt === 'avif') {
+              mimeType = 'image/avif';
+            } else {
+              mimeType = `image/${imageExt}`;
+            }
+          } else {
+            // Standard images are compressed to JPEG format
+            mimeType = 'image/jpeg';
+            ext = 'jpg';
+          }
         } else if (asset.type === 'video') {
           // Determine video extension from URI
           const videoExt = asset.uri.split('.').pop()?.toLowerCase();
