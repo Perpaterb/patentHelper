@@ -328,6 +328,10 @@ async function getDocument(req, res) {
       },
     });
 
+    // Construct download URL from fileId
+    const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const downloadUrl = `${baseUrl}/files/${document.fileId}`;
+
     res.status(200).json({
       success: true,
       document: {
@@ -338,6 +342,7 @@ async function getDocument(req, res) {
         mimeType: document.mimeType,
         uploadedAt: document.uploadedAt,
         uploaderName: document.uploader.displayName,
+        downloadUrl: downloadUrl,
       },
     });
   } catch (error) {
