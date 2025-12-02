@@ -477,10 +477,13 @@ async function exchangeToken(req, res) {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // Return access token and user info
+    // Return access token, refresh token, and user info
+    // Refresh token is also returned in body for web-admin to store in localStorage
+    // (needed for imported mobile screens which use localStorage-based token storage)
     res.status(200).json({
       success: true,
       accessToken: accessToken,
+      refreshToken: refreshToken,
       user: {
         userId: user.userId,
         email: user.email,

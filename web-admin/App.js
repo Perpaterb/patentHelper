@@ -215,6 +215,10 @@ function AppNavigator() {
         const data = await response.json();
         if (data.accessToken) {
           await SecureStore.setItemAsync('accessToken', data.accessToken);
+          // Also store refresh token for imported mobile screens that use localStorage-based token storage
+          if (data.refreshToken) {
+            await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+          }
           setTokenExchanged(true);
         }
       } catch (error) {
