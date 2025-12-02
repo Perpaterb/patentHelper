@@ -789,26 +789,27 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                 }}
                 activeOpacity={0.7}
               >
-                {/* Event title (only on first segment) */}
-                {isFirstSegment && line.title && (
-                  <View
-                    style={{
-                      padding: 2,
-                      justifyContent: 'center',
-                      height: '100%',
-                    }}
-                  >
-                    <Text
-                      numberOfLines={2}
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 'bold',
-                        color: '#000',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {line.title}
-                    </Text>
+                {/* Member icons and title (only on first segment) */}
+                {isFirstSegment && (
+                  <View style={{ padding: 2, alignItems: 'center' }}>
+                    {/* Member icon circles */}
+                    <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: line.childColor }} />
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: line.startAdultColor }} />
+                    </View>
+                    {line.title && (
+                      <Text
+                        numberOfLines={2}
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 'bold',
+                          color: '#000',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {line.title}
+                      </Text>
+                    )}
                   </View>
                 )}
               </TouchableOpacity>
@@ -1414,6 +1415,9 @@ export default function CalendarScreen({ navigation, route }) {
             // Get the global column assignment for this responsibility event
             const column = globalChildColumns.get(re.responsibilityEventId) || 0;
 
+            // Check if this is the first day of the event (where it actually starts)
+            const isFirstDay = eventStart >= dayStart && eventStart < dayEnd;
+
             allResponsibilityBars.push({
               responsibilityEventId: re.responsibilityEventId,
               eventId: event.eventId,
@@ -1422,6 +1426,7 @@ export default function CalendarScreen({ navigation, route }) {
               startFraction, // 0.0 to 1.0 (position within day)
               endFraction,   // 0.0 to 1.0 (position within day)
               column,        // Global column assignment (same across all days)
+              isFirstDay,    // True only on the day the event starts
             });
           });
         }
@@ -1522,23 +1527,34 @@ export default function CalendarScreen({ navigation, route }) {
                             left: `${leftPercent}%`, // Start at time-based position
                             width: `${widthPercent}%`, // Width based on duration
                             top: topPosition,
-                            flexDirection: 'column', // Stack child/adult vertically
+                            flexDirection: 'row', // Row to put icons on left, bars on right
+                            alignItems: 'center',
                           }}
                         >
-                          {/* Child bar (top) */}
-                          <View
-                            style={{
-                              height: barHeight,
-                              backgroundColor: bar.childColor,
-                            }}
-                          />
-                          {/* Adult bar (bottom) */}
-                          <View
-                            style={{
-                              height: barHeight,
-                              backgroundColor: bar.adultColor,
-                            }}
-                          />
+                          {/* Member icon circles (only on first day) */}
+                          {bar.isFirstDay && (
+                            <View style={{ flexDirection: 'column', marginRight: 1 }}>
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: bar.childColor }} />
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: bar.adultColor, marginTop: 1 }} />
+                            </View>
+                          )}
+                          {/* Stacked bars */}
+                          <View style={{ flex: 1, flexDirection: 'column' }}>
+                            {/* Child bar (top) */}
+                            <View
+                              style={{
+                                height: barHeight,
+                                backgroundColor: bar.childColor,
+                              }}
+                            />
+                            {/* Adult bar (bottom) */}
+                            <View
+                              style={{
+                                height: barHeight,
+                                backgroundColor: bar.adultColor,
+                              }}
+                            />
+                          </View>
                         </View>
                       );
                     })}
