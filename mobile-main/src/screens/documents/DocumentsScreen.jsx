@@ -11,7 +11,7 @@ import { CustomAlert } from '../../components/CustomAlert';
 import { FAB, IconButton, Menu, ActivityIndicator, Avatar } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import api from '../../services/api';
 import { uploadFile } from '../../services/upload.service';
