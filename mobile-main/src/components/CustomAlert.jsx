@@ -70,7 +70,15 @@ export function CustomAlertProvider({ children }) {
     <CustomAlertContext.Provider value={{ showAlert }}>
       {children}
       <Portal>
-        <Dialog visible={visible} onDismiss={hideAlert} style={styles.dialog}>
+        <Dialog
+          visible={visible}
+          onDismiss={hideAlert}
+          style={[
+            styles.dialog,
+            // Ensure proper centering on web
+            Platform.OS === 'web' && { alignSelf: 'center', marginLeft: 'auto', marginRight: 'auto' }
+          ]}
+        >
           {title && (
             <Dialog.Title style={styles.title}>{title}</Dialog.Title>
           )}
