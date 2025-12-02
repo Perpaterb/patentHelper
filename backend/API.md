@@ -17,6 +17,7 @@ If an endpoint is missing or incorrect, **FIX THIS FILE FIRST**, then update cod
 
 ## Table of Contents
 
+- [Health & Version](#health--version)
 - [Authentication](#authentication)
 - [Subscriptions](#subscriptions)
 - [Groups](#groups)
@@ -31,6 +32,113 @@ If an endpoint is missing or incorrect, **FIX THIS FILE FIRST**, then update cod
 - [Item Registries](#item-registries)
 - [Secret Santa](#secret-santa)
 - [Finance Matters](#finance-matters)
+
+---
+
+## Health & Version
+
+### GET /health
+
+Basic health check endpoint.
+
+**Used by**: Infrastructure monitoring
+
+**Authentication**: None (public)
+
+**Response** (200):
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-12-02T00:00:00.000Z",
+  "uptime": 12345,
+  "service": "parenting-helper-api",
+  "version": "1.0.0",
+  "environment": "development"
+}
+```
+
+---
+
+### GET /health/app-version
+
+Returns minimum required app versions for mobile apps. Used to force users to update when critical updates are released.
+
+**Used by**: mobile-main, mobile-messenger (on app startup)
+
+**Authentication**: None (public)
+
+**Query Parameters**:
+- `app` (optional): `'mobile-main'` | `'mobile-messenger'` - Returns specific app info only
+
+**Response (200) - Without app parameter**:
+```json
+{
+  "mobileMain": {
+    "minVersion": "1.0.0",
+    "currentVersion": "1.0.0",
+    "updateUrl": {
+      "ios": "https://apps.apple.com/app/parenting-helper/id000000000",
+      "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
+    }
+  },
+  "mobileMessenger": {
+    "minVersion": "1.0.0",
+    "currentVersion": "1.0.0",
+    "updateUrl": {
+      "ios": "https://apps.apple.com/app/ph-messenger/id000000001",
+      "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.messenger"
+    }
+  }
+}
+```
+
+**Response (200) - With `?app=mobile-main`**:
+```json
+{
+  "minVersion": "1.0.0",
+  "currentVersion": "1.0.0",
+  "updateUrl": {
+    "ios": "https://apps.apple.com/app/parenting-helper/id000000000",
+    "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
+  }
+}
+```
+
+**Environment Variables**:
+- `MIN_VERSION_MOBILE_MAIN` - Minimum required version for main app (default: 1.0.0)
+- `MIN_VERSION_MOBILE_MESSENGER` - Minimum required version for messenger (default: 1.0.0)
+- `CURRENT_VERSION_MOBILE_MAIN` - Latest available version
+- `CURRENT_VERSION_MOBILE_MESSENGER` - Latest available version
+- `APP_STORE_URL_MAIN_IOS` - iOS App Store URL for main app
+- `APP_STORE_URL_MAIN_ANDROID` - Android Play Store URL for main app
+- `APP_STORE_URL_MESSENGER_IOS` - iOS App Store URL for messenger
+- `APP_STORE_URL_MESSENGER_ANDROID` - Android Play Store URL for messenger
+
+**Usage**:
+To force an app update, set `MIN_VERSION_MOBILE_MAIN` to a version higher than the current app version. Users with older versions will see a blocking modal until they update.
+
+---
+
+### GET /health/ready
+
+Readiness check - returns 200 if server can handle requests.
+
+**Used by**: Infrastructure monitoring, Kubernetes probes
+
+**Authentication**: None (public)
+
+**Response** (200):
+```json
+{
+  "status": "ready",
+  "timestamp": "2025-12-02T00:00:00.000Z",
+  "checks": {
+    "database": "connected",
+    "storage": "ok",
+    "email": "ok"
+  }
+}
+```
 
 ---
 

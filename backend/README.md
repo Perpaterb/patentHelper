@@ -20,6 +20,7 @@ npm start
 ### Health Check
 - `GET /health` - Basic health check
 - `GET /health/ready` - Readiness check with dependency status
+- `GET /health/app-version` - App version check for force update feature (see API.md)
 
 ## Development
 
@@ -96,4 +97,4 @@ When deploying to AWS Lambda:
 ---
 
 **Development Status:** Phase 1 - Local Foundation
-**Last Updated:** 2025-10-21
+**Last Updated:** 2025-12-02

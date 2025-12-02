@@ -1,10 +1,30 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-11-24)
+## Current Status (Updated: 2025-12-02)
 
-Currently working on: **Mobile App Feature Complete - Ready for Web Admin App**
+Currently working on: **Mobile App Feature Complete - Polishing & Bug Fixes**
 
-**Just completed (2025-11-24):**
+**Just completed (2025-12-02):**
+- ✅ Force app update feature for outdated app versions
+  - Backend: GET /health/app-version endpoint with configurable min versions
+  - Frontend: ForceUpdateModal (non-dismissible), useVersionCheck hook
+  - Opens appropriate app store when update required
+- ✅ Web image/video viewer improvements
+  - Fullscreen support using 90% of browser window dimensions
+  - Download button added to VideoPlayer (matching ImageViewer)
+  - Platform-specific download handling (web uses `<a>` element)
+  - File extension fixes for downloaded files
+- ✅ HEIC image upload support
+  - Added heic-convert package for HEIC to JPEG conversion
+  - Magic byte detection for HEIC files
+  - Fixed Sharp library limitation (no native HEIC codec)
+- ✅ Secure Documents fixes
+  - Fixed category validation ('secure-documents' instead of 'documents')
+  - Fixed downloadUrl missing in response
+  - Fixed 404 errors for secure document downloads
+  - Platform-specific download (web vs native)
+
+**Previously completed (2025-11-24):**
 - ✅ USER_STORIES.md created with 100+ test scenarios
 - ✅ Testing infrastructure set up (Jest, React Testing Library)
 - ✅ Support/Feedback button on Groups List screen

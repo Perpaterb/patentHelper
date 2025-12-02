@@ -1,7 +1,7 @@
 # Parenting Helper Mobile App - User Stories & Test Planning
 
-**Version**: 1.0
-**Last Updated**: 2025-11-24
+**Version**: 1.1
+**Last Updated**: 2025-12-02
 **App**: mobile-main (Family Helper - Full-featured mobile app)
 **Tech Stack**: React Native with Expo
 
@@ -1998,11 +1998,143 @@ Wednesday 4pm: Mom Blue resumes responsibility
 
 ---
 
+## 19. App Version Management
+
+### US-VER-001: Force App Update Check
+**As a** user opening the app
+**I want to** be informed if my app version is outdated
+**So that** I always use a compatible version
+
+**Acceptance Criteria**:
+- On app startup, version check runs against backend `/health/app-version`
+- If app version < minimum required version:
+  - Non-dismissible modal appears blocking all app usage
+  - Modal shows: "Update Required" title
+  - Shows current version vs required version
+  - "Update Now" button opens appropriate app store
+- If version check fails (network error):
+  - Allow app to continue (fail open)
+  - Log error for debugging
+
+**Technical Details**:
+- Version comparison: Semantic versioning (major.minor.patch)
+- Backend configurable via environment variables:
+  - `MIN_VERSION_MOBILE_MAIN`
+  - `MIN_VERSION_MOBILE_MESSENGER`
+  - `APP_STORE_URL_MAIN_IOS` / `APP_STORE_URL_MAIN_ANDROID`
+- Hook: `useVersionCheck('mobile-main')` in App.js
+- Component: `ForceUpdateModal.jsx`
+
+**Test Cases**:
+- [ ] Verify modal appears when version is below minimum
+- [ ] Verify modal is non-dismissible (no back button, no tap outside)
+- [ ] Verify "Update Now" opens correct app store for platform
+- [ ] Verify app works normally when version meets requirement
+- [ ] Verify app works when version check fails (network error)
+
+---
+
+### US-VER-002: App Store Deep Links
+**As a** user who needs to update
+**I want to** be taken directly to the app store
+**So that** I can quickly update my app
+
+**Acceptance Criteria**:
+- iOS: Opens App Store to correct app page
+- Android: Opens Google Play Store to correct app page
+- Web: Opens iOS App Store link in new tab
+
+**Test Cases**:
+- [ ] Verify iOS deep link opens App Store
+- [ ] Verify Android deep link opens Play Store
+- [ ] Verify web platform handles gracefully
+
+---
+
+## 20. Media Viewing (Web Platform)
+
+### US-MEDIA-001: Fullscreen Image/Video Viewer on Web
+**As a** web user viewing media
+**I want to** see images and videos in fullscreen
+**So that** I can view media without the phone simulator constraints
+
+**Acceptance Criteria**:
+- Images display at 90% of browser window dimensions
+- Videos display at 90% of browser window dimensions
+- Viewer resizes with browser window
+- Pinch-to-zoom still works on touch devices
+- Close button (X) in top-right corner
+- Download button in top-left corner
+
+**Technical Details**:
+- Uses `window.innerWidth` and `window.innerHeight` on web
+- Resize listener updates dimensions dynamically
+- Both ImageViewer.jsx and VideoPlayer.jsx support this
+
+**Test Cases**:
+- [ ] Verify fullscreen dimensions on web
+- [ ] Verify resize updates viewer size
+- [ ] Verify close button works
+- [ ] Verify download button works
+
+---
+
+### US-MEDIA-002: Download Media on Web
+**As a** web user
+**I want to** download images and videos
+**So that** I can save them to my computer
+
+**Acceptance Criteria**:
+- Download button available on both images and videos
+- Click triggers browser download
+- Downloaded file has correct extension (.jpg for images, .mp4 for videos)
+- No "Permission Required" error on web (uses `<a>` element, not MediaLibrary)
+
+**Technical Details**:
+- Web: Uses `<a>` element with `download` attribute
+- Native: Uses expo-media-library for saving to photo library
+- File extension added if missing from URL
+
+**Test Cases**:
+- [ ] Verify image download on web has .jpg extension
+- [ ] Verify video download on web has .mp4 extension
+- [ ] Verify no permission errors on web
+- [ ] Verify native platform still uses MediaLibrary
+
+---
+
+## 21. HEIC Image Support
+
+### US-HEIC-001: Upload HEIC Images
+**As a** user with an iPhone
+**I want to** upload HEIC format images
+**So that** I can share photos without manual conversion
+
+**Acceptance Criteria**:
+- HEIC images detected by magic bytes (not just file extension)
+- HEIC automatically converted to JPEG on upload
+- Converted image maintains quality (0.9 JPEG quality)
+- Original filename preserved with .jpg extension
+
+**Technical Details**:
+- Uses `heic-convert` package (Sharp doesn't support HEIC natively)
+- Magic byte detection: looks for 'ftyp' at offset 4, brand at offset 8
+- HEIC brands: heic, heix, hevc, hevx, mif1, msf1, avif
+
+**Test Cases**:
+- [ ] Verify HEIC detection by magic bytes
+- [ ] Verify HEIC converted to JPEG successfully
+- [ ] Verify converted image quality is acceptable
+- [ ] Verify non-HEIC images not affected
+
+---
+
 ## Document Version History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-11-24 | Claude Code | Initial comprehensive user stories document |
+| 1.1 | 2025-12-02 | Claude Code | Added: Force app update, web media viewer, HEIC support |
 
 ---
 
