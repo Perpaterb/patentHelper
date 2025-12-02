@@ -2,6 +2,7 @@
  * ImageViewer Component
  *
  * Full-screen image viewer with pinch-to-zoom and swipe-to-dismiss.
+ * On web, uses full browser window instead of phone-sized container.
  *
  * Usage:
  * <ImageViewer
@@ -11,20 +12,33 @@
  * />
  */
 
-import React, { useState } from 'react';
-import { Modal, View, Image, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator, StatusBar, Platform,  } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, View, Image, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator, StatusBar, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { GestureHandlerRootView, PinchGestureHandler, State } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
-import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system/legacy';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// Only import native modules on native platforms
+let MediaLibrary;
+let FileSystem;
+if (Platform.OS !== 'web') {
+  MediaLibrary = require('expo-media-library');
+  FileSystem = require('expo-file-system/legacy');
+}
+
+// Use window dimensions, updated on resize for web
+const getScreenDimensions = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return { width: window.innerWidth, height: window.innerHeight };
+  }
+  return Dimensions.get('window');
+};
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = getScreenDimensions();
 
 /**
  * ImageViewer component
@@ -37,10 +51,22 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [isDownloading, setIsDownloading] = useState(false);
+  const [screenSize, setScreenSize] = useState(getScreenDimensions());
 
   // Zoom animation
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+
+  // Update screen size on window resize (web)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleResize = () => {
+        setScreenSize({ width: window.innerWidth, height: window.innerHeight });
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   /**
    * Handle image load
@@ -54,7 +80,7 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
         imageUrl,
         (width, height) => {
           // Calculate dimensions to fit screen
-          const ratio = Math.min(SCREEN_WIDTH / width, SCREEN_HEIGHT / height);
+          const ratio = Math.min(screenSize.width / width, screenSize.height / height);
           setImageDimensions({
             width: width * ratio,
             height: height * ratio,
@@ -64,8 +90,8 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
           console.error('Get image size error:', error);
           // Use screen dimensions as fallback
           setImageDimensions({
-            width: SCREEN_WIDTH,
-            height: SCREEN_HEIGHT * 0.8,
+            width: screenSize.width,
+            height: screenSize.height * 0.8,
           });
         }
       );
@@ -87,7 +113,27 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
     try {
       setIsDownloading(true);
 
-      // Request media library permissions
+      // Web platform - use anchor element for download
+      if (Platform.OS === 'web') {
+        const link = window.document.createElement('a');
+        link.href = imageUrl;
+        // Extract filename from URL or use default
+        const filename = imageUrl.split('/').pop() || 'image.jpg';
+        link.download = filename;
+        link.target = '_blank';
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
+
+        CustomAlert.alert(
+          'Download Started',
+          'Image download has started.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Native platform - use MediaLibrary and FileSystem
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         CustomAlert.alert(
@@ -233,9 +279,10 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
                 source={{ uri: imageUrl }}
                 style={[
                   styles.image,
-                  imageDimensions.width > 0 && {
-                    width: imageDimensions.width,
-                    height: imageDimensions.height,
+                  // Use dynamic screenSize for fullscreen on web
+                  {
+                    width: imageDimensions.width > 0 ? imageDimensions.width : screenSize.width,
+                    height: imageDimensions.height > 0 ? imageDimensions.height : screenSize.height * 0.9,
                   },
                 ]}
                 resizeMode="contain"
@@ -250,6 +297,7 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
   );
 };
 
+// Static styles that don't depend on screen size
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -262,7 +310,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
+    top: Platform.OS === 'ios' ? 50 : (Platform.OS === 'web' ? 20 : 20),
     right: 20,
     zIndex: 10,
     padding: 12,
@@ -291,7 +339,7 @@ const styles = StyleSheet.create({
   },
   downloadButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
+    top: Platform.OS === 'ios' ? 50 : (Platform.OS === 'web' ? 20 : 20),
     left: 20,
     zIndex: 10,
     padding: 12,
@@ -342,8 +390,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   image: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.8,
+    // Default size, will be overridden by dynamic styles
+    width: '100%',
+    height: '80%',
   },
 });
 

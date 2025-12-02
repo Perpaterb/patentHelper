@@ -1,7 +1,8 @@
 /**
  * VideoPlayer Component
  *
- * Full-screen video player with playback controls.
+ * Full-screen video player with playback controls and download button.
+ * On web, uses full browser window instead of phone-sized container.
  *
  * Usage:
  * <VideoPlayer
@@ -23,9 +24,24 @@ import {
   Platform,
   Text,
 } from 'react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 import { Video, ResizeMode } from 'expo-av';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// Only import native modules on native platforms
+let MediaLibrary;
+let FileSystem;
+if (Platform.OS !== 'web') {
+  MediaLibrary = require('expo-media-library');
+  FileSystem = require('expo-file-system/legacy');
+}
+
+// Use window dimensions, updated on resize for web
+const getScreenDimensions = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return { width: window.innerWidth, height: window.innerHeight };
+  }
+  return Dimensions.get('window');
+};
 
 /**
  * VideoPlayer component
@@ -41,6 +57,19 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [screenSize, setScreenSize] = useState(getScreenDimensions());
+
+  // Update screen size on window resize (web)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleResize = () => {
+        setScreenSize({ width: window.innerWidth, height: window.innerHeight });
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   // Auto-hide controls after 3 seconds
   useEffect(() => {
@@ -125,6 +154,74 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  /**
+   * Download video to device
+   */
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+
+      // Web platform - use anchor element for download
+      if (Platform.OS === 'web') {
+        const link = window.document.createElement('a');
+        link.href = videoUrl;
+        // Extract filename from URL or use default
+        const filename = videoUrl.split('/').pop() || 'video.mp4';
+        link.download = filename;
+        link.target = '_blank';
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
+
+        CustomAlert.alert(
+          'Download Started',
+          'Video download has started.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Native platform - use MediaLibrary and FileSystem
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        CustomAlert.alert(
+          'Permission Required',
+          'Photo library access is required to save videos.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Download video to temporary location
+      const filename = videoUrl.split('/').pop() + '.mp4';
+      const fileUri = FileSystem.documentDirectory + filename;
+
+      const downloadResult = await FileSystem.downloadAsync(videoUrl, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Download failed with status ${downloadResult.status}`);
+      }
+
+      // Save to media library
+      await MediaLibrary.createAssetAsync(downloadResult.uri);
+
+      CustomAlert.alert(
+        'Success',
+        'Video saved to your photo library!',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Download error:', error);
+      CustomAlert.alert(
+        'Download Failed',
+        error.message || 'Failed to save video. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // Reset state when modal opens
   useEffect(() => {
     if (visible) {
@@ -156,6 +253,26 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
             </View>
           </TouchableOpacity>
 
+          {/* Download button */}
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={handleDownload}
+            disabled={isDownloading || isLoading}
+          >
+            <View style={styles.downloadIconContainer}>
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  {/* Download icon: arrow down into tray */}
+                  <View style={styles.downloadTray} />
+                  <View style={styles.downloadArrowLine} />
+                  <View style={styles.downloadArrowHead} />
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+
           {/* Loading indicator */}
           {isLoading && (
             <ActivityIndicator
@@ -169,12 +286,12 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
           <TouchableOpacity
             activeOpacity={1}
             onPress={handleScreenTap}
-            style={styles.videoTouchable}
+            style={[styles.videoTouchable, { width: screenSize.width, height: screenSize.height }]}
           >
             <Video
               ref={videoRef}
               source={{ uri: videoUrl }}
-              style={styles.video}
+              style={{ width: screenSize.width, height: screenSize.height }}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay={false}
               onReadyForDisplay={handleReadyForDisplay}
@@ -225,6 +342,7 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
   );
 };
 
+// Static styles that don't depend on screen size
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -237,7 +355,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
+    top: Platform.OS === 'ios' ? 50 : (Platform.OS === 'web' ? 20 : 20),
     right: 20,
     zIndex: 20,
     padding: 12,
@@ -264,19 +382,59 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-45deg' }],
     borderRadius: 2,
   },
+  downloadButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : (Platform.OS === 'web' ? 20 : 20),
+    left: 20,
+    zIndex: 20,
+    padding: 12,
+  },
+  downloadIconContainer: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  downloadTray: {
+    position: 'absolute',
+    bottom: 8,
+    width: 24,
+    height: 8,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderColor: '#ffffff',
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  downloadArrowLine: {
+    position: 'absolute',
+    top: 6,
+    width: 3,
+    height: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 1.5,
+  },
+  downloadArrowHead: {
+    position: 'absolute',
+    top: 16,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#ffffff',
+  },
   loader: {
     position: 'absolute',
     zIndex: 10,
   },
   videoTouchable: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    // Base styles, dimensions set dynamically
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  video: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
   },
   controlsOverlay: {
     position: 'absolute',
