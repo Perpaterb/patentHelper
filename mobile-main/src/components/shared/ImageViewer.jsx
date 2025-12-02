@@ -79,8 +79,10 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
       Image.getSize(
         imageUrl,
         (width, height) => {
-          // Calculate dimensions to fit screen
-          const ratio = Math.min(screenSize.width / width, screenSize.height / height);
+          // Calculate dimensions to fit 90% of screen
+          const maxWidth = screenSize.width * 0.9;
+          const maxHeight = screenSize.height * 0.9;
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
           setImageDimensions({
             width: width * ratio,
             height: height * ratio,
@@ -88,10 +90,10 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
         },
         (error) => {
           console.error('Get image size error:', error);
-          // Use screen dimensions as fallback
+          // Use 90% of screen dimensions as fallback
           setImageDimensions({
-            width: screenSize.width,
-            height: screenSize.height * 0.8,
+            width: screenSize.width * 0.9,
+            height: screenSize.height * 0.9,
           });
         }
       );
@@ -117,8 +119,11 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
       if (Platform.OS === 'web') {
         const link = window.document.createElement('a');
         link.href = imageUrl;
-        // Extract filename from URL or use default
-        const filename = imageUrl.split('/').pop() || 'image.jpg';
+        // Extract filename from URL and ensure it has extension
+        let filename = imageUrl.split('/').pop() || 'image';
+        if (!filename.includes('.')) {
+          filename += '.jpg';
+        }
         link.download = filename;
         link.target = '_blank';
         window.document.body.appendChild(link);
@@ -279,10 +284,10 @@ const ImageViewer = ({ visible, imageUrl, onClose }) => {
                 source={{ uri: imageUrl }}
                 style={[
                   styles.image,
-                  // Use dynamic screenSize for fullscreen on web
+                  // Use dynamic screenSize for fullscreen on web (90% in both dimensions)
                   {
-                    width: imageDimensions.width > 0 ? imageDimensions.width : screenSize.width,
-                    height: imageDimensions.height > 0 ? imageDimensions.height : screenSize.height * 0.9,
+                    width: imageDimensions.width > 0 ? Math.min(imageDimensions.width, screenSize.width * 0.9) : screenSize.width * 0.9,
+                    height: imageDimensions.height > 0 ? Math.min(imageDimensions.height, screenSize.height * 0.9) : screenSize.height * 0.9,
                   },
                 ]}
                 resizeMode="contain"

@@ -165,8 +165,11 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
       if (Platform.OS === 'web') {
         const link = window.document.createElement('a');
         link.href = videoUrl;
-        // Extract filename from URL or use default
-        const filename = videoUrl.split('/').pop() || 'video.mp4';
+        // Extract filename from URL and ensure it has .mp4 extension
+        let filename = videoUrl.split('/').pop() || 'video';
+        if (!filename.includes('.')) {
+          filename += '.mp4';
+        }
         link.download = filename;
         link.target = '_blank';
         window.document.body.appendChild(link);
@@ -286,12 +289,12 @@ const VideoPlayer = ({ visible, videoUrl, onClose }) => {
           <TouchableOpacity
             activeOpacity={1}
             onPress={handleScreenTap}
-            style={[styles.videoTouchable, { width: screenSize.width, height: screenSize.height }]}
+            style={[styles.videoTouchable, { width: screenSize.width * 0.9, height: screenSize.height * 0.9 }]}
           >
             <Video
               ref={videoRef}
               source={{ uri: videoUrl }}
-              style={{ width: screenSize.width, height: screenSize.height }}
+              style={{ width: screenSize.width * 0.9, height: screenSize.height * 0.9 }}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay={false}
               onReadyForDisplay={handleReadyForDisplay}
