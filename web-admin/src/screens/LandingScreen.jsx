@@ -107,6 +107,7 @@ export default function LandingScreen({ navigation }) {
           Start Free 20-Day Trial
         </Button>
         <Text style={styles.noCreditCard}>No credit card required</Text>
+        <Text style={styles.privacyNote}>Completely ad-free and we will never sell or give any data away</Text>
       </Surface>
 
       {/* Features Section */}
@@ -288,6 +289,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.8,
     marginTop: 8,
+  },
+  privacyNote: {
+    color: '#fff',
+    opacity: 0.7,
+    marginTop: 4,
+    fontSize: 12,
   },
   section: {
     padding: 32,
