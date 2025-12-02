@@ -46,15 +46,15 @@ describe('SubscriptionScreen', () => {
   const mockPricing = {
     adminSubscription: {
       name: 'Admin Subscription',
-      amount: 999,
-      currency: 'aud',
+      amount: 300, // $3.00 USD
+      currency: 'usd',
       interval: 'month',
       priceId: 'price_123',
       description: 'Full admin access with 10GB storage',
     },
     additionalStorage: {
       name: 'Additional Storage',
-      amount: 200,
+      amount: 100, // $1.00 USD per 10GB
       currency: 'usd',
       unit: '10GB',
       interval: 'month',
@@ -137,8 +137,8 @@ describe('SubscriptionScreen', () => {
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
         expect(tree).toContain('Admin Subscription');
-        // Check for the formatted price (AUD format)
-        expect(tree).toMatch(/AUD.*9\.99/);
+        // Check for the formatted price (USD format: $3.00)
+        expect(tree).toMatch(/\$3\.00/);
       });
     });
 

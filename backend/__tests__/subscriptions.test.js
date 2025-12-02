@@ -36,9 +36,9 @@ describe('Subscription Endpoints', () => {
       expect(pricing.adminSubscription).toHaveProperty('interval', 'month');
       expect(pricing.adminSubscription).toHaveProperty('description');
 
-      // Validate amount is in cents (should be 400 for $4.00 - updated Nov 2025)
+      // Validate amount is in cents (should be 300 for $3.00 - updated Dec 2025 for competitive pricing)
       expect(typeof pricing.adminSubscription.amount).toBe('number');
-      expect(pricing.adminSubscription.amount).toBe(400);
+      expect(pricing.adminSubscription.amount).toBe(300);
 
       // Validate additionalStorage structure
       expect(pricing).toHaveProperty('additionalStorage');
@@ -50,9 +50,9 @@ describe('Subscription Endpoints', () => {
       expect(pricing.additionalStorage).toHaveProperty('unit', '10GB');
       expect(pricing.additionalStorage).toHaveProperty('description');
 
-      // Validate storage amount is in cents (should be 200 for $2.00 per 10GB)
+      // Validate storage amount is in cents (should be 100 for $1.00 per 10GB)
       expect(typeof pricing.additionalStorage.amount).toBe('number');
-      expect(pricing.additionalStorage.amount).toBe(200);
+      expect(pricing.additionalStorage.amount).toBe(100);
     });
 
     it('should NOT return an array (common mistake)', async () => {

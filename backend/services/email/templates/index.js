@@ -41,7 +41,7 @@ You're on a 20-day free trial. During this time, you can explore all features wi
 - One admin per group
 - 10GB of storage for logs, images, and videos
 
-After the trial, subscribe for $8 AUD/month to continue as an admin.
+After the trial, subscribe for just $3 USD/month to continue as an admin.
 
 Need help? Reply to this email or visit our support page.
 
@@ -86,7 +86,7 @@ The Parenting Helper Team
     <li>10GB of storage for logs, images, and videos</li>
   </ul>
 
-  <p>After the trial, subscribe for <strong>$8 AUD/month</strong> to continue as an admin.</p>
+  <p>After the trial, subscribe for just <strong>$3 USD/month</strong> to continue as an admin.</p>
 
   <hr style="border: none; border-top: 1px solid #ecf0f1; margin: 30px 0;">
 
@@ -127,9 +127,9 @@ Your 20-day free trial of Parenting Helper will expire in ${daysLeft} day${daysL
 To continue using Parenting Helper as a group admin, please subscribe before your trial ends.
 
 Subscription Details:
-- Price: $4 USD/month
+- Price: $3 USD/month
 - Includes: 10GB storage (logs, images, videos)
-- Additional storage: $2 USD per 10GB/month
+- Additional storage: $1 USD per 10GB/month
 - Cancel anytime
 
 Subscribe now: ${subscribeUrl}
@@ -158,9 +158,9 @@ The Parenting Helper Team
   <div style="background: #ecf0f1; padding: 20px; border-radius: 4px; margin: 20px 0;">
     <h2 style="color: #2c3e50; margin-top: 0;">Subscription Details</h2>
     <ul style="margin: 0;">
-      <li>Price: <strong>$4 USD/month</strong></li>
+      <li>Price: <strong>$3 USD/month</strong></li>
       <li>Includes: 10GB storage (logs, images, videos)</li>
-      <li>Additional storage: $2 USD per 10GB/month</li>
+      <li>Additional storage: $1 USD per 10GB/month</li>
       <li>Cancel anytime</li>
     </ul>
   </div>

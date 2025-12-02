@@ -1443,7 +1443,7 @@ Wednesday 4pm: Mom Blue resumes responsibility
   - Progress bar showing usage
   - Breakdown by group (if multiple)
   - Warning at 80%: "You're approaching storage limit"
-  - Cost calculator: "Base: $4 + Overage: $0.30 = $4.30/month"
+  - Cost calculator: "Base: $3 + Overage: $0.10 = $3.10/month"
 
 ---
 

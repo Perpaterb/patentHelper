@@ -30,14 +30,14 @@ describe('LandingScreen', () => {
   const mockPricing = {
     adminSubscription: {
       name: 'Admin Subscription',
-      amount: 999,
-      currency: 'aud',
+      amount: 300, // $3.00 USD
+      currency: 'usd',
       interval: 'month',
     },
     additionalStorage: {
       name: 'Additional Storage',
-      amount: 299,
-      currency: 'aud',
+      amount: 100, // $1.00 USD per 10GB
+      currency: 'usd',
       unit: '10GB',
       interval: 'month',
     },
@@ -288,8 +288,8 @@ describe('LandingScreen', () => {
 
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
-        // AUD format: A$9.99 or $9.99
-        expect(tree).toMatch(/A?\$9\.99/);
+        // USD format: $3.00 (new competitive pricing)
+        expect(tree).toMatch(/\$3\.00/);
       });
 
       // Check separately since the text might appear on its own
@@ -354,20 +354,20 @@ describe('LandingScreen', () => {
       });
     });
 
-    it('should format prices in AUD currency', async () => {
+    it('should format prices in USD currency', async () => {
       api.get.mockResolvedValue({
         data: {
           pricing: {
             adminSubscription: {
               name: 'Admin',
-              amount: 1500, // $15.00
-              currency: 'aud',
+              amount: 500, // $5.00 USD
+              currency: 'usd',
               interval: 'month',
             },
             additionalStorage: {
               name: 'Storage',
-              amount: 500, // $5.00
-              currency: 'aud',
+              amount: 200, // $2.00 USD
+              currency: 'usd',
               unit: '10GB',
               interval: 'month',
             },
@@ -379,9 +379,9 @@ describe('LandingScreen', () => {
 
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
-        // AUD format: A$15.00 or $15.00
-        expect(tree).toMatch(/A?\$15\.00/);
-        expect(tree).toMatch(/A?\$5\.00/);
+        // USD format: $5.00 and $2.00
+        expect(tree).toMatch(/\$5\.00/);
+        expect(tree).toMatch(/\$2\.00/);
       });
     });
   });

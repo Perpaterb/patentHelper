@@ -47,9 +47,12 @@ export default function LandingScreen({ navigation }) {
   }
 
   function formatPrice(amount, currency) {
-    return new Intl.NumberFormat('en-AU', {
+    const currencyCode = currency?.toUpperCase() || 'USD';
+    // Use en-US locale for USD to get "$" symbol, otherwise use appropriate locale
+    const locale = currencyCode === 'USD' ? 'en-US' : 'en-AU';
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: currency?.toUpperCase() || 'AUD',
+      currency: currencyCode,
       minimumFractionDigits: 2,
     }).format(amount / 100);
   }

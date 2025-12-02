@@ -196,7 +196,7 @@ describe('MyAccountScreen', () => {
     });
 
     it('should calculate additional charges correctly', async () => {
-      // 25GB used = 15GB over = ceil(15/2) = 8 units = $8.00
+      // 25GB used = 15GB over = ceil(15/10) = 2 units × $1 = $2.00 USD
       api.get.mockResolvedValue({
         data: { subscription: { ...mockSubscription, storageUsedGb: '25.00' } },
       });
@@ -207,7 +207,7 @@ describe('MyAccountScreen', () => {
         const tree = JSON.stringify(toJSON());
         expect(tree).toContain('Additional Storage Charges');
         expect(tree).toContain('15.00');
-        expect(tree).toContain('AUD');
+        expect(tree).toContain('USD');
       });
     });
   });

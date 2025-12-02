@@ -14,10 +14,10 @@ A cross-platform family and co-parenting helper application designed to facilita
 - Multi-tenancy with group isolation
 
 **Business Model:**
-- **$4 USD per admin per month** - Competitive pricing (competitor charges $9/month)
+- **$3 USD per admin per month** - Half price of competitors (competitor charges $9/month)
 - 20-day free trial with full admin access (no restrictions)
 - Only admins pay - all other members (parents, children, caregivers, supervisors) are free
-- Storage: 10GB included, then $2 USD per 10GB chunk (billed in 10GB blocks)
+- Storage: 10GB included, then $1 USD per 10GB chunk (billed in 10GB blocks)
 - Storage tracked per admin across all their groups
 - Stripe payments and subscription management
 
@@ -35,9 +35,9 @@ A cross-platform family and co-parenting helper application designed to facilita
 3. **FH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
-- **Subscription Model**: $4/month per admin, 20-day free trial
+- **Subscription Model**: $3/month per admin, 20-day free trial
 - **Authentication**: Kinde (single sign-on)
-- **Storage**: AWS S3 (10GB included, $2 per 10GB chunk - billed in 10GB blocks)
+- **Storage**: AWS S3 (10GB included, $1 per 10GB chunk - billed in 10GB blocks)
 - **Payments**: Stripe (subscription management, metered billing for storage)
 - All 3 products share same backend API/database
 - Web app and mobile apps have identical features (just different UI frameworks)

@@ -178,17 +178,19 @@ export default function SubscriptionScreen({ navigation }) {
    * Format price for display
    * @param {number} amount - Amount in cents
    * @param {string} currency - Currency code
-   * @returns {string} Formatted price with $AUD prefix
+   * @returns {string} Formatted price with currency prefix
    */
   function formatPrice(amount, currency) {
-    const formattedAmount = new Intl.NumberFormat('en-AU', {
+    const currencyCode = currency?.toUpperCase() || 'USD';
+    // Use en-US locale for USD to get "$" symbol, otherwise use appropriate locale
+    const locale = currencyCode === 'USD' ? 'en-US' : 'en-AU';
+    const formattedAmount = new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: currency?.toUpperCase() || 'AUD',
+      currency: currencyCode,
       minimumFractionDigits: 2,
     }).format(amount / 100);
 
-    // Replace $ with $AUD for clarity
-    return formattedAmount.replace('$', '$AUD ');
+    return formattedAmount;
   }
 
   /**
@@ -412,7 +414,7 @@ export default function SubscriptionScreen({ navigation }) {
                     <>
                       <Text style={styles.statusLabel}>Additional Storage Charges</Text>
                       <Text style={styles.statusValue}>
-                        {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 10)} × $2.00 USD/month
+                        {Math.ceil((parseFloat(subscription.storageUsedGb) - 10) / 10)} × $1.00 USD/month
                       </Text>
                       <Text style={styles.storageNote}>
                         ({(parseFloat(subscription.storageUsedGb) - 10).toFixed(2)} GB over base 10GB - billed in 10GB chunks)

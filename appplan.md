@@ -20,9 +20,9 @@ This platform consists of 3 separate products sharing one backend:
    - BUILT THIRD (after main app)
 
 **Pricing:**
-This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of **$4 USD per month** (managed via web app). This gets them 10GB of storage. Additional storage is charged in **10GB chunks** at **$2 USD per 10GB block per month** (metered billing).
+This app can be used by any non-group admin parent for free. Anyone wanting to administer a group which includes having access to a backup, images, videos and the logs of each group will need a subscription of **$3 USD per month** (managed via web app). This gets them 10GB of storage. Additional storage is charged in **10GB chunks** at **$1 USD per 10GB block per month** (metered billing).
 
-**Competitive Advantage:** Our main competitor charges $9 USD/month - we're offering the same features for less than half the price.
+**Competitive Advantage:** Our main competitor charges $9 USD/month - we're offering the same features for a third of the price.
 
 **20-Day Free Trial:**
 - New users (age 16+) automatically get 20-day free trial with **full admin access**
@@ -39,15 +39,15 @@ This app can be used by any non-group admin parent for free. Anyone wanting to a
   - Trial expires: Group archived (read-only), data preserved, can reactivate by subscribing
 
 **Storage Management Rules:**
-- Base plan: 10GB included at $4 USD/month
-- Overage: $2 USD per 10GB chunk (metered billing via Stripe)
-- **Billing in chunks**: Storage is charged in 10GB blocks. If you use 11GB, you're charged for 1 additional 10GB block ($2). If you use 19GB, you're charged for 1 block. If you use 21GB, you're charged for 2 blocks ($4).
-- When storage exceeds limit: Automatically charge for additional 10GB blocks ($2 USD per 10GB chunk)
+- Base plan: 10GB included at $3 USD/month
+- Overage: $1 USD per 10GB chunk (metered billing via Stripe)
+- **Billing in chunks**: Storage is charged in 10GB blocks. If you use 11GB, you're charged for 1 additional 10GB block ($1). If you use 19GB, you're charged for 1 block. If you use 21GB, you're charged for 2 blocks ($2).
+- When storage exceeds limit: Automatically charge for additional 10GB blocks ($1 USD per 10GB chunk)
 - Send email notification: "Your storage has been increased to XGB. You'll be charged $X USD on your next billing cycle"
 - Show warning at 80% capacity in My Account
 - Additional Storage card displays "Automatically charged as needed" (no manual add storage button)
 - Storage tracked per admin across all their groups
-- All prices displayed as $USD (e.g., "$4.00 USD/month") for currency clarity
+- All prices displayed as $USD (e.g., "$3.00 USD/month") for currency clarity
 
 **Storage Cleanup Tool (Admin Feature):**
 Admins need tools to manage their storage and avoid overage charges. The Storage Cleanup screen provides:
@@ -57,7 +57,7 @@ Admins need tools to manage their storage and avoid overage charges. The Storage
    - Storage breakdown by group
    - Storage breakdown by type (images, videos, documents, audit logs)
    - Visual progress bar showing usage vs. 10GB limit
-   - Cost calculator: "You're using 12.3GB = $4 base + $2.30 overage = $6.30/month"
+   - Cost calculator: "You're using 12.3GB = $3 base + $0.30 overage = $3.30/month"
 
 2. **File Browser with Sorting & Filtering:**
    - Sort by: Size (largest first), Date (oldest first), Type, Group
@@ -284,9 +284,9 @@ Subscribe button (only if not subscribed) → Opens parentinghelperapp.com/subsc
 
 Subscription Management (Web App ONLY)
 ALL subscription/payment features happen on the web app at parentinghelperapp.com:
-- View subscription plans ($8/month for 10GB)
+- View subscription plans ($3/month for 10GB)
 - Enter payment method (Stripe Elements)
-- Upgrade storage ($1 per 2GB)
+- Additional storage ($1 per 10GB)
 - View billing history
 - Update payment method
 - Cancel subscription
