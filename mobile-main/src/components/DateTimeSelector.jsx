@@ -127,6 +127,18 @@ export default function DateTimeSelector({
   const days = generateDays(tempDate.year, tempDate.month);
   const monthOptions = format === 3 ? monthsFull : monthsShort;
 
+  // Web-only: Handle mouse wheel to move picker by exactly one position
+  const handleWebWheel = (e, currentIndex, maxIndex, onChange) => {
+    if (Platform.OS !== 'web') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const newIndex = Math.max(0, Math.min(maxIndex, currentIndex + direction));
+    if (newIndex !== currentIndex) {
+      onChange(newIndex);
+    }
+  };
+
   // Get current indices for each picker
   const getYearIndex = () => {
     const idx = years.indexOf(tempDate.year.toString());
@@ -220,7 +232,16 @@ export default function DateTimeSelector({
           <View style={styles.content}>
             <View style={styles.pickersRow}>
               {/* Year Picker */}
-              <View style={styles.pickerColumn}>
+              <View
+                style={styles.pickerColumn}
+                {...(Platform.OS === 'web' ? {
+                  onWheel: (e) => handleWebWheel(e, getYearIndex(), years.length - 1, (newIndex) => {
+                    const newYear = parseInt(years[newIndex]);
+                    const adjustedDay = adjustDayForMonth(newYear, tempDate.month, tempDate.day);
+                    setTempDate({ ...tempDate, year: newYear, day: adjustedDay });
+                  })
+                } : {})}
+              >
                 <Text style={styles.pickerLabel}>Year</Text>
                 <WheelPicker
                   key={`year-${pickerKey}`}
@@ -242,7 +263,15 @@ export default function DateTimeSelector({
               </View>
 
               {/* Month Picker */}
-              <View style={[styles.pickerColumn, format === 3 && styles.wideColumn]}>
+              <View
+                style={[styles.pickerColumn, format === 3 && styles.wideColumn]}
+                {...(Platform.OS === 'web' ? {
+                  onWheel: (e) => handleWebWheel(e, getMonthIndex(), monthOptions.length - 1, (newIndex) => {
+                    const adjustedDay = adjustDayForMonth(tempDate.year, newIndex, tempDate.day);
+                    setTempDate({ ...tempDate, month: newIndex, day: adjustedDay });
+                  })
+                } : {})}
+              >
                 <Text style={styles.pickerLabel}>Month</Text>
                 <WheelPicker
                   key={`month-${pickerKey}`}
@@ -263,7 +292,15 @@ export default function DateTimeSelector({
               </View>
 
               {/* Day Picker */}
-              <View style={styles.pickerColumn}>
+              <View
+                style={styles.pickerColumn}
+                {...(Platform.OS === 'web' ? {
+                  onWheel: (e) => handleWebWheel(e, getDayIndex(), days.length - 1, (newIndex) => {
+                    const newDay = parseInt(days[newIndex]);
+                    setTempDate({ ...tempDate, day: newDay });
+                  })
+                } : {})}
+              >
                 <Text style={styles.pickerLabel}>Day</Text>
                 <WheelPicker
                   key={`day-${dayPickerKey}`}
@@ -285,7 +322,15 @@ export default function DateTimeSelector({
 
               {/* Hour Picker (Format 1 and 2 only) */}
               {format !== 3 && (
-                <View style={styles.pickerColumn}>
+                <View
+                  style={styles.pickerColumn}
+                  {...(Platform.OS === 'web' ? {
+                    onWheel: (e) => handleWebWheel(e, getHourIndex(), hours.length - 1, (newIndex) => {
+                      const newHour = parseInt(hours[newIndex]);
+                      setTempDate({ ...tempDate, hour: newHour });
+                    })
+                  } : {})}
+                >
                   <Text style={styles.pickerLabel}>Hour</Text>
                   <WheelPicker
                     key={`hour-${pickerKey}`}
@@ -308,7 +353,15 @@ export default function DateTimeSelector({
 
               {/* Minute Picker (Format 1 only) */}
               {format === 1 && (
-                <View style={styles.pickerColumn}>
+                <View
+                  style={styles.pickerColumn}
+                  {...(Platform.OS === 'web' ? {
+                    onWheel: (e) => handleWebWheel(e, getMinuteIndex(), minutes5.length - 1, (newIndex) => {
+                      const newMinute = parseInt(minutes5[newIndex]);
+                      setTempDate({ ...tempDate, minute: newMinute });
+                    })
+                  } : {})}
+                >
                   <Text style={styles.pickerLabel}>Min</Text>
                   <WheelPicker
                     key={`minute-${pickerKey}`}
