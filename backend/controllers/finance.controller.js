@@ -55,6 +55,7 @@ async function getFinanceMatters(req, res) {
       where: { groupId: groupId },
       select: {
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -65,6 +66,8 @@ async function getFinanceMatters(req, res) {
       let hasAccess = false;
 
       if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+        hasAccess = true;
+      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
         hasAccess = true;
       } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
         hasAccess = true;
@@ -304,9 +307,11 @@ async function createFinanceMatter(req, res) {
       where: { groupId: groupId },
       select: {
         financeCreatableByParents: true,
+        financeCreatableByAdults: true,
         financeCreatableByCaregivers: true,
         financeCreatableByChildren: true,
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -318,6 +323,8 @@ async function createFinanceMatter(req, res) {
     if (isAdmin) {
       canCreate = true;
     } else if (userRole === 'parent' && groupSettings?.financeCreatableByParents) {
+      canCreate = true;
+    } else if (userRole === 'adult' && groupSettings?.financeCreatableByAdults) {
       canCreate = true;
     } else if (userRole === 'caregiver' && groupSettings?.financeCreatableByCaregivers) {
       canCreate = true;
@@ -361,6 +368,9 @@ async function createFinanceMatter(req, res) {
       // Check role-based visibility permissions
       if (memberRole === 'parent') {
         return groupSettings?.financeVisibleToParents !== true;
+      }
+      if (memberRole === 'adult') {
+        return groupSettings?.financeVisibleToAdults !== true;
       }
       if (memberRole === 'caregiver') {
         return groupSettings?.financeVisibleToCaregivers !== true;
@@ -534,6 +544,7 @@ async function getFinanceMatterById(req, res) {
       where: { groupId: groupId },
       select: {
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -544,6 +555,8 @@ async function getFinanceMatterById(req, res) {
       let hasAccess = false;
 
       if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+        hasAccess = true;
+      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
         hasAccess = true;
       } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
         hasAccess = true;
@@ -884,6 +897,7 @@ async function getFinanceMatterMessages(req, res) {
       where: { groupId: groupId },
       select: {
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -893,6 +907,8 @@ async function getFinanceMatterMessages(req, res) {
       let hasAccess = false;
 
       if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+        hasAccess = true;
+      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
         hasAccess = true;
       } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
         hasAccess = true;
@@ -1049,6 +1065,7 @@ async function sendFinanceMatterMessage(req, res) {
       where: { groupId: groupId },
       select: {
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -1058,6 +1075,8 @@ async function sendFinanceMatterMessage(req, res) {
       let hasAccess = false;
 
       if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+        hasAccess = true;
+      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
         hasAccess = true;
       } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
         hasAccess = true;
@@ -1251,6 +1270,7 @@ async function recordPayment(req, res) {
       where: { groupId: groupId },
       select: {
         financeVisibleToParents: true,
+        financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
         financeVisibleToChildren: true,
       },
@@ -1260,6 +1280,8 @@ async function recordPayment(req, res) {
       let hasAccess = false;
 
       if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+        hasAccess = true;
+      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
         hasAccess = true;
       } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
         hasAccess = true;

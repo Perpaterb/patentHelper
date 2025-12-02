@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "group_settings" ADD COLUMN     "calendar_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "calendar_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "documents_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "documents_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "finance_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "finance_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "gift_registry_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "gift_registry_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "item_registry_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "item_registry_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "message_groups_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "message_groups_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "secret_santa_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "secret_santa_visible_to_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "wiki_creatable_by_adults" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "wiki_visible_to_adults" BOOLEAN NOT NULL DEFAULT true;

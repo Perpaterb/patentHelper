@@ -167,73 +167,89 @@ model GroupSettings {
 
   // Message Groups permissions
   messageGroupsVisibleToParents      Boolean @default(true) @map("message_groups_visible_to_parents")
+  messageGroupsVisibleToAdults       Boolean @default(true) @map("message_groups_visible_to_adults")
   messageGroupsVisibleToCaregivers   Boolean @default(true) @map("message_groups_visible_to_caregivers")
   messageGroupsVisibleToChildren     Boolean @default(true) @map("message_groups_visible_to_children")
   messageGroupsVisibleToSupervisors  Boolean @default(true) @map("message_groups_visible_to_supervisors")
   messageGroupsCreatableByParents    Boolean @default(true) @map("message_groups_creatable_by_parents")
+  messageGroupsCreatableByAdults     Boolean @default(true) @map("message_groups_creatable_by_adults")
   messageGroupsCreatableByCaregivers Boolean @default(true) @map("message_groups_creatable_by_caregivers")
   messageGroupsCreatableByChildren   Boolean @default(false) @map("message_groups_creatable_by_children")
 
   // Calendar permissions
   calendarVisibleToParents      Boolean @default(true) @map("calendar_visible_to_parents")
+  calendarVisibleToAdults       Boolean @default(true) @map("calendar_visible_to_adults")
   calendarVisibleToCaregivers   Boolean @default(true) @map("calendar_visible_to_caregivers")
   calendarVisibleToChildren     Boolean @default(true) @map("calendar_visible_to_children")
   calendarVisibleToSupervisors  Boolean @default(false) @map("calendar_visible_to_supervisors")
   calendarCreatableByParents    Boolean @default(true) @map("calendar_creatable_by_parents")
+  calendarCreatableByAdults     Boolean @default(true) @map("calendar_creatable_by_adults")
   calendarCreatableByCaregivers Boolean @default(true) @map("calendar_creatable_by_caregivers")
   calendarCreatableByChildren   Boolean @default(false) @map("calendar_creatable_by_children")
 
   // Finance permissions
   financeVisibleToParents      Boolean @default(true) @map("finance_visible_to_parents")
+  financeVisibleToAdults       Boolean @default(true) @map("finance_visible_to_adults")
   financeVisibleToCaregivers   Boolean @default(false) @map("finance_visible_to_caregivers")
   financeVisibleToChildren     Boolean @default(false) @map("finance_visible_to_children")
   financeVisibleToSupervisors  Boolean @default(false) @map("finance_visible_to_supervisors")
   financeCreatableByParents    Boolean @default(true) @map("finance_creatable_by_parents")
+  financeCreatableByAdults     Boolean @default(true) @map("finance_creatable_by_adults")
   financeCreatableByCaregivers Boolean @default(false) @map("finance_creatable_by_caregivers")
   financeCreatableByChildren   Boolean @default(false) @map("finance_creatable_by_children")
 
   // Gift Registry permissions
   giftRegistryVisibleToParents      Boolean @default(true) @map("gift_registry_visible_to_parents")
+  giftRegistryVisibleToAdults       Boolean @default(true) @map("gift_registry_visible_to_adults")
   giftRegistryVisibleToCaregivers   Boolean @default(true) @map("gift_registry_visible_to_caregivers")
   giftRegistryVisibleToChildren     Boolean @default(true) @map("gift_registry_visible_to_children")
   giftRegistryVisibleToSupervisors  Boolean @default(false) @map("gift_registry_visible_to_supervisors")
   giftRegistryCreatableByParents    Boolean @default(true) @map("gift_registry_creatable_by_parents")
+  giftRegistryCreatableByAdults     Boolean @default(true) @map("gift_registry_creatable_by_adults")
   giftRegistryCreatableByCaregivers Boolean @default(true) @map("gift_registry_creatable_by_caregivers")
   giftRegistryCreatableByChildren   Boolean @default(true) @map("gift_registry_creatable_by_children")
 
   // Secret Santa permissions
   secretSantaVisibleToParents      Boolean @default(true) @map("secret_santa_visible_to_parents")
+  secretSantaVisibleToAdults       Boolean @default(true) @map("secret_santa_visible_to_adults")
   secretSantaVisibleToCaregivers   Boolean @default(true) @map("secret_santa_visible_to_caregivers")
   secretSantaVisibleToChildren     Boolean @default(true) @map("secret_santa_visible_to_children")
   secretSantaVisibleToSupervisors  Boolean @default(false) @map("secret_santa_visible_to_supervisors")
   secretSantaCreatableByParents    Boolean @default(true) @map("secret_santa_creatable_by_parents")
+  secretSantaCreatableByAdults     Boolean @default(true) @map("secret_santa_creatable_by_adults")
   secretSantaCreatableByCaregivers Boolean @default(true) @map("secret_santa_creatable_by_caregivers")
   secretSantaCreatableByChildren   Boolean @default(false) @map("secret_santa_creatable_by_children")
 
   // Item Registry permissions
   itemRegistryVisibleToParents      Boolean @default(true) @map("item_registry_visible_to_parents")
+  itemRegistryVisibleToAdults       Boolean @default(true) @map("item_registry_visible_to_adults")
   itemRegistryVisibleToCaregivers   Boolean @default(true) @map("item_registry_visible_to_caregivers")
   itemRegistryVisibleToChildren     Boolean @default(true) @map("item_registry_visible_to_children")
   itemRegistryVisibleToSupervisors  Boolean @default(false) @map("item_registry_visible_to_supervisors")
   itemRegistryCreatableByParents    Boolean @default(true) @map("item_registry_creatable_by_parents")
+  itemRegistryCreatableByAdults     Boolean @default(true) @map("item_registry_creatable_by_adults")
   itemRegistryCreatableByCaregivers Boolean @default(true) @map("item_registry_creatable_by_caregivers")
   itemRegistryCreatableByChildren   Boolean @default(true) @map("item_registry_creatable_by_children")
 
   // Wiki permissions
   wikiVisibleToParents      Boolean @default(true) @map("wiki_visible_to_parents")
+  wikiVisibleToAdults       Boolean @default(true) @map("wiki_visible_to_adults")
   wikiVisibleToCaregivers   Boolean @default(true) @map("wiki_visible_to_caregivers")
   wikiVisibleToChildren     Boolean @default(true) @map("wiki_visible_to_children")
   wikiVisibleToSupervisors  Boolean @default(false) @map("wiki_visible_to_supervisors")
   wikiCreatableByParents    Boolean @default(true) @map("wiki_creatable_by_parents")
+  wikiCreatableByAdults     Boolean @default(true) @map("wiki_creatable_by_adults")
   wikiCreatableByCaregivers Boolean @default(true) @map("wiki_creatable_by_caregivers")
   wikiCreatableByChildren   Boolean @default(false) @map("wiki_creatable_by_children")
 
   // Secure Documents permissions
   documentsVisibleToParents      Boolean @default(true) @map("documents_visible_to_parents")
+  documentsVisibleToAdults       Boolean @default(true) @map("documents_visible_to_adults")
   documentsVisibleToCaregivers   Boolean @default(false) @map("documents_visible_to_caregivers")
   documentsVisibleToChildren     Boolean @default(false) @map("documents_visible_to_children")
   documentsVisibleToSupervisors  Boolean @default(false) @map("documents_visible_to_supervisors")
   documentsCreatableByParents    Boolean @default(true) @map("documents_creatable_by_parents")
+  documentsCreatableByAdults     Boolean @default(true) @map("documents_creatable_by_adults")
   documentsCreatableByCaregivers Boolean @default(false) @map("documents_creatable_by_caregivers")
   documentsCreatableByChildren   Boolean @default(false) @map("documents_creatable_by_children")
 

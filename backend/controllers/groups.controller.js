@@ -460,66 +460,82 @@ async function getGroupById(req, res) {
           select: {
             // Message Groups permissions
             messageGroupsVisibleToParents: true,
+            messageGroupsVisibleToAdults: true,
             messageGroupsVisibleToCaregivers: true,
             messageGroupsVisibleToChildren: true,
             messageGroupsVisibleToSupervisors: true,
             messageGroupsCreatableByParents: true,
+            messageGroupsCreatableByAdults: true,
             messageGroupsCreatableByCaregivers: true,
             messageGroupsCreatableByChildren: true,
             // Calendar permissions
             calendarVisibleToParents: true,
+            calendarVisibleToAdults: true,
             calendarVisibleToCaregivers: true,
             calendarVisibleToChildren: true,
             calendarVisibleToSupervisors: true,
             calendarCreatableByParents: true,
+            calendarCreatableByAdults: true,
             calendarCreatableByCaregivers: true,
             calendarCreatableByChildren: true,
             // Finance permissions
             financeVisibleToParents: true,
+            financeVisibleToAdults: true,
             financeVisibleToCaregivers: true,
             financeVisibleToChildren: true,
             financeVisibleToSupervisors: true,
             financeCreatableByParents: true,
+            financeCreatableByAdults: true,
             financeCreatableByCaregivers: true,
             financeCreatableByChildren: true,
             // Gift Registry permissions
             giftRegistryVisibleToParents: true,
+            giftRegistryVisibleToAdults: true,
             giftRegistryVisibleToCaregivers: true,
             giftRegistryVisibleToChildren: true,
             giftRegistryVisibleToSupervisors: true,
             giftRegistryCreatableByParents: true,
+            giftRegistryCreatableByAdults: true,
             giftRegistryCreatableByCaregivers: true,
             giftRegistryCreatableByChildren: true,
             // Secret Santa permissions
             secretSantaVisibleToParents: true,
+            secretSantaVisibleToAdults: true,
             secretSantaVisibleToCaregivers: true,
             secretSantaVisibleToChildren: true,
             secretSantaVisibleToSupervisors: true,
             secretSantaCreatableByParents: true,
+            secretSantaCreatableByAdults: true,
             secretSantaCreatableByCaregivers: true,
             secretSantaCreatableByChildren: true,
             // Item Registry permissions
             itemRegistryVisibleToParents: true,
+            itemRegistryVisibleToAdults: true,
             itemRegistryVisibleToCaregivers: true,
             itemRegistryVisibleToChildren: true,
             itemRegistryVisibleToSupervisors: true,
             itemRegistryCreatableByParents: true,
+            itemRegistryCreatableByAdults: true,
             itemRegistryCreatableByCaregivers: true,
             itemRegistryCreatableByChildren: true,
             // Wiki permissions
             wikiVisibleToParents: true,
+            wikiVisibleToAdults: true,
             wikiVisibleToCaregivers: true,
             wikiVisibleToChildren: true,
             wikiVisibleToSupervisors: true,
             wikiCreatableByParents: true,
+            wikiCreatableByAdults: true,
             wikiCreatableByCaregivers: true,
             wikiCreatableByChildren: true,
             // Documents permissions
             documentsVisibleToParents: true,
+            documentsVisibleToAdults: true,
             documentsVisibleToCaregivers: true,
             documentsVisibleToChildren: true,
             documentsVisibleToSupervisors: true,
             documentsCreatableByParents: true,
+            documentsCreatableByAdults: true,
             documentsCreatableByCaregivers: true,
             documentsCreatableByChildren: true,
             // Other settings
@@ -751,7 +767,7 @@ async function inviteMember(req, res) {
     }
 
     // Validate role
-    const validRoles = ['admin', 'parent', 'child', 'caregiver', 'supervisor'];
+    const validRoles = ['admin', 'parent', 'adult', 'child', 'caregiver', 'supervisor'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -1787,7 +1803,7 @@ async function changeMemberRole(req, res) {
     }
 
     // Validate role
-    const validRoles = ['admin', 'parent', 'child', 'caregiver', 'supervisor'];
+    const validRoles = ['admin', 'parent', 'adult', 'child', 'caregiver', 'supervisor'];
     if (!role || !validRoles.includes(role)) {
       return res.status(400).json({
         error: 'Invalid role',

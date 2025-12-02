@@ -182,7 +182,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     // Enforce dependency for ALL features: If visibility is turned off, turn off creatable
     // Pattern: {feature}VisibleTo{Role} -> {feature}CreatableBy{Role}
     const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
-    const roles = ['Parents', 'Caregivers', 'Children'];
+    const roles = ['Parents', 'Adults', 'Caregivers', 'Children'];
 
     features.forEach(feature => {
       roles.forEach(role => {
@@ -293,6 +293,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const renderFeatureSection = (featureName, featureKey) => {
     const roles = [
       { name: 'Parents', key: 'Parents' },
+      { name: 'Adults', key: 'Adults' },
       { name: 'Caregivers', key: 'Caregivers' },
       { name: 'Children', key: 'Children' },
       { name: 'Supervisors', key: 'Supervisors' },
@@ -728,6 +729,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     const roles = [
       { label: 'Admin', value: 'admin' },
       { label: 'Parent', value: 'parent' },
+      { label: 'Adult', value: 'adult' },
       { label: 'Child', value: 'child' },
       { label: 'Caregiver', value: 'caregiver' },
       { label: 'Supervisor', value: 'supervisor' },
@@ -895,6 +897,8 @@ export default function GroupSettingsScreen({ navigation, route }) {
         return '#6200ee';
       case 'parent':
         return '#03dac6';
+      case 'adult':
+        return '#2196f3';
       case 'child':
         return '#ffc107';
       case 'caregiver':
