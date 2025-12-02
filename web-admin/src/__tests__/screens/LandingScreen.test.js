@@ -288,8 +288,8 @@ describe('LandingScreen', () => {
 
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
-        // USD format: $3.00 (new competitive pricing)
-        expect(tree).toMatch(/\$3\.00/);
+        // USD format: $3.00 USD (new competitive pricing with currency label)
+        expect(tree).toMatch(/\$3\.00\s*USD/);
       });
 
       // Check separately since the text might appear on its own
@@ -354,7 +354,7 @@ describe('LandingScreen', () => {
       });
     });
 
-    it('should format prices in USD currency', async () => {
+    it('should format prices in USD currency with USD label', async () => {
       api.get.mockResolvedValue({
         data: {
           pricing: {
@@ -379,9 +379,9 @@ describe('LandingScreen', () => {
 
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
-        // USD format: $5.00 and $2.00
-        expect(tree).toMatch(/\$5\.00/);
-        expect(tree).toMatch(/\$2\.00/);
+        // USD format: $5.00 USD and $2.00 USD (with currency label)
+        expect(tree).toMatch(/\$5\.00\s*USD/);
+        expect(tree).toMatch(/\$2\.00\s*USD/);
       });
     });
   });

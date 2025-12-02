@@ -136,7 +136,7 @@ export default function MyAccountScreen({ navigation }) {
                         {additionalCharges.overageGb.toFixed(2)} GB over base 10GB
                       </Text>
                       <Text style={styles.warningText}>
-                        {additionalCharges.units} × $AUD 1.00 = $AUD {additionalCharges.cost.toFixed(2)}/month
+                        {additionalCharges.units} × $1.00 USD = ${additionalCharges.cost.toFixed(2)} USD/month
                       </Text>
                     </Surface>
                   ) : (

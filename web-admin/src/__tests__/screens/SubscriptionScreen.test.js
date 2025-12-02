@@ -137,8 +137,8 @@ describe('SubscriptionScreen', () => {
       await waitFor(() => {
         const tree = JSON.stringify(toJSON());
         expect(tree).toContain('Admin Subscription');
-        // Check for the formatted price (USD format: $3.00)
-        expect(tree).toMatch(/\$3\.00/);
+        // Check for the formatted price (USD format: $3.00 USD)
+        expect(tree).toMatch(/\$3\.00\s*USD/);
       });
     });
 

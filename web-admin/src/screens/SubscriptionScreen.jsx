@@ -190,7 +190,8 @@ export default function SubscriptionScreen({ navigation }) {
       minimumFractionDigits: 2,
     }).format(amount / 100);
 
-    return formattedAmount;
+    // Append currency code for clarity (e.g., "$3.00 USD")
+    return `${formattedAmount} ${currencyCode}`;
   }
 
   /**

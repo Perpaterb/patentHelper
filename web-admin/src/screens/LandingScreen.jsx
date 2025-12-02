@@ -50,11 +50,13 @@ export default function LandingScreen({ navigation }) {
     const currencyCode = currency?.toUpperCase() || 'USD';
     // Use en-US locale for USD to get "$" symbol, otherwise use appropriate locale
     const locale = currencyCode === 'USD' ? 'en-US' : 'en-AU';
-    return new Intl.NumberFormat(locale, {
+    const formatted = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currencyCode,
       minimumFractionDigits: 2,
     }).format(amount / 100);
+    // Append currency code for clarity (e.g., "$3.00 USD")
+    return `${formatted} ${currencyCode}`;
   }
 
   const features = [
