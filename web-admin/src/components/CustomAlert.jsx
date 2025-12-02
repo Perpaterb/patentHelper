@@ -155,6 +155,9 @@ export const CustomAlert = {
   },
 };
 
+// Sidebar width from AppLayout - alerts need to be offset to center in content area
+const DRAWER_WIDTH = 240;
+
 const styles = StyleSheet.create({
   dialog: {
     backgroundColor: '#fff',
@@ -162,6 +165,8 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     minWidth: 280,
     alignSelf: 'center',
+    // Offset by half the drawer width to center in content area (not full viewport)
+    marginLeft: Platform.OS === 'web' ? DRAWER_WIDTH / 2 : 0,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
