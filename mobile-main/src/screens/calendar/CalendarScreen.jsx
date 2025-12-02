@@ -797,10 +797,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                     {/* Member initials row */}
                     <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
                       <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.childColor, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#fff' }}>{line.childInitials}</Text>
+                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.childInitials}</Text>
                       </View>
                       <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.startAdultColor, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#fff' }}>{line.startAdultInitials}</Text>
+                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.startAdultInitials}</Text>
                       </View>
                     </View>
                     {line.title && (
@@ -1421,20 +1421,14 @@ export default function CalendarScreen({ navigation, route }) {
             // Get the global column assignment for this responsibility event
             const column = globalChildColumns.get(re.responsibilityEventId) || 0;
 
-            // Check if this is the first day of the event (where it actually starts)
-            const isFirstDay = eventStart >= dayStart && eventStart < dayEnd;
-
             allResponsibilityBars.push({
               responsibilityEventId: re.responsibilityEventId,
               eventId: event.eventId,
               childColor: re.child.iconColor,
-              childInitials: re.child.user?.memberIcon || re.child.iconLetters,
               adultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
-              adultInitials: re.startResponsibleMember?.user?.memberIcon || re.startResponsibleMember?.iconLetters,
               startFraction, // 0.0 to 1.0 (position within day)
               endFraction,   // 0.0 to 1.0 (position within day)
               column,        // Global column assignment (same across all days)
-              isFirstDay,    // True only on the day the event starts
             });
           });
         }
@@ -1535,38 +1529,23 @@ export default function CalendarScreen({ navigation, route }) {
                             left: `${leftPercent}%`, // Start at time-based position
                             width: `${widthPercent}%`, // Width based on duration
                             top: topPosition,
-                            flexDirection: 'row', // Row to put initials on left
-                            alignItems: 'center',
+                            flexDirection: 'column', // Stack child/adult vertically
                           }}
                         >
-                          {/* Member initials (only on first day) */}
-                          {bar.isFirstDay && (
-                            <View style={{ flexDirection: 'column', marginRight: 1 }}>
-                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: bar.childColor, justifyContent: 'center', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 5, fontWeight: 'bold', color: '#fff' }}>{bar.childInitials}</Text>
-                              </View>
-                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: bar.adultColor, justifyContent: 'center', alignItems: 'center', marginTop: 1 }}>
-                                <Text style={{ fontSize: 5, fontWeight: 'bold', color: '#fff' }}>{bar.adultInitials}</Text>
-                              </View>
-                            </View>
-                          )}
-                          {/* Stacked bars */}
-                          <View style={{ flex: 1, flexDirection: 'column' }}>
-                            {/* Child bar (top) */}
-                            <View
-                              style={{
-                                height: barHeight,
-                                backgroundColor: bar.childColor,
-                              }}
-                            />
-                            {/* Adult bar (bottom) */}
-                            <View
-                              style={{
-                                height: barHeight,
-                                backgroundColor: bar.adultColor,
-                              }}
-                            />
-                          </View>
+                          {/* Child bar (top) */}
+                          <View
+                            style={{
+                              height: barHeight,
+                              backgroundColor: bar.childColor,
+                            }}
+                          />
+                          {/* Adult bar (bottom) */}
+                          <View
+                            style={{
+                              height: barHeight,
+                              backgroundColor: bar.adultColor,
+                            }}
+                          />
                         </View>
                       );
                     })}
