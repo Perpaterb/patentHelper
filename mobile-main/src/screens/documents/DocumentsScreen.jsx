@@ -192,19 +192,32 @@ export default function DocumentsScreen({ navigation, route }) {
         return;
       }
 
-      // Download file to local cache
-      const fileUri = FileSystem.cacheDirectory + document.fileName;
-      const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
-
-      if (downloadResult.status === 200) {
-        // Share/open the file
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadResult.uri);
-        } else {
-          CustomAlert.alert('Success', 'Document downloaded to cache');
-        }
+      // Different handling for web vs native
+      if (Platform.OS === 'web') {
+        // For web, open the download URL in a new tab or trigger download
+        // Create a temporary link element to trigger download
+        const link = window.document.createElement('a');
+        link.href = downloadUrl;
+        link.download = document.fileName;
+        link.target = '_blank';
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
       } else {
-        CustomAlert.alert('Error', 'Failed to download document');
+        // For native (iOS/Android), use FileSystem to download and share
+        const fileUri = FileSystem.cacheDirectory + document.fileName;
+        const downloadResult = await FileSystem.downloadAsync(downloadUrl, fileUri);
+
+        if (downloadResult.status === 200) {
+          // Share/open the file
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(downloadResult.uri);
+          } else {
+            CustomAlert.alert('Success', 'Document downloaded to cache');
+          }
+        } else {
+          CustomAlert.alert('Error', 'Failed to download document');
+        }
       }
     } catch (err) {
       console.error('Download error:', err);
