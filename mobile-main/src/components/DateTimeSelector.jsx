@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { WheelPicker } from 'react-native-infinite-wheel-picker';
 
@@ -199,7 +200,11 @@ export default function DateTimeSelector({
       onRequestClose={handleCancel}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[
+          styles.container,
+          // Offset for web-admin sidebar (240px / 2 = 120px)
+          Platform.OS === 'web' && { transform: [{ translateX: 120 }] }
+        ]}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleCancel}>

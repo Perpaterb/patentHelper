@@ -43,7 +43,9 @@ import WebAdminMyAccountScreen from './src/screens/MyAccountScreen';
 // Import calendar screens
 import CalendarScreen from '../mobile-main/src/screens/calendar/CalendarScreen';
 import CreateEventScreen from '../mobile-main/src/screens/calendar/CreateEventScreen';
+import CreateChildEventScreen from '../mobile-main/src/screens/calendar/CreateChildEventScreen';
 import EditEventScreen from '../mobile-main/src/screens/calendar/EditEventScreen';
+import EditChildEventScreen from '../mobile-main/src/screens/calendar/EditChildEventScreen';
 
 // Import finance screens
 import FinanceListScreen from '../mobile-main/src/screens/groups/FinanceListScreen';
@@ -152,7 +154,9 @@ const linking = {
       MessageGroupSettings: 'web-app/group/:groupId/messages/:messageGroupId/settings',
       Calendar: 'web-app/group/:groupId/calendar',
       CreateEvent: 'web-app/group/:groupId/calendar/create',
+      CreateChildEvent: 'web-app/group/:groupId/calendar/create-child',
       EditEvent: 'web-app/group/:groupId/calendar/:eventId/edit',
+      EditChildEvent: 'web-app/group/:groupId/calendar/:eventId/edit-child',
       Finance: 'web-app/group/:groupId/finance',
       GiftRegistryList: 'web-app/group/:groupId/gift-registry',
       GiftRegistryDetail: 'web-app/group/:groupId/gift-registry/:registryId',
@@ -262,7 +266,9 @@ function AppNavigator() {
             {/* Calendar */}
             <Stack.Screen name="Calendar" component={withAppLayoutAndPhoneFrame(CalendarScreen, 'Groups')} />
             <Stack.Screen name="CreateEvent" component={withAppLayoutAndPhoneFrame(CreateEventScreen, 'Groups')} />
+            <Stack.Screen name="CreateChildEvent" component={withAppLayoutAndPhoneFrame(CreateChildEventScreen, 'Groups')} />
             <Stack.Screen name="EditEvent" component={withAppLayoutAndPhoneFrame(EditEventScreen, 'Groups')} />
+            <Stack.Screen name="EditChildEvent" component={withAppLayoutAndPhoneFrame(EditChildEventScreen, 'Groups')} />
 
             {/* Finance */}
             <Stack.Screen name="Finance" component={withAppLayoutAndPhoneFrame(FinanceListScreen, 'Groups')} />
