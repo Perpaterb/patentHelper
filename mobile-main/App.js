@@ -15,6 +15,8 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { CONFIG } from './src/constants/config';
 import authEvents from './src/services/authEvents';
 import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
+import ForceUpdateModal from './src/components/ForceUpdateModal';
+import { useVersionCheck } from './src/hooks/useVersionCheck';
 
 /**
  * Component to initialize the global alert handler
@@ -27,6 +29,34 @@ function AlertHandlerInitializer() {
   }, [showAlert]);
 
   return null;
+}
+
+/**
+ * Component to handle version checking and force update modal
+ */
+function VersionCheckHandler({ children }) {
+  const { needsUpdate, isChecking, versionInfo } = useVersionCheck('mobile-main');
+
+  // Show loading while checking version
+  if (isChecking) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6200ee" />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {children}
+      <ForceUpdateModal
+        visible={needsUpdate}
+        currentVersion={versionInfo.currentVersion}
+        minVersion={versionInfo.minVersion}
+        updateUrl={versionInfo.updateUrl}
+      />
+    </>
+  );
 }
 
 export default function App() {
@@ -114,13 +144,15 @@ export default function App() {
     <PaperProvider>
       <CustomAlertProvider>
         <AlertHandlerInitializer />
-        <StatusBar style="light" />
-        <AppNavigator
-          key={navigationKey}
-          isAuthenticated={isAuthenticated}
-          onLoginSuccess={handleLoginSuccess}
-          onLogout={handleLogout}
-        />
+        <VersionCheckHandler>
+          <StatusBar style="light" />
+          <AppNavigator
+            key={navigationKey}
+            isAuthenticated={isAuthenticated}
+            onLoginSuccess={handleLoginSuccess}
+            onLogout={handleLogout}
+          />
+        </VersionCheckHandler>
       </CustomAlertProvider>
     </PaperProvider>
   );
