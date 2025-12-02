@@ -16,6 +16,7 @@ import {
   PanResponder,
   Animated,
   ScrollView,
+  Platform,
 } from 'react-native';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -1676,7 +1677,11 @@ export default function CalendarScreen({ navigation, route }) {
       {/* Event Type Choice Modal */}
       <Modal visible={showEventTypeModal} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[
+            styles.modalContent,
+            // Offset for web-admin sidebar (240px / 2 = 120px)
+            Platform.OS === 'web' && { transform: [{ translateX: 120 }] }
+          ]}>
             <Text style={styles.modalTitle}>Create New...</Text>
             <TouchableOpacity
               style={styles.eventTypeButton}
@@ -1737,7 +1742,11 @@ export default function CalendarScreen({ navigation, route }) {
       {/* Day Events Modal (Long Press on Month View) */}
       <Modal visible={showDayEventsModal} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.dayEventsModalContent}>
+          <View style={[
+            styles.dayEventsModalContent,
+            // Offset for web-admin sidebar (240px / 2 = 120px)
+            Platform.OS === 'web' && { transform: [{ translateX: 120 }] }
+          ]}>
             {/* Header with date and close button */}
             <View style={styles.dayEventsHeader}>
               <Text style={styles.dayEventsTitle}>
