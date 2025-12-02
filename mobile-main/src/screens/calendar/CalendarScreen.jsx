@@ -587,9 +587,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             startTime: event.startTime,
             endTime: event.endTime,
             childColor: re.child.iconColor,
-            childIconLetters: re.child.memberIcon || re.child.iconLetters || '?',
             startAdultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
-            startAdultIconLetters: re.startResponsibleMember?.memberIcon || re.startResponsibleMember?.iconLetters || re.startResponsibleOtherName?.substring(0, 2)?.toUpperCase() || '?',
             endAdultColor: re.endResponsibleMember?.iconColor || re.endResponsibleOtherColor,
             hasHandoff: !!re.endResponsibleMember || !!re.endResponsibleOtherName,
           });
@@ -791,64 +789,26 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                 }}
                 activeOpacity={0.7}
               >
-                {/* Event title and member icons (only on first segment) */}
-                {isFirstSegment && (
+                {/* Event title (only on first segment) */}
+                {isFirstSegment && line.title && (
                   <View
                     style={{
                       padding: 2,
-                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
                     }}
                   >
-                    {line.title && (
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 'bold',
-                          color: '#000',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {line.title}
-                      </Text>
-                    )}
-                    {/* Member icons row - child and adult side by side */}
-                    <View style={{ flexDirection: 'row', marginTop: 2, gap: 2 }}>
-                      {/* Child icon */}
-                      <View
-                        style={{
-                          width: eventWidth / 2 - 4,
-                          height: eventWidth / 2 - 4,
-                          maxWidth: 20,
-                          maxHeight: 20,
-                          borderRadius: 10,
-                          backgroundColor: line.childColor,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 8, color: '#fff', fontWeight: 'bold' }}>
-                          {line.childIconLetters}
-                        </Text>
-                      </View>
-                      {/* Adult icon */}
-                      <View
-                        style={{
-                          width: eventWidth / 2 - 4,
-                          height: eventWidth / 2 - 4,
-                          maxWidth: 20,
-                          maxHeight: 20,
-                          borderRadius: 10,
-                          backgroundColor: line.startAdultColor,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 8, color: '#fff', fontWeight: 'bold' }}>
-                          {line.startAdultIconLetters}
-                        </Text>
-                      </View>
-                    </View>
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 'bold',
+                        color: '#000',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {line.title}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1458,9 +1418,7 @@ export default function CalendarScreen({ navigation, route }) {
               responsibilityEventId: re.responsibilityEventId,
               eventId: event.eventId,
               childColor: re.child.iconColor,
-              childIconLetters: re.child.memberIcon || re.child.iconLetters || '?',
               adultColor: re.startResponsibleMember?.iconColor || re.startResponsibleOtherColor,
-              adultIconLetters: re.startResponsibleMember?.memberIcon || re.startResponsibleMember?.iconLetters || re.startResponsibleOtherName?.substring(0, 2)?.toUpperCase() || '?',
               startFraction, // 0.0 to 1.0 (position within day)
               endFraction,   // 0.0 to 1.0 (position within day)
               column,        // Global column assignment (same across all days)
@@ -1556,9 +1514,6 @@ export default function CalendarScreen({ navigation, route }) {
 
                       const topPosition = dayNumberAndGapHeight + (bar.column * barPairHeight); // Start below day number + gap
 
-                      // Icon size matches the barPairHeight (same height as child+adult bars together)
-                      const iconSize = Math.min(barPairHeight - 2, 16); // Cap at 16px max
-
                       return (
                         <View
                           key={`childbar-${bar.responsibilityEventId}`}
@@ -1567,62 +1522,23 @@ export default function CalendarScreen({ navigation, route }) {
                             left: `${leftPercent}%`, // Start at time-based position
                             width: `${widthPercent}%`, // Width based on duration
                             top: topPosition,
-                            flexDirection: 'row', // Icons on left, bars on right
-                            alignItems: 'center',
+                            flexDirection: 'column', // Stack child/adult vertically
                           }}
                         >
-                          {/* Member icons column */}
-                          <View style={{ flexDirection: 'column', marginRight: 1 }}>
-                            {/* Child icon */}
-                            <View
-                              style={{
-                                width: iconSize,
-                                height: iconSize / 2,
-                                backgroundColor: bar.childColor,
-                                borderTopLeftRadius: iconSize / 4,
-                                borderTopRightRadius: iconSize / 4,
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>
-                                {bar.childIconLetters}
-                              </Text>
-                            </View>
-                            {/* Adult icon */}
-                            <View
-                              style={{
-                                width: iconSize,
-                                height: iconSize / 2,
-                                backgroundColor: bar.adultColor,
-                                borderBottomLeftRadius: iconSize / 4,
-                                borderBottomRightRadius: iconSize / 4,
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>
-                                {bar.adultIconLetters}
-                              </Text>
-                            </View>
-                          </View>
-                          {/* Color bars column */}
-                          <View style={{ flex: 1, flexDirection: 'column' }}>
-                            {/* Child bar (top) */}
-                            <View
-                              style={{
-                                height: barHeight,
-                                backgroundColor: bar.childColor,
-                              }}
-                            />
-                            {/* Adult bar (bottom) */}
-                            <View
-                              style={{
-                                height: barHeight,
-                                backgroundColor: bar.adultColor,
-                              }}
-                            />
-                          </View>
+                          {/* Child bar (top) */}
+                          <View
+                            style={{
+                              height: barHeight,
+                              backgroundColor: bar.childColor,
+                            }}
+                          />
+                          {/* Adult bar (bottom) */}
+                          <View
+                            style={{
+                              height: barHeight,
+                              backgroundColor: bar.adultColor,
+                            }}
+                          />
                         </View>
                       );
                     })}
