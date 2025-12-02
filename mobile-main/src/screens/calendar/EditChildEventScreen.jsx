@@ -217,12 +217,6 @@ export default function EditChildEventScreen({ route, navigation }) {
         onBack={() => navigation.goBack()}
       />
 
-      <View style={styles.updateButtonContainer}>
-        <TouchableOpacity onPress={handleUpdate} style={styles.updateButton}>
-          <Text style={styles.saveButton}>Save</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Title */}
         <View style={styles.section}>
@@ -363,6 +357,11 @@ export default function EditChildEventScreen({ route, navigation }) {
           </Text>
         </View>
 
+        {/* Update Button */}
+        <TouchableOpacity style={styles.submitButton} onPress={handleUpdate}>
+          <Text style={styles.submitButtonText}>Update Event</Text>
+        </TouchableOpacity>
+
         {/* Delete Button */}
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
           <Text style={styles.deleteButtonText}>Delete Event</Text>
@@ -442,23 +441,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  updateButtonContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    alignItems: 'flex-end',
-  },
-  updateButton: {
+  submitButton: {
     backgroundColor: '#6200ee',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    padding: 16,
     borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
   },
-  saveButton: {
+  submitButtonText: {
+    color: '#fff',
     fontSize: 16,
-    color: '#6200ee',
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   scrollView: {
     flex: 1,
