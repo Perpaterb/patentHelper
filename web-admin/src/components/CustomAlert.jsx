@@ -70,7 +70,15 @@ export function CustomAlertProvider({ children }) {
     <CustomAlertContext.Provider value={{ showAlert }}>
       {children}
       <Portal>
-        <Dialog visible={visible} onDismiss={hideAlert} style={styles.dialog}>
+        <Dialog
+          visible={visible}
+          onDismiss={hideAlert}
+          style={[
+            styles.dialog,
+            // On web, offset to center in content area (accounting for 240px sidebar)
+            Platform.OS === 'web' && { transform: [{ translateX: 120 }] }
+          ]}
+        >
           {title && (
             <Dialog.Title style={styles.title}>{title}</Dialog.Title>
           )}
@@ -165,8 +173,6 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     minWidth: 280,
     alignSelf: 'center',
-    // Offset by half the drawer width to center in content area (not full viewport)
-    marginLeft: Platform.OS === 'web' ? DRAWER_WIDTH / 2 : 0,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
