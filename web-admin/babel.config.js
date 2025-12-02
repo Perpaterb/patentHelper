@@ -8,12 +8,13 @@ module.exports = function(api) {
       [
         'module-resolver',
         {
-          alias: {
-            'expo-secure-store': './src/polyfills/expo-secure-store.js',
-          },
-          // Custom resolver to redirect mobile-main's DateTimeSelector to web version
+          // Custom resolver to handle all aliases
           resolvePath(sourcePath, currentFile) {
-            // Check if importing DateTimeSelector from mobile-main
+            // Redirect expo-secure-store to our web polyfill
+            if (sourcePath === 'expo-secure-store') {
+              return path.resolve(__dirname, 'src/polyfills/expo-secure-store.js');
+            }
+            // Redirect mobile-main's DateTimeSelector to web version
             if (sourcePath.includes('components/DateTimeSelector') &&
                 currentFile.includes('mobile-main')) {
               return path.resolve(__dirname, 'src/components/DateTimeSelector.jsx');
