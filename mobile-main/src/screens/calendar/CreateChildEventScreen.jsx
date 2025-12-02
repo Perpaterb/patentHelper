@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import API from '../../services/api';
@@ -482,7 +482,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
       {showFrequencyPicker && (
         <Modal transparent={true} animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
               <Text style={styles.pickerModalTitle}>Repeat Frequency</Text>
               {['DAILY', 'WEEKLY', 'FORTNIGHTLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'].map(freq => (
                 <TouchableOpacity
@@ -497,7 +500,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowFrequencyPicker(false)}>
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -508,7 +511,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
       {showChildrenPicker && (
         <Modal transparent={true} animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
               <Text style={styles.pickerModalTitle}>Select Children</Text>
               <ScrollView style={styles.checkboxList}>
                 {children.map(child => (
@@ -525,7 +531,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 ))}
               </ScrollView>
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowChildrenPicker(false)}>
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -536,7 +542,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
       {showResponsiblePicker && (
         <Modal transparent={true} animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
               <Text style={styles.pickerModalTitle}>Select Responsible Adult</Text>
               {adults.map(adult => (
                 <TouchableOpacity
@@ -551,7 +560,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowResponsiblePicker(false)}>
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -562,7 +571,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
       {showHandoffPicker && (
         <Modal transparent={true} animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
               <Text style={styles.pickerModalTitle}>Select Handoff Person</Text>
               {adults.map(adult => (
                 <TouchableOpacity
@@ -577,7 +589,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowHandoffPicker(false)}>
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -588,7 +600,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
       {showColorPicker && (
         <Modal transparent={true} animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
               <Text style={styles.pickerModalTitle}>Choose Color</Text>
               <View style={styles.colorGrid}>
                 {colorOptions.map(color => (
@@ -607,7 +622,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 ))}
               </View>
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowColorPicker(false)}>
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -754,6 +769,10 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '85%',
     maxHeight: '80%',
+  },
+  modalContentWeb: {
+    maxWidth: 300,
+    transform: [{ translateX: 120 }],
   },
   pickerModalTitle: {
     fontSize: 18,
