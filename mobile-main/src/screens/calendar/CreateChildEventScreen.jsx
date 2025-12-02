@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, Switch,  } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import API from '../../services/api';
@@ -331,7 +331,12 @@ export default function CreateChildEventScreen({ navigation, route }) {
       <View style={styles.section}>
         <View style={styles.row}>
           <Text style={styles.label}>Handoff at End Time</Text>
-          <Switch value={hasHandoff} onValueChange={setHasHandoff} />
+          <TouchableOpacity
+            style={[styles.toggle, hasHandoff && styles.toggleActive]}
+            onPress={() => setHasHandoff(!hasHandoff)}
+          >
+            <View style={[styles.toggleCircle, hasHandoff && styles.toggleCircleActive]} />
+          </TouchableOpacity>
         </View>
 
         {hasHandoff && (
@@ -406,7 +411,12 @@ export default function CreateChildEventScreen({ navigation, route }) {
       <View style={styles.section}>
         <View style={styles.row}>
           <Text style={styles.label}>Recurring Event</Text>
-          <Switch value={isRecurring} onValueChange={setIsRecurring} />
+          <TouchableOpacity
+            style={[styles.toggle, isRecurring && styles.toggleActive]}
+            onPress={() => setIsRecurring(!isRecurring)}
+          >
+            <View style={[styles.toggleCircle, isRecurring && styles.toggleCircleActive]} />
+          </TouchableOpacity>
         </View>
 
         {isRecurring && (
@@ -654,6 +664,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  toggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#6200ee',
+  },
+  toggleCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#fff',
+    alignSelf: 'flex-start',
+  },
+  toggleCircleActive: {
+    alignSelf: 'flex-end',
   },
   typeButton: {
     flex: 1,
