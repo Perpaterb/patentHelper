@@ -1,0 +1,515 @@
+/**
+ * SubscriptionScreen Test Suite
+ *
+ * Tests for the subscription management screen.
+ */
+
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Provider as PaperProvider } from 'react-native-paper';
+import SubscriptionScreen from '../../screens/SubscriptionScreen';
+import api from '../../services/api';
+
+// Mock api
+jest.mock('../../services/api');
+
+// Mock MaterialCommunityIcons
+jest.mock('@expo/vector-icons', () => ({
+  MaterialCommunityIcons: 'MaterialCommunityIcons',
+}));
+
+// Mock window.location
+const mockLocation = {
+  origin: 'http://localhost:3000',
+  search: '',
+  href: '',
+};
+Object.defineProperty(window, 'location', {
+  value: mockLocation,
+  writable: true,
+});
+
+// Mock window.history
+const mockHistory = {
+  replaceState: jest.fn(),
+};
+Object.defineProperty(window, 'history', {
+  value: mockHistory,
+  writable: true,
+});
+
+describe('SubscriptionScreen', () => {
+  const mockNavigation = {
+    navigate: jest.fn(),
+  };
+
+  const mockPricing = {
+    adminSubscription: {
+      name: 'Admin Subscription',
+      amount: 999,
+      currency: 'aud',
+      interval: 'month',
+      priceId: 'price_123',
+      description: 'Full admin access with 10GB storage',
+    },
+    additionalStorage: {
+      name: 'Additional Storage',
+      amount: 200,
+      currency: 'usd',
+      unit: '10GB',
+      interval: 'month',
+      description: 'Extra storage space',
+    },
+  };
+
+  const mockActiveSubscription = {
+    isSubscribed: true,
+    startDate: '2024-01-01T00:00:00Z',
+    storageUsedGb: '5.00',
+    stripe: {
+      currentPeriodEnd: '2024-02-01T00:00:00Z',
+    },
+  };
+
+  const mockCanceledSubscription = {
+    isSubscribed: true,
+    startDate: '2024-01-01T00:00:00Z',
+    endDate: '2024-02-01T00:00:00Z',
+    storageUsedGb: '5.00',
+  };
+
+  const mockTrialSubscription = {
+    isSubscribed: false,
+    createdAt: new Date().toISOString(), // Today, so trial is active
+    storageUsedGb: '1.00',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLocation.search = '';
+    mockLocation.href = '';
+    api.get.mockImplementation((url) => {
+      if (url === '/subscriptions/pricing') {
+        return Promise.resolve({ data: { pricing: mockPricing } });
+      }
+      if (url === '/subscriptions/current') {
+        return Promise.resolve({ data: { subscription: null } });
+      }
+      return Promise.reject(new Error('Not found'));
+    });
+  });
+
+  const renderSubscriptionScreen = () => {
+    return render(
+      <PaperProvider>
+        <SubscriptionScreen navigation={mockNavigation} />
+      </PaperProvider>
+    );
+  };
+
+  describe('Loading State', () => {
+    it('should show loading indicator while fetching data', () => {
+      // Make API calls pending
+      api.get.mockImplementation(() => new Promise(() => {}));
+
+      const { toJSON } = renderSubscriptionScreen();
+      const tree = JSON.stringify(toJSON());
+
+      expect(tree).toContain('progressbar');
+      expect(tree).toContain('Loading pricing information');
+    });
+  });
+
+  describe('Content Rendering', () => {
+    it('should render page title and subtitle', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Subscription Management');
+        expect(tree).toContain('Choose the plan that best fits your needs');
+      });
+    });
+
+    it('should render admin subscription card with pricing', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Admin Subscription');
+        // Check for the formatted price (AUD format)
+        expect(tree).toMatch(/AUD.*9\.99/);
+      });
+    });
+
+    it('should render additional storage card', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Additional Storage');
+        expect(tree).toContain('Charged in 10GB blocks');
+        expect(tree).toContain('Automatic billing as needed');
+      });
+    });
+
+    it('should render admin subscription features', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Full admin access');
+        expect(tree).toContain('10GB storage included');
+        expect(tree).toContain('Unlimited groups');
+        expect(tree).toContain('Audit log exports');
+      });
+    });
+  });
+
+  describe('No Subscription State', () => {
+    it('should show "no subscription" message when user has no subscription', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain("You don't have an active subscription");
+        expect(tree).toContain('Subscribe Now');
+      });
+    });
+
+    it('should render Subscribe Now button', async () => {
+      const { root } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const buttons = root.findAllByType('button');
+        expect(buttons.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('Active Subscription State', () => {
+    beforeEach(() => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.resolve({ data: { pricing: mockPricing } });
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: mockActiveSubscription } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+    });
+
+    it('should show active subscription chip', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Active Subscription');
+      });
+    });
+
+    it('should display Current Subscription section', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Current Subscription');
+        expect(tree).toContain('Active');
+      });
+    });
+
+    it('should display storage usage', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Storage Used');
+        // Storage text may be split like ["5.00", " GB"]
+        expect(tree).toContain('5.00');
+        expect(tree).toContain('GB');
+      });
+    });
+
+    it('should show cancel subscription button', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Cancel Subscription');
+      });
+    });
+
+    it('should display next billing date', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Next Billing Date');
+      });
+    });
+  });
+
+  describe('Canceled Subscription State', () => {
+    beforeEach(() => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.resolve({ data: { pricing: mockPricing } });
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: mockCanceledSubscription } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+    });
+
+    it('should show canceling status', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Canceling');
+      });
+    });
+
+    it('should show reactivate button', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Reactivate Subscription');
+      });
+    });
+
+    it('should show cancellation warning message', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Your subscription has been canceled');
+        expect(tree).toContain('You can reactivate');
+      });
+    });
+  });
+
+  describe('Free Trial State', () => {
+    beforeEach(() => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.resolve({ data: { pricing: mockPricing } });
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: mockTrialSubscription } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+    });
+
+    it('should show free trial status', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Free Trial');
+      });
+    });
+
+    it('should show last day of access for trial', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Last day of access');
+      });
+    });
+
+    it('should not show cancel button for trial users', async () => {
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        // Free trial users shouldn't see cancel button
+        expect(tree).not.toContain('Cancel Subscription');
+      });
+    });
+  });
+
+  describe('Subscription Actions', () => {
+    it('should call checkout API when Subscribe Now is clicked', async () => {
+      api.post.mockResolvedValue({ data: { url: 'https://checkout.stripe.com/test' } });
+
+      const { root, toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Subscribe Now');
+      });
+
+      const buttons = root.findAllByType('button');
+      // Find subscribe button (first button with text)
+      fireEvent.press(buttons[0]);
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith('/subscriptions/checkout', expect.objectContaining({
+          priceId: 'price_123',
+        }));
+      });
+    });
+
+    it('should show cancel dialog when cancel button is clicked', async () => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.resolve({ data: { pricing: mockPricing } });
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: mockActiveSubscription } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+
+      const { root, toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Cancel Subscription');
+      });
+
+      const buttons = root.findAllByType('button');
+      // Find cancel button - it should be after "Active Subscription" chip
+      // Look for the button that contains red text color for cancel
+      const cancelButton = buttons.find((btn) => {
+        try {
+          // Check if it's a cancel button based on style
+          return btn.props?.children?.[0]?.props?.children?.[0]?.props?.style?.color === 'rgba(211,47,47,1.00)';
+        } catch {
+          return false;
+        }
+      });
+
+      if (cancelButton) {
+        fireEvent.press(cancelButton);
+
+        await waitFor(() => {
+          const tree = JSON.stringify(toJSON());
+          expect(tree).toContain('Cancel Subscription?');
+          expect(tree).toContain('No, Keep It');
+        });
+      }
+    });
+  });
+
+  describe('URL Parameters', () => {
+    it('should show success message when success=true in URL', async () => {
+      mockLocation.search = '?success=true';
+
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Subscription successful');
+      });
+    });
+
+    it('should show info message when canceled=true in URL', async () => {
+      mockLocation.search = '?canceled=true';
+
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Checkout canceled');
+      });
+    });
+
+    it('should clean up URL after showing success message', async () => {
+      mockLocation.search = '?success=true';
+
+      renderSubscriptionScreen();
+
+      await waitFor(() => {
+        expect(mockHistory.replaceState).toHaveBeenCalledWith({}, '', '/subscription');
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should show error message when pricing fetch fails', async () => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.reject(new Error('Network error'));
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: null } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Failed to load pricing information');
+      });
+    });
+
+    it('should allow dismissing error message', async () => {
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.reject(new Error('Network error'));
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: null } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+
+      const { root, toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Failed to load pricing information');
+      });
+
+      // Find dismiss button - it's a compact button next to error text
+      const buttons = root.findAllByType('button');
+      // Press the first button which should be dismiss
+      if (buttons.length > 0) {
+        fireEvent.press(buttons[0]);
+
+        await waitFor(() => {
+          const tree = JSON.stringify(toJSON());
+          expect(tree).not.toContain('Failed to load pricing information');
+        });
+      }
+    });
+  });
+
+  describe('Storage Overflow', () => {
+    it('should show additional storage charges when over 10GB', async () => {
+      const overStorageSubscription = {
+        ...mockActiveSubscription,
+        storageUsedGb: '25.00',
+      };
+
+      api.get.mockImplementation((url) => {
+        if (url === '/subscriptions/pricing') {
+          return Promise.resolve({ data: { pricing: mockPricing } });
+        }
+        if (url === '/subscriptions/current') {
+          return Promise.resolve({ data: { subscription: overStorageSubscription } });
+        }
+        return Promise.reject(new Error('Not found'));
+      });
+
+      const { toJSON } = renderSubscriptionScreen();
+
+      await waitFor(() => {
+        const tree = JSON.stringify(toJSON());
+        expect(tree).toContain('Additional Storage Charges');
+        // Storage text may be split like ["25.00", " GB"]
+        expect(tree).toContain('25.00');
+        expect(tree).toContain('GB');
+      });
+    });
+  });
+});

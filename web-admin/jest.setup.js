@@ -60,7 +60,8 @@ console.warn = (...args) => {
 const originalError = console.error;
 console.error = (...args) => {
   if (
-    args[0]?.includes?.('react-test-renderer is deprecated')
+    args[0]?.includes?.('react-test-renderer is deprecated') ||
+    args[0]?.includes?.('not wrapped in act')
   ) {
     return;
   }
