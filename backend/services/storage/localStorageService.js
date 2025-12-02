@@ -100,7 +100,7 @@ class LocalStorageService extends StorageInterface {
   async getFileMetadata(fileId) {
     try {
       // Find metadata file by searching all category directories
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'temp'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'temp'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
