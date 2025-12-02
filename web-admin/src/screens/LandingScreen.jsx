@@ -141,7 +141,7 @@ export default function LandingScreen({ navigation }) {
                 <Text style={styles.priceAmount}>Free</Text>
                 <Text style={styles.priceInterval}>forever</Text>
                 <View style={styles.featureList}>
-                  {['Parents', 'Children', 'Caregivers', 'Supervisors'].map((item, i) => (
+                  {['Parents', 'Adults', 'Children', 'Caregivers', 'Supervisors'].map((item, i) => (
                     <View key={i} style={styles.featureRow}>
                       <MaterialCommunityIcons name="check-circle" size={20} color="#4caf50" />
                       <Text style={styles.featureText}>{item}</Text>
