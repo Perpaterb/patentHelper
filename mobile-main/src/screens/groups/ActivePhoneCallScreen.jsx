@@ -10,10 +10,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert, BackHandler } from 'react-native';
+import { View, StyleSheet, BackHandler } from 'react-native';
 import { Text, Avatar, Button, ActivityIndicator } from 'react-native-paper';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
+import { CustomAlert } from '../../components/CustomAlert';
 
 /**
  * @typedef {Object} ActivePhoneCallScreenProps
@@ -149,7 +150,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const handleEndCall = () => {
     if (endingCall) return;
 
-    Alert.alert(
+    CustomAlert.alert(
       'End Call',
       'Are you sure you want to end this call?',
       [
@@ -169,7 +170,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
               });
             } catch (err) {
               console.error('End call error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to end call');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to end call');
               setEndingCall(false);
             }
           },

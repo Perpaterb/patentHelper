@@ -9,12 +9,13 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import { CustomAlert } from '../../components/CustomAlert';
 
 /**
  * @typedef {Object} PhoneCallDetailsScreenProps
@@ -176,7 +177,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
       }
     } catch (err) {
       console.error('Audio playback error:', err);
-      Alert.alert('Playback Error', 'Failed to play recording');
+      CustomCustomAlert.alert('Playback Error', 'Failed to play recording');
       setLoadingAudio(false);
     }
   };
@@ -208,7 +209,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
    * Handle hide recording (admin only)
    */
   const handleHideRecording = () => {
-    Alert.alert(
+    CustomAlert.alert(
       'Hide Recording',
       'Are you sure you want to hide this recording? This action requires admin approval.',
       [
@@ -219,11 +220,11 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
           onPress: async () => {
             try {
               await api.put(`/groups/${groupId}/phone-calls/${callId}/hide-recording`);
-              Alert.alert('Success', 'Recording has been hidden');
+              CustomAlert.alert('Success', 'Recording has been hidden');
               setCall(prev => ({ ...prev, recordingIsHidden: true }));
             } catch (err) {
               console.error('Hide recording error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to hide recording');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to hide recording');
             }
           },
         },
@@ -235,7 +236,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
    * Handle ending the call
    */
   const handleEndCall = async () => {
-    Alert.alert(
+    CustomAlert.alert(
       'End Call',
       'Are you sure you want to end this call?',
       [
@@ -248,10 +249,10 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
             try {
               await api.put(`/groups/${groupId}/phone-calls/${callId}/end`);
               setCall(prev => ({ ...prev, status: 'ended', endedAt: new Date().toISOString() }));
-              Alert.alert('Call Ended', 'The call has been ended.');
+              CustomAlert.alert('Call Ended', 'The call has been ended.');
             } catch (err) {
               console.error('End call error:', err);
-              Alert.alert('Error', err.response?.data?.message || 'Failed to end call');
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to end call');
             } finally {
               setEndingCall(false);
             }

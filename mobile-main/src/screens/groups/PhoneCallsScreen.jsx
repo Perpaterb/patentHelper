@@ -187,14 +187,28 @@ export default function PhoneCallsScreen({ navigation, route }) {
   const renderPhoneCall = ({ item }) => {
     const statusColors = getStatusColor(item.status);
     const hasRecording = item.recordingUrl && !item.recordingIsHidden;
-
-    // Get participant names (backend returns displayName directly, not nested in groupMember)
-    const participantNames = item.participants
-      ?.filter(p => p.groupMemberId !== item.initiatedBy)
-      .map(p => p.displayName || 'Unknown')
-      .join(', ') || 'Unknown';
-
     const initiatorName = item.initiator?.displayName || 'Unknown';
+
+    // Build all participants list including initiator for avatar display
+    const allParticipants = [];
+
+    // Add initiator first if available
+    if (item.initiator) {
+      allParticipants.push({
+        groupMemberId: item.initiatedBy,
+        displayName: item.initiator.displayName,
+        iconLetters: item.initiator.iconLetters,
+        iconColor: item.initiator.iconColor,
+        isInitiator: true,
+      });
+    }
+
+    // Add other participants (excluding initiator to avoid duplicates)
+    item.participants?.forEach(p => {
+      if (p.groupMemberId !== item.initiatedBy) {
+        allParticipants.push(p);
+      }
+    });
 
     return (
       <TouchableOpacity
@@ -204,16 +218,34 @@ export default function PhoneCallsScreen({ navigation, route }) {
         <Card style={styles.card}>
           <Card.Content>
             <View style={styles.cardHeader}>
-              <View style={styles.callIcon}>
-                <Text style={styles.callEmoji}>
-                  {item.status === 'missed' ? '📵' : '📞'}
-                </Text>
+              {/* Show all participants avatars at the start */}
+              <View style={styles.avatarsColumn}>
+                {allParticipants.slice(0, 4).map((participant, index) => {
+                  const bgColor = participant.iconColor || '#6200ee';
+                  return (
+                    <Avatar.Text
+                      key={participant.groupMemberId}
+                      size={32}
+                      label={participant.iconLetters || '?'}
+                      style={{
+                        backgroundColor: bgColor,
+                        marginTop: index > 0 ? -10 : 0,
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                      }}
+                      color={getContrastTextColor(bgColor)}
+                    />
+                  );
+                })}
+                {allParticipants.length > 4 && (
+                  <Text style={styles.moreAvatarsText}>+{allParticipants.length - 4}</Text>
+                )}
               </View>
 
               <View style={styles.callInfo}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.participantName} numberOfLines={1}>
-                    {participantNames}
+                  <Text style={styles.initiatorText}>
+                    {initiatorName} called
                   </Text>
                   <Chip
                     mode="outlined"
@@ -223,10 +255,6 @@ export default function PhoneCallsScreen({ navigation, route }) {
                     {item.status}
                   </Chip>
                 </View>
-
-                <Text style={styles.initiatorText}>
-                  Initiated by: {initiatorName}
-                </Text>
 
                 <View style={styles.detailsRow}>
                   <Text style={styles.callTime}>
@@ -245,30 +273,6 @@ export default function PhoneCallsScreen({ navigation, route }) {
                   )}
                 </View>
               </View>
-            </View>
-
-            {/* Show participants avatars */}
-            <View style={styles.participantsRow}>
-              {item.participants?.slice(0, 6).map((participant, index) => {
-                const bgColor = participant.iconColor || '#6200ee';
-                return (
-                  <Avatar.Text
-                    key={participant.groupMemberId}
-                    size={28}
-                    label={participant.iconLetters || '?'}
-                    style={{
-                      backgroundColor: bgColor,
-                      marginLeft: index > 0 ? -8 : 0,
-                    }}
-                    color={getContrastTextColor(bgColor)}
-                  />
-                );
-              })}
-              {item.participants?.length > 6 && (
-                <Text style={styles.moreParticipantsText}>
-                  +{item.participants.length - 6}
-                </Text>
-              )}
             </View>
           </Card.Content>
         </Card>
@@ -371,19 +375,17 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
-  callIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e3f2fd',
-    justifyContent: 'center',
+  avatarsColumn: {
     alignItems: 'center',
     marginRight: 12,
+    minWidth: 40,
   },
-  callEmoji: {
-    fontSize: 24,
+  moreAvatarsText: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 2,
   },
   callInfo: {
     flex: 1,
@@ -394,12 +396,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  participantName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-    marginRight: 8,
-  },
   statusChip: {
     height: 24,
   },
@@ -408,9 +404,11 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   initiatorText: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+    flex: 1,
+    marginRight: 8,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -438,19 +436,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4caf50',
     fontWeight: '500',
-  },
-  participantsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  moreParticipantsText: {
-    marginLeft: 8,
-    fontSize: 12,
-    color: '#666',
   },
   emptyState: {
     flex: 1,
