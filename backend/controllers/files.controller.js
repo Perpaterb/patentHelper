@@ -512,14 +512,37 @@ async function getFile(req, res) {
 
     // Get file data
     const fileBuffer = await storageService.getFile(fileId);
+    const fileSize = fileBuffer.length;
 
-    // Set response headers
-    res.setHeader('Content-Type', metadata.mimeType);
-    res.setHeader('Content-Length', metadata.size);
-    res.setHeader('Content-Disposition', `inline; filename="${metadata.fileName}"`);
+    // Check for range request (needed for audio/video seeking and duration detection)
+    const range = req.headers.range;
 
-    // Send file
-    res.send(fileBuffer);
+    if (range) {
+      // Parse range header
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      // Set headers for partial content
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Length', chunkSize);
+      res.setHeader('Content-Type', metadata.mimeType);
+
+      // Send the requested chunk
+      res.send(fileBuffer.slice(start, end + 1));
+    } else {
+      // No range request - send entire file
+      res.setHeader('Content-Type', metadata.mimeType);
+      res.setHeader('Content-Length', fileSize);
+      res.setHeader('Content-Disposition', `inline; filename="${metadata.fileName}"`);
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // Send file
+      res.send(fileBuffer);
+    }
 
   } catch (error) {
     console.error('Get file error:', error);
