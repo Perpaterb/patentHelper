@@ -17,6 +17,7 @@ import authEvents from './src/services/authEvents';
 import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
 import ForceUpdateModal from './src/components/ForceUpdateModal';
 import { useVersionCheck } from './src/hooks/useVersionCheck';
+import { IncomingCallProvider } from './src/contexts/IncomingCallContext';
 
 /**
  * Component to initialize the global alert handler
@@ -144,15 +145,17 @@ export default function App() {
     <PaperProvider>
       <CustomAlertProvider>
         <AlertHandlerInitializer />
-        <VersionCheckHandler>
-          <StatusBar style="light" />
-          <AppNavigator
-            key={navigationKey}
-            isAuthenticated={isAuthenticated}
-            onLoginSuccess={handleLoginSuccess}
-            onLogout={handleLogout}
-          />
-        </VersionCheckHandler>
+        <IncomingCallProvider>
+          <VersionCheckHandler>
+            <StatusBar style="light" />
+            <AppNavigator
+              key={navigationKey}
+              isAuthenticated={isAuthenticated}
+              onLoginSuccess={handleLoginSuccess}
+              onLogout={handleLogout}
+            />
+          </VersionCheckHandler>
+        </IncomingCallProvider>
       </CustomAlertProvider>
     </PaperProvider>
   );

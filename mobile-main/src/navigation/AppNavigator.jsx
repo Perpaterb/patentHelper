@@ -57,6 +57,7 @@ import PhoneCallsScreen from '../screens/groups/PhoneCallsScreen';
 import InitiatePhoneCallScreen from '../screens/groups/InitiatePhoneCallScreen';
 import PhoneCallDetailsScreen from '../screens/groups/PhoneCallDetailsScreen';
 import ActivePhoneCallScreen from '../screens/groups/ActivePhoneCallScreen';
+import IncomingCallHandler from '../components/IncomingCallHandler';
 
 const Stack = createNativeStackNavigator();
 
@@ -168,6 +169,9 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
           </>
         )}
       </Stack.Navigator>
+
+      {/* Incoming Call Handler - Shows overlay when receiving calls */}
+      {isAuthenticated && <IncomingCallHandler />}
     </NavigationContainer>
   );
 }

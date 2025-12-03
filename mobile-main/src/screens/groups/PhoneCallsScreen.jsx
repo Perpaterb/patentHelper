@@ -224,7 +224,7 @@ export default function PhoneCallsScreen({ navigation, route }) {
                   const bgColor = participant.iconColor || '#6200ee';
                   return (
                     <Avatar.Text
-                      key={participant.groupMemberId}
+                      key={`${item.callId}-${participant.groupMemberId || index}`}
                       size={32}
                       label={participant.iconLetters || '?'}
                       style={{
