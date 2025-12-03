@@ -6,10 +6,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+
+const IS_WEB = Platform.OS === 'web';
 
 /**
  * Format milliseconds to mm:ss
@@ -31,9 +33,10 @@ function formatDuration(ms) {
  * @param {string} props.uri - URI of the audio file
  * @param {number} [props.duration] - Duration in milliseconds from server (used as fallback)
  * @param {boolean} [props.isMyMessage] - Whether this is the current user's message (for styling)
+ * @param {string} [props.mimeType] - MIME type of the audio file
  * @returns {JSX.Element}
  */
-export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage = false }) {
+export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage = false, mimeType }) {
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,10 +45,18 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
   const [duration, setDuration] = useState(serverDuration || 0);
   const [error, setError] = useState(null);
 
+  // Check if format is unsupported on mobile (webm doesn't play on iOS/Android)
+  const isUnsupportedFormat = !IS_WEB && mimeType === 'audio/webm';
+
   const soundRef = useRef(null);
 
-  // Load sound on mount
+  // Load sound on mount (skip if unsupported format)
   useEffect(() => {
+    if (isUnsupportedFormat) {
+      setIsLoading(false);
+      return;
+    }
+
     loadSound();
 
     return () => {
@@ -53,7 +64,7 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
         soundRef.current.unloadAsync().catch(() => {});
       }
     };
-  }, [uri]);
+  }, [uri, isUnsupportedFormat]);
 
   // Update duration if server provides it later
   useEffect(() => {
@@ -189,6 +200,29 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
   const iconColor = isMyMessage ? '#1976d2' : '#6200ee';
   const textColor = isMyMessage ? '#1976d2' : '#333';
 
+  // Show unsupported format message for webm on mobile
+  if (isUnsupportedFormat) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={28} color="#ff9800" />
+        <View style={styles.unsupportedContainer}>
+          <Text style={[styles.unsupportedText, { color: textColor }]}>
+            Recorded on web
+          </Text>
+          <Text style={[styles.durationText, { color: textColor }]}>
+            {formatDuration(duration)}
+          </Text>
+        </View>
+        <MaterialCommunityIcons
+          name="waveform"
+          size={20}
+          color={iconColor}
+          style={styles.waveformIcon}
+        />
+      </View>
+    );
+  }
+
   if (error) {
     return (
       <TouchableOpacity
@@ -214,7 +248,7 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
         style={styles.playButton}
       >
         {isLoading ? (
-          <MaterialCommunityIcons name="loading" size={28} color={iconColor} />
+          <ActivityIndicator size={28} color={iconColor} />
         ) : (
           <MaterialCommunityIcons
             name={isPlaying ? 'pause-circle' : 'play-circle'}
@@ -293,5 +327,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginLeft: 8,
+  },
+  unsupportedContainer: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  unsupportedText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

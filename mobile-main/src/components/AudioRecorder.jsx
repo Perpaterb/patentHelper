@@ -230,10 +230,22 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
 
   const handleSend = () => {
     if (recordedUri) {
+      // Determine correct mimeType based on platform
+      // Web uses MediaRecorder which produces WebM format
+      // iOS produces m4a, Android produces mp4/m4a
+      let mimeType;
+      if (IS_WEB) {
+        mimeType = 'audio/webm';
+      } else if (Platform.OS === 'ios') {
+        mimeType = 'audio/x-m4a';
+      } else {
+        mimeType = 'audio/mp4';
+      }
+
       onRecordingComplete({
         uri: recordedUri,
         duration: duration,
-        mimeType: Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/mp4',
+        mimeType: mimeType,
       });
     }
   };

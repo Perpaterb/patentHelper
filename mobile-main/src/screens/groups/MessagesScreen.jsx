@@ -368,9 +368,11 @@ export default function MessagesScreen({ navigation, route }) {
       setError(null);
 
       // Create file object for upload
+      // Use correct extension based on mimeType (webm for web, m4a for native)
+      const extension = audioData.mimeType === 'audio/webm' ? 'webm' : 'm4a';
       const audioFile = {
         uri: audioData.uri,
-        name: `voice_message_${Date.now()}.m4a`,
+        name: `voice_message_${Date.now()}.${extension}`,
         mimeType: audioData.mimeType,
       };
 
@@ -687,6 +689,7 @@ export default function MessagesScreen({ navigation, route }) {
                       key={media.mediaId}
                       uri={getFileUrl(media.url)}
                       duration={media.durationMs}
+                      mimeType={media.mimeType}
                       isMyMessage={isMyMessage}
                     />
                   ) : (

@@ -242,6 +242,7 @@ async function getMessageGroupMessages(req, res) {
           select: {
             mediaId: true,
             mediaType: true,
+            mimeType: true,
             url: true,
             thumbnailUrl: true,
             fileSizeBytes: true,
@@ -324,6 +325,7 @@ async function getMessageGroupMessages(req, res) {
           return {
             mediaId: m.mediaId,
             mediaType: m.mediaType,
+            mimeType: m.mimeType || null, // Full MIME type for format detection
             // Don't send URL for hidden/deleted files - they can't be viewed
             url: m.isHidden ? null : m.url,
             thumbnailUrl: m.isHidden ? null : m.thumbnailUrl,
@@ -503,6 +505,7 @@ async function sendMessageGroupMessage(req, res) {
             }
             return {
               mediaType: mediaType,
+              mimeType: file.mimeType || null, // Full MIME type (e.g., audio/webm)
               s3Key: file.s3Key,
               url: file.fileId, // Store fileId as URL for retrieval
               fileSizeBytes: file.fileSizeBytes,
@@ -533,6 +536,7 @@ async function sendMessageGroupMessage(req, res) {
           select: {
             mediaId: true,
             mediaType: true,
+            mimeType: true,
             url: true,
             thumbnailUrl: true,
             fileSizeBytes: true,

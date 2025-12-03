@@ -377,6 +377,7 @@ model MessageMedia {
   mediaId        String         @id @default(uuid()) @map("media_id") @db.Uuid
   messageId      String         @map("message_id") @db.Uuid
   mediaType      String         @map("media_type") @db.VarChar(20)
+  mimeType       String?        @map("mime_type") @db.VarChar(100) // Full MIME type (e.g., audio/webm, audio/mp4)
   s3Key          String         @map("s3_key") @db.VarChar(500)
   url            String
   thumbnailUrl   String?        @map("thumbnail_url")
