@@ -42,33 +42,34 @@ export default function InitiatePhoneCallScreen({ navigation, route }) {
    */
   const loadMembers = async () => {
     try {
-      // If members were passed, use them
-      if (passedMembers && passedMembers.length > 0) {
-        const response = await api.get(`/groups/${groupId}`);
-        const group = response.data.group;
-        setCurrentUserMemberId(group?.currentUserMember?.groupMemberId);
+      // Always fetch fresh data from API to get isRegistered field
+      const response = await api.get(`/groups/${groupId}`);
+      const group = response.data.group;
+      setCurrentUserMemberId(group?.currentUserMember?.groupMemberId);
 
-        // Filter out current user and supervisors (they can't receive calls)
-        const callableMembers = passedMembers.filter(m =>
-          m.groupMemberId !== group?.currentUserMember?.groupMemberId &&
-          m.role !== 'supervisor' &&
-          m.isRegistered === true // Only registered members can receive calls
-        );
-        setMembers(callableMembers);
-      } else {
-        // Fetch members from API
-        const response = await api.get(`/groups/${groupId}`);
-        const group = response.data.group;
-        setCurrentUserMemberId(group?.currentUserMember?.groupMemberId);
+      // Debug logging
+      console.log('[InitiatePhoneCall] All members:', group?.members?.map(m => ({
+        name: m.displayName,
+        role: m.role,
+        isRegistered: m.isRegistered,
+        groupMemberId: m.groupMemberId,
+      })));
+      console.log('[InitiatePhoneCall] Current user groupMemberId:', group?.currentUserMember?.groupMemberId);
 
-        // Filter out current user and supervisors
-        const callableMembers = (group?.members || []).filter(m =>
-          m.groupMemberId !== group?.currentUserMember?.groupMemberId &&
-          m.role !== 'supervisor' &&
-          m.isRegistered === true
-        );
-        setMembers(callableMembers);
-      }
+      // Filter out current user and supervisors (they can't receive calls)
+      // Members must be registered (accepted invitation) to receive calls
+      const callableMembers = (group?.members || []).filter(m => {
+        const isNotCurrentUser = m.groupMemberId !== group?.currentUserMember?.groupMemberId;
+        const isNotSupervisor = m.role !== 'supervisor';
+        const isRegistered = m.isRegistered === true;
+
+        console.log(`[InitiatePhoneCall] ${m.displayName}: notCurrentUser=${isNotCurrentUser}, notSupervisor=${isNotSupervisor}, isRegistered=${isRegistered}`);
+
+        return isNotCurrentUser && isNotSupervisor && isRegistered;
+      });
+
+      console.log('[InitiatePhoneCall] Callable members:', callableMembers.length);
+      setMembers(callableMembers);
     } catch (err) {
       console.error('Load members error:', err);
       Alert.alert('Error', 'Failed to load group members');
