@@ -328,6 +328,7 @@ async function getMessageGroupMessages(req, res) {
             url: m.isHidden ? null : m.url,
             thumbnailUrl: m.isHidden ? null : m.thumbnailUrl,
             fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : 0,
+            durationMs: m.durationMs || null, // Duration in ms for audio/video
             uploadedAt: m.uploadedAt,
             // Deletion info
             isDeleted: m.isHidden || false,
