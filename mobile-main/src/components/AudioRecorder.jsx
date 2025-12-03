@@ -75,7 +75,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationIntervalRef = useRef(null);
-  const webPulseIntervalRef = useRef(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -88,9 +87,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
       }
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
-      }
-      if (webPulseIntervalRef.current) {
-        clearInterval(webPulseIntervalRef.current);
       }
     };
   }, []);
@@ -112,42 +108,11 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   }, [metering, isRecording]);
 
-  // Simulated pulse animation for web (since metering isn't available)
+  // On web, just show a static red circle (no metering available)
   useEffect(() => {
     if (isRecording && IS_WEB) {
-      // Create a simulated pulsing effect on web
-      let direction = 1;
-      let currentLevel = 4;
-
-      webPulseIntervalRef.current = setInterval(() => {
-        // Simulate random-ish level changes (between 3 and 7)
-        currentLevel += direction * (Math.random() * 2);
-        if (currentLevel >= 7) {
-          currentLevel = 7;
-          direction = -1;
-        } else if (currentLevel <= 3) {
-          currentLevel = 3;
-          direction = 1;
-        }
-
-        const level = Math.round(currentLevel);
-        setAudioLevel(level);
-        setLevelColor(getLevelColor(level));
-
-        const scale = 0.8 + (level / 10) * 0.7;
-        Animated.timing(pulseAnim, {
-          toValue: scale,
-          duration: 150,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }).start();
-      }, 150);
-
-      return () => {
-        if (webPulseIntervalRef.current) {
-          clearInterval(webPulseIntervalRef.current);
-        }
-      };
+      setLevelColor(LEVEL_COLORS.danger); // Red dot on web
+      setAudioLevel(null); // Don't show level number on web
     }
   }, [isRecording]);
 
@@ -210,10 +175,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
         durationIntervalRef.current = null;
-      }
-      if (webPulseIntervalRef.current) {
-        clearInterval(webPulseIntervalRef.current);
-        webPulseIntervalRef.current = null;
       }
 
       setIsRecording(false);
@@ -299,13 +260,15 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
                 styles.recordingCircle,
                 {
                   backgroundColor: levelColor,
-                  transform: [{ scale: pulseAnim }],
+                  transform: IS_WEB ? [] : [{ scale: pulseAnim }],
                 },
               ]}
             />
-            <Text style={[styles.levelText, { color: '#fff' }]}>
-              {audioLevel}
-            </Text>
+            {audioLevel !== null && (
+              <Text style={[styles.levelText, { color: '#fff' }]}>
+                {audioLevel}
+              </Text>
+            )}
           </View>
           <View style={styles.timerContainer}>
             <Text style={[styles.timerText, { color: levelColor }]}>

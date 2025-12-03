@@ -457,14 +457,19 @@ async function sendMessageGroupMessage(req, res) {
     // Validate media files if provided
     let mediaFiles = [];
     if (mediaFilesInput && Array.isArray(mediaFilesInput) && mediaFilesInput.length > 0) {
+      // Debug: log received media files
+      console.log('Received mediaFilesInput:', JSON.stringify(mediaFilesInput, null, 2));
+
       // Use media file info provided by client (includes mimeType, fileSizeBytes, durationMs)
       mediaFiles = mediaFilesInput.map(file => ({
         fileId: file.fileId,
         mimeType: file.mimeType,
         s3Key: file.fileId,
         fileSizeBytes: file.fileSizeBytes || 0, // Use file size from upload response
-        durationMs: file.durationMs || null, // Duration in ms for audio/video
+        durationMs: file.durationMs ? parseInt(file.durationMs, 10) : null, // Duration in ms for audio/video
       }));
+
+      console.log('Processed mediaFiles:', JSON.stringify(mediaFiles, null, 2));
     }
 
     // Encrypt message content before storing (use space if content is empty)
