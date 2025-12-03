@@ -61,6 +61,8 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
       setIsLoading(true);
       setError(null);
 
+      console.log('Loading audio from URI:', uri);
+
       // Set audio mode for playback
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -74,6 +76,8 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
         onPlaybackStatusUpdate
       );
 
+      console.log('Audio load status:', status);
+
       soundRef.current = newSound;
       setSound(newSound);
 
@@ -84,6 +88,7 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
       setIsLoading(false);
     } catch (err) {
       console.error('Failed to load audio:', err);
+      console.error('Audio URI was:', uri);
       setError('Failed to load audio');
       setIsLoading(false);
     }
@@ -113,20 +118,36 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
    * Toggle play/pause
    */
   const togglePlayPause = async () => {
-    if (!sound) return;
+    // Use soundRef for more reliable access
+    const currentSound = soundRef.current;
+    if (!currentSound) {
+      console.log('Sound not yet loaded, attempting to reload...');
+      await loadSound();
+      return;
+    }
 
     try {
+      // Check if sound is actually loaded before operating on it
+      const status = await currentSound.getStatusAsync();
+      if (!status.isLoaded) {
+        console.log('Sound not loaded, reloading...');
+        await loadSound();
+        return;
+      }
+
       if (isPlaying) {
-        await sound.pauseAsync();
+        await currentSound.pauseAsync();
       } else {
         // If at end, restart from beginning
         if (position >= duration - 100) {
-          await sound.setPositionAsync(0);
+          await currentSound.setPositionAsync(0);
         }
-        await sound.playAsync();
+        await currentSound.playAsync();
       }
     } catch (err) {
       console.error('Playback error:', err);
+      // Try to reload the sound if there's an error
+      setError('Playback failed. Tap to retry.');
     }
   };
 
