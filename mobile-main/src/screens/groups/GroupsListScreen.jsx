@@ -5,7 +5,7 @@
  * Allows navigation to group details and message threads.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, ImageBackground } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton, Portal, Modal, TextInput, Button } from 'react-native-paper';
@@ -37,7 +37,9 @@ export default function GroupsListScreen({ navigation }) {
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [sendingFeedback, setSendingFeedback] = useState(false);
-  const [authErrorOccurred, setAuthErrorOccurred] = useState(false);
+
+  // Use ref instead of state to prevent useFocusEffect re-execution on auth error
+  const authErrorRef = useRef(false);
 
   useEffect(() => {
     loadGroups(true); // Show loading spinner on initial mount
@@ -57,7 +59,7 @@ export default function GroupsListScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       // Don't start polling if auth error already occurred
-      if (authErrorOccurred) return;
+      if (authErrorRef.current) return;
 
       // Refresh immediately on focus
       loadGroups();
@@ -66,7 +68,7 @@ export default function GroupsListScreen({ navigation }) {
       // Start polling (only while focused)
       const pollInterval = setInterval(() => {
         // Check again in case auth error happened during polling
-        if (authErrorOccurred) {
+        if (authErrorRef.current) {
           clearInterval(pollInterval);
           return;
         }
@@ -76,7 +78,7 @@ export default function GroupsListScreen({ navigation }) {
 
       // Stop polling when screen loses focus
       return () => clearInterval(pollInterval);
-    }, [authErrorOccurred])
+    }, [])
   );
 
   /**
@@ -84,7 +86,7 @@ export default function GroupsListScreen({ navigation }) {
    */
   const loadGroups = async (showLoader = false) => {
     // Don't make API calls if auth error already occurred
-    if (authErrorOccurred) return;
+    if (authErrorRef.current) return;
 
     try {
       setError(null);
@@ -100,7 +102,7 @@ export default function GroupsListScreen({ navigation }) {
       // Don't show error if it's an auth error - logout happens automatically
       if (err.isAuthError) {
         console.log('[GroupsList] Auth error detected - user will be logged out');
-        setAuthErrorOccurred(true); // Prevent further API calls
+        authErrorRef.current = true; // Prevent further API calls
         return;
       }
 
@@ -116,7 +118,7 @@ export default function GroupsListScreen({ navigation }) {
    */
   const loadInvitationCount = async () => {
     // Don't make API calls if auth error already occurred
-    if (authErrorOccurred) return;
+    if (authErrorRef.current) return;
 
     try {
       const response = await api.get('/invitations/count');
@@ -125,7 +127,7 @@ export default function GroupsListScreen({ navigation }) {
       console.error('Load invitation count error:', err);
       // Mark auth error to prevent further calls
       if (err.isAuthError) {
-        setAuthErrorOccurred(true);
+        authErrorRef.current = true;
         return;
       }
       // Don't show error, just set count to 0
