@@ -61,7 +61,7 @@ export default function MessagesScreen({ navigation, route }) {
   const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [moreMenuVisible, setMoreMenuVisible] = useState(false);
-  const [mediaPickerRef, setMediaPickerRef] = useState(null);
+  const mediaPickerRef = useRef(null);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -936,8 +936,8 @@ export default function MessagesScreen({ navigation, route }) {
                   setMoreMenuVisible(false);
                   // Trigger media picker after menu closes
                   setTimeout(() => {
-                    if (mediaPickerRef) {
-                      mediaPickerRef();
+                    if (mediaPickerRef.current) {
+                      mediaPickerRef.current();
                     }
                   }, 100);
                 }}
@@ -964,9 +964,7 @@ export default function MessagesScreen({ navigation, route }) {
               onProcessingChange={setProcessing}
               renderTrigger={(onPress) => {
                 // Store the onPress function to be called from menu
-                if (!mediaPickerRef) {
-                  setMediaPickerRef(() => onPress);
-                }
+                mediaPickerRef.current = onPress;
                 return null; // Don't render anything, menu triggers this
               }}
             />

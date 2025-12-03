@@ -17,6 +17,7 @@ const path = require('path');
 const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024,     // 10 MB for images
   video: 200 * 1024 * 1024,    // 200 MB for videos
+  audio: 50 * 1024 * 1024,     // 50 MB for audio (10 min max recording)
   document: 100 * 1024 * 1024, // 100 MB for documents
   default: 10 * 1024 * 1024    // 10 MB default
 };
@@ -32,6 +33,19 @@ const ALLOWED_MIME_TYPES = {
     'image/webp', 'image/heic', 'image/heif', 'image/avif', 'image/tiff', 'image/bmp', 'image/x-ms-bmp'
   ],
   video: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp'],
+  audio: [
+    'audio/mp4',        // M4A container (standard)
+    'audio/x-m4a',      // M4A (iOS variant)
+    'audio/m4a',        // M4A (alternative)
+    'audio/aac',        // AAC audio
+    'audio/mpeg',       // MP3
+    'audio/mp3',        // MP3 (alternative)
+    'audio/ogg',        // OGG Vorbis
+    'audio/wav',        // WAV
+    'audio/x-wav',      // WAV (alternative)
+    'audio/webm',       // WebM audio
+    'audio/3gpp',       // 3GP audio
+  ],
   document: [
     'application/pdf',
     'application/msword',
@@ -50,6 +64,9 @@ const ALLOWED_MIME_TYPES = {
     'image/webp', 'image/heic', 'image/heif', 'image/avif', 'image/tiff', 'image/bmp', 'image/x-ms-bmp',
     // Videos
     'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/3gpp',
+    // Audio
+    'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/mpeg', 'audio/mp3',
+    'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/3gpp',
     // Documents
     'application/pdf',
     'application/msword',
