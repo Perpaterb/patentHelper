@@ -478,7 +478,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             <View style={styles.topBar}>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>
-                  {isRinging ? '📹 Ringing...' : '📹 Video Call'}
+                  {isRinging ? '👋 Ringing...' : '👋 Video Call'}
                 </Text>
               </View>
               {isActive && (
@@ -598,11 +598,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         // Camera off or no permission - show placeholder
         <View style={styles.noCameraContainer}>
           <View style={styles.noCameraContent}>
-            <Text style={styles.noCameraEmoji}>📹</Text>
+            <Text style={styles.noCameraEmoji}>👋</Text>
             <Text style={styles.noCameraText}>
-              {!cameraPermission?.granted ? 'Camera permission required' : 'Camera is off'}
+              {cameraPermission?.granted === false ? 'Camera permission required' : 'Camera is off'}
             </Text>
-            {!cameraPermission?.granted && (
+            {cameraPermission?.granted === false && (
               <Button mode="contained" onPress={requestPermissions} style={styles.permissionButton}>
                 Grant Permission
               </Button>

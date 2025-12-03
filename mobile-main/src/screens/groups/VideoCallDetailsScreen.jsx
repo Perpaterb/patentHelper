@@ -256,7 +256,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
           <Card.Content>
             <View style={styles.headerRow}>
               <View style={styles.callIconLarge}>
-                <Text style={styles.callEmojiLarge}>📹</Text>
+                <Text style={styles.callEmojiLarge}>👋</Text>
               </View>
               <View style={styles.headerInfo}>
                 <Chip
