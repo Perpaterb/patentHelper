@@ -188,10 +188,10 @@ export default function PhoneCallsScreen({ navigation, route }) {
     const statusColors = getStatusColor(item.status);
     const hasRecording = item.recordingUrl && !item.recordingIsHidden;
 
-    // Get participant names
+    // Get participant names (backend returns displayName directly, not nested in groupMember)
     const participantNames = item.participants
       ?.filter(p => p.groupMemberId !== item.initiatedBy)
-      .map(p => p.groupMember?.displayName || 'Unknown')
+      .map(p => p.displayName || 'Unknown')
       .join(', ') || 'Unknown';
 
     const initiatorName = item.initiator?.displayName || 'Unknown';
@@ -250,12 +250,12 @@ export default function PhoneCallsScreen({ navigation, route }) {
             {/* Show participants avatars */}
             <View style={styles.participantsRow}>
               {item.participants?.slice(0, 6).map((participant, index) => {
-                const bgColor = participant.groupMember?.iconColor || '#6200ee';
+                const bgColor = participant.iconColor || '#6200ee';
                 return (
                   <Avatar.Text
                     key={participant.groupMemberId}
                     size={28}
-                    label={participant.groupMember?.iconLetters || '?'}
+                    label={participant.iconLetters || '?'}
                     style={{
                       backgroundColor: bgColor,
                       marginLeft: index > 0 ? -8 : 0,

@@ -71,6 +71,7 @@ import DocumentsScreen from '../mobile-main/src/screens/documents/DocumentsScree
 import PhoneCallsScreen from '../mobile-main/src/screens/groups/PhoneCallsScreen';
 import InitiatePhoneCallScreen from '../mobile-main/src/screens/groups/InitiatePhoneCallScreen';
 import PhoneCallDetailsScreen from '../mobile-main/src/screens/groups/PhoneCallDetailsScreen';
+import ActivePhoneCallScreen from '../mobile-main/src/screens/groups/ActivePhoneCallScreen';
 
 // Web-only screens (admin features)
 import LandingScreen from './src/screens/LandingScreen';
@@ -176,6 +177,7 @@ const linking = {
       Documents: 'web-app/group/:groupId/documents',
       PhoneCalls: 'web-app/group/:groupId/phone-calls',
       InitiatePhoneCall: 'web-app/group/:groupId/phone-calls/initiate',
+      ActivePhoneCall: 'web-app/group/:groupId/phone-calls/:callId/active',
       PhoneCallDetails: 'web-app/group/:groupId/phone-calls/:callId',
       MyAccount: 'my-account',
     },
@@ -305,6 +307,7 @@ function AppNavigator() {
             {/* Phone Calls */}
             <Stack.Screen name="PhoneCalls" component={withAppLayoutAndPhoneFrame(PhoneCallsScreen, 'Groups')} />
             <Stack.Screen name="InitiatePhoneCall" component={withAppLayoutAndPhoneFrame(InitiatePhoneCallScreen, 'Groups')} />
+            <Stack.Screen name="ActivePhoneCall" component={withAppLayoutAndPhoneFrame(ActivePhoneCallScreen, 'Groups')} />
             <Stack.Screen name="PhoneCallDetails" component={withAppLayoutAndPhoneFrame(PhoneCallDetailsScreen, 'Groups')} />
 
             {/* Mobile app My Account - in phone frame */}

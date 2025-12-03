@@ -38,6 +38,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const [endingCall, setEndingCall] = useState(false);
 
   useEffect(() => {
     loadGroupInfo();
@@ -230,6 +231,36 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
     );
   };
 
+  /**
+   * Handle ending the call
+   */
+  const handleEndCall = async () => {
+    Alert.alert(
+      'End Call',
+      'Are you sure you want to end this call?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Call',
+          style: 'destructive',
+          onPress: async () => {
+            setEndingCall(true);
+            try {
+              await api.put(`/groups/${groupId}/phone-calls/${callId}/end`);
+              setCall(prev => ({ ...prev, status: 'ended', endedAt: new Date().toISOString() }));
+              Alert.alert('Call Ended', 'The call has been ended.');
+            } catch (err) {
+              console.error('End call error:', err);
+              Alert.alert('Error', err.response?.data?.message || 'Failed to end call');
+            } finally {
+              setEndingCall(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -305,6 +336,22 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                 <Text style={styles.infoLabel}>Ended at:</Text>
                 <Text style={styles.infoValue}>{formatDateTime(call.endedAt)}</Text>
               </View>
+            )}
+
+            {/* End Call Button - show for active or ringing calls */}
+            {(call.status === 'active' || call.status === 'ringing') && (
+              <Button
+                mode="contained"
+                onPress={handleEndCall}
+                loading={endingCall}
+                disabled={endingCall}
+                style={styles.endCallButton}
+                buttonColor="#d32f2f"
+                textColor="#fff"
+                icon="phone-hangup"
+              >
+                {endingCall ? 'Ending...' : 'End Call'}
+              </Button>
             )}
           </Card.Content>
         </Card>
@@ -397,19 +444,19 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
             {call.participants?.map(participant => {
               if (participant.groupMemberId === call.initiatedBy) return null;
               const statusColor = getParticipantStatusColor(participant.status);
-              const bgColor = participant.groupMember?.iconColor || '#6200ee';
+              const bgColor = participant.iconColor || '#6200ee';
 
               return (
                 <View key={participant.groupMemberId} style={styles.participantRow}>
                   <Avatar.Text
                     size={40}
-                    label={participant.groupMember?.iconLetters || '?'}
+                    label={participant.iconLetters || '?'}
                     style={{ backgroundColor: bgColor }}
                     color={getContrastTextColor(bgColor)}
                   />
                   <View style={styles.participantInfo}>
                     <Text style={styles.participantName}>
-                      {participant.groupMember?.displayName || 'Unknown'}
+                      {participant.displayName || 'Unknown'}
                     </Text>
                     <Text style={[styles.participantStatus, { color: statusColor }]}>
                       {participant.status}
@@ -488,6 +535,10 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  endCallButton: {
+    marginTop: 16,
+    borderRadius: 8,
   },
   sectionTitle: {
     fontSize: 18,
