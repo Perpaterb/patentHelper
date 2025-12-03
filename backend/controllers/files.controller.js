@@ -17,6 +17,10 @@ const {
   PASSTHROUGH_TYPES,
   ALL_IMAGE_TYPES,
 } = require('../services/imageConversion.service');
+const audioConverter = require('../services/audioConverter');
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
 
 /**
  * Upload a single file
@@ -175,6 +179,46 @@ async function uploadFile(req, res) {
           error: 'Image conversion failed',
           message: `Could not convert ${req.file.mimetype} to PNG: ${conversionError.message}`
         });
+      }
+    }
+
+    // Convert incompatible audio formats (webm, ogg) to MP3 for universal playback
+    if (audioConverter.needsConversion(fileMimeType)) {
+      let tempInputPath = null;
+      try {
+        const originalMimeType = fileMimeType;
+        const tempDir = os.tmpdir();
+
+        // Write buffer to temp file for ffmpeg processing
+        const tempInputName = `audio_input_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        tempInputPath = path.join(tempDir, tempInputName);
+        await fs.writeFile(tempInputPath, req.file.buffer);
+
+        // Convert to MP3
+        const converted = await audioConverter.convertToMp3(tempInputPath, tempDir);
+
+        // Read converted file
+        fileBuffer = await fs.readFile(converted.path);
+        fileMimeType = converted.mimeType;
+        fileName = req.file.originalname.replace(/\.[^.]+$/, '.mp3');
+        fileSize = fileBuffer.length;
+        wasConverted = true;
+
+        // Clean up converted file
+        await fs.unlink(converted.path).catch(() => {});
+
+        console.log(`Converted audio ${req.file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
+      } catch (conversionError) {
+        console.error('Audio conversion failed:', conversionError);
+        return res.status(400).json({
+          error: 'Audio conversion failed',
+          message: `Could not convert ${req.file.mimetype} to MP3: ${conversionError.message}`
+        });
+      } finally {
+        // Clean up temp input file
+        if (tempInputPath) {
+          await fs.unlink(tempInputPath).catch(() => {});
+        }
       }
     }
 
