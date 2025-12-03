@@ -78,6 +78,14 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   }, [metering, isRecording]);
 
+  // Start recording on mount (must be before any conditional returns to follow React hooks rules)
+  useEffect(() => {
+    // Only start if we haven't already started and don't have a recording yet
+    if (!isRecording && !recordedUri && !recording) {
+      startRecording();
+    }
+  }, []);
+
   /**
    * Start recording audio
    */
@@ -307,11 +315,7 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     );
   }
 
-  // Initial state - start recording immediately
-  useEffect(() => {
-    startRecording();
-  }, []);
-
+  // Initial state - show loading while recording starts
   return (
     <View style={styles.container}>
       <Text>Preparing to record...</Text>
