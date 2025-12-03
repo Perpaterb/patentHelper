@@ -1,8 +1,8 @@
 /**
- * Audio Converter Service
+ * Video Converter Service
  *
- * Converts audio files to universally compatible formats.
- * Uses ffmpeg to convert webm (from web browsers) to mp3.
+ * Converts video files to universally compatible formats.
+ * Uses ffmpeg to convert webm/mov/etc to mp4.
  */
 
 const ffmpeg = require('fluent-ffmpeg');
@@ -17,30 +17,34 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
 
 /**
- * Convert audio file to MP3 format
- * @param {string} inputPath - Path to input audio file
+ * Convert video file to MP4 format
+ * @param {string} inputPath - Path to input video file
  * @param {string} outputDir - Directory to save converted file
- * @returns {Promise<{path: string, mimeType: string}>} Converted file info
+ * @returns {Promise<{path: string, fileName: string, mimeType: string}>} Converted file info
  */
-async function convertToMp3(inputPath, outputDir) {
-  const outputFileName = `${uuidv4()}.mp3`;
+async function convertToMp4(inputPath, outputDir) {
+  const outputFileName = `${uuidv4()}.mp4`;
   const outputPath = path.join(outputDir, outputFileName);
 
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
-      .toFormat('mp3')
-      .audioCodec('libmp3lame')
-      .audioBitrate('128k')
-      .audioChannels(1) // Mono for voice messages
+      .toFormat('mp4')
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .outputOptions([
+        '-preset fast',
+        '-crf 23', // Good quality balance
+        '-movflags +faststart', // Enable streaming
+      ])
       .on('error', (err) => {
-        console.error('Audio conversion error:', err);
-        reject(new Error(`Audio conversion failed: ${err.message}`));
+        console.error('Video conversion error:', err);
+        reject(new Error(`Video conversion failed: ${err.message}`));
       })
       .on('end', () => {
         resolve({
           path: outputPath,
           fileName: outputFileName,
-          mimeType: 'audio/mpeg',
+          mimeType: 'video/mp4',
         });
       })
       .save(outputPath);
@@ -48,16 +52,16 @@ async function convertToMp3(inputPath, outputDir) {
 }
 
 /**
- * Get audio duration in milliseconds
- * @param {string} filePath - Path to audio file
+ * Get video duration in milliseconds
+ * @param {string} filePath - Path to video file
  * @returns {Promise<number>} Duration in milliseconds
  */
-async function getAudioDuration(filePath) {
+async function getVideoDuration(filePath) {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) {
-        console.error('Audio probe error:', err);
-        reject(new Error(`Failed to get audio duration: ${err.message}`));
+        console.error('Video probe error:', err);
+        reject(new Error(`Failed to get video duration: ${err.message}`));
         return;
       }
       const durationSeconds = metadata.format?.duration || 0;
@@ -67,22 +71,24 @@ async function getAudioDuration(filePath) {
 }
 
 /**
- * Check if file needs conversion (is webm or other incompatible format)
+ * Check if file needs conversion (is not mp4)
  * @param {string} mimeType - MIME type of the file
  * @returns {boolean} True if conversion needed
  */
 function needsConversion(mimeType) {
   const incompatibleFormats = [
-    'audio/webm',
-    'audio/ogg',
-    'audio/opus',
+    'video/webm',
+    'video/quicktime', // .mov
+    'video/x-msvideo', // .avi
+    'video/x-matroska', // .mkv
+    'video/ogg',
   ];
   return incompatibleFormats.includes(mimeType);
 }
 
 /**
- * Convert audio if needed, otherwise return original
- * @param {string} filePath - Path to audio file
+ * Convert video if needed, otherwise return original
+ * @param {string} filePath - Path to video file
  * @param {string} mimeType - Original MIME type
  * @param {string} outputDir - Directory for converted file
  * @returns {Promise<{path: string, mimeType: string, wasConverted: boolean, durationMs: number}>}
@@ -93,13 +99,13 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
   let wasConverted = false;
 
   if (needsConversion(mimeType)) {
-    console.log(`Converting ${mimeType} to MP3...`);
-    const result = await convertToMp3(filePath, outputDir);
+    console.log(`Converting ${mimeType} to MP4...`);
+    const result = await convertToMp4(filePath, outputDir);
     resultPath = result.path;
     resultMimeType = result.mimeType;
     wasConverted = true;
 
-    // Delete original webm file after successful conversion
+    // Delete original file after successful conversion
     try {
       await fs.unlink(filePath);
       console.log(`Deleted original file: ${filePath}`);
@@ -109,7 +115,7 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
   }
 
   // Get duration
-  const durationMs = await getAudioDuration(resultPath);
+  const durationMs = await getVideoDuration(resultPath);
 
   return {
     path: resultPath,
@@ -120,8 +126,8 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
 }
 
 module.exports = {
-  convertToMp3,
-  getAudioDuration,
+  convertToMp4,
+  getVideoDuration,
   needsConversion,
   convertIfNeeded,
 };

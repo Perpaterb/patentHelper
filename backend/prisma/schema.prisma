@@ -70,6 +70,8 @@ model Group {
   wikiDocuments             WikiDocument[]
   groupDocuments            GroupDocument[]
   logExports                LogExport[]
+  phoneCalls                PhoneCall[]
+  videoCalls                VideoCall[]
 
   @@index([createdAt])
   @@map("groups")
@@ -139,6 +141,12 @@ model GroupMember {
   documentsUploaded          GroupDocument[]                 @relation("DocumentUploader")
   documentsHidden            GroupDocument[]                 @relation("DocumentHider")
   logExportsCreated          LogExport[]                     @relation("LogExportCreator")
+  initiatedCalls             PhoneCall[]                     @relation("CallInitiator")
+  hiddenCallRecordings       PhoneCall[]                     @relation("CallRecordingHider")
+  phoneCallParticipations    PhoneCallParticipant[]
+  initiatedVideoCalls        VideoCall[]                     @relation("VideoCallInitiator")
+  hiddenVideoRecordings      VideoCall[]                     @relation("VideoCallRecordingHider")
+  videoCallParticipations    VideoCallParticipant[]
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -374,22 +382,22 @@ model Message {
 }
 
 model MessageMedia {
-  mediaId        String         @id @default(uuid()) @map("media_id") @db.Uuid
-  messageId      String         @map("message_id") @db.Uuid
-  mediaType      String         @map("media_type") @db.VarChar(20)
-  mimeType       String?        @map("mime_type") @db.VarChar(100) // Full MIME type (e.g., audio/webm, audio/mp4)
-  s3Key          String         @map("s3_key") @db.VarChar(500)
-  url            String
-  thumbnailUrl   String?        @map("thumbnail_url")
-  fileSizeBytes  BigInt         @map("file_size_bytes")
-  durationMs     Int?           @map("duration_ms") // Duration in milliseconds for audio/video
-  uploadedAt     DateTime       @default(now()) @map("uploaded_at") @db.Timestamp(6)
-  isHidden       Boolean        @default(false) @map("is_hidden")
-  hiddenAt       DateTime?      @map("hidden_at") @db.Timestamp(6)
-  hiddenBy       String?        @map("hidden_by") @db.Uuid
-  mediaLogLinks  MediaLogLink[]
-  message        Message        @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
-  hider          GroupMember?   @relation("MediaHider", fields: [hiddenBy], references: [groupMemberId])
+  mediaId       String         @id @default(uuid()) @map("media_id") @db.Uuid
+  messageId     String         @map("message_id") @db.Uuid
+  mediaType     String         @map("media_type") @db.VarChar(20)
+  mimeType      String?        @map("mime_type") @db.VarChar(100) // Full MIME type (e.g., audio/webm, audio/mp4)
+  s3Key         String         @map("s3_key") @db.VarChar(500)
+  url           String
+  thumbnailUrl  String?        @map("thumbnail_url")
+  fileSizeBytes BigInt         @map("file_size_bytes")
+  durationMs    Int?           @map("duration_ms") // Duration in milliseconds for audio/video
+  uploadedAt    DateTime       @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  isHidden      Boolean        @default(false) @map("is_hidden")
+  hiddenAt      DateTime?      @map("hidden_at") @db.Timestamp(6)
+  hiddenBy      String?        @map("hidden_by") @db.Uuid
+  mediaLogLinks MediaLogLink[]
+  message       Message        @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+  hider         GroupMember?   @relation("MediaHider", fields: [hiddenBy], references: [groupMemberId])
 
   @@index([messageId])
   @@map("message_media")
@@ -1101,4 +1109,108 @@ model LogExport {
   @@index([groupId])
   @@index([createdAt])
   @@map("log_exports")
+}
+
+// ============================================
+// PHONE CALL MODELS
+// ============================================
+
+model PhoneCall {
+  callId      String    @id @default(uuid()) @map("call_id") @db.Uuid
+  groupId     String    @map("group_id") @db.Uuid
+  initiatedBy String    @map("initiated_by") @db.Uuid
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  connectedAt DateTime? @map("connected_at") @db.Timestamp(6)
+  endedAt     DateTime? @map("ended_at") @db.Timestamp(6)
+  status      String    @default("ringing") @db.VarChar(20) // ringing, active, ended, missed
+  durationMs  Int?      @map("duration_ms")
+
+  // Recording (MP3 format)
+  recordingFileId     String?   @map("recording_file_id") @db.Uuid
+  recordingUrl        String?   @map("recording_url")
+  recordingDurationMs Int?      @map("recording_duration_ms")
+  recordingSizeBytes  BigInt?   @map("recording_size_bytes")
+  recordingIsHidden   Boolean   @default(false) @map("recording_is_hidden")
+  recordingHiddenBy   String?   @map("recording_hidden_by") @db.Uuid
+  recordingHiddenAt   DateTime? @map("recording_hidden_at") @db.Timestamp(6)
+
+  group          Group                  @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  initiator      GroupMember            @relation("CallInitiator", fields: [initiatedBy], references: [groupMemberId])
+  recordingHider GroupMember?           @relation("CallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
+  participants   PhoneCallParticipant[]
+
+  @@index([groupId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("phone_calls")
+}
+
+model PhoneCallParticipant {
+  callId        String    @map("call_id") @db.Uuid
+  groupMemberId String    @map("group_member_id") @db.Uuid
+  invitedAt     DateTime  @default(now()) @map("invited_at") @db.Timestamp(6)
+  respondedAt   DateTime? @map("responded_at") @db.Timestamp(6)
+  joinedAt      DateTime? @map("joined_at") @db.Timestamp(6)
+  leftAt        DateTime? @map("left_at") @db.Timestamp(6)
+  status        String    @default("invited") @db.VarChar(20) // invited, accepted, rejected, joined, left, missed
+
+  call        PhoneCall   @relation(fields: [callId], references: [callId], onDelete: Cascade)
+  participant GroupMember @relation(fields: [groupMemberId], references: [groupMemberId])
+
+  @@id([callId, groupMemberId])
+  @@index([groupMemberId])
+  @@index([status])
+  @@map("phone_call_participants")
+}
+
+// ============================================
+// VIDEO CALL MODELS
+// ============================================
+
+model VideoCall {
+  callId      String    @id @default(uuid()) @map("call_id") @db.Uuid
+  groupId     String    @map("group_id") @db.Uuid
+  initiatedBy String    @map("initiated_by") @db.Uuid
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  connectedAt DateTime? @map("connected_at") @db.Timestamp(6)
+  endedAt     DateTime? @map("ended_at") @db.Timestamp(6)
+  status      String    @default("ringing") @db.VarChar(20) // ringing, active, ended, missed
+  durationMs  Int?      @map("duration_ms")
+
+  // Recording (MP4 format)
+  recordingFileId     String?   @map("recording_file_id") @db.Uuid
+  recordingUrl        String?   @map("recording_url")
+  recordingDurationMs Int?      @map("recording_duration_ms")
+  recordingSizeBytes  BigInt?   @map("recording_size_bytes")
+  recordingIsHidden   Boolean   @default(false) @map("recording_is_hidden")
+  recordingHiddenBy   String?   @map("recording_hidden_by") @db.Uuid
+  recordingHiddenAt   DateTime? @map("recording_hidden_at") @db.Timestamp(6)
+
+  group          Group                  @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  initiator      GroupMember            @relation("VideoCallInitiator", fields: [initiatedBy], references: [groupMemberId])
+  recordingHider GroupMember?           @relation("VideoCallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
+  participants   VideoCallParticipant[]
+
+  @@index([groupId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("video_calls")
+}
+
+model VideoCallParticipant {
+  callId        String    @map("call_id") @db.Uuid
+  groupMemberId String    @map("group_member_id") @db.Uuid
+  invitedAt     DateTime  @default(now()) @map("invited_at") @db.Timestamp(6)
+  respondedAt   DateTime? @map("responded_at") @db.Timestamp(6)
+  joinedAt      DateTime? @map("joined_at") @db.Timestamp(6)
+  leftAt        DateTime? @map("left_at") @db.Timestamp(6)
+  status        String    @default("invited") @db.VarChar(20) // invited, accepted, rejected, joined, left, missed
+
+  call        VideoCall   @relation(fields: [callId], references: [callId], onDelete: Cascade)
+  participant GroupMember @relation(fields: [groupMemberId], references: [groupMemberId])
+
+  @@id([callId, groupMemberId])
+  @@index([groupMemberId])
+  @@index([status])
+  @@map("video_call_participants")
 }

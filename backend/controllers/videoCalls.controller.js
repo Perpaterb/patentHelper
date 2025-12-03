@@ -1,0 +1,1178 @@
+/**
+ * Video Calls Controller
+ *
+ * Handles video call operations within groups.
+ * Features:
+ * - View call history (users see their calls, admins see all)
+ * - Initiate calls with member selection
+ * - Accept/reject incoming calls
+ * - Track call status and recordings (MP4 format)
+ * - Admin-only recording deletion
+ */
+
+const { prisma } = require('../config/database');
+const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
+const videoConverter = require('../services/videoConverter');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+
+/**
+ * Check if user has permission to use video calls
+ * @param {Object} membership - The group membership object
+ * @param {Object} settings - The group settings object
+ * @returns {boolean} - Whether user can use video calls
+ */
+function canUseVideoCalls(membership, settings) {
+  const role = membership.role;
+
+  // Admins always have access
+  if (role === 'admin') return true;
+
+  // Check role-based permissions
+  switch (role) {
+    case 'parent':
+      return settings?.videoCallsUsableByParents !== false;
+    case 'adult':
+      return settings?.videoCallsUsableByAdults !== false;
+    case 'caregiver':
+      return settings?.videoCallsUsableByCaregivers !== false;
+    case 'child':
+      return settings?.videoCallsUsableByChildren !== false;
+    case 'supervisor':
+      // Supervisors can never make calls
+      return false;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Check if user can see video calls
+ * @param {Object} membership - The group membership object
+ * @param {Object} settings - The group settings object
+ * @returns {boolean} - Whether user can see video calls
+ */
+function canSeeVideoCalls(membership, settings) {
+  const role = membership.role;
+
+  // Admins always have access
+  if (role === 'admin') return true;
+
+  // Check role-based permissions
+  switch (role) {
+    case 'parent':
+      return settings?.videoCallsVisibleToParents !== false;
+    case 'adult':
+      return settings?.videoCallsVisibleToAdults !== false;
+    case 'caregiver':
+      return settings?.videoCallsVisibleToCaregivers !== false;
+    case 'child':
+      return settings?.videoCallsVisibleToChildren !== false;
+    case 'supervisor':
+      return settings?.videoCallsVisibleToSupervisors === true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Get video call history for a group
+ * GET /groups/:groupId/video-calls
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function getVideoCalls(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get group settings
+    const settings = await prisma.groupSettings.findUnique({
+      where: { groupId },
+    });
+
+    // Check if user can see video calls
+    if (!canSeeVideoCalls(membership, settings)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view video calls',
+      });
+    }
+
+    // Build query filter
+    // Admins see all calls, others see only calls they participated in
+    const whereClause = {
+      groupId: groupId,
+    };
+
+    if (membership.role !== 'admin') {
+      whereClause.OR = [
+        { initiatedBy: membership.groupMemberId },
+        { participants: { some: { groupMemberId: membership.groupMemberId } } },
+      ];
+    }
+
+    // Get video calls
+    const videoCalls = await prisma.videoCall.findMany({
+      where: whereClause,
+      include: {
+        initiator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            role: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+        participants: {
+          include: {
+            participant: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                role: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        recordingHider: {
+          select: {
+            displayName: true,
+            user: {
+              select: {
+                displayName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+      take: parseInt(limit),
+      skip: parseInt(offset),
+    });
+
+    // Format response
+    const formattedCalls = videoCalls.map(call => ({
+      callId: call.callId,
+      groupId: call.groupId,
+      status: call.status,
+      startedAt: call.startedAt,
+      connectedAt: call.connectedAt,
+      endedAt: call.endedAt,
+      durationMs: call.durationMs,
+      initiator: {
+        groupMemberId: call.initiator.groupMemberId,
+        displayName: call.initiator.user?.displayName || call.initiator.displayName,
+        iconLetters: call.initiator.user?.memberIcon || call.initiator.iconLetters,
+        iconColor: call.initiator.user?.iconColor || call.initiator.iconColor,
+        role: call.initiator.role,
+      },
+      participants: call.participants.map(p => ({
+        groupMemberId: p.participant.groupMemberId,
+        displayName: p.participant.user?.displayName || p.participant.displayName,
+        iconLetters: p.participant.user?.memberIcon || p.participant.iconLetters,
+        iconColor: p.participant.user?.iconColor || p.participant.iconColor,
+        role: p.participant.role,
+        status: p.status,
+        invitedAt: p.invitedAt,
+        respondedAt: p.respondedAt,
+        joinedAt: p.joinedAt,
+        leftAt: p.leftAt,
+      })),
+      recording: call.recordingIsHidden ? {
+        isHidden: true,
+        hiddenBy: call.recordingHider?.user?.displayName || call.recordingHider?.displayName,
+        hiddenAt: call.recordingHiddenAt,
+      } : {
+        isHidden: false,
+        url: call.recordingUrl,
+        durationMs: call.recordingDurationMs,
+        sizeBytes: call.recordingSizeBytes ? Number(call.recordingSizeBytes) : null,
+      },
+    }));
+
+    return res.json({
+      success: true,
+      videoCalls: formattedCalls,
+      hasMore: videoCalls.length === parseInt(limit),
+    });
+  } catch (error) {
+    console.error('Get video calls error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get video calls',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Get active/incoming video calls for the current user
+ * GET /groups/:groupId/video-calls/active
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function getActiveCalls(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get group settings
+    const settings = await prisma.groupSettings.findUnique({
+      where: { groupId },
+    });
+
+    // Check if user can see video calls
+    if (!canSeeVideoCalls(membership, settings)) {
+      return res.json({
+        success: true,
+        activeCalls: [],
+        incomingCalls: [],
+      });
+    }
+
+    // Get active calls (user is participant and call is active or ringing)
+    const calls = await prisma.videoCall.findMany({
+      where: {
+        groupId: groupId,
+        status: { in: ['ringing', 'active'] },
+        OR: [
+          { initiatedBy: membership.groupMemberId },
+          { participants: { some: { groupMemberId: membership.groupMemberId } } },
+        ],
+      },
+      include: {
+        initiator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            role: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+        participants: {
+          include: {
+            participant: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                role: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    // Separate into active calls and incoming calls
+    const activeCalls = [];
+    const incomingCalls = [];
+
+    for (const call of calls) {
+      const userParticipant = call.participants.find(
+        p => p.groupMemberId === membership.groupMemberId
+      );
+      const isInitiator = call.initiatedBy === membership.groupMemberId;
+
+      const formattedCall = {
+        callId: call.callId,
+        groupId: call.groupId,
+        status: call.status,
+        startedAt: call.startedAt,
+        connectedAt: call.connectedAt,
+        initiator: {
+          groupMemberId: call.initiator.groupMemberId,
+          displayName: call.initiator.user?.displayName || call.initiator.displayName,
+          iconLetters: call.initiator.user?.memberIcon || call.initiator.iconLetters,
+          iconColor: call.initiator.user?.iconColor || call.initiator.iconColor,
+          role: call.initiator.role,
+        },
+        participants: call.participants.map(p => ({
+          groupMemberId: p.participant.groupMemberId,
+          displayName: p.participant.user?.displayName || p.participant.displayName,
+          iconLetters: p.participant.user?.memberIcon || p.participant.iconLetters,
+          iconColor: p.participant.user?.iconColor || p.participant.iconColor,
+          role: p.participant.role,
+          status: p.status,
+        })),
+        userStatus: userParticipant?.status || (isInitiator ? 'initiator' : 'unknown'),
+      };
+
+      if (isInitiator || userParticipant?.status === 'joined' || userParticipant?.status === 'accepted') {
+        activeCalls.push(formattedCall);
+      } else if (userParticipant?.status === 'invited') {
+        incomingCalls.push(formattedCall);
+      }
+    }
+
+    return res.json({
+      success: true,
+      activeCalls,
+      incomingCalls,
+    });
+  } catch (error) {
+    console.error('Get active video calls error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get active video calls',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Initiate a new video call
+ * POST /groups/:groupId/video-calls
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function initiateCall(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+    const { participantIds } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one participant is required',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Check if group is read-only
+    const group = await prisma.group.findUnique({
+      where: { groupId },
+    });
+
+    if (isGroupReadOnly(group)) {
+      return res.status(403).json(getReadOnlyErrorResponse());
+    }
+
+    // Get group settings
+    const settings = await prisma.groupSettings.findUnique({
+      where: { groupId },
+    });
+
+    // Check if user can make video calls
+    if (!canUseVideoCalls(membership, settings)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to make video calls',
+      });
+    }
+
+    // Verify all participants are valid group members
+    const participants = await prisma.groupMember.findMany({
+      where: {
+        groupMemberId: { in: participantIds },
+        groupId: groupId,
+        isRegistered: true,
+      },
+    });
+
+    if (participants.length !== participantIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more participants are not valid group members',
+      });
+    }
+
+    // Check if any participant is a supervisor
+    const supervisorParticipant = participants.find(p => p.role === 'supervisor');
+    if (supervisorParticipant) {
+      return res.status(400).json({
+        success: false,
+        message: 'Supervisors cannot participate in video calls',
+      });
+    }
+
+    // Create the call
+    const call = await prisma.videoCall.create({
+      data: {
+        groupId: groupId,
+        initiatedBy: membership.groupMemberId,
+        status: 'ringing',
+        participants: {
+          create: participantIds.map(id => ({
+            groupMemberId: id,
+            status: 'invited',
+          })),
+        },
+      },
+      include: {
+        initiator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            role: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+        participants: {
+          include: {
+            participant: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                role: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'initiate_video_call',
+        actionLocation: 'video_calls',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        messageContent: `Initiated video call with ${participantIds.length} participant(s)`,
+        logData: {
+          callId: call.callId,
+          participantIds,
+        },
+      },
+    });
+
+    // Format response
+    const formattedCall = {
+      callId: call.callId,
+      groupId: call.groupId,
+      status: call.status,
+      startedAt: call.startedAt,
+      initiator: {
+        groupMemberId: call.initiator.groupMemberId,
+        displayName: call.initiator.user?.displayName || call.initiator.displayName,
+        iconLetters: call.initiator.user?.memberIcon || call.initiator.iconLetters,
+        iconColor: call.initiator.user?.iconColor || call.initiator.iconColor,
+        role: call.initiator.role,
+      },
+      participants: call.participants.map(p => ({
+        groupMemberId: p.participant.groupMemberId,
+        displayName: p.participant.user?.displayName || p.participant.displayName,
+        iconLetters: p.participant.user?.memberIcon || p.participant.iconLetters,
+        iconColor: p.participant.user?.iconColor || p.participant.iconColor,
+        role: p.participant.role,
+        status: p.status,
+        invitedAt: p.invitedAt,
+      })),
+    };
+
+    return res.status(201).json({
+      success: true,
+      videoCall: formattedCall,
+    });
+  } catch (error) {
+    console.error('Initiate video call error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to initiate video call',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Respond to an incoming video call (accept or reject)
+ * PUT /groups/:groupId/video-calls/:callId/respond
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function respondToCall(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+    const { action } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!['accept', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action must be "accept" or "reject"',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.videoCall.findUnique({
+      where: { callId },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    if (call.status !== 'ringing') {
+      return res.status(400).json({
+        success: false,
+        message: 'This call is no longer ringing',
+      });
+    }
+
+    // Check if user is a participant
+    const participant = call.participants.find(
+      p => p.groupMemberId === membership.groupMemberId
+    );
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a participant in this call',
+      });
+    }
+
+    if (participant.status !== 'invited') {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already responded to this call',
+      });
+    }
+
+    // Update participant status
+    const newStatus = action === 'accept' ? 'accepted' : 'rejected';
+    await prisma.videoCallParticipant.update({
+      where: {
+        callId_groupMemberId: {
+          callId: callId,
+          groupMemberId: membership.groupMemberId,
+        },
+      },
+      data: {
+        status: newStatus,
+        respondedAt: new Date(),
+      },
+    });
+
+    // If accepted, check if this is the first accept
+    if (action === 'accept') {
+      const acceptedCount = call.participants.filter(p => p.status === 'accepted').length + 1;
+      if (acceptedCount === 1) {
+        await prisma.videoCall.update({
+          where: { callId },
+          data: {
+            status: 'active',
+            connectedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    // If all participants rejected, mark call as missed
+    if (action === 'reject') {
+      const allRejected = call.participants.every(
+        p => p.groupMemberId === membership.groupMemberId || p.status === 'rejected'
+      );
+      if (allRejected) {
+        await prisma.videoCall.update({
+          where: { callId },
+          data: {
+            status: 'missed',
+            endedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: action === 'accept' ? 'accept_video_call' : 'reject_video_call',
+        actionLocation: 'video_calls',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        messageContent: `${action === 'accept' ? 'Accepted' : 'Rejected'} video call`,
+        logData: { callId },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: action === 'accept' ? 'Call accepted' : 'Call rejected',
+    });
+  } catch (error) {
+    console.error('Respond to video call error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to respond to call',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * End an active video call
+ * PUT /groups/:groupId/video-calls/:callId/end
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function endCall(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.videoCall.findUnique({
+      where: { callId },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    if (!['ringing', 'active'].includes(call.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This call has already ended',
+      });
+    }
+
+    // Check if user is initiator or participant
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(
+      p => p.groupMemberId === membership.groupMemberId
+    );
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not part of this call',
+      });
+    }
+
+    // Calculate duration
+    let durationMs = null;
+    if (call.connectedAt) {
+      durationMs = Date.now() - new Date(call.connectedAt).getTime();
+    }
+
+    // End the call
+    await prisma.videoCall.update({
+      where: { callId },
+      data: {
+        status: call.status === 'ringing' ? 'missed' : 'ended',
+        endedAt: new Date(),
+        durationMs,
+      },
+    });
+
+    // Update all joined participants to 'left'
+    await prisma.videoCallParticipant.updateMany({
+      where: {
+        callId,
+        status: { in: ['accepted', 'joined'] },
+      },
+      data: {
+        status: 'left',
+        leftAt: new Date(),
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'end_video_call',
+        actionLocation: 'video_calls',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        messageContent: `Ended video call. Duration: ${durationMs ? Math.round(durationMs / 1000) + 's' : 'N/A'}`,
+        logData: { callId, durationMs },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Call ended',
+      durationMs,
+    });
+  } catch (error) {
+    console.error('End video call error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to end call',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Hide a video call recording (admin only)
+ * PUT /groups/:groupId/video-calls/:callId/hide-recording
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function hideRecording(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Only admins can hide recordings
+    if (membership.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only admins can hide call recordings',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.videoCall.findUnique({
+      where: { callId },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    if (!call.recordingUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'This call has no recording',
+      });
+    }
+
+    if (call.recordingIsHidden) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recording is already hidden',
+      });
+    }
+
+    // Hide the recording
+    await prisma.videoCall.update({
+      where: { callId },
+      data: {
+        recordingIsHidden: true,
+        recordingHiddenBy: membership.groupMemberId,
+        recordingHiddenAt: new Date(),
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'hide_video_recording',
+        actionLocation: 'video_calls',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        messageContent: 'Hid video call recording',
+        logData: { callId },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Recording hidden',
+    });
+  } catch (error) {
+    console.error('Hide video recording error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to hide recording',
+      error: error.message,
+    });
+  }
+}
+
+/**
+ * Upload a video call recording
+ * POST /groups/:groupId/video-calls/:callId/recording
+ *
+ * Converts video to MP4 format if needed for universal playback.
+ *
+ * @param {Object} req - Express request (with file from multer)
+ * @param {Object} res - Express response
+ */
+async function uploadRecording(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recording file provided',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.videoCall.findUnique({
+      where: { callId },
+      include: { participants: true },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    // Check if user is initiator or participant
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(
+      p => p.groupMemberId === membership.groupMemberId
+    );
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not part of this call',
+      });
+    }
+
+    // Save the file temporarily
+    const tempDir = os.tmpdir();
+    const tempInputPath = path.join(tempDir, `video_recording_${Date.now()}_${uuidv4()}`);
+    await fs.writeFile(tempInputPath, req.file.buffer);
+
+    let filePath = tempInputPath;
+    let fileMimeType = req.file.mimetype;
+    let fileName = req.file.originalname;
+    let fileSize = req.file.size;
+    let durationMs = 0;
+
+    try {
+      // Convert to MP4 if needed
+      const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
+      filePath = converted.path;
+      fileMimeType = converted.mimeType;
+      durationMs = converted.durationMs;
+
+      if (converted.wasConverted) {
+        fileName = fileName.replace(/\.[^.]+$/, '.mp4');
+        const stats = await fs.stat(filePath);
+        fileSize = stats.size;
+      }
+
+      // For local development, save to uploads directory
+      const uploadsDir = path.join(__dirname, '..', 'uploads', 'recordings');
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      const fileId = uuidv4();
+      const finalFileName = `${fileId}.mp4`;
+      const finalPath = path.join(uploadsDir, finalFileName);
+
+      // Copy converted file to uploads
+      const fileBuffer = await fs.readFile(filePath);
+      await fs.writeFile(finalPath, fileBuffer);
+
+      // Generate URL
+      const recordingUrl = `/files/${fileId}`;
+
+      // Update the call with recording info
+      await prisma.videoCall.update({
+        where: { callId },
+        data: {
+          recordingFileId: fileId,
+          recordingUrl: recordingUrl,
+          recordingDurationMs: durationMs,
+          recordingSizeBytes: BigInt(fileSize),
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'upload_video_recording',
+          actionLocation: 'video_calls',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email || 'N/A',
+          messageContent: `Uploaded video call recording. Duration: ${Math.round(durationMs / 1000)}s, Size: ${Math.round(fileSize / 1024 / 1024)}MB`,
+          logData: { callId, fileId, durationMs, fileSize },
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Recording uploaded successfully',
+        recording: {
+          url: recordingUrl,
+          durationMs,
+          sizeBytes: fileSize,
+          mimeType: 'video/mp4',
+        },
+      });
+    } finally {
+      // Cleanup temp files
+      try {
+        if (filePath !== tempInputPath) {
+          await fs.unlink(filePath).catch(() => {});
+        }
+        await fs.unlink(tempInputPath).catch(() => {});
+      } catch (cleanupErr) {
+        console.warn('Cleanup warning:', cleanupErr.message);
+      }
+    }
+  } catch (error) {
+    console.error('Upload video recording error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload recording',
+      error: error.message,
+    });
+  }
+}
+
+module.exports = {
+  getVideoCalls,
+  getActiveCalls,
+  initiateCall,
+  respondToCall,
+  endCall,
+  hideRecording,
+  uploadRecording,
+};

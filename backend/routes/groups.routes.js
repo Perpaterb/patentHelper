@@ -6,6 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const groupsController = require('../controllers/groups.controller');
 const messagesController = require('../controllers/messages.controller');
 const messageGroupsRouter = require('./messageGroups.routes');
@@ -19,7 +20,17 @@ const itemRegistryController = require('../controllers/itemRegistry.controller')
 const itemRegistryRouter = require('./itemRegistry.routes');
 const wikiRouter = require('./wiki.routes');
 const groupDocumentsRouter = require('./groupDocuments.routes');
+const phoneCallsController = require('../controllers/phoneCalls.controller');
+const videoCallsController = require('../controllers/videoCalls.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
+
+// Configure multer for call recording uploads
+const recordingUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB max for video recordings
+  },
+});
 
 /**
  * GET /groups
@@ -381,5 +392,97 @@ router.use('/:groupId/wiki-documents', wikiRouter);
  * All routes under /groups/:groupId/documents
  */
 router.use('/:groupId/documents', groupDocumentsRouter);
+
+// ============================================
+// PHONE CALLS ROUTES
+// ============================================
+
+/**
+ * GET /groups/:groupId/phone-calls
+ * Get phone call history for a group
+ */
+router.get('/:groupId/phone-calls', requireAuth, phoneCallsController.getPhoneCalls);
+
+/**
+ * GET /groups/:groupId/phone-calls/active
+ * Get active/incoming calls for the current user
+ */
+router.get('/:groupId/phone-calls/active', requireAuth, phoneCallsController.getActiveCalls);
+
+/**
+ * POST /groups/:groupId/phone-calls
+ * Initiate a new phone call
+ */
+router.post('/:groupId/phone-calls', requireAuth, phoneCallsController.initiateCall);
+
+/**
+ * PUT /groups/:groupId/phone-calls/:callId/respond
+ * Respond to an incoming call (accept or reject)
+ */
+router.put('/:groupId/phone-calls/:callId/respond', requireAuth, phoneCallsController.respondToCall);
+
+/**
+ * PUT /groups/:groupId/phone-calls/:callId/end
+ * End an active call
+ */
+router.put('/:groupId/phone-calls/:callId/end', requireAuth, phoneCallsController.endCall);
+
+/**
+ * PUT /groups/:groupId/phone-calls/:callId/hide-recording
+ * Hide a call recording (admin only)
+ */
+router.put('/:groupId/phone-calls/:callId/hide-recording', requireAuth, phoneCallsController.hideRecording);
+
+/**
+ * POST /groups/:groupId/phone-calls/:callId/recording
+ * Upload a phone call recording (converts to MP3)
+ */
+router.post('/:groupId/phone-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), phoneCallsController.uploadRecording);
+
+// ============================================
+// VIDEO CALLS ROUTES
+// ============================================
+
+/**
+ * GET /groups/:groupId/video-calls
+ * Get video call history for a group
+ */
+router.get('/:groupId/video-calls', requireAuth, videoCallsController.getVideoCalls);
+
+/**
+ * GET /groups/:groupId/video-calls/active
+ * Get active/incoming video calls for the current user
+ */
+router.get('/:groupId/video-calls/active', requireAuth, videoCallsController.getActiveCalls);
+
+/**
+ * POST /groups/:groupId/video-calls
+ * Initiate a new video call
+ */
+router.post('/:groupId/video-calls', requireAuth, videoCallsController.initiateCall);
+
+/**
+ * PUT /groups/:groupId/video-calls/:callId/respond
+ * Respond to an incoming video call (accept or reject)
+ */
+router.put('/:groupId/video-calls/:callId/respond', requireAuth, videoCallsController.respondToCall);
+
+/**
+ * PUT /groups/:groupId/video-calls/:callId/end
+ * End an active video call
+ */
+router.put('/:groupId/video-calls/:callId/end', requireAuth, videoCallsController.endCall);
+
+/**
+ * PUT /groups/:groupId/video-calls/:callId/hide-recording
+ * Hide a video call recording (admin only)
+ */
+router.put('/:groupId/video-calls/:callId/hide-recording', requireAuth, videoCallsController.hideRecording);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/recording
+ * Upload a video call recording (converts to MP4)
+ */
+router.post('/:groupId/video-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), videoCallsController.uploadRecording);
 
 module.exports = router;
