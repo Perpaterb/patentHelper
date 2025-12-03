@@ -249,6 +249,7 @@ export default function PhoneCallsScreen({ navigation, route }) {
                   </Text>
                   <Chip
                     mode="outlined"
+                    compact={false}
                     style={[styles.statusChip, { backgroundColor: statusColors.bg, borderColor: statusColors.border }]}
                     textStyle={[styles.statusChipText, { color: statusColors.text }]}
                   >
@@ -397,11 +398,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusChip: {
-    height: 24,
+    height: 26,
+    paddingHorizontal: 4,
   },
   statusChipText: {
-    fontSize: 11,
+    fontSize: 12,
     textTransform: 'capitalize',
+    lineHeight: 14,
   },
   initiatorText: {
     fontSize: 15,
