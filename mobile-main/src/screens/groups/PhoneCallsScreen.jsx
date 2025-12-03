@@ -229,9 +229,7 @@ export default function PhoneCallsScreen({ navigation, route }) {
                       label={participant.iconLetters || '?'}
                       style={{
                         backgroundColor: bgColor,
-                        marginTop: index > 0 ? -10 : 0,
-                        borderWidth: 2,
-                        borderColor: '#fff',
+                        marginTop: index > 0 ? -8 : 0,
                       }}
                       color={getContrastTextColor(bgColor)}
                     />
