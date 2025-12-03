@@ -486,6 +486,249 @@ async function getGroupFiles(req, res) {
     // Sort uploaders by email for consistent display
     availableUploaders.sort((a, b) => a.email.localeCompare(b.email));
 
+    // Get phone call recordings from this group
+    const phoneCallRecordings = await prisma.phoneCall.findMany({
+      where: {
+        groupId: groupId,
+        recordingUrl: { not: null },
+      },
+      include: {
+        initiator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+        recordingHider: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Get video call recordings from this group
+    const videoCallRecordings = await prisma.videoCall.findMany({
+      where: {
+        groupId: groupId,
+        recordingUrl: { not: null },
+      },
+      include: {
+        initiator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+        recordingHider: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Format phone call recordings as files
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+    const phoneCallFiles = phoneCallRecordings.map(call => {
+      const initiator = call.initiator;
+      const uploaderEmail = initiator?.user?.email || null;
+      const uploader = {
+        groupMemberId: initiator?.groupMemberId,
+        email: uploaderEmail,
+        displayName: initiator?.user?.displayName || initiator?.displayName || 'Unknown',
+        iconLetters: initiator?.user?.memberIcon || initiator?.iconLetters || '?',
+        iconColor: initiator?.user?.iconColor || initiator?.iconColor || '#6200ee',
+      };
+
+      // Track unique uploaders for filter options
+      if (uploaderEmail && !uploaderMap.has(uploaderEmail)) {
+        uploaderMap.set(uploaderEmail, uploader);
+      }
+
+      // Get hider/deleter info if recording was hidden
+      let deletedBy = null;
+      if (call.recordingIsHidden && call.recordingHider) {
+        deletedBy = {
+          groupMemberId: call.recordingHider.groupMemberId,
+          email: call.recordingHider.user?.email || null,
+          displayName: call.recordingHider.user?.displayName || call.recordingHider.displayName || 'Admin',
+          iconLetters: call.recordingHider.user?.memberIcon || call.recordingHider.iconLetters || '?',
+          iconColor: call.recordingHider.user?.iconColor || call.recordingHider.iconColor || '#6200ee',
+        };
+      }
+
+      // Format duration for filename
+      const durationSecs = call.recordingDurationMs ? Math.floor(call.recordingDurationMs / 1000) : 0;
+      const durationMins = Math.floor(durationSecs / 60);
+      const durationSecsRemain = durationSecs % 60;
+      const durationStr = `${durationMins}m${durationSecsRemain}s`;
+
+      return {
+        mediaId: `phonecall-${call.callId}`,
+        fileName: `Phone Call Recording (${durationStr})`,
+        fileSizeBytes: Number(call.recordingSizeBytes || 0),
+        mimeType: 'audio/mpeg',
+        fileType: 'phonecall',
+        uploadedAt: call.endedAt || call.startedAt,
+        url: call.recordingUrl ? `${baseUrl}${call.recordingUrl}` : null,
+        thumbnailUrl: null,
+        pendingDeletion: false, // TODO: Add approval workflow for call recordings
+        isLog: false,
+        uploader: uploader,
+        isDeleted: call.recordingIsHidden,
+        deletedAt: call.recordingHiddenAt,
+        deletedBy: deletedBy,
+        callId: call.callId, // Include call ID for reference
+        callDurationMs: call.durationMs,
+      };
+    });
+
+    // Format video call recordings as files
+    const videoCallFiles = videoCallRecordings.map(call => {
+      const initiator = call.initiator;
+      const uploaderEmail = initiator?.user?.email || null;
+      const uploader = {
+        groupMemberId: initiator?.groupMemberId,
+        email: uploaderEmail,
+        displayName: initiator?.user?.displayName || initiator?.displayName || 'Unknown',
+        iconLetters: initiator?.user?.memberIcon || initiator?.iconLetters || '?',
+        iconColor: initiator?.user?.iconColor || initiator?.iconColor || '#6200ee',
+      };
+
+      // Track unique uploaders for filter options
+      if (uploaderEmail && !uploaderMap.has(uploaderEmail)) {
+        uploaderMap.set(uploaderEmail, uploader);
+      }
+
+      // Get hider/deleter info if recording was hidden
+      let deletedBy = null;
+      if (call.recordingIsHidden && call.recordingHider) {
+        deletedBy = {
+          groupMemberId: call.recordingHider.groupMemberId,
+          email: call.recordingHider.user?.email || null,
+          displayName: call.recordingHider.user?.displayName || call.recordingHider.displayName || 'Admin',
+          iconLetters: call.recordingHider.user?.memberIcon || call.recordingHider.iconLetters || '?',
+          iconColor: call.recordingHider.user?.iconColor || call.recordingHider.iconColor || '#6200ee',
+        };
+      }
+
+      // Format duration for filename
+      const durationSecs = call.recordingDurationMs ? Math.floor(call.recordingDurationMs / 1000) : 0;
+      const durationMins = Math.floor(durationSecs / 60);
+      const durationSecsRemain = durationSecs % 60;
+      const durationStr = `${durationMins}m${durationSecsRemain}s`;
+
+      return {
+        mediaId: `videocall-${call.callId}`,
+        fileName: `Video Call Recording (${durationStr})`,
+        fileSizeBytes: Number(call.recordingSizeBytes || 0),
+        mimeType: 'video/mp4',
+        fileType: 'videocall',
+        uploadedAt: call.endedAt || call.startedAt,
+        url: call.recordingUrl ? `${baseUrl}${call.recordingUrl}` : null,
+        thumbnailUrl: null,
+        pendingDeletion: false, // TODO: Add approval workflow for call recordings
+        isLog: false,
+        uploader: uploader,
+        isDeleted: call.recordingIsHidden,
+        deletedAt: call.recordingHiddenAt,
+        deletedBy: deletedBy,
+        callId: call.callId, // Include call ID for reference
+        callDurationMs: call.durationMs,
+      };
+    });
+
+    // Merge all files together
+    let allFiles = [...files, ...phoneCallFiles, ...videoCallFiles];
+
+    // Apply type filter to call recordings if filterType is set
+    if (filterType && filterType.trim()) {
+      const types = filterType.split(',').map(t => t.trim().toLowerCase());
+      allFiles = allFiles.filter(f => types.includes(f.fileType));
+    }
+
+    // Apply uploader filter to all files
+    if (uploaderEmails.length > 0) {
+      allFiles = allFiles.filter(f =>
+        f.uploader?.email && uploaderEmails.includes(f.uploader.email.toLowerCase())
+      );
+    }
+
+    // Apply date filter to call recordings
+    if (fromDate || toDate) {
+      allFiles = allFiles.filter(f => {
+        const uploadDate = new Date(f.uploadedAt);
+        if (fromDate && uploadDate < new Date(fromDate)) return false;
+        if (toDate) {
+          const endDate = new Date(toDate);
+          endDate.setDate(endDate.getDate() + 1);
+          if (uploadDate >= endDate) return false;
+        }
+        return true;
+      });
+    }
+
+    // Re-sort all files together
+    allFiles.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.fileName.localeCompare(b.fileName);
+          break;
+        case 'date':
+          comparison = new Date(a.uploadedAt) - new Date(b.uploadedAt);
+          break;
+        case 'size':
+        default:
+          comparison = a.fileSizeBytes - b.fileSizeBytes;
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
     // Get distinct file types from the database for this group
     const distinctTypes = await prisma.messageMedia.findMany({
       where: {
@@ -500,11 +743,41 @@ async function getGroupFiles(req, res) {
       },
       distinct: ['mediaType'],
     });
-    const availableTypes = distinctTypes.map(t => t.mediaType).filter(Boolean).sort();
+    const availableTypesSet = new Set(distinctTypes.map(t => t.mediaType).filter(Boolean));
+
+    // Add phonecall and videocall types if there are recordings
+    if (phoneCallRecordings.length > 0) {
+      availableTypesSet.add('phonecall');
+    }
+    if (videoCallRecordings.length > 0) {
+      availableTypesSet.add('videocall');
+    }
+    const availableTypes = Array.from(availableTypesSet).sort();
+
+    // Update available uploaders to include call initiators
+    const allUploadersFromCalls = [...phoneCallRecordings, ...videoCallRecordings]
+      .map(call => call.initiator)
+      .filter(i => i?.user?.email);
+
+    for (const initiator of allUploadersFromCalls) {
+      const email = initiator.user.email;
+      if (!seenUploaderEmails.has(email)) {
+        seenUploaderEmails.add(email);
+        availableUploaders.push({
+          email: email,
+          displayName: initiator.user?.displayName || initiator.displayName || 'Unknown',
+          iconLetters: initiator.user?.memberIcon || initiator.iconLetters || '?',
+          iconColor: initiator.user?.iconColor || initiator.iconColor || '#6200ee',
+        });
+      }
+    }
+
+    // Sort uploaders by email for consistent display
+    availableUploaders.sort((a, b) => a.email.localeCompare(b.email));
 
     res.status(200).json({
       success: true,
-      files: files,
+      files: allFiles,
       availableUploaders: availableUploaders,
       availableTypes: availableTypes,
     });

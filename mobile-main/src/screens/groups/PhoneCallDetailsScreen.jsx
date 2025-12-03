@@ -422,13 +422,38 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
           </Card>
         )}
 
-        {/* Recording Hidden Notice */}
-        {call.recordingIsHidden && (
-          <Card style={[styles.card, styles.hiddenCard]}>
+        {/* Recording Hidden/Deleted Notice */}
+        {(call.recordingIsHidden || call.recording?.isHidden) && (
+          <Card style={[styles.card, styles.deletedCard]}>
             <Card.Content>
-              <View style={styles.hiddenNotice}>
-                <Text style={styles.hiddenIcon}>🚫</Text>
-                <Text style={styles.hiddenText}>Recording has been hidden</Text>
+              <View style={styles.deletedNotice}>
+                <View style={styles.deletedIconContainer}>
+                  <Text style={styles.deletedIcon}>🗑️</Text>
+                </View>
+                <View style={styles.deletedInfo}>
+                  <Text style={styles.deletedTitle}>Recording Deleted by Admin</Text>
+                  {call.recording?.hiddenBy && (
+                    <View style={styles.deletedByRow}>
+                      <Avatar.Text
+                        size={24}
+                        label={call.recording.hiddenBy.iconLetters || '?'}
+                        style={{ backgroundColor: call.recording.hiddenBy.iconColor || '#d32f2f' }}
+                        color={getContrastTextColor(call.recording.hiddenBy.iconColor || '#d32f2f')}
+                      />
+                      <Text style={styles.deletedByText}>
+                        {call.recording.hiddenBy.displayName || 'Admin'}
+                        {call.recording.hiddenAt &&
+                          ` • ${formatDateTime(call.recording.hiddenAt)}`
+                        }
+                      </Text>
+                    </View>
+                  )}
+                  {!call.recording?.hiddenBy && (
+                    <Text style={styles.deletedByText}>
+                      This recording was removed by a group admin
+                    </Text>
+                  )}
+                </View>
               </View>
             </Card.Content>
           </Card>
@@ -612,6 +637,47 @@ const styles = StyleSheet.create({
   hiddenText: {
     fontSize: 14,
     color: '#e65100',
+  },
+  deletedCard: {
+    backgroundColor: '#ffebee',
+    borderLeftWidth: 4,
+    borderLeftColor: '#d32f2f',
+  },
+  deletedNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  deletedIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffcdd2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  deletedIcon: {
+    fontSize: 24,
+  },
+  deletedInfo: {
+    flex: 1,
+  },
+  deletedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#c62828',
+    marginBottom: 4,
+  },
+  deletedByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  deletedByText: {
+    fontSize: 13,
+    color: '#d32f2f',
+    marginLeft: 8,
+    flex: 1,
   },
   participantRow: {
     flexDirection: 'row',

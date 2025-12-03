@@ -226,7 +226,11 @@ async function getPhoneCalls(req, res) {
       })),
       recording: call.recordingIsHidden ? {
         isHidden: true,
-        hiddenBy: call.recordingHider?.user?.displayName || call.recordingHider?.displayName,
+        hiddenBy: {
+          displayName: call.recordingHider?.user?.displayName || call.recordingHider?.displayName || 'Admin',
+          iconLetters: call.recordingHider?.user?.memberIcon || call.recordingHider?.iconLetters || '?',
+          iconColor: call.recordingHider?.user?.iconColor || call.recordingHider?.iconColor || '#d32f2f',
+        },
         hiddenAt: call.recordingHiddenAt,
       } : {
         isHidden: false,
