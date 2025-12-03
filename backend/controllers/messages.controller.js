@@ -245,6 +245,7 @@ async function getMessageGroupMessages(req, res) {
             url: true,
             thumbnailUrl: true,
             fileSizeBytes: true,
+            durationMs: true,
             uploadedAt: true,
             isHidden: true,
             hiddenAt: true,
@@ -456,12 +457,13 @@ async function sendMessageGroupMessage(req, res) {
     // Validate media files if provided
     let mediaFiles = [];
     if (mediaFilesInput && Array.isArray(mediaFilesInput) && mediaFilesInput.length > 0) {
-      // Use media file info provided by client (includes mimeType and fileSizeBytes)
+      // Use media file info provided by client (includes mimeType, fileSizeBytes, durationMs)
       mediaFiles = mediaFilesInput.map(file => ({
         fileId: file.fileId,
         mimeType: file.mimeType,
         s3Key: file.fileId,
         fileSizeBytes: file.fileSizeBytes || 0, // Use file size from upload response
+        durationMs: file.durationMs || null, // Duration in ms for audio/video
       }));
     }
 
@@ -503,6 +505,7 @@ async function sendMessageGroupMessage(req, res) {
               s3Key: file.s3Key,
               url: file.fileId, // Store fileId as URL for retrieval
               fileSizeBytes: file.fileSizeBytes,
+              durationMs: file.durationMs, // Duration for audio/video files
             };
           }),
         },
@@ -532,6 +535,7 @@ async function sendMessageGroupMessage(req, res) {
             url: true,
             thumbnailUrl: true,
             fileSizeBytes: true,
+            durationMs: true,
             uploadedAt: true,
           },
         },

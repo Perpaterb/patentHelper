@@ -374,20 +374,21 @@ model Message {
 }
 
 model MessageMedia {
-  mediaId       String         @id @default(uuid()) @map("media_id") @db.Uuid
-  messageId     String         @map("message_id") @db.Uuid
-  mediaType     String         @map("media_type") @db.VarChar(20)
-  s3Key         String         @map("s3_key") @db.VarChar(500)
-  url           String
-  thumbnailUrl  String?        @map("thumbnail_url")
-  fileSizeBytes BigInt         @map("file_size_bytes")
-  uploadedAt    DateTime       @default(now()) @map("uploaded_at") @db.Timestamp(6)
-  isHidden      Boolean        @default(false) @map("is_hidden")
-  hiddenAt      DateTime?      @map("hidden_at") @db.Timestamp(6)
-  hiddenBy      String?        @map("hidden_by") @db.Uuid
-  mediaLogLinks MediaLogLink[]
-  message       Message        @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
-  hider         GroupMember?   @relation("MediaHider", fields: [hiddenBy], references: [groupMemberId])
+  mediaId        String         @id @default(uuid()) @map("media_id") @db.Uuid
+  messageId      String         @map("message_id") @db.Uuid
+  mediaType      String         @map("media_type") @db.VarChar(20)
+  s3Key          String         @map("s3_key") @db.VarChar(500)
+  url            String
+  thumbnailUrl   String?        @map("thumbnail_url")
+  fileSizeBytes  BigInt         @map("file_size_bytes")
+  durationMs     Int?           @map("duration_ms") // Duration in milliseconds for audio/video
+  uploadedAt     DateTime       @default(now()) @map("uploaded_at") @db.Timestamp(6)
+  isHidden       Boolean        @default(false) @map("is_hidden")
+  hiddenAt       DateTime?      @map("hidden_at") @db.Timestamp(6)
+  hiddenBy       String?        @map("hidden_by") @db.Uuid
+  mediaLogLinks  MediaLogLink[]
+  message        Message        @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+  hider          GroupMember?   @relation("MediaHider", fields: [hiddenBy], references: [groupMemberId])
 
   @@index([messageId])
   @@map("message_media")

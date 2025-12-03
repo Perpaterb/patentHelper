@@ -438,6 +438,7 @@ export default function MessagesScreen({ navigation, route }) {
           fileId: m.fileId,
           mimeType: m.mimeType || (m.type === 'image' ? 'image/jpeg' : 'video/mp4'),
           fileSizeBytes: m.fileSizeBytes || 0,
+          durationMs: m.duration || null, // Duration in ms for audio/video
         }));
       }
 
@@ -685,7 +686,7 @@ export default function MessagesScreen({ navigation, route }) {
                     <AudioPlayer
                       key={media.mediaId}
                       uri={getFileUrl(media.url)}
-                      duration={media.duration}
+                      duration={media.durationMs}
                       isMyMessage={isMyMessage}
                     />
                   ) : (

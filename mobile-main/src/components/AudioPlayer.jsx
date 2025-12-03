@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -17,6 +17,7 @@ import { Audio } from 'expo-av';
  * @returns {string} Formatted time string
  */
 function formatDuration(ms) {
+  if (!ms || isNaN(ms) || ms <= 0) return '0:00';
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -28,16 +29,17 @@ function formatDuration(ms) {
  *
  * @param {Object} props
  * @param {string} props.uri - URI of the audio file
- * @param {number} [props.duration] - Duration in milliseconds (optional, will be calculated if not provided)
+ * @param {number} [props.duration] - Duration in milliseconds from server (used as fallback)
  * @param {boolean} [props.isMyMessage] - Whether this is the current user's message (for styling)
  * @returns {JSX.Element}
  */
-export default function AudioPlayer({ uri, duration: initialDuration, isMyMessage = false }) {
+export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage = false }) {
   const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(initialDuration || 0);
+  // Use server-provided duration as default, fallback to 0
+  const [duration, setDuration] = useState(serverDuration || 0);
   const [error, setError] = useState(null);
 
   const soundRef = useRef(null);
@@ -48,10 +50,17 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
 
     return () => {
       if (soundRef.current) {
-        soundRef.current.unloadAsync();
+        soundRef.current.unloadAsync().catch(() => {});
       }
     };
   }, [uri]);
+
+  // Update duration if server provides it later
+  useEffect(() => {
+    if (serverDuration && serverDuration > 0 && (!duration || duration === 0)) {
+      setDuration(serverDuration);
+    }
+  }, [serverDuration]);
 
   /**
    * Load the audio file
@@ -60,8 +69,6 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
     try {
       setIsLoading(true);
       setError(null);
-
-      console.log('Loading audio from URI:', uri);
 
       // Set audio mode for playback
       await Audio.setAudioModeAsync({
@@ -76,19 +83,17 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
         onPlaybackStatusUpdate
       );
 
-      console.log('Audio load status:', status);
-
       soundRef.current = newSound;
       setSound(newSound);
 
-      if (status.isLoaded && status.durationMillis) {
+      // Only update duration from audio file if it's a valid number and we don't have a server duration
+      if (status.isLoaded && status.durationMillis && !isNaN(status.durationMillis) && status.durationMillis > 0) {
         setDuration(status.durationMillis);
       }
 
       setIsLoading(false);
     } catch (err) {
-      console.error('Failed to load audio:', err);
-      console.error('Audio URI was:', uri);
+      // Don't spam console with errors, just set error state
       setError('Failed to load audio');
       setIsLoading(false);
     }
@@ -102,8 +107,15 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
       setPosition(status.positionMillis || 0);
       setIsPlaying(status.isPlaying || false);
 
-      if (status.durationMillis && status.durationMillis !== duration) {
-        setDuration(status.durationMillis);
+      // Only update duration from audio if it's valid and different
+      if (status.durationMillis && !isNaN(status.durationMillis) && status.durationMillis > 0) {
+        setDuration(prevDuration => {
+          // Only update if the audio-detected duration is valid and we don't have one
+          if (!prevDuration || prevDuration === 0) {
+            return status.durationMillis;
+          }
+          return prevDuration;
+        });
       }
 
       // Reset when playback finishes
@@ -121,7 +133,6 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
     // Use soundRef for more reliable access
     const currentSound = soundRef.current;
     if (!currentSound) {
-      console.log('Sound not yet loaded, attempting to reload...');
       await loadSound();
       return;
     }
@@ -130,7 +141,6 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
       // Check if sound is actually loaded before operating on it
       const status = await currentSound.getStatusAsync();
       if (!status.isLoaded) {
-        console.log('Sound not loaded, reloading...');
         await loadSound();
         return;
       }
@@ -139,13 +149,12 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
         await currentSound.pauseAsync();
       } else {
         // If at end, restart from beginning
-        if (position >= duration - 100) {
+        if (duration > 0 && position >= duration - 100) {
           await currentSound.setPositionAsync(0);
         }
         await currentSound.playAsync();
       }
     } catch (err) {
-      console.error('Playback error:', err);
       // Try to reload the sound if there's an error
       setError('Playback failed. Tap to retry.');
     }
@@ -164,7 +173,7 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
     try {
       await sound.setPositionAsync(Math.floor(seekPosition));
     } catch (err) {
-      console.error('Seek error:', err);
+      // Silently handle seek errors
     }
   };
 
@@ -175,10 +184,18 @@ export default function AudioPlayer({ uri, duration: initialDuration, isMyMessag
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <MaterialCommunityIcons name="alert-circle" size={24} color="#f44336" />
-        <Text style={styles.errorText}>Audio unavailable</Text>
-      </View>
+      <TouchableOpacity
+        style={[styles.container, { backgroundColor }]}
+        onPress={loadSound}
+      >
+        <MaterialCommunityIcons name="refresh" size={24} color="#f44336" />
+        <Text style={styles.errorText}>Tap to retry</Text>
+        {duration > 0 && (
+          <Text style={[styles.durationText, { color: textColor, marginLeft: 8 }]}>
+            {formatDuration(duration)}
+          </Text>
+        )}
+      </TouchableOpacity>
     );
   }
 

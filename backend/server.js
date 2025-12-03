@@ -46,7 +46,8 @@ const storageRoutes = require('./routes/storage.routes');
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length', 'Content-Type']
 }));
 app.use(cookieParser());
 app.use(express.json());
