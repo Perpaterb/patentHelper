@@ -19,6 +19,15 @@ export default function IncomingCallHandler() {
   const navigation = useNavigation();
   const { incomingCall, acceptCall, rejectCall } = useIncomingCall();
 
+  // Debug: Log when incoming call state changes
+  React.useEffect(() => {
+    console.log('[IncomingCallHandler] incomingCall state:', incomingCall ? {
+      callId: incomingCall.callId,
+      groupName: incomingCall.groupName,
+      initiator: incomingCall.initiator?.displayName,
+    } : null);
+  }, [incomingCall]);
+
   const handleAccept = async () => {
     try {
       const call = await acceptCall();

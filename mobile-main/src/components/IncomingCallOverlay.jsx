@@ -70,7 +70,12 @@ export default function IncomingCallOverlay({
     }
   }, [visible]);
 
+  // Debug: Log when overlay should render
+  console.log('[IncomingCallOverlay] visible:', visible, 'call:', call?.callId);
+
   if (!visible || !call) return null;
+
+  console.log('[IncomingCallOverlay] Rendering overlay for call:', call.callId);
 
   const callerName = call.initiator?.displayName || 'Unknown Caller';
   const callerIcon = call.initiator?.iconLetters || callerName[0] || '?';

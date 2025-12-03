@@ -58,13 +58,15 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
   const startPolling = () => {
     if (pollRef.current) return;
 
+    console.log('[IncomingCallContext] Starting polling for incoming calls');
+
     // Poll immediately
     checkForIncomingCalls();
 
-    // Then poll every 5 seconds
+    // Then poll every 3 seconds for more responsive call detection
     pollRef.current = setInterval(() => {
       checkForIncomingCalls();
-    }, 5000);
+    }, 3000);
   };
 
   /**
@@ -79,6 +81,7 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
 
   /**
    * Check all groups for incoming calls
+   * Uses the /phone-calls/active endpoint which returns pre-filtered incoming calls
    */
   const checkForIncomingCalls = async () => {
     try {
@@ -86,52 +89,33 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
       const groupsResponse = await api.get('/groups');
       const groups = groupsResponse.data.groups || [];
 
-      // Check each group for ringing calls
+      // Check each group for incoming calls using the active endpoint
       for (const group of groups) {
         try {
-          const callsResponse = await api.get(`/groups/${group.groupId}/phone-calls`);
-          const calls = callsResponse.data.phoneCalls || [];
+          const activeCallsResponse = await api.get(`/groups/${group.groupId}/phone-calls/active`);
+          const { incomingCalls = [] } = activeCallsResponse.data;
 
-          // Find any ringing call where current user is a participant but not the initiator
-          const ringingCall = calls.find(call => {
-            if (call.status !== 'ringing') return false;
-
-            // Get current user's member ID in this group
-            const currentUserMemberId = group.currentUserMember?.groupMemberId;
-            if (!currentUserMemberId) return false;
-
-            // Check if user is a participant (but not initiator)
-            const isParticipant = call.participants?.some(
-              p => p.groupMemberId === currentUserMemberId
-            );
-            const isInitiator = call.initiatedBy === currentUserMemberId;
-
-            // Check participant status - only show if invited (not yet accepted/rejected)
-            const participantStatus = call.participants?.find(
-              p => p.groupMemberId === currentUserMemberId
-            )?.status;
-
-            return isParticipant && !isInitiator && participantStatus === 'invited';
-          });
-
-          if (ringingCall) {
+          // If there are any incoming calls, show the first one
+          if (incomingCalls.length > 0) {
+            const incomingCall = incomingCalls[0];
+            console.log('[IncomingCallContext] Found incoming call:', incomingCall.callId, 'in group:', group.name);
             setIncomingCall({
-              ...ringingCall,
+              ...incomingCall,
               groupId: group.groupId,
               groupName: group.name,
             });
             return; // Found an incoming call, stop searching
           }
         } catch (err) {
-          // Ignore errors for individual groups
-          console.log('Error checking calls for group:', group.groupId);
+          // Ignore errors for individual groups (e.g., permission denied)
+          console.log('[IncomingCallContext] Error checking calls for group:', group.groupId, err.message);
         }
       }
 
       // No incoming calls found
       setIncomingCall(null);
     } catch (err) {
-      console.error('Error checking for incoming calls:', err);
+      console.error('[IncomingCallContext] Error checking for incoming calls:', err);
     }
   };
 
@@ -142,12 +126,15 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
     if (!incomingCall) return null;
 
     try {
-      await api.put(`/groups/${incomingCall.groupId}/phone-calls/${incomingCall.callId}/accept`);
+      console.log('[IncomingCallContext] Accepting call:', incomingCall.callId);
+      await api.put(`/groups/${incomingCall.groupId}/phone-calls/${incomingCall.callId}/respond`, {
+        action: 'accept'
+      });
       const acceptedCall = { ...incomingCall };
       setIncomingCall(null);
       return acceptedCall;
     } catch (err) {
-      console.error('Error accepting call:', err);
+      console.error('[IncomingCallContext] Error accepting call:', err);
       throw err;
     }
   };
@@ -159,10 +146,13 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
     if (!incomingCall) return;
 
     try {
-      await api.put(`/groups/${incomingCall.groupId}/phone-calls/${incomingCall.callId}/reject`);
+      console.log('[IncomingCallContext] Rejecting call:', incomingCall.callId);
+      await api.put(`/groups/${incomingCall.groupId}/phone-calls/${incomingCall.callId}/respond`, {
+        action: 'reject'
+      });
       setIncomingCall(null);
     } catch (err) {
-      console.error('Error rejecting call:', err);
+      console.error('[IncomingCallContext] Error rejecting call:', err);
       throw err;
     }
   };
