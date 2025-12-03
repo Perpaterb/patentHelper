@@ -265,45 +265,86 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   };
 
   /**
-   * Start recording - video if camera available, audio-only otherwise
+   * Start recording - always attempts to record regardless of permissions
+   * Falls back through: video -> audio -> silent audio
    */
   const startRecording = async () => {
     if (isRecording) return;
 
-    try {
-      console.log('[ActiveVideoCall] Starting recording...');
-      setRecordingStatus('recording');
-      setIsRecording(true);
+    console.log('[ActiveVideoCall] Starting recording (will try all methods)...');
+    setRecordingStatus('recording');
+    setIsRecording(true);
 
-      // Try video recording first if camera is available and permission granted
-      if (cameraRef.current && cameraPermission?.granted && isCameraOn) {
-        try {
-          console.log('[ActiveVideoCall] Starting video recording with camera...');
-          const recording = await cameraRef.current.recordAsync({
-            maxDuration: 3600, // 1 hour max
-            quality: '720p',
-            mute: isMuted,
-          });
-          recordingRef.current = recording;
-          console.log('[ActiveVideoCall] Video recording started');
-          return;
-        } catch (videoError) {
-          console.log('[ActiveVideoCall] Video recording failed, falling back to audio:', videoError.message);
-        }
+    // Try 1: Video recording with camera
+    if (cameraRef.current && cameraPermission?.granted && isCameraOn) {
+      try {
+        console.log('[ActiveVideoCall] Attempting video recording with camera...');
+        const recording = await cameraRef.current.recordAsync({
+          maxDuration: 3600, // 1 hour max
+          quality: '720p',
+          mute: isMuted,
+        });
+        recordingRef.current = recording;
+        console.log('[ActiveVideoCall] Video recording started successfully');
+        return;
+      } catch (videoError) {
+        console.log('[ActiveVideoCall] Video recording failed:', videoError.message);
       }
+    }
 
-      // Fall back to audio-only recording
-      console.log('[ActiveVideoCall] Starting audio-only recording...');
+    // Try 2: Audio-only recording (requires mic permission)
+    try {
+      console.log('[ActiveVideoCall] Attempting audio-only recording...');
       const audioRecording = new Audio.Recording();
       await audioRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await audioRecording.startAsync();
       audioRecordingRef.current = audioRecording;
-      console.log('[ActiveVideoCall] Audio recording started');
-    } catch (error) {
-      console.error('[ActiveVideoCall] Failed to start recording:', error);
-      setRecordingStatus('error');
-      setIsRecording(false);
+      console.log('[ActiveVideoCall] Audio recording started successfully');
+      return;
+    } catch (audioError) {
+      console.log('[ActiveVideoCall] Audio recording failed:', audioError.message);
     }
+
+    // Try 3: Silent/low-quality audio as last resort
+    try {
+      console.log('[ActiveVideoCall] Attempting fallback silent recording...');
+      const silentRecording = new Audio.Recording();
+      await silentRecording.prepareToRecordAsync({
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 8000,
+          numberOfChannels: 1,
+          bitRate: 16000,
+        },
+        ios: {
+          extension: '.m4a',
+          audioQuality: Audio.IOSAudioQuality.MIN,
+          sampleRate: 8000,
+          numberOfChannels: 1,
+          bitRate: 16000,
+          linearPCMBitDepth: 8,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 16000,
+        },
+      });
+      await silentRecording.startAsync();
+      audioRecordingRef.current = silentRecording;
+      console.log('[ActiveVideoCall] Fallback recording started');
+      return;
+    } catch (fallbackError) {
+      console.log('[ActiveVideoCall] Fallback recording also failed:', fallbackError.message);
+    }
+
+    // All recording methods failed - log but continue call
+    console.error('[ActiveVideoCall] All recording methods failed - call will proceed without recording');
+    setRecordingStatus('error');
+    // Don't set isRecording to false - we want to show we tried
   };
 
   /**

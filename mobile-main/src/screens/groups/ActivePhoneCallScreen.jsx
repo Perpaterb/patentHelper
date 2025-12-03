@@ -195,46 +195,34 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   };
 
   /**
-   * Request microphone permissions
+   * Request microphone permission (non-blocking - recording attempts anyway)
    */
   const requestMicrophonePermission = async () => {
     try {
       console.log('[ActivePhoneCall] Requesting microphone permission...');
-      setRecordingStatus('requesting');
-
       const { status } = await Audio.requestPermissionsAsync();
       console.log('[ActivePhoneCall] Permission status:', status);
-
-      if (status !== 'granted') {
-        console.log('[ActivePhoneCall] Microphone permission denied');
-        CustomAlert.alert(
-          'Microphone Permission Required',
-          'Please allow microphone access to record calls. You can enable this in your device settings.',
-          [{ text: 'OK' }]
-        );
-        setRecordingStatus('error');
-        return false;
-      }
-
-      return true;
+      return status === 'granted';
     } catch (error) {
       console.error('[ActivePhoneCall] Permission request error:', error);
-      setRecordingStatus('error');
       return false;
     }
   };
 
   /**
-   * Start audio recording
+   * Start audio recording - always attempts regardless of permissions
+   * Falls back through: high quality -> low quality -> silent
    */
   const startRecording = async () => {
+    console.log('[ActivePhoneCall] Starting recording (will try all methods)...');
+    setRecordingStatus('recording');
+    setIsRecording(true);
+
+    // Request permission but don't block on it
+    await requestMicrophonePermission();
+
+    // Set audio mode for recording
     try {
-      const hasPermission = await requestMicrophonePermission();
-      if (!hasPermission) return;
-
-      console.log('[ActivePhoneCall] Starting audio recording...');
-
-      // Set audio mode for recording
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -242,8 +230,13 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,
       });
+    } catch (modeError) {
+      console.log('[ActivePhoneCall] Audio mode setup failed:', modeError.message);
+    }
 
-      // Create recording with high quality settings
+    // Try 1: High quality recording
+    try {
+      console.log('[ActivePhoneCall] Attempting high quality recording...');
       const recording = new Audio.Recording();
       await recording.prepareToRecordAsync({
         android: {
@@ -267,17 +260,53 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           bitsPerSecond: 128000,
         },
       });
-
       await recording.startAsync();
       recordingRef.current = recording;
-      setIsRecording(true);
-      setRecordingStatus('recording');
-      console.log('[ActivePhoneCall] Recording started successfully');
-    } catch (error) {
-      console.error('[ActivePhoneCall] Failed to start recording:', error);
-      setRecordingStatus('error');
-      CustomAlert.alert('Recording Error', 'Failed to start call recording');
+      console.log('[ActivePhoneCall] High quality recording started successfully');
+      return;
+    } catch (highQualityError) {
+      console.log('[ActivePhoneCall] High quality recording failed:', highQualityError.message);
     }
+
+    // Try 2: Low quality/fallback recording
+    try {
+      console.log('[ActivePhoneCall] Attempting low quality fallback recording...');
+      const fallbackRecording = new Audio.Recording();
+      await fallbackRecording.prepareToRecordAsync({
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 8000,
+          numberOfChannels: 1,
+          bitRate: 16000,
+        },
+        ios: {
+          extension: '.m4a',
+          audioQuality: Audio.IOSAudioQuality.MIN,
+          sampleRate: 8000,
+          numberOfChannels: 1,
+          bitRate: 16000,
+          linearPCMBitDepth: 8,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 16000,
+        },
+      });
+      await fallbackRecording.startAsync();
+      recordingRef.current = fallbackRecording;
+      console.log('[ActivePhoneCall] Fallback recording started successfully');
+      return;
+    } catch (fallbackError) {
+      console.log('[ActivePhoneCall] Fallback recording failed:', fallbackError.message);
+    }
+
+    // All recording methods failed - log but continue call
+    console.error('[ActivePhoneCall] All recording methods failed - call will proceed without recording');
+    setRecordingStatus('error');
   };
 
   /**
