@@ -411,13 +411,14 @@ class LocalStorageService extends StorageInterface {
    * Determine media type from MIME type
    * @private
    * @param {string} mimeType - MIME type
-   * @returns {string} Media type (image, video, document, log)
+   * @returns {string} Media type (image, video, audio, document, log, phonecall, videocall)
    */
   _getMediaType(mimeType) {
     if (!mimeType) return 'document';
 
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
     if (mimeType.startsWith('application/pdf') || mimeType.includes('document')) return 'document';
 
     return 'document';

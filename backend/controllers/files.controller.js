@@ -44,7 +44,7 @@ async function uploadFile(req, res) {
     const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
@@ -126,6 +126,7 @@ async function uploadFile(req, res) {
       'wiki': 100 * 1024 * 1024,           // 100MB for documents
       'item-registry': 10 * 1024 * 1024,   // 10MB for images
       'secure-documents': 100 * 1024 * 1024, // 100MB for secure documents
+      'audio': 100 * 1024 * 1024,          // 100MB for audio recordings (10 min high quality)
     };
 
     const maxSize = maxSizes[category] || 10 * 1024 * 1024;
@@ -277,7 +278,7 @@ async function uploadMultipleFiles(req, res) {
     const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
@@ -355,6 +356,7 @@ async function uploadMultipleFiles(req, res) {
       'wiki': 100 * 1024 * 1024,           // 100MB for documents
       'item-registry': 10 * 1024 * 1024,   // 10MB for images
       'secure-documents': 100 * 1024 * 1024, // 100MB for secure documents
+      'audio': 100 * 1024 * 1024,          // 100MB for audio recordings (10 min high quality)
     };
 
     const maxSize = maxSizes[category] || 10 * 1024 * 1024;

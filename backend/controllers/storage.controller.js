@@ -50,8 +50,11 @@ async function getStorageUsage(req, res) {
           breakdown: {
             images: 0,
             videos: 0,
+            audio: 0,
             documents: 0,
             logs: 0,
+            phonecalls: 0,
+            videocalls: 0,
           },
           groups: [],
         },
@@ -72,8 +75,11 @@ async function getStorageUsage(req, res) {
     let totalBytes = BigInt(0);
     let imageBytes = BigInt(0);
     let videoBytes = BigInt(0);
+    let audioBytes = BigInt(0);
     let documentBytes = BigInt(0);
     let logBytes = BigInt(0);
+    let phonecallBytes = BigInt(0);
+    let videocallBytes = BigInt(0);
 
     const groupUsage = {};
 
@@ -94,8 +100,14 @@ async function getStorageUsage(req, res) {
         imageBytes += bytes;
       } else if (mediaType === 'video') {
         videoBytes += bytes;
+      } else if (mediaType === 'audio') {
+        audioBytes += bytes;
       } else if (mediaType === 'log') {
         logBytes += bytes;
+      } else if (mediaType === 'phonecall') {
+        phonecallBytes += bytes;
+      } else if (mediaType === 'videocall') {
+        videocallBytes += bytes;
       } else {
         documentBytes += bytes;
       }
@@ -117,8 +129,11 @@ async function getStorageUsage(req, res) {
         breakdown: {
           images: Number(imageBytes),
           videos: Number(videoBytes),
+          audio: Number(audioBytes),
           documents: Number(documentBytes),
           logs: Number(logBytes),
+          phonecalls: Number(phonecallBytes),
+          videocalls: Number(videocallBytes),
         },
         groups: groups,
       },

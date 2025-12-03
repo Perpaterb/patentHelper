@@ -476,10 +476,11 @@ async function sendMessageGroupMessage(req, res) {
         media: {
           create: mediaFiles.map(file => {
             // Determine media type - default to 'image' for unknown types
-            // Only classify as 'video' if explicitly a video mimeType
             let mediaType = 'image'; // Default to image
             if (file.mimeType) {
-              if (file.mimeType.startsWith('video/')) {
+              if (file.mimeType.startsWith('audio/')) {
+                mediaType = 'audio';
+              } else if (file.mimeType.startsWith('video/')) {
                 mediaType = 'video';
               } else if (file.mimeType.startsWith('image/')) {
                 mediaType = 'image';
