@@ -446,6 +446,7 @@ async function getGroupById(req, res) {
             email: true,
             iconLetters: true,
             iconColor: true,
+            isRegistered: true, // IMPORTANT: Needed for phone calls and read receipts
             user: {
               select: {
                 displayName: true,
