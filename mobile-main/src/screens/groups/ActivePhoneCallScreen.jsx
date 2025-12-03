@@ -111,9 +111,16 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         });
         setCall(updatedCall);
 
-        // If call ended, navigate away
+        // If call ended (by another participant), stop recording and navigate away
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
+          console.log('[ActivePhoneCall] Call ended remotely, stopping recording...');
           stopPolling();
+
+          // Stop recording and upload before navigating
+          if (recordingRef.current && isRecording) {
+            await stopRecordingAndUpload();
+          }
+
           navigation.replace('PhoneCallDetails', {
             groupId,
             callId,
@@ -499,8 +506,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           {isRinging ? (isInitiator ? 'Calling:' : 'Incoming call from:') : 'In this call:'}
         </Text>
         <View style={styles.participantsList}>
-          {/* Show initiator first (if not the current user viewing) */}
-          {call.initiator && !isInitiator && (
+          {/* Show initiator first (always - mark as "You" if current user) */}
+          {call.initiator && (
             <View style={styles.participantItem}>
               <Avatar.Text
                 size={60}
@@ -509,7 +516,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
                 color={getContrastTextColor(call.initiator.iconColor || '#6200ee')}
               />
               <Text style={styles.participantName}>
-                {call.initiator.displayName || 'Unknown'}
+                {isInitiator ? 'You' : (call.initiator.displayName || 'Unknown')}
               </Text>
               <Text style={[styles.participantStatus, { color: '#4caf50' }]}>
                 {isActive ? 'connected' : 'calling'}
@@ -517,7 +524,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Show other participants */}
+          {/* Show all other participants */}
           {call.participants?.map(participant => {
             // Skip showing initiator in participants list (already shown above)
             if (participant.groupMemberId === call.initiatedBy) return null;
