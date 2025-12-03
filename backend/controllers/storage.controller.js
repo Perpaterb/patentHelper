@@ -140,6 +140,60 @@ async function getStorageUsage(req, res) {
       groupUsage[groupId].count += 1;
     }
 
+    // Get phone call recordings for these groups
+    const phoneCallRecordings = await prisma.phoneCall.findMany({
+      where: {
+        groupId: { in: groupIds },
+        recordingUrl: { not: null },
+        recordingIsHidden: false,
+      },
+      select: {
+        groupId: true,
+        recordingSizeBytes: true,
+      },
+    });
+
+    // Add phone call recording sizes
+    for (const recording of phoneCallRecordings) {
+      const bytes = recording.recordingSizeBytes || BigInt(0);
+      totalBytes += bytes;
+      phonecallBytes += bytes;
+
+      const gId = recording.groupId;
+      if (!groupUsage[gId]) {
+        groupUsage[gId] = { bytes: BigInt(0), count: 0 };
+      }
+      groupUsage[gId].bytes += bytes;
+      groupUsage[gId].count += 1;
+    }
+
+    // Get video call recordings for these groups
+    const videoCallRecordings = await prisma.videoCall.findMany({
+      where: {
+        groupId: { in: groupIds },
+        recordingUrl: { not: null },
+        recordingIsHidden: false,
+      },
+      select: {
+        groupId: true,
+        recordingSizeBytes: true,
+      },
+    });
+
+    // Add video call recording sizes
+    for (const recording of videoCallRecordings) {
+      const bytes = recording.recordingSizeBytes || BigInt(0);
+      totalBytes += bytes;
+      videocallBytes += bytes;
+
+      const gId = recording.groupId;
+      if (!groupUsage[gId]) {
+        groupUsage[gId] = { bytes: BigInt(0), count: 0 };
+      }
+      groupUsage[gId].bytes += bytes;
+      groupUsage[gId].count += 1;
+    }
+
     // Build groups array
     const groups = adminGroups.map(ag => ({
       groupId: ag.groupId,
@@ -805,6 +859,11 @@ async function requestFileDeletion(req, res) {
     const userId = req.user.userId;
     const { mediaId } = req.params;
 
+    // Check if this is a phone call or video call recording
+    if (mediaId.startsWith('phonecall-') || mediaId.startsWith('videocall-')) {
+      return await requestCallRecordingDeletion(req, res, userId, mediaId);
+    }
+
     // Get the file and its group
     const media = await prisma.messageMedia.findUnique({
       where: { mediaId: mediaId },
@@ -975,6 +1034,225 @@ async function requestFileDeletion(req, res) {
       message: error.message,
     });
   }
+}
+
+/**
+ * Handle deletion request for phone call or video call recordings
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ * @param {string} userId - User ID
+ * @param {string} mediaId - Media ID (phonecall-{callId} or videocall-{callId})
+ */
+async function requestCallRecordingDeletion(req, res, userId, mediaId) {
+  const isPhoneCall = mediaId.startsWith('phonecall-');
+  const callId = mediaId.replace(/^(phonecall|videocall)-/, '');
+
+  // Get the call record
+  const call = isPhoneCall
+    ? await prisma.phoneCall.findUnique({
+        where: { callId: callId },
+        select: {
+          callId: true,
+          groupId: true,
+          recordingUrl: true,
+          recordingSizeBytes: true,
+          recordingDurationMs: true,
+          recordingIsHidden: true,
+        },
+      })
+    : await prisma.videoCall.findUnique({
+        where: { callId: callId },
+        select: {
+          callId: true,
+          groupId: true,
+          recordingUrl: true,
+          recordingSizeBytes: true,
+          recordingDurationMs: true,
+          recordingIsHidden: true,
+        },
+      });
+
+  if (!call) {
+    return res.status(404).json({
+      error: 'Call not found',
+      message: 'The specified call does not exist',
+    });
+  }
+
+  if (!call.recordingUrl) {
+    return res.status(404).json({
+      error: 'No recording',
+      message: 'This call does not have a recording',
+    });
+  }
+
+  if (call.recordingIsHidden) {
+    return res.status(400).json({
+      error: 'Already deleted',
+      message: 'This recording has already been deleted',
+    });
+  }
+
+  const groupId = call.groupId;
+
+  // Verify user is admin of this group
+  const membership = await prisma.groupMember.findFirst({
+    where: {
+      userId: userId,
+      groupId: groupId,
+      role: 'admin',
+    },
+  });
+
+  if (!membership) {
+    return res.status(403).json({
+      error: 'Access denied',
+      message: 'You must be an admin of this group to delete recordings',
+    });
+  }
+
+  // Get all admins in the group
+  const admins = await prisma.groupMember.findMany({
+    where: {
+      groupId: groupId,
+      role: 'admin',
+    },
+    select: {
+      groupMemberId: true,
+      userId: true,
+    },
+  });
+
+  // Format duration for filename
+  const durationSecs = call.recordingDurationMs ? Math.floor(call.recordingDurationMs / 1000) : 0;
+  const durationMins = Math.floor(durationSecs / 60);
+  const durationSecsRemain = durationSecs % 60;
+  const durationStr = `${durationMins}m${durationSecsRemain}s`;
+  const fileName = isPhoneCall ? `Phone Call Recording (${durationStr})` : `Video Call Recording (${durationStr})`;
+  const fileSizeBytes = Number(call.recordingSizeBytes || 0);
+
+  // For single admin groups, delete immediately without approval workflow
+  if (admins.length === 1) {
+    // Hide the recording
+    if (isPhoneCall) {
+      await prisma.phoneCall.update({
+        where: { callId: callId },
+        data: {
+          recordingIsHidden: true,
+          recordingHiddenBy: membership.groupMemberId,
+          recordingHiddenAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.videoCall.update({
+        where: { callId: callId },
+        data: {
+          recordingIsHidden: true,
+          recordingHiddenBy: membership.groupMemberId,
+          recordingHiddenAt: new Date(),
+        },
+      });
+    }
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'delete_call_recording',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName || 'Unknown',
+        performedByEmail: req.user.email,
+        actionLocation: 'storage',
+        messageContent: `Deleted ${isPhoneCall ? 'phone' : 'video'} call recording: "${fileName}" (${formatFileSize(fileSizeBytes)})`,
+        logData: {
+          callId: callId,
+          callType: isPhoneCall ? 'phone' : 'video',
+          fileName: fileName,
+          fileSizeBytes: fileSizeBytes,
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Recording deleted successfully (single admin auto-approval)',
+    });
+  }
+
+  // For multi-admin groups, create approval request
+  const existingRequest = await prisma.approval.findFirst({
+    where: {
+      groupId: groupId,
+      approvalType: 'delete_call_recording',
+      relatedEntityId: callId,
+      status: 'pending',
+    },
+  });
+
+  if (existingRequest) {
+    return res.status(400).json({
+      error: 'Request already exists',
+      message: 'There is already a pending deletion request for this recording',
+    });
+  }
+
+  // Create approval request
+  const approval = await prisma.approval.create({
+    data: {
+      groupId: groupId,
+      approvalType: 'delete_call_recording',
+      relatedEntityType: isPhoneCall ? 'phone_call' : 'video_call',
+      relatedEntityId: callId,
+      requestedBy: membership.groupMemberId,
+      status: 'pending',
+      approvalData: {
+        fileName: fileName,
+        fileSizeBytes: fileSizeBytes,
+        callType: isPhoneCall ? 'phone' : 'video',
+      },
+    },
+  });
+
+  // Create auto-approval vote for the requester
+  await prisma.approvalVote.create({
+    data: {
+      approvalId: approval.approvalId,
+      adminId: membership.groupMemberId,
+      vote: 'approve',
+      isAutoApproved: false,
+    },
+  });
+
+  // Create audit log
+  await prisma.auditLog.create({
+    data: {
+      groupId: groupId,
+      action: 'request_call_recording_deletion',
+      performedBy: membership.groupMemberId,
+      performedByName: membership.displayName || 'Unknown',
+      performedByEmail: req.user.email,
+      actionLocation: 'storage',
+      messageContent: `Requested deletion of ${isPhoneCall ? 'phone' : 'video'} call recording: "${fileName}" (${formatFileSize(fileSizeBytes)})`,
+      logData: {
+        approvalId: approval.approvalId,
+        callId: callId,
+        callType: isPhoneCall ? 'phone' : 'video',
+        fileName: fileName,
+        fileSizeBytes: fileSizeBytes,
+      },
+    },
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Deletion request submitted for admin approval',
+    approval: {
+      approvalId: approval.approvalId,
+      status: 'pending',
+      totalAdmins: admins.length,
+      votesReceived: 1,
+    },
+  });
 }
 
 /**
