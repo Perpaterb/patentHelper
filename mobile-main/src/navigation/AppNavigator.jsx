@@ -53,6 +53,9 @@ import CreateSecretSantaScreen from '../screens/groups/CreateSecretSantaScreen';
 import SecretSantaDetailScreen from '../screens/groups/SecretSantaDetailScreen';
 import WikiScreen from '../screens/wiki/WikiScreen';
 import DocumentsScreen from '../screens/documents/DocumentsScreen';
+import PhoneCallsScreen from '../screens/groups/PhoneCallsScreen';
+import InitiatePhoneCallScreen from '../screens/groups/InitiatePhoneCallScreen';
+import PhoneCallDetailsScreen from '../screens/groups/PhoneCallDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -150,6 +153,11 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
 
             {/* Documents */}
             <Stack.Screen name="Documents" component={DocumentsScreen} />
+
+            {/* Phone Calls */}
+            <Stack.Screen name="PhoneCalls" component={PhoneCallsScreen} />
+            <Stack.Screen name="InitiatePhoneCall" component={InitiatePhoneCallScreen} />
+            <Stack.Screen name="PhoneCallDetails" component={PhoneCallDetailsScreen} />
 
             {/* Home Screen */}
             <Stack.Screen name="Home">

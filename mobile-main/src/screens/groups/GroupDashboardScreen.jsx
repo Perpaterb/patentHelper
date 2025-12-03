@@ -376,11 +376,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to Phone Calls (Coming Soon)
+   * Navigate to Phone Calls
    */
   const goToPhoneCalls = () => {
-    // TODO: Implement PhoneCalls screen navigation
-    // navigation.navigate('PhoneCalls', { groupId });
+    navigation.navigate('PhoneCalls', { groupId });
   };
 
   /**
@@ -618,7 +617,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
 
         {/* Phone Calls Section - Show based on role permissions */}
         {isPhoneCallsVisible() && (
-          <Card style={[styles.navCard, styles.comingSoonCard]} onPress={goToPhoneCalls}>
+          <Card style={styles.navCard} onPress={goToPhoneCalls}>
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
                 <Text style={styles.navCardEmoji}>📞</Text>
@@ -626,7 +625,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Phone Calls</Text>
                 <Text style={styles.navCardDescription}>
-                  Secure & Encrypted - Coming Soon
+                  Secure & Encrypted voice calls
                 </Text>
               </View>
             </Card.Content>
