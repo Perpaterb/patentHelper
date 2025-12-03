@@ -17,7 +17,7 @@ import { Audio } from 'expo-av';
  * @returns {string} Formatted time string
  */
 function formatDuration(ms) {
-  if (!ms || isNaN(ms) || ms <= 0) return '0:00';
+  if (!ms || !isFinite(ms) || isNaN(ms) || ms <= 0) return '0:00';
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -104,13 +104,14 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
    */
   const onPlaybackStatusUpdate = (status) => {
     if (status.isLoaded) {
-      setPosition(status.positionMillis || 0);
+      const pos = status.positionMillis || 0;
+      setPosition(pos);
       setIsPlaying(status.isPlaying || false);
 
-      // Only update duration from audio if it's valid and different
-      if (status.durationMillis && !isNaN(status.durationMillis) && status.durationMillis > 0) {
+      // Update duration from audio if it's valid
+      if (status.durationMillis && isFinite(status.durationMillis) && !isNaN(status.durationMillis) && status.durationMillis > 0) {
         setDuration(prevDuration => {
-          // Only update if the audio-detected duration is valid and we don't have one
+          // Only update if we don't have a valid duration
           if (!prevDuration || prevDuration === 0) {
             return status.durationMillis;
           }
@@ -118,8 +119,14 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
         });
       }
 
-      // Reset when playback finishes
+      // When playback finishes, use position as duration if we don't have one
       if (status.didJustFinish) {
+        setDuration(prevDuration => {
+          if ((!prevDuration || prevDuration === 0) && pos > 0) {
+            return pos;
+          }
+          return prevDuration;
+        });
         setPosition(0);
         setIsPlaying(false);
       }

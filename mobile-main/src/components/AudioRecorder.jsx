@@ -4,6 +4,7 @@
  * Provides audio recording functionality with volume visualization.
  * Shows recording state with animated circle and timer.
  * Circle color indicates audio level: green (good), orange (high), red (too loud).
+ * On web, uses simulated pulse since metering isn't available.
  * Includes review mode with playback before sending.
  */
 
@@ -13,6 +14,7 @@ import { IconButton, Text } from 'react-native-paper';
 import { Audio } from 'expo-av';
 
 const MAX_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+const IS_WEB = Platform.OS === 'web';
 
 // Color thresholds for audio levels (1-10 scale)
 const LEVEL_COLORS = {
@@ -39,19 +41,10 @@ function formatDuration(ms) {
  * @returns {number} Level from 1-10
  */
 function dbToLevel(dB) {
-  // dB range: -160 (silence) to 0 (max)
-  // Map to 1-10 scale with some headroom
-  // -60 dB and below = level 1 (very quiet)
-  // -10 dB = level 7 (good)
-  // -5 dB = level 8-9 (loud)
-  // 0 dB = level 10 (max/clipping)
-
   if (dB <= -60) return 1;
   if (dB >= 0) return 10;
-
-  // Linear interpolation from -60 to 0 -> 1 to 10
-  const normalized = (dB + 60) / 60; // 0 to 1
-  return Math.round(1 + normalized * 9); // 1 to 10
+  const normalized = (dB + 60) / 60;
+  return Math.round(1 + normalized * 9);
 }
 
 /**
@@ -67,11 +60,6 @@ function getLevelColor(level) {
 
 /**
  * AudioRecorder component
- *
- * @param {Object} props
- * @param {Function} props.onRecordingComplete - Called with {uri, duration, mimeType} when recording is done and user wants to send
- * @param {Function} props.onCancel - Called when user cancels recording
- * @returns {JSX.Element}
  */
 export default function AudioRecorder({ onRecordingComplete, onCancel }) {
   const [recording, setRecording] = useState(null);
@@ -81,12 +69,13 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [sound, setSound] = useState(null);
-  const [metering, setMetering] = useState(-160); // dB level for visualization
-  const [audioLevel, setAudioLevel] = useState(1); // 1-10 scale
+  const [metering, setMetering] = useState(-160);
+  const [audioLevel, setAudioLevel] = useState(5); // Default to mid-level for web
   const [levelColor, setLevelColor] = useState(LEVEL_COLORS.good);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const durationIntervalRef = useRef(null);
+  const webPulseIntervalRef = useRef(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -100,19 +89,18 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
+      if (webPulseIntervalRef.current) {
+        clearInterval(webPulseIntervalRef.current);
+      }
     };
   }, []);
 
-  // Pulse animation and color based on metering
+  // Pulse animation for native (based on metering)
   useEffect(() => {
-    if (isRecording) {
-      // Convert dB to level (1-10)
+    if (isRecording && !IS_WEB) {
       const level = dbToLevel(metering);
       setAudioLevel(level);
       setLevelColor(getLevelColor(level));
-
-      // Scale animation based on level
-      // Level 1 = scale 0.8, Level 10 = scale 1.5
       const scale = 0.8 + (level / 10) * 0.7;
 
       Animated.timing(pulseAnim, {
@@ -124,54 +112,86 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   }, [metering, isRecording]);
 
-  // Start recording on mount (must be before any conditional returns to follow React hooks rules)
+  // Simulated pulse animation for web (since metering isn't available)
   useEffect(() => {
-    // Only start if we haven't already started and don't have a recording yet
+    if (isRecording && IS_WEB) {
+      // Create a simulated pulsing effect on web
+      let direction = 1;
+      let currentLevel = 4;
+
+      webPulseIntervalRef.current = setInterval(() => {
+        // Simulate random-ish level changes (between 3 and 7)
+        currentLevel += direction * (Math.random() * 2);
+        if (currentLevel >= 7) {
+          currentLevel = 7;
+          direction = -1;
+        } else if (currentLevel <= 3) {
+          currentLevel = 3;
+          direction = 1;
+        }
+
+        const level = Math.round(currentLevel);
+        setAudioLevel(level);
+        setLevelColor(getLevelColor(level));
+
+        const scale = 0.8 + (level / 10) * 0.7;
+        Animated.timing(pulseAnim, {
+          toValue: scale,
+          duration: 150,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }).start();
+      }, 150);
+
+      return () => {
+        if (webPulseIntervalRef.current) {
+          clearInterval(webPulseIntervalRef.current);
+        }
+      };
+    }
+  }, [isRecording]);
+
+  // Start recording on mount
+  useEffect(() => {
     if (!isRecording && !recordedUri && !recording) {
       startRecording();
     }
   }, []);
 
-  /**
-   * Start recording audio
-   */
   const startRecording = async () => {
     try {
-      // Request permissions
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
         return;
       }
 
-      // Set audio mode for recording
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
 
-      // Create recording with metering enabled
+      const recordingOptions = {
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: !IS_WEB, // Only enable on native
+      };
+
       const { recording: newRecording } = await Audio.Recording.createAsync(
-        {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          isMeteringEnabled: true,
-        },
+        recordingOptions,
         (status) => {
-          if (status.isRecording) {
+          if (status.isRecording && !IS_WEB) {
             setMetering(status.metering ?? -160);
           }
         },
-        100 // Update interval in ms
+        100
       );
 
       setRecording(newRecording);
       setIsRecording(true);
       setDuration(0);
 
-      // Start duration timer
       durationIntervalRef.current = setInterval(() => {
         setDuration((prev) => {
           const newDuration = prev + 1000;
-          // Auto-stop at max duration
           if (newDuration >= MAX_DURATION_MS) {
             stopRecording();
           }
@@ -183,23 +203,22 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   };
 
-  /**
-   * Stop recording audio
-   */
   const stopRecording = async () => {
     if (!recording) return;
 
     try {
-      // Clear timer
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
         durationIntervalRef.current = null;
+      }
+      if (webPulseIntervalRef.current) {
+        clearInterval(webPulseIntervalRef.current);
+        webPulseIntervalRef.current = null;
       }
 
       setIsRecording(false);
       await recording.stopAndUnloadAsync();
 
-      // Reset audio mode
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
       });
@@ -212,9 +231,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   };
 
-  /**
-   * Play recorded audio for review
-   */
   const playRecording = async () => {
     if (!recordedUri) return;
 
@@ -244,9 +260,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   };
 
-  /**
-   * Pause playback
-   */
   const pausePlayback = async () => {
     if (sound) {
       await sound.pauseAsync();
@@ -254,9 +267,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   };
 
-  /**
-   * Handle send - pass recording data to parent
-   */
   const handleSend = () => {
     if (recordedUri) {
       onRecordingComplete({
@@ -267,9 +277,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     }
   };
 
-  /**
-   * Handle delete - discard recording
-   */
   const handleDelete = async () => {
     if (sound) {
       await sound.unloadAsync();
@@ -296,7 +303,7 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
                 },
               ]}
             />
-            <Text style={[styles.levelText, { color: levelColor }]}>
+            <Text style={[styles.levelText, { color: '#fff' }]}>
               {audioLevel}
             </Text>
           </View>
@@ -320,7 +327,7 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     );
   }
 
-  // Review mode (after recording stopped)
+  // Review mode
   if (recordedUri) {
     return (
       <View style={styles.container}>
@@ -370,7 +377,6 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }) {
     );
   }
 
-  // Initial state - show loading while recording starts
   return (
     <View style={styles.container}>
       <Text>Preparing to record...</Text>
