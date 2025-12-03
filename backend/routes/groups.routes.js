@@ -428,6 +428,12 @@ router.put('/:groupId/phone-calls/:callId/respond', requireAuth, phoneCallsContr
 router.put('/:groupId/phone-calls/:callId/end', requireAuth, phoneCallsController.endCall);
 
 /**
+ * PUT /groups/:groupId/phone-calls/:callId/leave
+ * Leave a call without ending it for others
+ */
+router.put('/:groupId/phone-calls/:callId/leave', requireAuth, phoneCallsController.leaveCall);
+
+/**
  * PUT /groups/:groupId/phone-calls/:callId/hide-recording
  * Hide a call recording (admin only)
  */

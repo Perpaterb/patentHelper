@@ -16,6 +16,7 @@ import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import { CustomAlert } from '../../components/CustomAlert';
+import { CONFIG } from '../../constants/config';
 
 /**
  * @typedef {Object} PhoneCallDetailsScreenProps
@@ -150,10 +151,23 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   };
 
   /**
+   * Get full recording URL
+   */
+  const getRecordingUrl = () => {
+    if (!call?.recording?.url && !call?.recordingUrl) return null;
+    const relativeUrl = call?.recording?.url || call?.recordingUrl;
+    // If already absolute URL, use it directly
+    if (relativeUrl.startsWith('http')) return relativeUrl;
+    // Otherwise prepend API base URL
+    return `${CONFIG.API_BASE_URL}${relativeUrl}`;
+  };
+
+  /**
    * Play or pause recording
    */
   const togglePlayback = async () => {
-    if (!call?.recordingUrl) return;
+    const recordingUrl = getRecordingUrl();
+    if (!recordingUrl) return;
 
     try {
       if (sound) {
@@ -167,7 +181,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
       } else {
         setLoadingAudio(true);
         const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: call.recordingUrl },
+          { uri: recordingUrl },
           { shouldPlay: true },
           onPlaybackStatusUpdate
         );
@@ -177,7 +191,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
       }
     } catch (err) {
       console.error('Audio playback error:', err);
-      CustomCustomAlert.alert('Playback Error', 'Failed to play recording');
+      CustomAlert.alert('Playback Error', 'Failed to play recording');
       setLoadingAudio(false);
     }
   };
@@ -291,7 +305,9 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   }
 
   const statusColors = getStatusColor(call.status);
-  const hasRecording = call.recordingUrl && !call.recordingIsHidden;
+  // Check for recording - API returns either recordingUrl or recording object
+  const hasRecording = (call.recording?.url || call.recordingUrl) &&
+                       !call.recording?.isHidden && !call.recordingIsHidden;
 
   return (
     <View style={styles.container}>
@@ -384,7 +400,9 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                   </View>
                   <View style={styles.timeRow}>
                     <Text style={styles.timeText}>{formatDuration(playbackPosition)}</Text>
-                    <Text style={styles.timeText}>{formatDuration(call.recordingDurationMs)}</Text>
+                    <Text style={styles.timeText}>
+                      {formatDuration(call.recording?.durationMs || call.recordingDurationMs || playbackDuration)}
+                    </Text>
                   </View>
                 </View>
               </View>

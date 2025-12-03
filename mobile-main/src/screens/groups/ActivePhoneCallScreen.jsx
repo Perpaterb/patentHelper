@@ -28,11 +28,31 @@ import { CustomAlert } from '../../components/CustomAlert';
  * @param {ActivePhoneCallScreenProps} props
  * @returns {JSX.Element}
  */
+/**
+ * Get color for participant status
+ */
+const getParticipantStatusColor = (status) => {
+  switch (status) {
+    case 'joined':
+    case 'accepted':
+      return '#4caf50';
+    case 'left':
+      return '#ff9800';
+    case 'rejected':
+      return '#f44336';
+    case 'invited':
+      return '#2196f3';
+    default:
+      return '#666';
+  }
+};
+
 export default function ActivePhoneCallScreen({ navigation, route }) {
   const { groupId, callId, call: passedCall, isInitiator } = route.params;
   const [call, setCall] = useState(passedCall || null);
   const [loading, setLoading] = useState(!passedCall);
   const [endingCall, setEndingCall] = useState(false);
+  const [leavingCall, setLeavingCall] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -145,18 +165,64 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   };
 
   /**
-   * Handle ending the call
+   * Handle leaving the call (without ending it for others)
+   */
+  const handleLeaveCall = () => {
+    if (leavingCall) return;
+
+    const message = isInitiator
+      ? 'As the initiator, leaving will end the call for everyone.'
+      : 'Are you sure you want to leave this call? The call will continue for others.';
+
+    CustomAlert.alert(
+      'Leave Call',
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            setLeavingCall(true);
+            try {
+              const response = await api.put(`/groups/${groupId}/phone-calls/${callId}/leave`);
+              stopPolling();
+
+              if (response.data.callEnded) {
+                // Call ended, go to details
+                navigation.replace('PhoneCallDetails', {
+                  groupId,
+                  callId,
+                  call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
+                });
+              } else {
+                // Just left, go back to phone calls list
+                navigation.replace('PhoneCalls', { groupId });
+              }
+            } catch (err) {
+              console.error('Leave call error:', err);
+              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to leave call');
+              setLeavingCall(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle ending the call for everyone
    */
   const handleEndCall = () => {
     if (endingCall) return;
 
     CustomAlert.alert(
-      'End Call',
-      'Are you sure you want to end this call?',
+      'End Call for Everyone',
+      'This will end the call for all participants. Are you sure?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'End Call',
+          text: 'End for All',
           style: 'destructive',
           onPress: async () => {
             setEndingCall(true);
@@ -226,25 +292,62 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
       {/* Participants */}
       <View style={styles.participantsContainer}>
         <Text style={styles.participantsLabel}>
-          {isInitiator ? 'Calling:' : 'In call with:'}
+          {isRinging ? (isInitiator ? 'Calling:' : 'Incoming call from:') : 'In this call:'}
         </Text>
         <View style={styles.participantsList}>
+          {/* Show initiator first (if not the current user viewing) */}
+          {call.initiator && !isInitiator && (
+            <View style={styles.participantItem}>
+              <Avatar.Text
+                size={60}
+                label={call.initiator.iconLetters || '?'}
+                style={{ backgroundColor: call.initiator.iconColor || '#6200ee' }}
+                color={getContrastTextColor(call.initiator.iconColor || '#6200ee')}
+              />
+              <Text style={styles.participantName}>
+                {call.initiator.displayName || 'Unknown'}
+              </Text>
+              <Text style={[styles.participantStatus, { color: '#4caf50' }]}>
+                {isActive ? 'connected' : 'calling'}
+              </Text>
+            </View>
+          )}
+
+          {/* Show other participants */}
           {call.participants?.map(participant => {
-            if (isInitiator && participant.groupMemberId === call.initiatedBy) return null;
+            // Skip showing initiator in participants list (already shown above)
+            if (participant.groupMemberId === call.initiatedBy) return null;
+
             const bgColor = participant.iconColor || '#6200ee';
+            const statusColor = getParticipantStatusColor(participant.status);
+
+            // Show visual indicator for participants who left
+            const isInCall = ['invited', 'accepted', 'joined'].includes(participant.status);
 
             return (
-              <View key={participant.groupMemberId} style={styles.participantItem}>
+              <View
+                key={participant.groupMemberId}
+                style={[
+                  styles.participantItem,
+                  !isInCall && styles.participantLeft
+                ]}
+              >
                 <Avatar.Text
                   size={60}
                   label={participant.iconLetters || '?'}
-                  style={{ backgroundColor: bgColor }}
+                  style={{
+                    backgroundColor: bgColor,
+                    opacity: isInCall ? 1 : 0.5,
+                  }}
                   color={getContrastTextColor(bgColor)}
                 />
-                <Text style={styles.participantName}>
+                <Text style={[
+                  styles.participantName,
+                  !isInCall && styles.participantNameLeft
+                ]}>
                   {participant.displayName || 'Unknown'}
                 </Text>
-                <Text style={styles.participantStatus}>
+                <Text style={[styles.participantStatus, { color: statusColor }]}>
                   {participant.status}
                 </Text>
               </View>
@@ -253,22 +356,41 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* End Call Button */}
+      {/* Action Buttons */}
       <View style={styles.actionContainer}>
+        {/* Leave Call Button - for participants to leave without ending */}
         <Button
           mode="contained"
-          onPress={handleEndCall}
-          loading={endingCall}
-          disabled={endingCall}
-          style={styles.endCallButton}
-          buttonColor="#d32f2f"
+          onPress={handleLeaveCall}
+          loading={leavingCall}
+          disabled={leavingCall || endingCall}
+          style={styles.leaveCallButton}
+          buttonColor="#ff9800"
           textColor="#fff"
-          icon="phone-hangup"
-          contentStyle={styles.endCallButtonContent}
-          labelStyle={styles.endCallButtonLabel}
+          icon="exit-run"
+          contentStyle={styles.callButtonContent}
+          labelStyle={styles.callButtonLabel}
         >
-          {endingCall ? 'Ending...' : 'End Call'}
+          {leavingCall ? 'Leaving...' : 'Leave Call'}
         </Button>
+
+        {/* End Call Button - for initiator or to end for everyone */}
+        {isInitiator && (
+          <Button
+            mode="contained"
+            onPress={handleEndCall}
+            loading={endingCall}
+            disabled={endingCall || leavingCall}
+            style={styles.endCallButton}
+            buttonColor="#d32f2f"
+            textColor="#fff"
+            icon="phone-hangup"
+            contentStyle={styles.callButtonContent}
+            labelStyle={styles.callButtonLabel}
+          >
+            {endingCall ? 'Ending...' : 'End for All'}
+          </Button>
+        )}
       </View>
     </View>
   );
@@ -346,19 +468,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'capitalize',
   },
+  participantLeft: {
+    opacity: 0.6,
+  },
+  participantNameLeft: {
+    color: '#999',
+  },
   actionContainer: {
     alignItems: 'center',
     paddingHorizontal: 40,
+    gap: 12,
+  },
+  leaveCallButton: {
+    borderRadius: 40,
+    width: '100%',
   },
   endCallButton: {
     borderRadius: 40,
     width: '100%',
   },
-  endCallButtonContent: {
-    height: 60,
+  callButtonContent: {
+    height: 56,
   },
-  endCallButtonLabel: {
-    fontSize: 18,
+  callButtonLabel: {
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

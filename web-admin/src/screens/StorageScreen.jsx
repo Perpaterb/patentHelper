@@ -162,7 +162,9 @@ export default function StorageScreen({ navigation }) {
   }
 
   function openPreview(file) {
-    if (file.fileType === 'image' || file.fileType === 'video') {
+    // Allow preview for images, videos, and audio (including phone call recordings)
+    if (file.fileType === 'image' || file.fileType === 'video' ||
+        file.fileType === 'audio' || file.fileType === 'phonecall' || file.fileType === 'videocall') {
       setPreviewFile(file);
       setPreviewVisible(true);
     }
@@ -543,8 +545,8 @@ export default function StorageScreen({ navigation }) {
                       styles.fileRow,
                       file.isDeleted && styles.fileRowDeleted,
                       file.pendingDeletion && styles.fileRowPendingDeletion,
-                      !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowClickable,
-                      pressed && !file.isDeleted && (file.fileType === 'image' || file.fileType === 'video') && styles.fileRowPressed,
+                      !file.isDeleted && ['image', 'video', 'audio', 'phonecall', 'videocall'].includes(file.fileType) && styles.fileRowClickable,
+                      pressed && !file.isDeleted && ['image', 'video', 'audio', 'phonecall', 'videocall'].includes(file.fileType) && styles.fileRowPressed,
                     ]}
                     onPress={() => !file.isDeleted && openPreview(file)}
                     disabled={file.isDeleted}
@@ -817,6 +819,33 @@ export default function StorageScreen({ navigation }) {
                 )}
 
                 {previewFile?.fileType === 'video' && (
+                  <video
+                    src={previewFile.url}
+                    controls
+                    style={{ maxWidth: '100%', maxHeight: '80vh' }}
+                  />
+                )}
+
+                {/* Audio player for audio files, phone call recordings, and video call recordings */}
+                {(previewFile?.fileType === 'audio' || previewFile?.fileType === 'phonecall') && (
+                  <View style={styles.audioPreviewContainer}>
+                    <MaterialCommunityIcons
+                      name={previewFile?.fileType === 'phonecall' ? 'phone' : 'microphone'}
+                      size={64}
+                      color="#4caf50"
+                    />
+                    <Text style={styles.audioPreviewTitle}>
+                      {previewFile?.fileType === 'phonecall' ? 'Phone Call Recording' : 'Audio Recording'}
+                    </Text>
+                    <audio
+                      src={previewFile.url}
+                      controls
+                      style={{ width: '100%', maxWidth: 400, marginTop: 16 }}
+                    />
+                  </View>
+                )}
+
+                {previewFile?.fileType === 'videocall' && (
                   <video
                     src={previewFile.url}
                     controls
@@ -1575,5 +1604,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     marginBottom: 4,
+  },
+  // Audio preview styles
+  audioPreviewContainer: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a2e',
+    minHeight: 200,
+  },
+  audioPreviewTitle: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 16,
+    marginBottom: 8,
   },
 });

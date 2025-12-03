@@ -1168,12 +1168,221 @@ async function uploadRecording(req, res) {
   }
 }
 
+/**
+ * Leave a call (without ending it for others)
+ * PUT /groups/:groupId/phone-calls/:callId/leave
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function leaveCall(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    if (!['ringing', 'active'].includes(call.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This call has already ended',
+      });
+    }
+
+    // Check if user is initiator or participant
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const participant = call.participants.find(
+      p => p.groupMemberId === membership.groupMemberId
+    );
+
+    if (!isInitiator && !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not part of this call',
+      });
+    }
+
+    // If user is the initiator, leaving ends the call for everyone
+    if (isInitiator) {
+      // Calculate duration if call was connected
+      let durationMs = null;
+      if (call.connectedAt) {
+        durationMs = Date.now() - new Date(call.connectedAt).getTime();
+      }
+
+      // End the call
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: {
+          status: call.status === 'ringing' ? 'missed' : 'ended',
+          endedAt: new Date(),
+          durationMs,
+        },
+      });
+
+      // Update all participants to 'left'
+      await prisma.phoneCallParticipant.updateMany({
+        where: {
+          callId,
+          status: { in: ['accepted', 'joined', 'invited'] },
+        },
+        data: {
+          status: 'left',
+          leftAt: new Date(),
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'end_call',
+          actionLocation: 'phone_calls',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email || 'N/A',
+          messageContent: `Initiator left, ending call. Duration: ${durationMs ? Math.round(durationMs / 1000) + 's' : 'N/A'}`,
+          logData: { callId, durationMs },
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Call ended (initiator left)',
+        callEnded: true,
+      });
+    }
+
+    // User is a participant - just mark them as left
+    await prisma.phoneCallParticipant.update({
+      where: {
+        callId_groupMemberId: {
+          callId: callId,
+          groupMemberId: membership.groupMemberId,
+        },
+      },
+      data: {
+        status: 'left',
+        leftAt: new Date(),
+      },
+    });
+
+    // Check if all participants have left or rejected
+    const remainingParticipants = call.participants.filter(
+      p => p.groupMemberId !== membership.groupMemberId &&
+           ['accepted', 'joined', 'invited'].includes(p.status)
+    );
+
+    // If no participants remaining, end the call
+    if (remainingParticipants.length === 0) {
+      let durationMs = null;
+      if (call.connectedAt) {
+        durationMs = Date.now() - new Date(call.connectedAt).getTime();
+      }
+
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: {
+          status: 'ended',
+          endedAt: new Date(),
+          durationMs,
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'end_call',
+          actionLocation: 'phone_calls',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email || 'N/A',
+          messageContent: `Last participant left, call ended. Duration: ${durationMs ? Math.round(durationMs / 1000) + 's' : 'N/A'}`,
+          logData: { callId, durationMs },
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'You left the call (call ended as last participant)',
+        callEnded: true,
+      });
+    }
+
+    // Create audit log for leaving
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'leave_call',
+        actionLocation: 'phone_calls',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        messageContent: 'Left phone call',
+        logData: { callId },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'You left the call',
+      callEnded: false,
+    });
+  } catch (error) {
+    console.error('Leave call error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to leave call',
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
   initiateCall,
   respondToCall,
   endCall,
+  leaveCall,
   hideRecording,
   uploadRecording,
 };
