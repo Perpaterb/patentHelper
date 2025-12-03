@@ -37,6 +37,7 @@ export default function GroupsListScreen({ navigation }) {
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [sendingFeedback, setSendingFeedback] = useState(false);
+  const [authErrorOccurred, setAuthErrorOccurred] = useState(false);
 
   useEffect(() => {
     loadGroups(true); // Show loading spinner on initial mount
@@ -55,25 +56,36 @@ export default function GroupsListScreen({ navigation }) {
    */
   useFocusEffect(
     useCallback(() => {
+      // Don't start polling if auth error already occurred
+      if (authErrorOccurred) return;
+
       // Refresh immediately on focus
       loadGroups();
       loadInvitationCount();
 
       // Start polling (only while focused)
       const pollInterval = setInterval(() => {
+        // Check again in case auth error happened during polling
+        if (authErrorOccurred) {
+          clearInterval(pollInterval);
+          return;
+        }
         loadGroups(); // Silent refresh
         loadInvitationCount();
       }, 5000); // Poll every 5 seconds
 
       // Stop polling when screen loses focus
       return () => clearInterval(pollInterval);
-    }, [])
+    }, [authErrorOccurred])
   );
 
   /**
    * Load groups from API
    */
   const loadGroups = async (showLoader = false) => {
+    // Don't make API calls if auth error already occurred
+    if (authErrorOccurred) return;
+
     try {
       setError(null);
       // Only show loading spinner on initial load, not on focus refresh
@@ -88,6 +100,7 @@ export default function GroupsListScreen({ navigation }) {
       // Don't show error if it's an auth error - logout happens automatically
       if (err.isAuthError) {
         console.log('[GroupsList] Auth error detected - user will be logged out');
+        setAuthErrorOccurred(true); // Prevent further API calls
         return;
       }
 
@@ -102,11 +115,19 @@ export default function GroupsListScreen({ navigation }) {
    * Load invitation count from API
    */
   const loadInvitationCount = async () => {
+    // Don't make API calls if auth error already occurred
+    if (authErrorOccurred) return;
+
     try {
       const response = await api.get('/invitations/count');
       setInvitationCount(response.data.count || 0);
     } catch (err) {
       console.error('Load invitation count error:', err);
+      // Mark auth error to prevent further calls
+      if (err.isAuthError) {
+        setAuthErrorOccurred(true);
+        return;
+      }
       // Don't show error, just set count to 0
       setInvitationCount(0);
     }
