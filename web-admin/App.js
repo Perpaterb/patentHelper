@@ -79,6 +79,10 @@ import InitiateVideoCallScreen from '../mobile-main/src/screens/groups/InitiateV
 import VideoCallDetailsScreen from '../mobile-main/src/screens/groups/VideoCallDetailsScreen';
 import ActiveVideoCallScreen from '../mobile-main/src/screens/groups/ActiveVideoCallScreen';
 
+// Import incoming call context and handler
+import { IncomingCallProvider } from '../mobile-main/src/contexts/IncomingCallContext';
+import IncomingCallHandler from '../mobile-main/src/components/IncomingCallHandler';
+
 // Web-only screens (admin features)
 import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -258,19 +262,22 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer linking={linking}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        {!isAuthenticated ? (
-          // Auth screens (no layout)
-          <>
-            <Stack.Screen name="Landing" component={LandingScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-          </>
-        ) : (
+    <IncomingCallProvider isAuthenticated={isAuthenticated}>
+      <NavigationContainer linking={linking}>
+        {/* Incoming call overlay - shows when there's an incoming call */}
+        {isAuthenticated && <IncomingCallHandler />}
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          {!isAuthenticated ? (
+            // Auth screens (no layout)
+            <>
+              <Stack.Screen name="Landing" component={LandingScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} />
+            </>
+          ) : (
           // Authenticated screens (with AppLayout)
           <>
             {/* Mobile app screens - AppLayout + PhoneFrame */}
@@ -340,6 +347,7 @@ function AppNavigator() {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  </IncomingCallProvider>
   );
 }
 
