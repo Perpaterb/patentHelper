@@ -61,9 +61,9 @@ export default function LandingScreen({ navigation }) {
 
   const features = [
     { icon: '🔒', title: 'Secure & Encrypted Messaging', description: 'End-to-end encrypted group messaging with media sharing, mentions, and read receipts.' },
-    { icon: '🎙️', title: 'Audio Messages', description: 'Secure & Encrypted. Record and send voice messages with playback and duration display.' },
-    { icon: '📞', title: 'Phone Calls', description: 'Secure & Encrypted. Make voice calls within your group with optional call recording.' },
-    { icon: '📹', title: 'Video Calls', description: 'Secure & Encrypted. Face-to-face video calls with your group members with optional call recording.' },
+    { icon: '🎙️', title: 'Audio Messages', description: 'Record and send voice messages. All audio is encrypted and stored securely.' },
+    { icon: '📞', title: 'Phone Calls', description: 'Make voice calls with group members. All phone call recordings are encrypted and stored securely. Option to not record by default if desired.' },
+    { icon: '📹', title: 'Video Calls', description: 'Make video calls with group members. All video call recordings are encrypted and stored securely. Option to not record by default if desired.' },
     { icon: '📅', title: 'Shared Calendar', description: 'Coordinate schedules with events, child responsibilities, and handoff tracking.' },
     { icon: '💰', title: 'Finance Tracking', description: 'Track shared expenses, balances, and financial communications.' },
     { icon: '🎁', title: 'Gift Registry', description: 'Manage wish lists and gift registries for birthdays and holidays.' },

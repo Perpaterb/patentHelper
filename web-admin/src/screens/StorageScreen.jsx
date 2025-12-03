@@ -954,8 +954,8 @@ export default function StorageScreen({ navigation }) {
                 </View>
                 <View style={styles.breakdownRow}>
                   <View style={styles.breakdownItem}>
-                    <MaterialCommunityIcons name="history" size={20} color="#666" />
-                    <Text style={styles.breakdownLabel}>Audit Logs</Text>
+                    <MaterialCommunityIcons name="file-export" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Log Exports</Text>
                   </View>
                   <Text style={styles.breakdownValue}>
                     {formatBytes(storage.breakdown?.logs || 0)}
