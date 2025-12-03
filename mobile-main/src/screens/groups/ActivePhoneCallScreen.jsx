@@ -10,8 +10,10 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, BackHandler } from 'react-native';
+import { View, StyleSheet, BackHandler, Platform } from 'react-native';
 import { Text, Avatar, Button, ActivityIndicator } from 'react-native-paper';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
@@ -54,8 +56,11 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const [endingCall, setEndingCall] = useState(false);
   const [leavingCall, setLeavingCall] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingStatus, setRecordingStatus] = useState('idle'); // idle, requesting, recording, uploading, error
   const timerRef = useRef(null);
   const pollRef = useRef(null);
+  const recordingRef = useRef(null);
 
   useEffect(() => {
     if (!passedCall) {
@@ -76,6 +81,10 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      // Stop recording on cleanup (without upload - call might still be active)
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(console.error);
+      }
       backHandler.remove();
     };
   }, [callId]);
@@ -88,30 +97,44 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   }, [call?.status, call?.connectedAt]);
 
   /**
+   * Fetch latest call data
+   */
+  const fetchCallUpdate = async () => {
+    try {
+      const response = await api.get(`/groups/${groupId}/phone-calls`);
+      const updatedCall = response.data.phoneCalls?.find(c => c.callId === callId);
+      if (updatedCall) {
+        console.log('[ActivePhoneCall] Updated call data:', {
+          status: updatedCall.status,
+          participantCount: updatedCall.participants?.length,
+          participants: updatedCall.participants?.map(p => ({ name: p.displayName, status: p.status })),
+        });
+        setCall(updatedCall);
+
+        // If call ended, navigate away
+        if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
+          stopPolling();
+          navigation.replace('PhoneCallDetails', {
+            groupId,
+            callId,
+            call: updatedCall,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Poll call status error:', err);
+    }
+  };
+
+  /**
    * Start polling for call status updates
    */
   const startPolling = () => {
-    pollRef.current = setInterval(async () => {
-      try {
-        const response = await api.get(`/groups/${groupId}/phone-calls`);
-        const updatedCall = response.data.phoneCalls?.find(c => c.callId === callId);
-        if (updatedCall) {
-          setCall(updatedCall);
+    // Fetch immediately on start
+    fetchCallUpdate();
 
-          // If call ended, navigate away
-          if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
-            stopPolling();
-            navigation.replace('PhoneCallDetails', {
-              groupId,
-              callId,
-              call: updatedCall,
-            });
-          }
-        }
-      } catch (err) {
-        console.error('Poll call status error:', err);
-      }
-    }, 3000); // Poll every 3 seconds
+    // Then poll every 2 seconds for more responsive updates
+    pollRef.current = setInterval(fetchCallUpdate, 2000);
   };
 
   /**
@@ -165,6 +188,168 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   };
 
   /**
+   * Request microphone permissions
+   */
+  const requestMicrophonePermission = async () => {
+    try {
+      console.log('[ActivePhoneCall] Requesting microphone permission...');
+      setRecordingStatus('requesting');
+
+      const { status } = await Audio.requestPermissionsAsync();
+      console.log('[ActivePhoneCall] Permission status:', status);
+
+      if (status !== 'granted') {
+        console.log('[ActivePhoneCall] Microphone permission denied');
+        CustomAlert.alert(
+          'Microphone Permission Required',
+          'Please allow microphone access to record calls. You can enable this in your device settings.',
+          [{ text: 'OK' }]
+        );
+        setRecordingStatus('error');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[ActivePhoneCall] Permission request error:', error);
+      setRecordingStatus('error');
+      return false;
+    }
+  };
+
+  /**
+   * Start audio recording
+   */
+  const startRecording = async () => {
+    try {
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) return;
+
+      console.log('[ActivePhoneCall] Starting audio recording...');
+
+      // Set audio mode for recording
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      // Create recording with high quality settings
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync({
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: '.m4a',
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 128000,
+        },
+      });
+
+      await recording.startAsync();
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setRecordingStatus('recording');
+      console.log('[ActivePhoneCall] Recording started successfully');
+    } catch (error) {
+      console.error('[ActivePhoneCall] Failed to start recording:', error);
+      setRecordingStatus('error');
+      CustomAlert.alert('Recording Error', 'Failed to start call recording');
+    }
+  };
+
+  /**
+   * Stop recording and upload to server
+   */
+  const stopRecordingAndUpload = async () => {
+    if (!recordingRef.current || !isRecording) {
+      console.log('[ActivePhoneCall] No active recording to stop');
+      return;
+    }
+
+    try {
+      console.log('[ActivePhoneCall] Stopping recording...');
+      setRecordingStatus('uploading');
+
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      console.log('[ActivePhoneCall] Recording saved to:', uri);
+
+      // Reset audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      if (uri) {
+        // Upload the recording
+        console.log('[ActivePhoneCall] Uploading recording...');
+
+        // Create form data for upload
+        const formData = new FormData();
+
+        if (Platform.OS === 'web') {
+          // For web, fetch the blob and append it
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          formData.append('recording', blob, `call-${callId}.webm`);
+        } else {
+          // For native, use the file URI
+          formData.append('recording', {
+            uri: uri,
+            type: 'audio/m4a',
+            name: `call-${callId}.m4a`,
+          });
+        }
+
+        // Upload to backend
+        await api.post(
+          `/groups/${groupId}/phone-calls/${callId}/recording`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+
+        console.log('[ActivePhoneCall] Recording uploaded successfully');
+      }
+
+      recordingRef.current = null;
+      setIsRecording(false);
+      setRecordingStatus('idle');
+    } catch (error) {
+      console.error('[ActivePhoneCall] Failed to stop/upload recording:', error);
+      setRecordingStatus('error');
+      // Don't show error to user as call is ending anyway
+    }
+  };
+
+  // Start recording when call becomes active
+  useEffect(() => {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+      console.log('[ActivePhoneCall] Call is active, starting recording...');
+      startRecording();
+    }
+  }, [call?.status]);
+
+  /**
    * Handle leaving the call (without ending it for others)
    */
   const handleLeaveCall = () => {
@@ -185,6 +370,9 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setLeavingCall(true);
             try {
+              // Stop recording and upload before leaving
+              await stopRecordingAndUpload();
+
               const response = await api.put(`/groups/${groupId}/phone-calls/${callId}/leave`);
               stopPolling();
 
@@ -227,6 +415,9 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setEndingCall(true);
             try {
+              // Stop recording and upload before ending
+              await stopRecordingAndUpload();
+
               await api.put(`/groups/${groupId}/phone-calls/${callId}/end`);
               stopPolling();
               navigation.replace('PhoneCallDetails', {
@@ -286,6 +477,19 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           <Text style={styles.durationText}>
             {formatDuration(callDuration)}
           </Text>
+        )}
+        {/* Recording indicator */}
+        {isRecording && (
+          <View style={styles.recordingIndicator}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingText}>Recording</Text>
+          </View>
+        )}
+        {recordingStatus === 'uploading' && (
+          <Text style={styles.uploadingText}>Uploading recording...</Text>
+        )}
+        {recordingStatus === 'error' && (
+          <Text style={styles.errorRecordingText}>Recording unavailable</Text>
         )}
       </View>
 
@@ -434,6 +638,37 @@ const styles = StyleSheet.create({
     fontSize: 36,
     color: '#4caf50',
     fontWeight: 'bold',
+    marginTop: 8,
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+    borderRadius: 16,
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#f44336',
+    marginRight: 8,
+  },
+  recordingText: {
+    color: '#f44336',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  uploadingText: {
+    color: '#ff9800',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  errorRecordingText: {
+    color: '#999',
+    fontSize: 12,
     marginTop: 8,
   },
   participantsContainer: {
