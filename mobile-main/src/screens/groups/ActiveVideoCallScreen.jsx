@@ -63,6 +63,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('idle');
   const [webCameraGranted, setWebCameraGranted] = useState(false); // Track web camera permission separately
+  const [noCameraAvailable, setNoCameraAvailable] = useState(false); // Track if device has no camera
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -149,6 +150,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             await requestCameraPermission();
           } catch (videoErr) {
             console.log('[ActiveVideoCall] Camera permission denied:', videoErr.message);
+            // Check if no camera is available (NotFoundError)
+            if (videoErr.name === 'NotFoundError' || videoErr.message.includes('not found')) {
+              console.log('[ActiveVideoCall] No camera device found on this device');
+              setNoCameraAvailable(true);
+            }
           }
 
           try {
@@ -735,9 +741,18 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           <View style={styles.noCameraContent}>
             <Text style={styles.noCameraEmoji}>👋</Text>
             <Text style={styles.noCameraText}>
-              {!hasCameraPermission ? 'Camera permission required' : 'Camera is off'}
+              {noCameraAvailable
+                ? 'No camera available on this device'
+                : !hasCameraPermission
+                  ? 'Camera permission required'
+                  : 'Camera is off'}
             </Text>
-            {!hasCameraPermission && (
+            {noCameraAvailable && (
+              <Text style={styles.noCameraSubtext}>
+                You can still participate with audio only
+              </Text>
+            )}
+            {!hasCameraPermission && !noCameraAvailable && (
               <Button mode="contained" onPress={requestPermissions} style={styles.permissionButton}>
                 Grant Permission
               </Button>
@@ -926,7 +941,14 @@ const styles = StyleSheet.create({
   noCameraText: {
     color: '#fff',
     fontSize: 18,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noCameraSubtext: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
     marginBottom: 16,
+    textAlign: 'center',
   },
   permissionButton: {
     marginTop: 16,
