@@ -134,7 +134,7 @@ export default function IncomingCallOverlay({
 
           {/* Call icon indicator */}
           <Text style={styles.callIcon}>
-            {callType === 'video' ? '📹' : '📞'}
+            {callType === 'video' ? '👋' : '📞'}
           </Text>
         </View>
 
