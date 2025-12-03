@@ -13,34 +13,44 @@ const IncomingCallContext = createContext(null);
 
 /**
  * Provider component for incoming call detection
+ * @param {Object} props
+ * @param {boolean} props.isAuthenticated - Whether user is authenticated
+ * @param {React.ReactNode} props.children
  */
-export function IncomingCallProvider({ children }) {
+export function IncomingCallProvider({ children, isAuthenticated = false }) {
   const [incomingCall, setIncomingCall] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const pollRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
 
+  // Start/stop polling based on authentication state
   useEffect(() => {
-    // Start polling when app is active
-    startPolling();
+    if (isAuthenticated) {
+      // Start polling when authenticated and app is active
+      startPolling();
 
-    // Listen for app state changes
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to foreground
-        startPolling();
-      } else if (nextAppState.match(/inactive|background/)) {
-        // App has gone to background
+      // Listen for app state changes
+      const subscription = AppState.addEventListener('change', nextAppState => {
+        if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+          // App has come to foreground
+          startPolling();
+        } else if (nextAppState.match(/inactive|background/)) {
+          // App has gone to background
+          stopPolling();
+        }
+        appStateRef.current = nextAppState;
+      });
+
+      return () => {
         stopPolling();
-      }
-      appStateRef.current = nextAppState;
-    });
-
-    return () => {
+        subscription?.remove();
+      };
+    } else {
+      // Stop polling when not authenticated
       stopPolling();
-      subscription?.remove();
-    };
-  }, []);
+      setIncomingCall(null);
+    }
+  }, [isAuthenticated]);
 
   /**
    * Start polling for incoming calls

@@ -145,7 +145,7 @@ export default function App() {
     <PaperProvider>
       <CustomAlertProvider>
         <AlertHandlerInitializer />
-        <IncomingCallProvider>
+        <IncomingCallProvider isAuthenticated={isAuthenticated}>
           <VersionCheckHandler>
             <StatusBar style="light" />
             <AppNavigator
