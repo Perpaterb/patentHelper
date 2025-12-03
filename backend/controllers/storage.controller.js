@@ -71,6 +71,19 @@ async function getStorageUsage(req, res) {
       },
     });
 
+    // Get log exports for these groups (stored separately in LogExport table)
+    const logExports = await prisma.logExport.findMany({
+      where: {
+        groupId: {
+          in: groupIds,
+        },
+      },
+      select: {
+        groupId: true,
+        fileSizeBytes: true,
+      },
+    });
+
     // Calculate totals and breakdown
     let totalBytes = BigInt(0);
     let imageBytes = BigInt(0);
@@ -111,6 +124,20 @@ async function getStorageUsage(req, res) {
       } else {
         documentBytes += bytes;
       }
+    }
+
+    // Add log export sizes to the calculation
+    for (const logExport of logExports) {
+      const bytes = logExport.fileSizeBytes || BigInt(0);
+      totalBytes += bytes;
+      logBytes += bytes;
+
+      const groupId = logExport.groupId;
+      if (!groupUsage[groupId]) {
+        groupUsage[groupId] = { bytes: BigInt(0), count: 0 };
+      }
+      groupUsage[groupId].bytes += bytes;
+      groupUsage[groupId].count += 1;
     }
 
     // Build groups array

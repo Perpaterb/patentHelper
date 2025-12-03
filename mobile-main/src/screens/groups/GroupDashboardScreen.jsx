@@ -638,7 +638,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
           <Card style={[styles.navCard, styles.comingSoonCard]} onPress={goToVideoCalls}>
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
-                <Text style={styles.navCardEmoji}>📹</Text>
+                <Text style={styles.navCardEmoji}>👋</Text>
               </View>
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Video Calls</Text>
