@@ -1,7 +1,8 @@
 /**
  * Incoming Call Handler
  *
- * Wrapper component that listens for incoming calls and shows the overlay.
+ * Wrapper component that listens for incoming phone and video calls.
+ * Shows the overlay and navigates to the appropriate call screen.
  * Should be rendered inside NavigationContainer.
  */
 
@@ -17,7 +18,7 @@ import { CustomAlert } from './CustomAlert';
  */
 export default function IncomingCallHandler() {
   const navigation = useNavigation();
-  const { incomingCall, acceptCall, rejectCall } = useIncomingCall();
+  const { incomingCall, callType, acceptCall, rejectCall } = useIncomingCall();
 
   // Debug: Log when incoming call state changes
   React.useEffect(() => {
@@ -25,19 +26,30 @@ export default function IncomingCallHandler() {
       callId: incomingCall.callId,
       groupName: incomingCall.groupName,
       initiator: incomingCall.initiator?.displayName,
+      callType,
     } : null);
-  }, [incomingCall]);
+  }, [incomingCall, callType]);
 
   const handleAccept = async () => {
     try {
       const call = await acceptCall();
       if (call) {
-        navigation.navigate('ActivePhoneCall', {
-          groupId: call.groupId,
-          callId: call.callId,
-          call,
-          isInitiator: false,
-        });
+        // Navigate to the appropriate call screen based on call type
+        if (call.callType === 'video') {
+          navigation.navigate('ActiveVideoCall', {
+            groupId: call.groupId,
+            callId: call.callId,
+            call,
+            isInitiator: false,
+          });
+        } else {
+          navigation.navigate('ActivePhoneCall', {
+            groupId: call.groupId,
+            callId: call.callId,
+            call,
+            isInitiator: false,
+          });
+        }
       }
     } catch (err) {
       CustomAlert.alert('Error', 'Failed to accept call');
@@ -56,7 +68,7 @@ export default function IncomingCallHandler() {
     <IncomingCallOverlay
       visible={!!incomingCall}
       call={incomingCall}
-      callType="phone"
+      callType={callType || 'phone'}
       onAccept={handleAccept}
       onReject={handleReject}
     />

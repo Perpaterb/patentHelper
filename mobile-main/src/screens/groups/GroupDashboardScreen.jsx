@@ -383,11 +383,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
   };
 
   /**
-   * Navigate to Video Calls (Coming Soon)
+   * Navigate to Video Calls
    */
   const goToVideoCalls = () => {
-    // TODO: Implement VideoCalls screen navigation
-    // navigation.navigate('VideoCalls', { groupId });
+    navigation.navigate('VideoCalls', { groupId });
   };
 
   return (
@@ -634,15 +633,15 @@ export default function GroupDashboardScreen({ navigation, route }) {
 
         {/* Video Calls Section - Show based on role permissions */}
         {isVideoCallsVisible() && (
-          <Card style={[styles.navCard, styles.comingSoonCard]} onPress={goToVideoCalls}>
+          <Card style={styles.navCard} onPress={goToVideoCalls}>
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
-                <Text style={styles.navCardEmoji}>👋</Text>
+                <Text style={styles.navCardEmoji}>📹</Text>
               </View>
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Video Calls</Text>
                 <Text style={styles.navCardDescription}>
-                  Secure & Encrypted - Coming Soon
+                  Secure & Encrypted video calls
                 </Text>
               </View>
             </Card.Content>

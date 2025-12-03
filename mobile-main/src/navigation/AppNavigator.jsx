@@ -57,6 +57,10 @@ import PhoneCallsScreen from '../screens/groups/PhoneCallsScreen';
 import InitiatePhoneCallScreen from '../screens/groups/InitiatePhoneCallScreen';
 import PhoneCallDetailsScreen from '../screens/groups/PhoneCallDetailsScreen';
 import ActivePhoneCallScreen from '../screens/groups/ActivePhoneCallScreen';
+import VideoCallsScreen from '../screens/groups/VideoCallsScreen';
+import InitiateVideoCallScreen from '../screens/groups/InitiateVideoCallScreen';
+import VideoCallDetailsScreen from '../screens/groups/VideoCallDetailsScreen';
+import ActiveVideoCallScreen from '../screens/groups/ActiveVideoCallScreen';
 import IncomingCallHandler from '../components/IncomingCallHandler';
 
 const Stack = createNativeStackNavigator();
@@ -161,6 +165,12 @@ export default function AppNavigator({ isAuthenticated, onLoginSuccess, onLogout
             <Stack.Screen name="InitiatePhoneCall" component={InitiatePhoneCallScreen} />
             <Stack.Screen name="ActivePhoneCall" component={ActivePhoneCallScreen} />
             <Stack.Screen name="PhoneCallDetails" component={PhoneCallDetailsScreen} />
+
+            {/* Video Calls */}
+            <Stack.Screen name="VideoCalls" component={VideoCallsScreen} />
+            <Stack.Screen name="InitiateVideoCall" component={InitiateVideoCallScreen} />
+            <Stack.Screen name="ActiveVideoCall" component={ActiveVideoCallScreen} />
+            <Stack.Screen name="VideoCallDetails" component={VideoCallDetailsScreen} />
 
             {/* Home Screen */}
             <Stack.Screen name="Home">

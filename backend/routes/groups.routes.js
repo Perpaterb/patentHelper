@@ -486,6 +486,12 @@ router.put('/:groupId/video-calls/:callId/end', requireAuth, videoCallsControlle
 router.put('/:groupId/video-calls/:callId/hide-recording', requireAuth, videoCallsController.hideRecording);
 
 /**
+ * PUT /groups/:groupId/video-calls/:callId/leave
+ * Leave a video call without ending it for others
+ */
+router.put('/:groupId/video-calls/:callId/leave', requireAuth, videoCallsController.leaveCall);
+
+/**
  * POST /groups/:groupId/video-calls/:callId/recording
  * Upload a video call recording (converts to MP4)
  */
