@@ -16,6 +16,8 @@ import MediaPicker from '../../components/shared/MediaPicker';
 import ImageViewer from '../../components/shared/ImageViewer';
 import VideoPlayer from '../../components/shared/VideoPlayer';
 import UserAvatar from '../../components/shared/UserAvatar';
+import AudioRecorder from '../../components/AudioRecorder';
+import AudioPlayer from '../../components/AudioPlayer';
 import { uploadFile, uploadMultipleFiles, getFileUrl } from '../../services/upload.service';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 
@@ -57,6 +59,9 @@ export default function MessagesScreen({ navigation, route }) {
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
+  const [isRecordingMode, setIsRecordingMode] = useState(false);
+  const [moreMenuVisible, setMoreMenuVisible] = useState(false);
+  const [mediaPickerRef, setMediaPickerRef] = useState(null);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -346,9 +351,64 @@ export default function MessagesScreen({ navigation, route }) {
     setSelectedMediaUrl(getFileUrl(media.url));
     if (media.mediaType === 'image') {
       setShowImageViewer(true);
-    } else {
+    } else if (media.mediaType === 'video') {
       setShowVideoPlayer(true);
     }
+    // Audio is played inline via AudioPlayer component
+  };
+
+  /**
+   * Handle audio recording completion
+   * Upload the recorded audio and add to attached media
+   */
+  const handleAudioRecordingComplete = async (audioData) => {
+    try {
+      setIsRecordingMode(false);
+      setUploading(true);
+      setError(null);
+
+      // Create file object for upload
+      const audioFile = {
+        uri: audioData.uri,
+        name: `voice_message_${Date.now()}.m4a`,
+        type: audioData.mimeType,
+      };
+
+      // Upload the audio file
+      const result = await uploadFile(
+        audioFile,
+        'audio',
+        groupId,
+        (progress) => setUploadProgress(progress)
+      );
+
+      if (result && result.fileId) {
+        // Add to attached media with audio type
+        const audioItem = {
+          fileId: result.fileId,
+          type: 'audio',
+          url: result.fileId,
+          mimeType: audioData.mimeType,
+          fileSizeBytes: result.size || 0,
+          duration: audioData.duration,
+        };
+
+        setAttachedMedia([...attachedMedia, audioItem]);
+      }
+    } catch (err) {
+      console.error('Failed to upload audio:', err);
+      setError('Failed to upload audio recording');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  /**
+   * Handle audio recording cancel
+   */
+  const handleAudioRecordingCancel = () => {
+    setIsRecordingMode(false);
   };
 
   /**
@@ -621,6 +681,13 @@ export default function MessagesScreen({ navigation, route }) {
                         Deleted by {media.deletedBy?.displayName || 'Admin'}
                       </Text>
                     </View>
+                  ) : media.mediaType === 'audio' ? (
+                    <AudioPlayer
+                      key={media.mediaId}
+                      uri={getFileUrl(media.url)}
+                      duration={media.duration}
+                      isMyMessage={isMyMessage}
+                    />
                   ) : (
                     <TouchableOpacity
                       key={media.mediaId}
@@ -776,6 +843,16 @@ export default function MessagesScreen({ navigation, route }) {
       );
     }
 
+    // Recording mode - show AudioRecorder instead of input
+    if (isRecordingMode) {
+      return (
+        <AudioRecorder
+          onRecordingComplete={handleAudioRecordingComplete}
+          onCancel={handleAudioRecordingCancel}
+        />
+      );
+    }
+
     return (
       <View>
         {/* Show attached media preview */}
@@ -789,6 +866,13 @@ export default function MessagesScreen({ navigation, route }) {
                     style={styles.attachedMediaThumb}
                     resizeMode="cover"
                   />
+                ) : media.type === 'audio' ? (
+                  <View style={[styles.attachedMediaThumb, styles.attachedAudioThumb]}>
+                    <IconButton icon="microphone" size={24} iconColor="#6200ee" />
+                    <Text style={styles.audioDurationText}>
+                      {media.duration ? `${Math.floor(media.duration / 60000)}:${String(Math.floor((media.duration % 60000) / 1000)).padStart(2, '0')}` : 'Audio'}
+                    </Text>
+                  </View>
                 ) : (
                   <View style={styles.attachedMediaThumb}>
                     <IconButton icon="video" size={24} />
@@ -829,24 +913,62 @@ export default function MessagesScreen({ navigation, route }) {
             disabled={sending || uploading}
           />
           <View style={styles.buttonColumn}>
+            {/* More Menu with Attach Media and Record Audio options */}
+            <Menu
+              visible={moreMenuVisible}
+              onDismiss={() => setMoreMenuVisible(false)}
+              anchor={
+                <IconButton
+                  icon="dots-vertical"
+                  mode="outlined"
+                  size={32}
+                  onPress={() => setMoreMenuVisible(true)}
+                  disabled={uploading || sending || processing}
+                  style={styles.addButton}
+                />
+              }
+              anchorPosition="top"
+              contentStyle={styles.moreMenuContent}
+            >
+              <Menu.Item
+                leadingIcon="image-multiple"
+                onPress={() => {
+                  setMoreMenuVisible(false);
+                  // Trigger media picker after menu closes
+                  setTimeout(() => {
+                    if (mediaPickerRef) {
+                      mediaPickerRef();
+                    }
+                  }, 100);
+                }}
+                title="Attach Media"
+              />
+              <MenuDivider />
+              <Menu.Item
+                leadingIcon="microphone"
+                onPress={() => {
+                  setMoreMenuVisible(false);
+                  setIsRecordingMode(true);
+                }}
+                title="Record Audio"
+              />
+            </Menu>
+            {/* Hidden MediaPicker - triggered from menu */}
             <MediaPicker
               onSelect={handleMediaSelect}
               mediaType="both"
-              maxSize={100 * 1024 * 1024} // 100MB for videos
+              maxSize={100 * 1024 * 1024}
               allowMultiple={true}
               imageQuality={0.8}
               disabled={uploading || sending || processing}
               onProcessingChange={setProcessing}
-              renderTrigger={(onPress, isLoading) => (
-                <IconButton
-                  icon="plus"
-                  mode="outlined"
-                  size={32}
-                  onPress={onPress}
-                  disabled={uploading || sending || isLoading}
-                  style={styles.addButton}
-                />
-              )}
+              renderTrigger={(onPress) => {
+                // Store the onPress function to be called from menu
+                if (!mediaPickerRef) {
+                  setMediaPickerRef(() => onPress);
+                }
+                return null; // Don't render anything, menu triggers this
+              }}
             />
             <IconButton
               icon="send"
@@ -1359,5 +1481,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6200ee',
     fontWeight: '600',
+  },
+  attachedAudioThumb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  audioDurationText: {
+    fontSize: 10,
+    color: '#388e3c',
+    fontWeight: '600',
+    marginTop: -4,
+  },
+  moreMenuContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
   },
 });

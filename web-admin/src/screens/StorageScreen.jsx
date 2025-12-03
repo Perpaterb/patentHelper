@@ -422,7 +422,7 @@ export default function StorageScreen({ navigation }) {
                         onPress={() => toggleTypeFilter(type)}
                         style={styles.filterChip}
                       >
-                        {type === 'image' ? 'Images' : type === 'video' ? 'Videos' : type}
+                        {type === 'image' ? 'Images' : type === 'video' ? 'Videos' : type === 'audio' ? 'Audio' : type}
                       </Chip>
                     ))}
                     {availableTypes.length === 0 && (
@@ -658,6 +658,11 @@ export default function StorageScreen({ navigation }) {
                       {!file.isDeleted && file.fileType === 'video' && (
                         <Chip style={styles.typeChip} textStyle={styles.typeChipText} icon="video">
                           Video
+                        </Chip>
+                      )}
+                      {!file.isDeleted && file.fileType === 'audio' && (
+                        <Chip style={styles.audioChip} textStyle={styles.audioChipText} icon="microphone">
+                          Audio
                         </Chip>
                       )}
 
@@ -899,6 +904,33 @@ export default function StorageScreen({ navigation }) {
                   </View>
                   <Text style={styles.breakdownValue}>
                     {formatBytes(storage.breakdown?.videos || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="microphone" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Audio</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.audio || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="phone" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Phone Calls</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.phonecalls || 0)}
+                  </Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={styles.breakdownItem}>
+                    <MaterialCommunityIcons name="video-box" size={20} color="#666" />
+                    <Text style={styles.breakdownLabel}>Video Calls</Text>
+                  </View>
+                  <Text style={styles.breakdownValue}>
+                    {formatBytes(storage.breakdown?.videocalls || 0)}
                   </Text>
                 </View>
                 <View style={styles.breakdownRow}>
@@ -1471,6 +1503,13 @@ const styles = StyleSheet.create({
   typeChipText: {
     fontSize: 10,
     color: '#7b1fa2',
+  },
+  audioChip: {
+    backgroundColor: '#e8f5e9',
+  },
+  audioChipText: {
+    fontSize: 10,
+    color: '#388e3c',
   },
   // Preview modal
   previewOverlay: {
