@@ -47,28 +47,17 @@ export default function InitiatePhoneCallScreen({ navigation, route }) {
       const group = response.data.group;
       setCurrentUserMemberId(group?.currentUserMember?.groupMemberId);
 
-      // Debug logging
-      console.log('[InitiatePhoneCall] All members:', group?.members?.map(m => ({
-        name: m.displayName,
-        role: m.role,
-        isRegistered: m.isRegistered,
-        groupMemberId: m.groupMemberId,
-      })));
-      console.log('[InitiatePhoneCall] Current user groupMemberId:', group?.currentUserMember?.groupMemberId);
-
       // Filter out current user and supervisors (they can't receive calls)
-      // Members must be registered (accepted invitation) to receive calls
+      // Members must have a userId (linked to real user account) to receive calls
+      // Placeholder members (userId=null) cannot log in and thus cannot receive calls
       const callableMembers = (group?.members || []).filter(m => {
         const isNotCurrentUser = m.groupMemberId !== group?.currentUserMember?.groupMemberId;
         const isNotSupervisor = m.role !== 'supervisor';
-        const isRegistered = m.isRegistered === true;
+        const hasUserId = m.userId != null; // Has a linked user account
 
-        console.log(`[InitiatePhoneCall] ${m.displayName}: notCurrentUser=${isNotCurrentUser}, notSupervisor=${isNotSupervisor}, isRegistered=${isRegistered}`);
-
-        return isNotCurrentUser && isNotSupervisor && isRegistered;
+        return isNotCurrentUser && isNotSupervisor && hasUserId;
       });
 
-      console.log('[InitiatePhoneCall] Callable members:', callableMembers.length);
       setMembers(callableMembers);
     } catch (err) {
       console.error('Load members error:', err);
