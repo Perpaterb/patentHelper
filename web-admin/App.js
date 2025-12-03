@@ -73,6 +73,12 @@ import InitiatePhoneCallScreen from '../mobile-main/src/screens/groups/InitiateP
 import PhoneCallDetailsScreen from '../mobile-main/src/screens/groups/PhoneCallDetailsScreen';
 import ActivePhoneCallScreen from '../mobile-main/src/screens/groups/ActivePhoneCallScreen';
 
+// Import video call screens
+import VideoCallsScreen from '../mobile-main/src/screens/groups/VideoCallsScreen';
+import InitiateVideoCallScreen from '../mobile-main/src/screens/groups/InitiateVideoCallScreen';
+import VideoCallDetailsScreen from '../mobile-main/src/screens/groups/VideoCallDetailsScreen';
+import ActiveVideoCallScreen from '../mobile-main/src/screens/groups/ActiveVideoCallScreen';
+
 // Web-only screens (admin features)
 import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -179,6 +185,10 @@ const linking = {
       InitiatePhoneCall: 'web-app/group/:groupId/phone-calls/initiate',
       ActivePhoneCall: 'web-app/group/:groupId/phone-calls/:callId/active',
       PhoneCallDetails: 'web-app/group/:groupId/phone-calls/:callId',
+      VideoCalls: 'web-app/group/:groupId/video-calls',
+      InitiateVideoCall: 'web-app/group/:groupId/video-calls/initiate',
+      ActiveVideoCall: 'web-app/group/:groupId/video-calls/:callId/active',
+      VideoCallDetails: 'web-app/group/:groupId/video-calls/:callId',
       MyAccount: 'my-account',
     },
   },
@@ -309,6 +319,12 @@ function AppNavigator() {
             <Stack.Screen name="InitiatePhoneCall" component={withAppLayoutAndPhoneFrame(InitiatePhoneCallScreen, 'Groups')} />
             <Stack.Screen name="ActivePhoneCall" component={withAppLayoutAndPhoneFrame(ActivePhoneCallScreen, 'Groups')} />
             <Stack.Screen name="PhoneCallDetails" component={withAppLayoutAndPhoneFrame(PhoneCallDetailsScreen, 'Groups')} />
+
+            {/* Video Calls */}
+            <Stack.Screen name="VideoCalls" component={withAppLayoutAndPhoneFrame(VideoCallsScreen, 'Groups')} />
+            <Stack.Screen name="InitiateVideoCall" component={withAppLayoutAndPhoneFrame(InitiateVideoCallScreen, 'Groups')} />
+            <Stack.Screen name="ActiveVideoCall" component={withAppLayoutAndPhoneFrame(ActiveVideoCallScreen, 'Groups')} />
+            <Stack.Screen name="VideoCallDetails" component={withAppLayoutAndPhoneFrame(VideoCallDetailsScreen, 'Groups')} />
 
             {/* Mobile app My Account - in phone frame */}
             <Stack.Screen name="MyAccount" component={withAppLayoutAndPhoneFrame(MobileMyAccountScreen, 'Groups')} />
