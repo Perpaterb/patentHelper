@@ -253,6 +253,32 @@ model GroupSettings {
   documentsCreatableByCaregivers Boolean @default(false) @map("documents_creatable_by_caregivers")
   documentsCreatableByChildren   Boolean @default(false) @map("documents_creatable_by_children")
 
+  // Phone Calls permissions
+  phoneCallsVisibleToParents      Boolean @default(true) @map("phone_calls_visible_to_parents")
+  phoneCallsVisibleToAdults       Boolean @default(true) @map("phone_calls_visible_to_adults")
+  phoneCallsVisibleToCaregivers   Boolean @default(true) @map("phone_calls_visible_to_caregivers")
+  phoneCallsVisibleToChildren     Boolean @default(true) @map("phone_calls_visible_to_children")
+  phoneCallsVisibleToSupervisors  Boolean @default(false) @map("phone_calls_visible_to_supervisors")
+  phoneCallsUsableByParents       Boolean @default(true) @map("phone_calls_usable_by_parents")
+  phoneCallsUsableByAdults        Boolean @default(true) @map("phone_calls_usable_by_adults")
+  phoneCallsUsableByCaregivers    Boolean @default(true) @map("phone_calls_usable_by_caregivers")
+  phoneCallsUsableByChildren      Boolean @default(true) @map("phone_calls_usable_by_children")
+
+  // Video Calls permissions
+  videoCallsVisibleToParents      Boolean @default(true) @map("video_calls_visible_to_parents")
+  videoCallsVisibleToAdults       Boolean @default(true) @map("video_calls_visible_to_adults")
+  videoCallsVisibleToCaregivers   Boolean @default(true) @map("video_calls_visible_to_caregivers")
+  videoCallsVisibleToChildren     Boolean @default(true) @map("video_calls_visible_to_children")
+  videoCallsVisibleToSupervisors  Boolean @default(false) @map("video_calls_visible_to_supervisors")
+  videoCallsUsableByParents       Boolean @default(true) @map("video_calls_usable_by_parents")
+  videoCallsUsableByAdults        Boolean @default(true) @map("video_calls_usable_by_adults")
+  videoCallsUsableByCaregivers    Boolean @default(true) @map("video_calls_usable_by_caregivers")
+  videoCallsUsableByChildren      Boolean @default(true) @map("video_calls_usable_by_children")
+
+  // Call Recording settings (on by default)
+  recordPhoneCalls Boolean @default(true) @map("record_phone_calls")
+  recordVideoCalls Boolean @default(true) @map("record_video_calls")
+
   // Other settings
   defaultCurrency String   @default("USD") @map("default_currency") @db.VarChar(3)
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)

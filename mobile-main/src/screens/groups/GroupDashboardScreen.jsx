@@ -296,6 +296,16 @@ export default function GroupDashboardScreen({ navigation, route }) {
   const isDocumentsVisible = () => isFeatureVisible('documents');
 
   /**
+   * Check if phone calls section is visible
+   */
+  const isPhoneCallsVisible = () => isFeatureVisible('phoneCalls');
+
+  /**
+   * Check if video calls section is visible
+   */
+  const isVideoCallsVisible = () => isFeatureVisible('videoCalls');
+
+  /**
    * Navigate to Message Groups List
    */
   const goToMessages = () => {
@@ -363,6 +373,22 @@ export default function GroupDashboardScreen({ navigation, route }) {
    */
   const goToSecureDocuments = () => {
     navigation.navigate('Documents', { groupId });
+  };
+
+  /**
+   * Navigate to Phone Calls (Coming Soon)
+   */
+  const goToPhoneCalls = () => {
+    // TODO: Implement PhoneCalls screen navigation
+    // navigation.navigate('PhoneCalls', { groupId });
+  };
+
+  /**
+   * Navigate to Video Calls (Coming Soon)
+   */
+  const goToVideoCalls = () => {
+    // TODO: Implement VideoCalls screen navigation
+    // navigation.navigate('VideoCalls', { groupId });
   };
 
   return (
@@ -590,6 +616,40 @@ export default function GroupDashboardScreen({ navigation, route }) {
           </Card>
         )}
 
+        {/* Phone Calls Section - Show based on role permissions */}
+        {isPhoneCallsVisible() && (
+          <Card style={[styles.navCard, styles.comingSoonCard]} onPress={goToPhoneCalls}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>📞</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Phone Calls</Text>
+                <Text style={styles.navCardDescription}>
+                  Secure & Encrypted - Coming Soon
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Video Calls Section - Show based on role permissions */}
+        {isVideoCallsVisible() && (
+          <Card style={[styles.navCard, styles.comingSoonCard]} onPress={goToVideoCalls}>
+            <Card.Content style={styles.navCardContent}>
+              <View style={styles.navCardIcon}>
+                <Text style={styles.navCardEmoji}>📹</Text>
+              </View>
+              <View style={styles.navCardInfo}>
+                <Text style={styles.navCardTitle}>Video Calls</Text>
+                <Text style={styles.navCardDescription}>
+                  Secure & Encrypted - Coming Soon
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Approvals Section - Only for admins - Moved to bottom */}
         {groupInfo.userRole === 'admin' && (
           <Card style={styles.navCard} onPress={goToApprovals}>
@@ -711,6 +771,10 @@ const styles = StyleSheet.create({
   navCard: {
     marginBottom: 12,
     elevation: 1,
+  },
+  comingSoonCard: {
+    opacity: 0.7,
+    backgroundColor: '#f5f5f5',
   },
   navCardContent: {
     flexDirection: 'row',

@@ -179,9 +179,10 @@ export default function GroupSettingsScreen({ navigation, route }) {
       [key]: value,
     }));
 
-    // Enforce dependency for ALL features: If visibility is turned off, turn off creatable
-    // Pattern: {feature}VisibleTo{Role} -> {feature}CreatableBy{Role}
+    // Enforce dependency for ALL features: If visibility is turned off, turn off creatable/usable
+    // Pattern: {feature}VisibleTo{Role} -> {feature}CreatableBy{Role} or {feature}UsableBy{Role}
     const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
+    const callFeatures = ['phoneCalls', 'videoCalls']; // These use "usable" instead of "creatable"
     const roles = ['Parents', 'Adults', 'Caregivers', 'Children'];
 
     features.forEach(feature => {
@@ -192,6 +193,19 @@ export default function GroupSettingsScreen({ navigation, route }) {
         if (key === visibleKey && !value) {
           // If turning off visibility, also turn off creatable
           setGroupSettings(prev => ({ ...prev, [creatableKey]: false }));
+        }
+      });
+    });
+
+    // Handle call features (use "usable" instead of "creatable")
+    callFeatures.forEach(feature => {
+      roles.forEach(role => {
+        const visibleKey = `${feature}VisibleTo${role}`;
+        const usableKey = `${feature}UsableBy${role}`;
+
+        if (key === visibleKey && !value) {
+          // If turning off visibility, also turn off usable
+          setGroupSettings(prev => ({ ...prev, [usableKey]: false }));
         }
       });
     });
@@ -334,6 +348,66 @@ export default function GroupSettingsScreen({ navigation, route }) {
               <Switch
                 value={groupSettings[creatableKey] ?? false}
                 onValueChange={(value) => handleToggleSetting(creatableKey, value)}
+                disabled={savingSettings || !isVisible}
+              />
+            </View>
+          );
+        })}
+
+        <Divider style={styles.sectionDivider} />
+      </View>
+    );
+  };
+
+  /**
+   * Render a calls feature permission section (uses "usable" instead of "creatable")
+   * @param {string} featureName - Display name (e.g., "Phone Calls")
+   * @param {string} featureKey - camelCase key (e.g., "phoneCalls")
+   */
+  const renderCallsFeatureSection = (featureName, featureKey) => {
+    const roles = [
+      { name: 'Parents', key: 'Parents' },
+      { name: 'Adults', key: 'Adults' },
+      { name: 'Caregivers', key: 'Caregivers' },
+      { name: 'Children', key: 'Children' },
+      { name: 'Supervisors', key: 'Supervisors' },
+    ];
+
+    return (
+      <View key={featureKey}>
+        <Text style={styles.subsectionTitle}>{featureName}</Text>
+
+        {/* Visibility switches for all roles */}
+        {roles.map(role => (
+          <View key={`${featureKey}-visible-${role.key}`} style={styles.settingRow}>
+            <Text style={styles.settingLabel}>
+              {role.name} can see {featureName}
+            </Text>
+            <Switch
+              value={groupSettings[`${featureKey}VisibleTo${role.key}`] ?? true}
+              onValueChange={(value) => handleToggleSetting(`${featureKey}VisibleTo${role.key}`, value)}
+              disabled={savingSettings}
+            />
+          </View>
+        ))}
+
+        {/* Usable switches for non-Supervisors (grayed out if not visible) */}
+        {roles.filter(r => r.key !== 'Supervisors').map(role => {
+          const visibleKey = `${featureKey}VisibleTo${role.key}`;
+          const usableKey = `${featureKey}UsableBy${role.key}`;
+          const isVisible = groupSettings[visibleKey] ?? true;
+
+          return (
+            <View key={`${featureKey}-usable-${role.key}`} style={styles.settingRow}>
+              <Text style={[
+                styles.settingLabel,
+                !isVisible && styles.settingLabelDisabled
+              ]}>
+                {role.name} can use {featureName}
+              </Text>
+              <Switch
+                value={groupSettings[usableKey] ?? true}
+                onValueChange={(value) => handleToggleSetting(usableKey, value)}
                 disabled={savingSettings || !isVisible}
               />
             </View>
@@ -1155,6 +1229,47 @@ export default function GroupSettingsScreen({ navigation, route }) {
         </Card>
       )}
 
+      {/* Call Recording Settings Section (Admin Only) */}
+      {userRole === 'admin' && groupSettings && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.sectionTitle}>Call Recording</Title>
+            <Text style={styles.sectionDescription}>
+              Automatically record phone and video calls for this group. Recordings are stored securely and count toward storage usage.
+            </Text>
+            <Divider style={styles.divider} />
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Record Phone Calls</Text>
+              <Switch
+                value={groupSettings.recordPhoneCalls ?? true}
+                onValueChange={(value) => handleToggleSetting('recordPhoneCalls', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Record Video Calls</Text>
+              <Switch
+                value={groupSettings.recordVideoCalls ?? true}
+                onValueChange={(value) => handleToggleSetting('recordVideoCalls', value)}
+                disabled={savingSettings}
+              />
+            </View>
+
+            <Button
+              mode="contained"
+              onPress={handleSaveSettings}
+              loading={savingSettings}
+              disabled={savingSettings}
+              style={styles.saveButton}
+            >
+              Save Recording Settings
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
+
       {/* Group Permissions Section (Admin Only) */}
       {userRole === 'admin' && groupSettings && (
         <Card style={styles.card}>
@@ -1172,6 +1287,8 @@ export default function GroupSettingsScreen({ navigation, route }) {
             {renderFeatureSection('Item Registry', 'itemRegistry')}
             {renderFeatureSection('Wiki', 'wiki')}
             {renderFeatureSection('Secure Documents', 'documents')}
+            {renderCallsFeatureSection('Phone Calls', 'phoneCalls')}
+            {renderCallsFeatureSection('Video Calls', 'videoCalls')}
 
             <Button
               mode="contained"
