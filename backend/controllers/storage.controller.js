@@ -342,12 +342,18 @@ async function getGroupFiles(req, res) {
       }
 
       // Determine file type category
-      // Note: mediaType is stored as simple 'image' or 'video', not full MIME type
+      // Note: mediaType is stored as simple 'image', 'video', 'audio', etc.
       let fileType = 'document';
       if (file.mediaType === 'image') {
         fileType = 'image';
       } else if (file.mediaType === 'video') {
         fileType = 'video';
+      } else if (file.mediaType === 'audio') {
+        fileType = 'audio';
+      } else if (file.mediaType === 'phonecall') {
+        fileType = 'phonecall';
+      } else if (file.mediaType === 'videocall') {
+        fileType = 'videocall';
       }
 
       // Build full URL from fileId (file.url contains fileId, not actual URL)
@@ -751,6 +757,12 @@ async function executeFileDeletion(mediaId, groupId, approvalId, requestedBy) {
     mediaType = 'image';
   } else if (media.mediaType === 'video' || media.mediaType?.startsWith('video/')) {
     mediaType = 'video';
+  } else if (media.mediaType === 'audio' || media.mediaType?.startsWith('audio/')) {
+    mediaType = 'audio';
+  } else if (media.mediaType === 'phonecall') {
+    mediaType = 'phonecall';
+  } else if (media.mediaType === 'videocall') {
+    mediaType = 'videocall';
   }
 
   // Decrement storage for each admin
@@ -866,23 +878,50 @@ async function recalculateStorage(req, res) {
         },
       });
 
+      // Get all non-deleted secure documents (GroupDocument) in this group
+      const secureDocuments = await prisma.groupDocument.findMany({
+        where: {
+          groupId: groupId,
+          isHidden: false,
+        },
+        select: {
+          fileSizeBytes: true,
+        },
+      });
+
       // Calculate totals by media type
       const totals = {
         image: { count: 0, bytes: BigInt(0) },
         video: { count: 0, bytes: BigInt(0) },
+        audio: { count: 0, bytes: BigInt(0) },
         document: { count: 0, bytes: BigInt(0) },
+        phonecall: { count: 0, bytes: BigInt(0) },
+        videocall: { count: 0, bytes: BigInt(0) },
       };
 
+      // Count message media files
       for (const file of mediaFiles) {
         let mediaType = 'document';
         if (file.mediaType === 'image' || file.mediaType?.startsWith('image/')) {
           mediaType = 'image';
         } else if (file.mediaType === 'video' || file.mediaType?.startsWith('video/')) {
           mediaType = 'video';
+        } else if (file.mediaType === 'audio' || file.mediaType?.startsWith('audio/')) {
+          mediaType = 'audio';
+        } else if (file.mediaType === 'phonecall') {
+          mediaType = 'phonecall';
+        } else if (file.mediaType === 'videocall') {
+          mediaType = 'videocall';
         }
 
         totals[mediaType].count += 1;
         totals[mediaType].bytes += file.fileSizeBytes || BigInt(0);
+      }
+
+      // Count secure documents
+      for (const doc of secureDocuments) {
+        totals.document.count += 1;
+        totals.document.bytes += doc.fileSizeBytes || BigInt(0);
       }
 
       // Get all admins for this group

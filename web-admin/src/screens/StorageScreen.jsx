@@ -422,7 +422,7 @@ export default function StorageScreen({ navigation }) {
                         onPress={() => toggleTypeFilter(type)}
                         style={styles.filterChip}
                       >
-                        {type === 'image' ? 'Images' : type === 'video' ? 'Videos' : type === 'audio' ? 'Audio' : type}
+                        {type === 'image' ? 'Images' : type === 'video' ? 'Videos' : type === 'audio' ? 'Audio' : type === 'phonecall' ? 'Phone Calls' : type === 'videocall' ? 'Video Calls' : type}
                       </Chip>
                     ))}
                     {availableTypes.length === 0 && (
@@ -663,6 +663,16 @@ export default function StorageScreen({ navigation }) {
                       {!file.isDeleted && file.fileType === 'audio' && (
                         <Chip style={styles.audioChip} textStyle={styles.audioChipText} icon="microphone">
                           Audio
+                        </Chip>
+                      )}
+                      {!file.isDeleted && file.fileType === 'phonecall' && (
+                        <Chip style={styles.phonecallChip} textStyle={styles.phonecallChipText} icon="phone">
+                          Phone Call
+                        </Chip>
+                      )}
+                      {!file.isDeleted && file.fileType === 'videocall' && (
+                        <Chip style={styles.videocallChip} textStyle={styles.videocallChipText} icon="video-box">
+                          Video Call
                         </Chip>
                       )}
 
@@ -1510,6 +1520,20 @@ const styles = StyleSheet.create({
   audioChipText: {
     fontSize: 10,
     color: '#388e3c',
+  },
+  phonecallChip: {
+    backgroundColor: '#e3f2fd',
+  },
+  phonecallChipText: {
+    fontSize: 10,
+    color: '#1565c0',
+  },
+  videocallChip: {
+    backgroundColor: '#fce4ec',
+  },
+  videocallChipText: {
+    fontSize: 10,
+    color: '#c2185b',
   },
   // Preview modal
   previewOverlay: {
