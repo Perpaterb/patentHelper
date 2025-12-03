@@ -624,3 +624,48 @@ All core features for mobile-main are implemented:
 3. Create admin dashboard and storage management
 4. Build audit log export functionality
 5. Test web-mobile integration (subscribe on web → access on mobile)
+
+## Future Features: Call Recording & Storage Management
+
+### Call Recording Format Requirements (2025-12-03)
+**Phone Call Recordings:**
+- Must be converted to MP3 format (universal playback)
+- Use same audioConverter service as voice messages
+- Storage category: `phonecall` (distinct from `audio` for voice messages)
+
+**Video Call Recordings:**
+- Must be converted to MP4 format (universal playback)
+- Need to create videoConverter service (similar to audioConverter)
+- Storage category: `videocall` (distinct from `video` for uploaded videos)
+
+### Storage Management by Type (Web Admin)
+**Requirement:** Admins must be able to view, filter, and delete files by type in Storage Management screen.
+
+**Storage Types (MediaType enum values):**
+1. `image` - Uploaded photos
+2. `video` - Uploaded videos
+3. `audio` - Voice message recordings
+4. `phonecall` - Phone call recordings (even though they're audio)
+5. `videocall` - Video call recordings (even though they're videos)
+6. `document` - PDFs, docs, etc.
+
+**Features Required:**
+- Filter by media type (dropdown or tabs)
+- Show file list with:
+  - Thumbnail/icon
+  - Filename
+  - Size
+  - Upload date
+  - Uploader name
+- Delete functionality with "Deleted by [admin name]" shown to all users
+- Group by group (show which group each file belongs to)
+
+**User-Facing Display:**
+- When file is deleted, show: "🗑️ [filename] - Deleted by [Admin Name]"
+- Keep filename visible in audit logs forever
+- File content is permanently deleted (not recoverable)
+
+**Database Considerations:**
+- MessageMedia.mediaType already exists (varchar 20)
+- Need to ensure 'phonecall' and 'videocall' are valid values
+- Storage usage should track by these types separately
