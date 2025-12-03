@@ -273,7 +273,7 @@ export default function VideoCallsScreen({ navigation, route }) {
    */
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyEmoji}>📹</Text>
+      <Text style={styles.emptyEmoji}>👋</Text>
       <Text style={styles.emptyText}>No video calls yet</Text>
       <Text style={styles.emptySubtext}>
         {canMakeCalls
