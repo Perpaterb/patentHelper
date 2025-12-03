@@ -14,7 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, BackHandler, Platform, Dimensions } from 'react-native';
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { Audio } from 'expo-av';
+import { Audio, Video } from 'expo-av';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
@@ -67,6 +67,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const pollRef = useRef(null);
   const cameraRef = useRef(null);
   const recordingRef = useRef(null);
+  const audioRecordingRef = useRef(null); // For audio-only recording when no camera
 
   useEffect(() => {
     if (!passedCall) {
@@ -91,7 +92,10 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         clearInterval(timerRef.current);
       }
       if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(console.error);
+        recordingRef.current.stopAndUnloadAsync?.().catch(console.error);
+      }
+      if (audioRecordingRef.current) {
+        audioRecordingRef.current.stopAndUnloadAsync?.().catch(console.error);
       }
       backHandler.remove();
     };
@@ -261,24 +265,40 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   };
 
   /**
-   * Start video recording
+   * Start recording - video if camera available, audio-only otherwise
    */
   const startRecording = async () => {
-    if (!cameraRef.current || isRecording) return;
+    if (isRecording) return;
 
     try {
-      console.log('[ActiveVideoCall] Starting video recording...');
+      console.log('[ActiveVideoCall] Starting recording...');
       setRecordingStatus('recording');
       setIsRecording(true);
 
-      const recording = await cameraRef.current.recordAsync({
-        maxDuration: 3600, // 1 hour max
-        quality: '720p',
-        mute: isMuted,
-      });
+      // Try video recording first if camera is available and permission granted
+      if (cameraRef.current && cameraPermission?.granted && isCameraOn) {
+        try {
+          console.log('[ActiveVideoCall] Starting video recording with camera...');
+          const recording = await cameraRef.current.recordAsync({
+            maxDuration: 3600, // 1 hour max
+            quality: '720p',
+            mute: isMuted,
+          });
+          recordingRef.current = recording;
+          console.log('[ActiveVideoCall] Video recording started');
+          return;
+        } catch (videoError) {
+          console.log('[ActiveVideoCall] Video recording failed, falling back to audio:', videoError.message);
+        }
+      }
 
-      recordingRef.current = recording;
-      console.log('[ActiveVideoCall] Recording started');
+      // Fall back to audio-only recording
+      console.log('[ActiveVideoCall] Starting audio-only recording...');
+      const audioRecording = new Audio.Recording();
+      await audioRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await audioRecording.startAsync();
+      audioRecordingRef.current = audioRecording;
+      console.log('[ActiveVideoCall] Audio recording started');
     } catch (error) {
       console.error('[ActiveVideoCall] Failed to start recording:', error);
       setRecordingStatus('error');
@@ -290,7 +310,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
    * Stop recording and upload to server
    */
   const stopRecordingAndUpload = async () => {
-    if (!cameraRef.current || !isRecording) {
+    if (!isRecording) {
       console.log('[ActiveVideoCall] No active recording to stop');
       return;
     }
@@ -299,26 +319,44 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       console.log('[ActiveVideoCall] Stopping recording...');
       setRecordingStatus('uploading');
 
-      cameraRef.current.stopRecording();
+      let recordingUri = null;
+      let mimeType = 'video/mp4';
+      let fileName = `video-call-${callId}.mp4`;
 
-      // Wait for the recording to be returned
-      const recording = await recordingRef.current;
+      // Check if we have a video recording
+      if (cameraRef.current && recordingRef.current) {
+        cameraRef.current.stopRecording();
+        const recording = await recordingRef.current;
+        recordingUri = recording?.uri;
+        if (Platform.OS === 'web') {
+          mimeType = 'video/webm';
+          fileName = `video-call-${callId}.webm`;
+        }
+      }
+      // Otherwise check for audio-only recording
+      else if (audioRecordingRef.current) {
+        await audioRecordingRef.current.stopAndUnloadAsync();
+        const uri = audioRecordingRef.current.getURI();
+        recordingUri = uri;
+        mimeType = 'audio/m4a';
+        fileName = `video-call-${callId}.m4a`;
+      }
 
-      if (recording?.uri) {
-        console.log('[ActiveVideoCall] Recording saved to:', recording.uri);
+      if (recordingUri) {
+        console.log('[ActiveVideoCall] Recording saved to:', recordingUri);
 
         // Create form data for upload
         const formData = new FormData();
 
         if (Platform.OS === 'web') {
-          const response = await fetch(recording.uri);
+          const response = await fetch(recordingUri);
           const blob = await response.blob();
-          formData.append('recording', blob, `video-call-${callId}.webm`);
+          formData.append('recording', blob, fileName);
         } else {
           formData.append('recording', {
-            uri: recording.uri,
-            type: 'video/mp4',
-            name: `video-call-${callId}.mp4`,
+            uri: recordingUri,
+            type: mimeType,
+            name: fileName,
           });
         }
 
@@ -337,6 +375,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       }
 
       recordingRef.current = null;
+      audioRecordingRef.current = null;
       setIsRecording(false);
       setRecordingStatus('idle');
     } catch (error) {
@@ -345,13 +384,17 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   };
 
-  // Start recording when call becomes active
+  // Start recording when call becomes active - regardless of camera permission
   useEffect(() => {
-    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle' && cameraPermission?.granted) {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
       console.log('[ActiveVideoCall] Call is active, starting recording...');
-      startRecording();
+      // Small delay to ensure audio mode is set up
+      const timer = setTimeout(() => {
+        startRecording();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [call?.status, cameraPermission?.granted]);
+  }, [call?.status]);
 
   /**
    * Handle leaving the call
