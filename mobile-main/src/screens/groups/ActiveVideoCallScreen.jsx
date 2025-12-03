@@ -62,6 +62,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('idle');
+  const [webCameraGranted, setWebCameraGranted] = useState(false); // Track web camera permission separately
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -110,30 +111,76 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
   /**
    * Request camera and microphone permissions
+   * Uses native browser API on web for proper permission popup
    */
   const requestPermissions = async () => {
     try {
       console.log('[ActiveVideoCall] Requesting camera and microphone permissions...');
+      console.log('[ActiveVideoCall] Platform:', Platform.OS);
 
-      if (!cameraPermission?.granted) {
-        const { granted: cameraGranted } = await requestCameraPermission();
-        if (!cameraGranted) {
-          CustomAlert.alert(
-            'Camera Permission Required',
-            'Please allow camera access for video calls.',
-            [{ text: 'OK' }]
-          );
+      // On web, use native browser getUserMedia to trigger permission popup
+      if (Platform.OS === 'web') {
+        console.log('[ActiveVideoCall] Using native browser API for permissions...');
+        try {
+          // Request both camera and microphone permissions via browser API
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+          console.log('[ActiveVideoCall] Browser permissions granted!');
+
+          // Stop the tracks immediately - we just needed to trigger the prompt
+          stream.getTracks().forEach(track => track.stop());
+
+          // Mark web camera as granted
+          setWebCameraGranted(true);
+
+          // Now request through expo-camera to update the hook state
+          await requestCameraPermission();
+          await requestMicPermission();
+        } catch (browserError) {
+          console.log('[ActiveVideoCall] Browser permission error:', browserError.name, browserError.message);
+
+          // Try camera and mic separately in case one is denied
+          try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoStream.getTracks().forEach(track => track.stop());
+            setWebCameraGranted(true);
+            await requestCameraPermission();
+          } catch (videoErr) {
+            console.log('[ActiveVideoCall] Camera permission denied:', videoErr.message);
+          }
+
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStream.getTracks().forEach(track => track.stop());
+            await requestMicPermission();
+          } catch (audioErr) {
+            console.log('[ActiveVideoCall] Microphone permission denied:', audioErr.message);
+          }
         }
-      }
+      } else {
+        // Mobile - use expo-camera permission hooks
+        if (!cameraPermission?.granted) {
+          const { granted: cameraGranted } = await requestCameraPermission();
+          if (!cameraGranted) {
+            CustomAlert.alert(
+              'Camera Permission Required',
+              'Please allow camera access for video calls.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
 
-      if (!micPermission?.granted) {
-        const { granted: micGranted } = await requestMicPermission();
-        if (!micGranted) {
-          CustomAlert.alert(
-            'Microphone Permission Required',
-            'Please allow microphone access for video calls.',
-            [{ text: 'OK' }]
-          );
+        if (!micPermission?.granted) {
+          const { granted: micGranted } = await requestMicPermission();
+          if (!micGranted) {
+            CustomAlert.alert(
+              'Microphone Permission Required',
+              'Please allow microphone access for video calls.',
+              [{ text: 'OK' }]
+            );
+          }
         }
       }
 
@@ -276,7 +323,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     setIsRecording(true);
 
     // Try 1: Video recording with camera
-    if (cameraRef.current && cameraPermission?.granted && isCameraOn) {
+    const cameraReady = cameraRef.current && (cameraPermission?.granted || (Platform.OS === 'web' && webCameraGranted)) && isCameraOn;
+    if (cameraReady) {
       try {
         console.log('[ActiveVideoCall] Attempting video recording with camera...');
         const recording = await cameraRef.current.recordAsync({
@@ -545,10 +593,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
 
+  // Check if we have camera permission (expo hook or web state)
+  const hasCameraPermission = cameraPermission?.granted || (Platform.OS === 'web' && webCameraGranted);
+
   return (
     <View style={styles.container}>
       {/* Camera View */}
-      {cameraPermission?.granted && isCameraOn ? (
+      {hasCameraPermission && isCameraOn ? (
         <CameraView
           ref={cameraRef}
           style={styles.camera}
@@ -684,9 +735,9 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           <View style={styles.noCameraContent}>
             <Text style={styles.noCameraEmoji}>👋</Text>
             <Text style={styles.noCameraText}>
-              {cameraPermission?.granted === false ? 'Camera permission required' : 'Camera is off'}
+              {!hasCameraPermission ? 'Camera permission required' : 'Camera is off'}
             </Text>
-            {cameraPermission?.granted === false && (
+            {!hasCameraPermission && (
               <Button mode="contained" onPress={requestPermissions} style={styles.permissionButton}>
                 Grant Permission
               </Button>
