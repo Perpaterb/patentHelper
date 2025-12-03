@@ -67,6 +67,11 @@ import AutoApproveSettingsScreen from '../mobile-main/src/screens/groups/AutoApp
 import WikiScreen from '../mobile-main/src/screens/wiki/WikiScreen';
 import DocumentsScreen from '../mobile-main/src/screens/documents/DocumentsScreen';
 
+// Import phone call screens
+import PhoneCallsScreen from '../mobile-main/src/screens/groups/PhoneCallsScreen';
+import InitiatePhoneCallScreen from '../mobile-main/src/screens/groups/InitiatePhoneCallScreen';
+import PhoneCallDetailsScreen from '../mobile-main/src/screens/groups/PhoneCallDetailsScreen';
+
 // Web-only screens (admin features)
 import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -169,6 +174,9 @@ const linking = {
       AutoApproveSettings: 'web-app/group/:groupId/approvals/auto-approve',
       Wiki: 'web-app/group/:groupId/wiki',
       Documents: 'web-app/group/:groupId/documents',
+      PhoneCalls: 'web-app/group/:groupId/phone-calls',
+      InitiatePhoneCall: 'web-app/group/:groupId/phone-calls/initiate',
+      PhoneCallDetails: 'web-app/group/:groupId/phone-calls/:callId',
       MyAccount: 'my-account',
     },
   },
@@ -293,6 +301,11 @@ function AppNavigator() {
             {/* Wiki and Documents */}
             <Stack.Screen name="Wiki" component={withAppLayoutAndPhoneFrame(WikiScreen, 'Groups')} />
             <Stack.Screen name="Documents" component={withAppLayoutAndPhoneFrame(DocumentsScreen, 'Groups')} />
+
+            {/* Phone Calls */}
+            <Stack.Screen name="PhoneCalls" component={withAppLayoutAndPhoneFrame(PhoneCallsScreen, 'Groups')} />
+            <Stack.Screen name="InitiatePhoneCall" component={withAppLayoutAndPhoneFrame(InitiatePhoneCallScreen, 'Groups')} />
+            <Stack.Screen name="PhoneCallDetails" component={withAppLayoutAndPhoneFrame(PhoneCallDetailsScreen, 'Groups')} />
 
             {/* Mobile app My Account - in phone frame */}
             <Stack.Screen name="MyAccount" component={withAppLayoutAndPhoneFrame(MobileMyAccountScreen, 'Groups')} />
