@@ -40,12 +40,8 @@ export default function GroupsListScreen({ navigation }) {
 
   // Use ref instead of state to prevent useFocusEffect re-execution on auth error
   const authErrorRef = useRef(false);
-
-  useEffect(() => {
-    loadGroups(true); // Show loading spinner on initial mount
-    loadInvitationCount();
-  }, []);
-
+  // Track if this is the first load to show loading spinner
+  const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
     filterGroups();
@@ -61,8 +57,12 @@ export default function GroupsListScreen({ navigation }) {
       // Don't start polling if auth error already occurred
       if (authErrorRef.current) return;
 
+      // Show loading spinner on first load, silent refresh on subsequent focuses
+      const showLoader = isFirstLoadRef.current;
+      isFirstLoadRef.current = false;
+
       // Refresh immediately on focus
-      loadGroups();
+      loadGroups(showLoader);
       loadInvitationCount();
 
       // Start polling (only while focused)
