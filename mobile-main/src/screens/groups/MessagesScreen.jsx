@@ -371,7 +371,7 @@ export default function MessagesScreen({ navigation, route }) {
       const audioFile = {
         uri: audioData.uri,
         name: `voice_message_${Date.now()}.m4a`,
-        type: audioData.mimeType,
+        mimeType: audioData.mimeType,
       };
 
       // Upload the audio file
