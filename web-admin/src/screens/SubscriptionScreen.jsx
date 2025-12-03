@@ -479,6 +479,46 @@ export default function SubscriptionScreen({ navigation }) {
           </Card>
         )}
 
+        {/* What happens when you cancel - Info Card */}
+        {subscription?.isSubscribed && !subscription.endDate && (
+          <Card style={styles.infoCard}>
+            <Card.Content>
+              <View style={styles.infoCardHeader}>
+                <MaterialCommunityIcons name="information-outline" size={22} color="#1976d2" />
+                <Title style={styles.infoCardTitle}>What happens if you cancel?</Title>
+              </View>
+              <Divider style={styles.divider} />
+              <View style={styles.infoItem}>
+                <MaterialCommunityIcons name="account-group" size={20} color="#666" />
+                <View style={styles.infoItemContent}>
+                  <Text style={styles.infoItemTitle}>Groups where you're the only admin</Text>
+                  <Text style={styles.infoItemText}>
+                    All members get 30 days of read-only access. After 30 days, the group becomes archived (data preserved but inaccessible).
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoItem}>
+                <MaterialCommunityIcons name="account-switch" size={20} color="#666" />
+                <View style={styles.infoItemContent}>
+                  <Text style={styles.infoItemTitle}>Groups with other admins</Text>
+                  <Text style={styles.infoItemText}>
+                    Your role changes to "Adult" and you lose admin privileges. Other subscribed admins continue managing the group normally.
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.infoItem}>
+                <MaterialCommunityIcons name="database" size={20} color="#666" />
+                <View style={styles.infoItemContent}>
+                  <Text style={styles.infoItemTitle}>Your data</Text>
+                  <Text style={styles.infoItemText}>
+                    All your messages, files, and content remain preserved. Nothing is deleted when you cancel.
+                  </Text>
+                </View>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* No Subscription Message */}
         {!subscription?.isSubscribed && !isOnFreeTrial() && !loading && (
           <Card style={styles.statusCard}>
@@ -501,6 +541,21 @@ export default function SubscriptionScreen({ navigation }) {
             <Paragraph>
               Are you sure you want to cancel your subscription? Access will continue until the end of your current billing period.
             </Paragraph>
+            <Surface style={styles.dialogInfoBox}>
+              <Text style={styles.dialogInfoTitle}>What happens to your groups:</Text>
+              <View style={styles.dialogInfoRow}>
+                <MaterialCommunityIcons name="account-group" size={18} color="#1976d2" />
+                <Text style={styles.dialogInfoText}>
+                  <Text style={styles.dialogInfoBold}>Groups where you're the only admin:</Text> All members get 30 days of read-only access. After 30 days, the group is archived.
+                </Text>
+              </View>
+              <View style={styles.dialogInfoRow}>
+                <MaterialCommunityIcons name="account-switch" size={18} color="#1976d2" />
+                <Text style={styles.dialogInfoText}>
+                  <Text style={styles.dialogInfoBold}>Groups with other admins:</Text> Your role changes to "Adult" and you lose admin privileges. Other admins continue managing the group.
+                </Text>
+              </View>
+            </Surface>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowCancelDialog(false)}>No, Keep It</Button>
@@ -731,5 +786,70 @@ const styles = StyleSheet.create({
   },
   noSubText: {
     color: '#666',
+  },
+  cardNote: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+  },
+  // Dialog info box
+  dialogInfoBox: {
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  dialogInfoTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 12,
+    color: '#1565c0',
+  },
+  dialogInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  dialogInfoText: {
+    fontSize: 13,
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+  dialogInfoBold: {
+    fontWeight: 'bold',
+  },
+  // Info card
+  infoCard: {
+    marginBottom: 24,
+    backgroundColor: '#fafafa',
+  },
+  infoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoCardTitle: {
+    fontSize: 18,
+    marginLeft: 8,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  infoItemContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  infoItemTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  infoItemText: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
   },
 });

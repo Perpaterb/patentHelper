@@ -6,6 +6,51 @@
  */
 
 /**
+ * Check if a group is in read-only mode
+ *
+ * A group is read-only when:
+ * - readOnlyUntil is set AND
+ * - readOnlyUntil is in the future
+ *
+ * This happens when all admins have unsubscribed - the group gets 30 days
+ * of read-only access before being fully archived.
+ *
+ * @param {Object} group - The Group object
+ * @param {Date|null} [group.readOnlyUntil] - The date until which the group is read-only
+ * @returns {boolean} True if group is currently in read-only mode
+ */
+function isGroupReadOnly(group) {
+  if (!group || !group.readOnlyUntil) {
+    return false;
+  }
+
+  const readOnlyUntil = new Date(group.readOnlyUntil);
+  const now = new Date();
+
+  return now < readOnlyUntil;
+}
+
+/**
+ * Get read-only error response for a group
+ *
+ * @param {Object} group - The Group object
+ * @returns {Object} Error response object with status and message
+ */
+function getReadOnlyErrorResponse(group) {
+  const readOnlyUntil = new Date(group.readOnlyUntil);
+  const formattedDate = readOnlyUntil.toLocaleDateString('en-AU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return {
+    error: 'Group is read-only',
+    message: `This group is in read-only mode until ${formattedDate}. No new content can be added. An admin needs to resubscribe to restore full access.`,
+  };
+}
+
+/**
  * Check if a user has admin-level permissions
  *
  * This includes:
@@ -42,4 +87,6 @@ function hasAdminPermissions(groupMember) {
 
 module.exports = {
   hasAdminPermissions,
+  isGroupReadOnly,
+  getReadOnlyErrorResponse,
 };

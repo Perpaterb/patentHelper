@@ -49,6 +49,7 @@ model Group {
   currency                  String                          @default("USD") @db.VarChar(3)
   createdByTrialUser        Boolean                         @default(false) @map("created_by_trial_user")
   createdByUserId           String?                         @map("created_by_user_id") @db.Uuid
+  readOnlyUntil             DateTime?                       @map("read_only_until") @db.Timestamp(6)
   adminPermissions          AdminPermission[]
   approvals                 Approval[]
   auditLogs                 AuditLog[]
@@ -254,26 +255,26 @@ model GroupSettings {
   documentsCreatableByChildren   Boolean @default(false) @map("documents_creatable_by_children")
 
   // Phone Calls permissions
-  phoneCallsVisibleToParents      Boolean @default(true) @map("phone_calls_visible_to_parents")
-  phoneCallsVisibleToAdults       Boolean @default(true) @map("phone_calls_visible_to_adults")
-  phoneCallsVisibleToCaregivers   Boolean @default(true) @map("phone_calls_visible_to_caregivers")
-  phoneCallsVisibleToChildren     Boolean @default(true) @map("phone_calls_visible_to_children")
-  phoneCallsVisibleToSupervisors  Boolean @default(false) @map("phone_calls_visible_to_supervisors")
-  phoneCallsUsableByParents       Boolean @default(true) @map("phone_calls_usable_by_parents")
-  phoneCallsUsableByAdults        Boolean @default(true) @map("phone_calls_usable_by_adults")
-  phoneCallsUsableByCaregivers    Boolean @default(true) @map("phone_calls_usable_by_caregivers")
-  phoneCallsUsableByChildren      Boolean @default(true) @map("phone_calls_usable_by_children")
+  phoneCallsVisibleToParents     Boolean @default(true) @map("phone_calls_visible_to_parents")
+  phoneCallsVisibleToAdults      Boolean @default(true) @map("phone_calls_visible_to_adults")
+  phoneCallsVisibleToCaregivers  Boolean @default(true) @map("phone_calls_visible_to_caregivers")
+  phoneCallsVisibleToChildren    Boolean @default(true) @map("phone_calls_visible_to_children")
+  phoneCallsVisibleToSupervisors Boolean @default(false) @map("phone_calls_visible_to_supervisors")
+  phoneCallsUsableByParents      Boolean @default(true) @map("phone_calls_usable_by_parents")
+  phoneCallsUsableByAdults       Boolean @default(true) @map("phone_calls_usable_by_adults")
+  phoneCallsUsableByCaregivers   Boolean @default(true) @map("phone_calls_usable_by_caregivers")
+  phoneCallsUsableByChildren     Boolean @default(true) @map("phone_calls_usable_by_children")
 
   // Video Calls permissions
-  videoCallsVisibleToParents      Boolean @default(true) @map("video_calls_visible_to_parents")
-  videoCallsVisibleToAdults       Boolean @default(true) @map("video_calls_visible_to_adults")
-  videoCallsVisibleToCaregivers   Boolean @default(true) @map("video_calls_visible_to_caregivers")
-  videoCallsVisibleToChildren     Boolean @default(true) @map("video_calls_visible_to_children")
-  videoCallsVisibleToSupervisors  Boolean @default(false) @map("video_calls_visible_to_supervisors")
-  videoCallsUsableByParents       Boolean @default(true) @map("video_calls_usable_by_parents")
-  videoCallsUsableByAdults        Boolean @default(true) @map("video_calls_usable_by_adults")
-  videoCallsUsableByCaregivers    Boolean @default(true) @map("video_calls_usable_by_caregivers")
-  videoCallsUsableByChildren      Boolean @default(true) @map("video_calls_usable_by_children")
+  videoCallsVisibleToParents     Boolean @default(true) @map("video_calls_visible_to_parents")
+  videoCallsVisibleToAdults      Boolean @default(true) @map("video_calls_visible_to_adults")
+  videoCallsVisibleToCaregivers  Boolean @default(true) @map("video_calls_visible_to_caregivers")
+  videoCallsVisibleToChildren    Boolean @default(true) @map("video_calls_visible_to_children")
+  videoCallsVisibleToSupervisors Boolean @default(false) @map("video_calls_visible_to_supervisors")
+  videoCallsUsableByParents      Boolean @default(true) @map("video_calls_usable_by_parents")
+  videoCallsUsableByAdults       Boolean @default(true) @map("video_calls_usable_by_adults")
+  videoCallsUsableByCaregivers   Boolean @default(true) @map("video_calls_usable_by_caregivers")
+  videoCallsUsableByChildren     Boolean @default(true) @map("video_calls_usable_by_children")
 
   // Call Recording settings (on by default)
   recordPhoneCalls Boolean @default(true) @map("record_phone_calls")

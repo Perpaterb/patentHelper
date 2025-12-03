@@ -239,6 +239,10 @@ async function handleSubscriptionUpdate(subscription) {
 
 /**
  * Handle subscription cancellation
+ * Processes group access changes when an admin's subscription ends:
+ * - Groups where user is the ONLY admin: Set to read-only for 30 days
+ * - Groups where user is a JOINT admin: Demote user to "adult" role
+ *
  * @param {Object} subscription - Stripe subscription object
  */
 async function handleSubscriptionCanceled(subscription) {
@@ -258,6 +262,97 @@ async function handleSubscriptionCanceled(subscription) {
       return;
     }
 
+    // Calculate read-only expiration date (30 days from now)
+    const readOnlyUntil = new Date();
+    readOnlyUntil.setDate(readOnlyUntil.getDate() + 30);
+
+    // Find all groups where this user is an admin
+    const userAdminMemberships = await prisma.groupMember.findMany({
+      where: {
+        userId: user.userId,
+        role: 'admin',
+      },
+      include: {
+        group: {
+          include: {
+            members: {
+              where: {
+                role: 'admin',
+                isRegistered: true, // Only count registered admins
+              },
+              include: {
+                user: {
+                  select: {
+                    userId: true,
+                    isSubscribed: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log(`[Webhook] Found ${userAdminMemberships.length} groups where user is admin`);
+
+    for (const membership of userAdminMemberships) {
+      const group = membership.group;
+
+      // Count other admins with active subscriptions (excluding this user)
+      const otherActiveAdmins = group.members.filter(
+        (m) =>
+          m.userId !== user.userId &&
+          m.user?.isSubscribed === true
+      );
+
+      if (otherActiveAdmins.length === 0) {
+        // ONLY admin (or only admin with active subscription)
+        // Set group to read-only for 30 days
+        console.log(`[Webhook] Group "${group.name}" (${group.groupId}) - User is ONLY active admin. Setting read-only for 30 days.`);
+
+        await prisma.group.update({
+          where: { groupId: group.groupId },
+          data: { readOnlyUntil: readOnlyUntil },
+        });
+
+        // Create audit log
+        await prisma.auditLog.create({
+          data: {
+            groupId: group.groupId,
+            action: 'group_read_only',
+            actionLocation: 'subscription',
+            performedBy: membership.groupMemberId,
+            performedByName: membership.displayName,
+            performedByEmail: user.email,
+            messageContent: `Group set to read-only until ${readOnlyUntil.toISOString().split('T')[0]}. Admin subscription ended.`,
+          },
+        });
+      } else {
+        // JOINT admin (other active admins exist)
+        // Demote this user to "adult" role
+        console.log(`[Webhook] Group "${group.name}" (${group.groupId}) - User is JOINT admin. Demoting to "adult".`);
+
+        await prisma.groupMember.update({
+          where: { groupMemberId: membership.groupMemberId },
+          data: { role: 'adult' },
+        });
+
+        // Create audit log
+        await prisma.auditLog.create({
+          data: {
+            groupId: group.groupId,
+            action: 'member_role_changed',
+            actionLocation: 'subscription',
+            performedBy: membership.groupMemberId,
+            performedByName: membership.displayName,
+            performedByEmail: user.email,
+            messageContent: `Role changed from "admin" to "adult" due to subscription cancellation.`,
+          },
+        });
+      }
+    }
+
     // Mark subscription as canceled
     await prisma.user.update({
       where: { userId: user.userId },
@@ -267,7 +362,7 @@ async function handleSubscriptionCanceled(subscription) {
       },
     });
 
-    console.log(`✅ User ${user.userId} subscription canceled`);
+    console.log(`✅ User ${user.userId} subscription canceled. Processed ${userAdminMemberships.length} group(s).`);
   } catch (error) {
     console.error(`❌ Failed to cancel subscription:`, error);
     throw error;

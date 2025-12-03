@@ -11,6 +11,7 @@
  */
 
 const { prisma } = require('../config/database');
+const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 
 /**
  * Get calendar events for a group
@@ -309,10 +310,27 @@ async function createCalendarEvent(req, res) {
     }
 
     if (membership.role === 'child') {
-      return res.status(403).json({
-        success: false,
-        message: 'Children cannot create calendar events',
+      // Check calendar creatable permission for children from settings
+      const settings = await prisma.groupSettings.findUnique({
+        where: { groupId: groupId },
+        select: { calendarCreatableByChildren: true },
       });
+      if (!settings?.calendarCreatableByChildren) {
+        return res.status(403).json({
+          success: false,
+          message: 'Children cannot create calendar events',
+        });
+      }
+    }
+
+    // Check if group is in read-only mode (all admins unsubscribed)
+    const group = await prisma.group.findUnique({
+      where: { groupId: groupId },
+      select: { readOnlyUntil: true },
+    });
+
+    if (isGroupReadOnly(group)) {
+      return res.status(403).json(getReadOnlyErrorResponse(group));
     }
 
     // TODO: Check auto-approval settings and create approval if needed

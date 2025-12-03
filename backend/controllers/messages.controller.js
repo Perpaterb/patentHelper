@@ -8,6 +8,7 @@
 const { prisma } = require('../config/database');
 const encryptionService = require('../services/encryption.service');
 const storageService = require('../services/storage');
+const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 
 /**
  * Get messages for a group
@@ -406,6 +407,16 @@ async function sendMessageGroupMessage(req, res) {
         error: 'Forbidden',
         message: 'Supervisors cannot send messages',
       });
+    }
+
+    // Check if group is in read-only mode (all admins unsubscribed)
+    const group = await prisma.group.findUnique({
+      where: { groupId: groupId },
+      select: { readOnlyUntil: true },
+    });
+
+    if (isGroupReadOnly(group)) {
+      return res.status(403).json(getReadOnlyErrorResponse(group));
     }
 
     // Check if user is a member of this message group

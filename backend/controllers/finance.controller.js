@@ -6,6 +6,7 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 
 /**
  * Get all finance matters for a group
@@ -337,6 +338,16 @@ async function createFinanceMatter(req, res) {
         success: false,
         message: 'You do not have permission to create finance matters',
       });
+    }
+
+    // Check if group is in read-only mode (all admins unsubscribed)
+    const group = await prisma.group.findUnique({
+      where: { groupId: groupId },
+      select: { readOnlyUntil: true },
+    });
+
+    if (isGroupReadOnly(group)) {
+      return res.status(403).json(getReadOnlyErrorResponse(group));
     }
 
     // Verify all member IDs exist in the group
