@@ -89,13 +89,13 @@
         updateStatus('Connected. Starting recording...', 'connected');
 
         // Set up audio context for mixing streams
-        setupAudioMixer();
+        await setupAudioMixer();
 
         // Poll for WebRTC offers via signaling
         pollForSignals();
 
-        // Start recording immediately
-        setTimeout(startRecording, 1000);
+        // Recording will start automatically when first track is received
+        console.log('[Recorder] Waiting for audio tracks...');
 
       } catch (err) {
         updateStatus('Connection error: ' + err.message);
@@ -103,20 +103,39 @@
       }
     }
 
-    function setupAudioMixer() {
+    let tracksReceived = 0;
+    let recordingStarted = false;
+
+    async function setupAudioMixer() {
       audioContext = new AudioContext();
+      // Resume AudioContext (required in headless browsers)
+      if (audioContext.state === 'suspended') {
+        console.log('[Recorder] Resuming suspended AudioContext...');
+        await audioContext.resume();
+        console.log('[Recorder] AudioContext state:', audioContext.state);
+      }
       mixedDestination = audioContext.createMediaStreamDestination();
     }
 
     function addStreamToMixer(stream, label) {
-      if (!audioContext || !mixedDestination) return;
+      if (!audioContext || !mixedDestination) {
+        console.error('[Recorder] Audio mixer not ready!');
+        return;
+      }
 
       try {
         const audioTracks = stream.getAudioTracks();
         if (audioTracks.length > 0) {
           const source = audioContext.createMediaStreamSource(stream);
           source.connect(mixedDestination);
-          console.log('[Recorder] Added stream to mixer:', label);
+          tracksReceived++;
+          console.log('[Recorder] Added stream to mixer:', label, '- Total tracks:', tracksReceived);
+
+          // Start recording after first track is received
+          if (!recordingStarted && tracksReceived >= 1) {
+            console.log('[Recorder] First track received, starting recording...');
+            startRecording();
+          }
         }
       } catch (err) {
         console.error('[Recorder] Failed to add stream to mixer:', err);
@@ -254,11 +273,12 @@
     }
 
     function startRecording() {
-      if (isRecording || !mixedDestination) return;
+      if (isRecording || recordingStarted || !mixedDestination) return;
+      recordingStarted = true;
 
       try {
         const stream = mixedDestination.stream;
-        const mimeType = CALL_TYPE === 'video' ? 'video/webm;codecs=vp9' : 'audio/webm;codecs=opus';
+        console.log('[Recorder] Mixed stream tracks:', stream.getAudioTracks().length);
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
 
