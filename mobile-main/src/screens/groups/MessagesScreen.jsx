@@ -10,7 +10,11 @@ import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Touc
 import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
-import EmojiPicker from 'rn-emoji-keyboard';
+// EmojiPicker is only available on native platforms (iOS/Android), not web
+let EmojiPicker = null;
+if (Platform.OS !== 'web') {
+  EmojiPicker = require('rn-emoji-keyboard').default;
+}
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import MediaPicker from '../../components/shared/MediaPicker';
@@ -1150,15 +1154,20 @@ export default function MessagesScreen({ navigation, route }) {
                 }}
                 title="Record Audio"
               />
-              <MenuDivider />
-              <Menu.Item
-                leadingIcon="emoticon-outline"
-                onPress={() => {
-                  setMoreMenuVisible(false);
-                  setShowEmojiPicker(true);
-                }}
-                title="Add Emoji"
-              />
+              {/* Add Emoji - only on native platforms */}
+              {EmojiPicker && (
+                <>
+                  <MenuDivider />
+                  <Menu.Item
+                    leadingIcon="emoticon-outline"
+                    onPress={() => {
+                      setMoreMenuVisible(false);
+                      setShowEmojiPicker(true);
+                    }}
+                    title="Add Emoji"
+                  />
+                </>
+              )}
             </Menu>
             {/* Hidden MediaPicker - triggered from menu */}
             <MediaPicker
@@ -1230,8 +1239,8 @@ export default function MessagesScreen({ navigation, route }) {
             <Text style={styles.menuTitle}>Message Options</Text>
             <MenuDivider />
 
-            {/* React option - available to all members who can send messages */}
-            {userRole !== 'supervisor' && isMember && (
+            {/* React option - available to all members who can send messages (native only) */}
+            {EmojiPicker && userRole !== 'supervisor' && isMember && (
               <TouchableOpacity style={styles.menuItem} onPress={() => openReactionPicker(longPressedMessage)}>
                 <IconButton icon="emoticon-happy-outline" size={20} />
                 <Text style={styles.menuItemText}>React</Text>
@@ -1340,48 +1349,52 @@ export default function MessagesScreen({ navigation, route }) {
         />
       )}
 
-      {/* Emoji Picker for message input */}
-      <EmojiPicker
-        onEmojiSelected={handleEmojiSelect}
-        open={showEmojiPicker}
-        onClose={() => setShowEmojiPicker(false)}
-        theme={{
-          backdrop: 'rgba(0, 0, 0, 0.5)',
-          knob: '#6200ee',
-          container: '#fff',
-          header: '#333',
-          skinTonesContainer: '#f5f5f5',
-          category: {
-            icon: '#666',
-            iconActive: '#6200ee',
-            container: '#f5f5f5',
-            containerActive: '#e3f2fd',
-          },
-        }}
-      />
+      {/* Emoji Picker for message input - only on native platforms */}
+      {EmojiPicker && (
+        <EmojiPicker
+          onEmojiSelected={handleEmojiSelect}
+          open={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          theme={{
+            backdrop: 'rgba(0, 0, 0, 0.5)',
+            knob: '#6200ee',
+            container: '#fff',
+            header: '#333',
+            skinTonesContainer: '#f5f5f5',
+            category: {
+              icon: '#666',
+              iconActive: '#6200ee',
+              container: '#f5f5f5',
+              containerActive: '#e3f2fd',
+            },
+          }}
+        />
+      )}
 
-      {/* Emoji Picker for reactions */}
-      <EmojiPicker
-        onEmojiSelected={handleReactionSelect}
-        open={showReactionPicker}
-        onClose={() => {
-          setShowReactionPicker(false);
-          setReactionTargetMessage(null);
-        }}
-        theme={{
-          backdrop: 'rgba(0, 0, 0, 0.5)',
-          knob: '#6200ee',
-          container: '#fff',
-          header: '#333',
-          skinTonesContainer: '#f5f5f5',
-          category: {
-            icon: '#666',
-            iconActive: '#6200ee',
-            container: '#f5f5f5',
-            containerActive: '#e3f2fd',
-          },
-        }}
-      />
+      {/* Emoji Picker for reactions - only on native platforms */}
+      {EmojiPicker && (
+        <EmojiPicker
+          onEmojiSelected={handleReactionSelect}
+          open={showReactionPicker}
+          onClose={() => {
+            setShowReactionPicker(false);
+            setReactionTargetMessage(null);
+          }}
+          theme={{
+            backdrop: 'rgba(0, 0, 0, 0.5)',
+            knob: '#6200ee',
+            container: '#fff',
+            header: '#333',
+            skinTonesContainer: '#f5f5f5',
+            category: {
+              icon: '#666',
+              iconActive: '#6200ee',
+              container: '#f5f5f5',
+              containerActive: '#e3f2fd',
+            },
+          }}
+        />
+      )}
       </KeyboardAvoidingView>
     </View>
   );
