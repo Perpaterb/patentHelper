@@ -602,6 +602,26 @@ async function initiateCall(req, res) {
       },
     });
 
+    // Start the ghost recorder immediately (fire-and-forget, don't block response)
+    const authToken = req.headers.authorization?.replace('Bearer ', '');
+    const apiUrl = `${req.protocol}://${req.get('host')}`;
+
+    recorderService.startRecording({
+      groupId,
+      callId: call.callId,
+      callType: 'video',
+      authToken,
+      apiUrl,
+    }).then(() => {
+      // Update call record to indicate recording is active
+      prisma.videoCall.update({
+        where: { callId: call.callId },
+        data: { recordingStatus: 'recording' },
+      }).catch(err => console.error('[Video Call] Failed to update recording status:', err));
+    }).catch(err => {
+      console.error('[Video Call] Failed to start recorder:', err);
+    });
+
     // Format response
     const formattedCall = {
       callId: call.callId,
