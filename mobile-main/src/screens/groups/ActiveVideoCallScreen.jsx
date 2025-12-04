@@ -210,6 +210,15 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       if (updatedCall) {
         setCall(updatedCall);
 
+        // Sync recording status from server for ALL participants
+        if (updatedCall.recording?.status === 'recording') {
+          setIsRecording(true);
+          setRecordingStatus('recording');
+        } else if (updatedCall.recording?.status === 'completed' || updatedCall.recording?.status === 'ready') {
+          setIsRecording(false);
+          setRecordingStatus('idle');
+        }
+
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
           console.log('[ActiveVideoCall] Call ended remotely');
           stopPolling();
@@ -430,7 +439,33 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const isActive = call.status === 'active';
   const hasCameraPermission = cameraPermission?.granted || webCameraGranted;
 
-  // Get remote participant info - the person we're talking to
+  // Get all participants for display (initiator + all call participants)
+  const allParticipants = [];
+
+  // Add initiator
+  if (call.initiator) {
+    allParticipants.push({
+      ...call.initiator,
+      isInitiator: true,
+      callStatus: 'joined',
+    });
+  }
+
+  // Add other participants
+  if (call.participants) {
+    call.participants.forEach(p => {
+      // Don't add if already the initiator
+      if (p.groupMemberId !== call.initiator?.groupMemberId) {
+        allParticipants.push({
+          ...p,
+          isInitiator: false,
+          callStatus: p.status,
+        });
+      }
+    });
+  }
+
+  // Get remote participant for placeholder display
   const remoteParticipant = isInitiator
     ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
     : call.initiator;
@@ -496,6 +531,30 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
               <Text style={styles.recordingLabel}>REC</Text>
             </View>
           )}
+        </View>
+
+        {/* Participants Strip */}
+        <View style={styles.participantsStrip}>
+          {allParticipants.map((participant, index) => (
+            <View key={participant.groupMemberId || index} style={styles.participantChip}>
+              <View style={[
+                styles.chipAvatarWrapper,
+                participant.callStatus === 'joined' && styles.chipConnected,
+                participant.callStatus === 'accepted' && styles.chipConnecting,
+                participant.callStatus === 'invited' && styles.chipRinging,
+              ]}>
+                <Avatar.Text
+                  size={32}
+                  label={participant.iconLetters || '?'}
+                  style={{ backgroundColor: participant.iconColor || '#6200ee' }}
+                  color={getContrastTextColor(participant.iconColor || '#6200ee')}
+                />
+              </View>
+              <Text style={styles.chipName} numberOfLines={1}>
+                {participant.displayName?.split(' ')[0] || '?'}
+              </Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -680,6 +739,45 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  participantsStrip: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  participantChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  chipAvatarWrapper: {
+    borderWidth: 2,
+    borderRadius: 18,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  chipConnected: {
+    borderColor: 'rgba(76, 175, 80, 0.8)',
+  },
+  chipConnecting: {
+    borderColor: 'rgba(255, 193, 7, 0.8)',
+  },
+  chipRinging: {
+    borderColor: 'rgba(33, 150, 243, 0.8)',
+  },
+  chipName: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+    maxWidth: 60,
   },
   pipContainer: {
     position: 'absolute',

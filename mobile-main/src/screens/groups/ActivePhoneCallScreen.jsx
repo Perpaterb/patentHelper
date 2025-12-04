@@ -153,6 +153,15 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
       if (updatedCall) {
         setCall(updatedCall);
 
+        // Sync recording status from server for ALL participants
+        if (updatedCall.recording?.status === 'recording') {
+          setIsRecording(true);
+          setRecordingStatus('recording');
+        } else if (updatedCall.recording?.status === 'completed' || updatedCall.recording?.status === 'ready') {
+          setIsRecording(false);
+          setRecordingStatus('idle');
+        }
+
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
           console.log('[ActivePhoneCall] Call ended remotely');
           stopPolling();
@@ -378,11 +387,31 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
 
-  // Get remote participant info - the person we're talking to
-  const initiatorId = call.initiator?.groupMemberId || call.initiatedBy;
-  const remoteParticipant = isInitiator
-    ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
-    : call.initiator;
+  // Get all participants for display (initiator + all call participants)
+  const allParticipants = [];
+
+  // Add initiator
+  if (call.initiator) {
+    allParticipants.push({
+      ...call.initiator,
+      isInitiator: true,
+      callStatus: 'joined',
+    });
+  }
+
+  // Add other participants
+  if (call.participants) {
+    call.participants.forEach(p => {
+      // Don't add if already the initiator
+      if (p.groupMemberId !== call.initiator?.groupMemberId) {
+        allParticipants.push({
+          ...p,
+          isInitiator: false,
+          callStatus: p.status,
+        });
+      }
+    });
+  }
 
   return (
     <View style={styles.container}>
@@ -407,30 +436,45 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         )}
       </View>
 
-      {/* Main Content - Participant Avatar */}
+      {/* Main Content - All Participant Avatars */}
       <View style={styles.mainContent}>
-        {remoteParticipant && (
-          <>
-            <View style={styles.avatarPulse}>
-              <Avatar.Text
-                size={120}
-                label={remoteParticipant.iconLetters || '?'}
-                style={{ backgroundColor: remoteParticipant.iconColor || '#6200ee' }}
-                color={getContrastTextColor(remoteParticipant.iconColor || '#6200ee')}
-              />
+        <View style={styles.participantsRow}>
+          {allParticipants.map((participant, index) => (
+            <View key={participant.groupMemberId || index} style={styles.participantItem}>
+              <View style={[
+                styles.avatarWrapper,
+                participant.callStatus === 'joined' && styles.avatarConnected,
+                participant.callStatus === 'accepted' && styles.avatarConnecting,
+                participant.callStatus === 'invited' && styles.avatarRinging,
+              ]}>
+                <Avatar.Text
+                  size={allParticipants.length > 2 ? 80 : 100}
+                  label={participant.iconLetters || '?'}
+                  style={{ backgroundColor: participant.iconColor || '#6200ee' }}
+                  color={getContrastTextColor(participant.iconColor || '#6200ee')}
+                />
+              </View>
+              <Text style={styles.participantName} numberOfLines={1}>
+                {participant.displayName || 'Participant'}
+              </Text>
+              <Text style={styles.participantStatus}>
+                {participant.isInitiator ? '📞' : ''}
+                {participant.callStatus === 'joined' ? ' Connected' :
+                 participant.callStatus === 'accepted' ? ' Connecting...' :
+                 participant.callStatus === 'invited' ? ' Ringing...' :
+                 participant.callStatus === 'rejected' ? ' Declined' :
+                 participant.callStatus === 'left' ? ' Left' : ''}
+              </Text>
             </View>
-            <Text style={styles.participantName}>
-              {remoteParticipant.displayName || 'Participant'}
-            </Text>
-            <Text style={styles.connectionStatus}>
-              {isRinging ? 'Ringing...' :
-               isConnecting ? 'Connecting audio...' :
-               firstRemoteStream ? 'Connected' :
-               !isWebRTCSupported ? 'Requires development build' :
-               'Waiting for audio...'}
-            </Text>
-          </>
-        )}
+          ))}
+        </View>
+        <Text style={styles.connectionStatus}>
+          {isRinging ? 'Call in progress...' :
+           isConnecting ? 'Connecting audio...' :
+           firstRemoteStream ? 'Audio connected' :
+           !isWebRTCSupported ? 'Requires development build' :
+           'Waiting for audio...'}
+        </Text>
       </View>
 
       {/* Bottom Controls */}
@@ -546,17 +590,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  avatarPulse: {
-    padding: 12,
-    borderRadius: 80,
+  participantsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 24,
+    marginBottom: 16,
+  },
+  participantItem: {
+    alignItems: 'center',
+    minWidth: 100,
+    maxWidth: 120,
+  },
+  avatarWrapper: {
+    padding: 8,
+    borderRadius: 60,
     borderWidth: 3,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  avatarConnected: {
+    borderColor: 'rgba(76, 175, 80, 0.8)',
+  },
+  avatarConnecting: {
+    borderColor: 'rgba(255, 193, 7, 0.8)',
+  },
+  avatarRinging: {
+    borderColor: 'rgba(33, 150, 243, 0.8)',
   },
   participantName: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginTop: 20,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  participantStatus: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
+    marginTop: 2,
     textAlign: 'center',
   },
   connectionStatus: {
