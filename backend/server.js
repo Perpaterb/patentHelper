@@ -57,13 +57,13 @@ app.use(express.urlencoded({ extended: true }));
 const path = require('path');
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Request logging (development only)
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
-  });
-}
+// Request logging disabled - uncomment to enable verbose request logging
+// if (process.env.NODE_ENV !== 'production') {
+//   app.use((req, res, next) => {
+//     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+//     next();
+//   });
+// }
 
 // Routes
 app.use('/health', healthRoutes);

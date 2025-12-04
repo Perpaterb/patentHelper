@@ -13,7 +13,7 @@ const { PrismaClient } = require('@prisma/client');
  * @type {PrismaClient}
  */
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: ['error'], // Only log errors (removed verbose query logging)
 });
 
 /**
