@@ -160,9 +160,13 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         setCall(updatedCall);
 
         // Sync recording status from server for ALL participants
-        if (updatedCall.recording?.status === 'recording') {
+        if (updatedCall.recording?.status === 'disabled' || updatedCall.recordingStatus === 'disabled') {
+          setIsRecordingDisabled(true);
+          setIsRecording(false);
+        } else if (updatedCall.recording?.status === 'recording') {
           setIsRecording(true);
           setRecordingStatus('recording');
+          setIsRecordingDisabled(false);
         } else if (updatedCall.recording?.status === 'completed' || updatedCall.recording?.status === 'ready') {
           setIsRecording(false);
           setRecordingStatus('idle');
