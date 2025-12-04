@@ -231,6 +231,61 @@ async function executeApprovedAction(approval) {
         }
         break;
 
+      case 'change_recording_settings':
+        // Update call recording settings for the group
+        {
+          const settingsUpdate = {};
+          if (data.recordPhoneCalls !== undefined) {
+            settingsUpdate.recordPhoneCalls = data.recordPhoneCalls;
+          }
+          if (data.recordVideoCalls !== undefined) {
+            settingsUpdate.recordVideoCalls = data.recordVideoCalls;
+          }
+
+          if (Object.keys(settingsUpdate).length > 0) {
+            await prisma.groupSettings.upsert({
+              where: { groupId: approval.groupId },
+              update: settingsUpdate,
+              create: {
+                groupId: approval.groupId,
+                ...settingsUpdate,
+              },
+            });
+
+            // Get requester info for audit log
+            const requester = await prisma.groupMember.findUnique({
+              where: { groupMemberId: approval.requestedBy },
+              include: {
+                user: { select: { email: true, displayName: true } },
+              },
+            });
+
+            const changesDesc = [];
+            if (data.recordPhoneCalls !== undefined) {
+              changesDesc.push(`Phone call recording: ${data.recordPhoneCalls ? 'ON' : 'OFF'}`);
+            }
+            if (data.recordVideoCalls !== undefined) {
+              changesDesc.push(`Video call recording: ${data.recordVideoCalls ? 'ON' : 'OFF'}`);
+            }
+
+            // Create audit log
+            await prisma.auditLog.create({
+              data: {
+                groupId: approval.groupId,
+                action: 'change_recording_settings',
+                performedBy: approval.requestedBy,
+                performedByName: requester?.user?.displayName || requester?.displayName || 'Admin',
+                performedByEmail: requester?.user?.email || 'N/A',
+                actionLocation: 'group_settings',
+                messageContent: `Recording settings updated via approval: ${changesDesc.join(', ')}`,
+              },
+            });
+
+            console.log(`[executeApprovedAction] Updated recording settings for group ${approval.groupId}: ${changesDesc.join(', ')}`);
+          }
+        }
+        break;
+
       default:
         console.log(`[executeApprovedAction] Unknown approval type: ${approval.approvalType}`);
     }

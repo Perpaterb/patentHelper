@@ -64,6 +64,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   // Server-side recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('idle');
+  const [isRecordingDisabled, setIsRecordingDisabled] = useState(false);
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -98,6 +99,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   useEffect(() => {
     if (!passedCall) {
       loadCallDetails();
+    } else {
+      // Check if recording is disabled from passed call data
+      if (passedCall.recording?.status === 'disabled' || passedCall.recordingStatus === 'disabled') {
+        setIsRecordingDisabled(true);
+      }
     }
 
     // Request permissions on mount
@@ -142,13 +148,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   }, [localStream, firstRemoteStream]);
 
-  // Start recording when call becomes active
+  // Start recording when call becomes active (only if recording is enabled)
   useEffect(() => {
-    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle' && !isRecordingDisabled) {
       console.log('[ActiveVideoCall] Call is active, starting recording...');
       setTimeout(() => startRecording(), 500);
     }
-  }, [call?.status]);
+  }, [call?.status, isRecordingDisabled]);
 
   /**
    * Request camera and microphone permissions
@@ -263,6 +269,10 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       const foundCall = response.data.videoCalls?.find(c => c.callId === callId);
       if (foundCall) {
         setCall(foundCall);
+        // Check if recording is disabled for this group
+        if (foundCall.recording?.status === 'disabled' || foundCall.recordingStatus === 'disabled') {
+          setIsRecordingDisabled(true);
+        }
       }
     } catch (err) {
       console.error('Load call details error:', err);
@@ -543,6 +553,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
               <Text style={styles.recordingLabel}>REC</Text>
             </View>
           )}
+          {isRecordingDisabled && (
+            <View style={styles.notRecordingIndicator}>
+              <Text style={styles.notRecordingLabel}>Not Recording</Text>
+            </View>
+          )}
         </View>
 
         {/* Participants Strip */}
@@ -748,6 +763,20 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   recordingLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  notRecordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(158, 158, 158, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  notRecordingLabel: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',

@@ -2747,6 +2747,116 @@ async function updateGroupSettings(req, res) {
       ...settingsData
     } = req.body;
 
+    // Check if recording settings are being changed (requires >50% admin approval)
+    const recordingSettingsChanged = {};
+    if (settingsData.recordPhoneCalls !== undefined) {
+      recordingSettingsChanged.recordPhoneCalls = settingsData.recordPhoneCalls;
+    }
+    if (settingsData.recordVideoCalls !== undefined) {
+      recordingSettingsChanged.recordVideoCalls = settingsData.recordVideoCalls;
+    }
+
+    // Get all admins in the group
+    const allAdmins = await prisma.groupMember.findMany({
+      where: {
+        groupId: groupId,
+        role: 'admin',
+        isRegistered: true,
+      },
+      select: {
+        groupMemberId: true,
+        displayName: true,
+      },
+    });
+
+    const adminCount = allAdmins.length;
+    const allAdminIds = allAdmins.map(a => a.groupMemberId);
+
+    // If recording settings are changing and there are 2+ admins, create approval
+    let recordingApprovalCreated = false;
+    let pendingRecordingChanges = null;
+
+    if (Object.keys(recordingSettingsChanged).length > 0 && adminCount >= 2) {
+      // Get current settings to check if there's actually a change
+      const currentSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+      });
+
+      const actualChanges = {};
+      if (recordingSettingsChanged.recordPhoneCalls !== undefined &&
+          recordingSettingsChanged.recordPhoneCalls !== (currentSettings?.recordPhoneCalls ?? true)) {
+        actualChanges.recordPhoneCalls = recordingSettingsChanged.recordPhoneCalls;
+      }
+      if (recordingSettingsChanged.recordVideoCalls !== undefined &&
+          recordingSettingsChanged.recordVideoCalls !== (currentSettings?.recordVideoCalls ?? true)) {
+        actualChanges.recordVideoCalls = recordingSettingsChanged.recordVideoCalls;
+      }
+
+      if (Object.keys(actualChanges).length > 0) {
+        // Create approval for recording settings change
+        const changesDesc = [];
+        if (actualChanges.recordPhoneCalls !== undefined) {
+          changesDesc.push(`Phone call recording: ${actualChanges.recordPhoneCalls ? 'ON' : 'OFF'}`);
+        }
+        if (actualChanges.recordVideoCalls !== undefined) {
+          changesDesc.push(`Video call recording: ${actualChanges.recordVideoCalls ? 'ON' : 'OFF'}`);
+        }
+
+        const approval = await prisma.approval.create({
+          data: {
+            groupId: groupId,
+            requestedBy: membership.groupMemberId,
+            approvalType: 'change_recording_settings',
+            requiresAllAdmins: false,
+            requiredApprovalPercentage: '50.00',
+            status: 'pending',
+            approvalData: JSON.stringify({
+              ...actualChanges,
+              allAdminIds: allAdminIds,
+              description: changesDesc.join(', '),
+            }),
+          },
+        });
+
+        // Create requester's vote (they approve their own request)
+        await prisma.approvalVote.create({
+          data: {
+            approvalId: approval.approvalId,
+            adminId: membership.groupMemberId,
+            vote: 'approve',
+            isAutoApproved: false,
+          },
+        });
+
+        // Check if >50% threshold is already met (requester is 1 vote)
+        const requiredVotes = Math.floor(adminCount / 2) + 1; // >50%
+        if (1 >= requiredVotes) {
+          // Solo admin or exactly 50% - auto-approve
+          await prisma.approval.update({
+            where: { approvalId: approval.approvalId },
+            data: {
+              status: 'approved',
+              completedAt: new Date(),
+            },
+          });
+
+          // Execute the change
+          const { executeApprovedAction } = require('./approvals.controller');
+          await executeApprovedAction(approval);
+
+          console.log('[PUT /groups/:groupId/settings] Recording settings auto-approved (solo admin)');
+        } else {
+          recordingApprovalCreated = true;
+          pendingRecordingChanges = changesDesc;
+          console.log('[PUT /groups/:groupId/settings] Created approval for recording settings change');
+        }
+      }
+
+      // Remove recording settings from the direct update
+      delete settingsData.recordPhoneCalls;
+      delete settingsData.recordVideoCalls;
+    }
+
     // Enforce dependency: creatable requires visible for all features
     // For each role (Parents, Caregivers, Children), if feature is not visible, set creatable to false
     const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
@@ -2766,17 +2876,24 @@ async function updateGroupSettings(req, res) {
       });
     });
 
-    // Update or create settings
-    const settings = await prisma.groupSettings.upsert({
-      where: { groupId: groupId },
-      update: updatedData,
-      create: {
-        groupId: groupId,
-        ...updatedData,
-      },
-    });
-
-    console.log('[PUT /groups/:groupId/settings] Saved to database:', JSON.stringify(settings, null, 2));
+    // Update or create settings (excluding recording settings if approval was created)
+    let settings;
+    if (Object.keys(updatedData).length > 0) {
+      settings = await prisma.groupSettings.upsert({
+        where: { groupId: groupId },
+        update: updatedData,
+        create: {
+          groupId: groupId,
+          ...updatedData,
+        },
+      });
+      console.log('[PUT /groups/:groupId/settings] Saved to database:', JSON.stringify(settings, null, 2));
+    } else {
+      // Just fetch current settings if nothing else to update
+      settings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+      });
+    }
 
     // Create detailed audit log showing what changed
     const changedSettings = [];
@@ -2800,24 +2917,40 @@ async function updateGroupSettings(req, res) {
       auditMessage += `\nDefault Currency: ${updatedData.defaultCurrency}`;
     }
 
-    await prisma.auditLog.create({
-      data: {
-        groupId: groupId,
-        performedBy: membership.groupMemberId,
-        performedByName: membership.displayName,
-        performedByEmail: membership.email || req.user?.email,
-        action: 'update_group_settings',
-        actionLocation: 'group_settings',
-        messageContent: auditMessage,
-      },
-    });
+    if (recordingApprovalCreated) {
+      auditMessage += `\n[PENDING APPROVAL] Recording settings change: ${pendingRecordingChanges.join(', ')}`;
+    }
+
+    if (changedSettings.length > 0 || updatedData.defaultCurrency || recordingApprovalCreated) {
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email || req.user?.email,
+          action: 'update_group_settings',
+          actionLocation: 'group_settings',
+          messageContent: auditMessage,
+        },
+      });
+    }
 
     console.log('[PUT /groups/:groupId/settings] Returning response');
+
+    // Build response message
+    let responseMessage = 'Group settings updated successfully';
+    if (recordingApprovalCreated) {
+      responseMessage = 'Settings updated. Recording setting changes require approval from other admins (>50% vote required).';
+    }
 
     res.status(200).json({
       success: true,
       settings: settings,
-      message: 'Group settings updated successfully',
+      message: responseMessage,
+      pendingApproval: recordingApprovalCreated ? {
+        type: 'change_recording_settings',
+        changes: pendingRecordingChanges,
+      } : null,
     });
   } catch (error) {
     console.error('Update group settings error:', error);

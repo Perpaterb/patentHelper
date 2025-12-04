@@ -604,25 +604,36 @@ async function initiateCall(req, res) {
       },
     });
 
-    // Start the ghost recorder immediately (fire-and-forget, don't block response)
-    const authToken = req.headers.authorization?.replace('Bearer ', '');
-    const apiUrl = `${req.protocol}://${req.get('host')}`;
+    // Start the ghost recorder if recording is enabled for this group
+    const shouldRecord = settings?.recordPhoneCalls !== false; // Default to true if settings don't exist
 
-    recorderService.startRecording({
-      groupId,
-      callId: call.callId,
-      callType: 'phone',
-      authToken,
-      apiUrl,
-    }).then(() => {
-      // Update call record to indicate recording is active
+    if (shouldRecord) {
+      const authToken = req.headers.authorization?.replace('Bearer ', '');
+      const apiUrl = `${req.protocol}://${req.get('host')}`;
+
+      recorderService.startRecording({
+        groupId,
+        callId: call.callId,
+        callType: 'phone',
+        authToken,
+        apiUrl,
+      }).then(() => {
+        // Update call record to indicate recording is active
+        prisma.phoneCall.update({
+          where: { callId: call.callId },
+          data: { recordingStatus: 'recording' },
+        }).catch(err => console.error('[Phone Call] Failed to update recording status:', err));
+      }).catch(err => {
+        console.error('[Phone Call] Failed to start recorder:', err);
+      });
+    } else {
+      console.log('[Phone Call] Recording disabled for group, skipping recorder');
+      // Update call to indicate not recording
       prisma.phoneCall.update({
         where: { callId: call.callId },
-        data: { recordingStatus: 'recording' },
+        data: { recordingStatus: 'disabled' },
       }).catch(err => console.error('[Phone Call] Failed to update recording status:', err));
-    }).catch(err => {
-      console.error('[Phone Call] Failed to start recorder:', err);
-    });
+    }
 
     // Format response
     const formattedCall = {
@@ -630,6 +641,7 @@ async function initiateCall(req, res) {
       groupId: call.groupId,
       status: call.status,
       startedAt: call.startedAt,
+      recordingStatus: shouldRecord ? 'recording' : 'disabled',
       initiator: {
         groupMemberId: call.initiator.groupMemberId,
         displayName: call.initiator.user?.displayName || call.initiator.displayName,
