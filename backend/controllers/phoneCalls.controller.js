@@ -13,6 +13,7 @@
 const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const audioConverter = require('../services/audioConverter');
+const livekitService = require('../services/livekit.service');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
@@ -1617,6 +1618,231 @@ async function getIceServers(req, res) {
   }
 }
 
+/**
+ * Get LiveKit connection info for a phone call
+ * GET /groups/:groupId/phone-calls/:callId/livekit-token
+ *
+ * Returns LiveKit server URL and access token for joining the call room.
+ */
+async function getLivekitToken(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    // Check LiveKit configuration
+    if (!livekitService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'LiveKit is not configured. Server-side recording unavailable.',
+      });
+    }
+
+    // Get user's group membership
+    const membership = await prisma.groupMember.findFirst({
+      where: { groupId, userId },
+      include: { user: true },
+    });
+
+    if (!membership) {
+      return res.status(403).json({ success: false, message: 'Not a member of this group' });
+    }
+
+    // Get the call and verify user is a participant
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    // Check if user is initiator or participant
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(
+      p => p.participantId === membership.groupMemberId
+    );
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({ success: false, message: 'You are not part of this call' });
+    }
+
+    // Generate LiveKit token
+    const roomName = `phone-call-${callId}`;
+    const participantName = membership.user?.displayName || membership.displayName || 'Participant';
+
+    const token = await livekitService.generateToken(
+      roomName,
+      membership.groupMemberId,
+      participantName,
+      { canPublish: true, canSubscribe: true }
+    );
+
+    return res.json({
+      success: true,
+      livekitUrl: livekitService.LIVEKIT_URL,
+      token,
+      roomName,
+    });
+  } catch (error) {
+    console.error('Get LiveKit token error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get LiveKit token', error: error.message });
+  }
+}
+
+/**
+ * Start recording for a phone call
+ * POST /groups/:groupId/phone-calls/:callId/start-recording
+ *
+ * Starts LiveKit Egress recording for the call.
+ * Only available when call is active and LiveKit is configured.
+ */
+async function startLivekitRecording(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    if (!livekitService.isConfigured()) {
+      return res.status(503).json({ success: false, message: 'LiveKit is not configured' });
+    }
+
+    // Verify membership and call
+    const membership = await prisma.groupMember.findFirst({
+      where: { groupId, userId },
+    });
+
+    if (!membership) {
+      return res.status(403).json({ success: false, message: 'Not a member of this group' });
+    }
+
+    const call = await prisma.phoneCall.findUnique({ where: { callId } });
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    if (call.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Call is not active' });
+    }
+
+    // Start recording
+    const roomName = `phone-call-${callId}`;
+    const outputPath = `phone-calls/${groupId}/${callId}`;
+
+    try {
+      const egress = await livekitService.startRoomRecording(roomName, 'phone', outputPath);
+
+      // Store egress ID in call record
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: {
+          recordingStatus: 'recording',
+          // Store egressId in a way we can retrieve it - using recordingFileId temporarily
+          recordingFileId: egress.egressId,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Recording started',
+        egressId: egress.egressId,
+      });
+    } catch (egressError) {
+      console.error('Start recording egress error:', egressError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to start recording',
+        error: egressError.message,
+      });
+    }
+  } catch (error) {
+    console.error('Start LiveKit recording error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to start recording', error: error.message });
+  }
+}
+
+/**
+ * Stop recording for a phone call
+ * POST /groups/:groupId/phone-calls/:callId/stop-recording
+ *
+ * Stops LiveKit Egress recording and updates call with recording URL.
+ */
+async function stopLivekitRecording(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    if (!livekitService.isConfigured()) {
+      return res.status(503).json({ success: false, message: 'LiveKit is not configured' });
+    }
+
+    const call = await prisma.phoneCall.findUnique({ where: { callId } });
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    // Get egressId from call (stored in recordingFileId)
+    const egressId = call.recordingFileId;
+    if (!egressId || !egressId.startsWith('EG_')) {
+      return res.status(400).json({ success: false, message: 'No active recording found' });
+    }
+
+    try {
+      const egress = await livekitService.stopRecording(egressId);
+
+      // Update call with recording info
+      const s3Bucket = process.env.AWS_S3_BUCKET;
+      const recordingUrl = s3Bucket
+        ? `https://${s3Bucket}.s3.amazonaws.com/recordings/phone-calls/${groupId}/${callId}.mp3`
+        : `/recordings/phone-calls/${groupId}/${callId}.mp3`;
+
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: {
+          recordingStatus: 'ready',
+          recordingUrl,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Recording stopped',
+        recordingUrl,
+      });
+    } catch (egressError) {
+      console.error('Stop recording egress error:', egressError);
+
+      // Mark as failed
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: { recordingStatus: 'failed' },
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to stop recording',
+        error: egressError.message,
+      });
+    }
+  } catch (error) {
+    console.error('Stop LiveKit recording error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to stop recording', error: error.message });
+  }
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
@@ -1629,4 +1855,7 @@ module.exports = {
   sendSignal,
   getSignals,
   getIceServers,
+  getLivekitToken,
+  startLivekitRecording,
+  stopLivekitRecording,
 };

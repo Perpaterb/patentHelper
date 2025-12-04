@@ -464,6 +464,24 @@ router.get('/:groupId/phone-calls/:callId/signal', requireAuth, phoneCallsContro
  */
 router.get('/:groupId/phone-calls/:callId/ice-servers', requireAuth, phoneCallsController.getIceServers);
 
+/**
+ * GET /groups/:groupId/phone-calls/:callId/livekit-token
+ * Get LiveKit server URL and access token for joining the call
+ */
+router.get('/:groupId/phone-calls/:callId/livekit-token', requireAuth, phoneCallsController.getLivekitToken);
+
+/**
+ * POST /groups/:groupId/phone-calls/:callId/start-recording
+ * Start server-side recording via LiveKit Egress
+ */
+router.post('/:groupId/phone-calls/:callId/start-recording', requireAuth, phoneCallsController.startLivekitRecording);
+
+/**
+ * POST /groups/:groupId/phone-calls/:callId/stop-recording
+ * Stop server-side recording via LiveKit Egress
+ */
+router.post('/:groupId/phone-calls/:callId/stop-recording', requireAuth, phoneCallsController.stopLivekitRecording);
+
 // ============================================
 // VIDEO CALLS ROUTES
 // ============================================
@@ -537,5 +555,23 @@ router.get('/:groupId/video-calls/:callId/signal', requireAuth, videoCallsContro
  * Get STUN/TURN server configuration for WebRTC
  */
 router.get('/:groupId/video-calls/:callId/ice-servers', requireAuth, videoCallsController.getIceServers);
+
+/**
+ * GET /groups/:groupId/video-calls/:callId/livekit-token
+ * Get LiveKit server URL and access token for joining the call
+ */
+router.get('/:groupId/video-calls/:callId/livekit-token', requireAuth, videoCallsController.getLivekitToken);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/start-recording
+ * Start server-side recording via LiveKit Egress
+ */
+router.post('/:groupId/video-calls/:callId/start-recording', requireAuth, videoCallsController.startLivekitRecording);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/stop-recording
+ * Stop server-side recording via LiveKit Egress
+ */
+router.post('/:groupId/video-calls/:callId/stop-recording', requireAuth, videoCallsController.stopLivekitRecording);
 
 module.exports = router;
