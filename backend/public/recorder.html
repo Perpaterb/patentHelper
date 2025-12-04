@@ -17,6 +17,8 @@
   <!-- Hidden video/audio elements for streams -->
   <video id="localVideo" autoplay muted playsinline style="display:none;"></video>
   <div id="remoteVideos" style="display:none;"></div>
+  <!-- Hidden audio elements for remote streams - required for Chrome to process WebRTC audio -->
+  <div id="remoteAudios" style="display:none;"></div>
 
   <script>
     // Configuration passed via URL params
@@ -50,14 +52,28 @@
         updateStatus('Getting media access...');
 
         // Get local media (audio only for ghost - we just need to join)
+        // Note: We keep the local audio enabled so WebRTC negotiation works properly
+        // The fake device from Puppeteer provides silence anyway
         localStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
           video: false // Ghost doesn't need to send video
         });
 
-        // Mute local audio output (we don't want to play our own audio)
+        console.log('[Recorder] Local stream obtained:');
         localStream.getAudioTracks().forEach(track => {
-          track.enabled = false; // Mute outgoing audio
+          console.log('[Recorder] Local track:', {
+            id: track.id,
+            kind: track.kind,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+          // Keep track enabled for WebRTC negotiation
+          // The fake device provides silence anyway
         });
 
         updateStatus('Connecting to signaling server...');
@@ -105,9 +121,11 @@
 
     let tracksReceived = 0;
     let recordingStarted = false;
+    let audioElements = {}; // Store audio elements for each peer
+    let gainNodes = {}; // Store gain nodes for volume control
 
     async function setupAudioMixer() {
-      audioContext = new AudioContext();
+      audioContext = new AudioContext({ sampleRate: 48000 });
       // Resume AudioContext (required in headless browsers)
       if (audioContext.state === 'suspended') {
         console.log('[Recorder] Resuming suspended AudioContext...');
@@ -115,6 +133,14 @@
         console.log('[Recorder] AudioContext state:', audioContext.state);
       }
       mixedDestination = audioContext.createMediaStreamDestination();
+
+      // Also connect to the main destination to keep audio graph active
+      // Create a silent gain node connected to speakers (won't make sound)
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0; // Silent
+      silentGain.connect(audioContext.destination);
+
+      console.log('[Recorder] Audio mixer ready, sample rate:', audioContext.sampleRate);
     }
 
     function addStreamToMixer(stream, label) {
@@ -125,11 +151,60 @@
 
       try {
         const audioTracks = stream.getAudioTracks();
+        console.log('[Recorder] Stream', label, 'has', audioTracks.length, 'audio tracks');
+
         if (audioTracks.length > 0) {
+          const track = audioTracks[0];
+          console.log('[Recorder] Track details:', {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+
+          // CRITICAL: Create an audio element to play the stream
+          // This forces Chrome to actually decode and process the WebRTC audio
+          const audioEl = document.createElement('audio');
+          audioEl.srcObject = stream;
+          audioEl.autoplay = true;
+          audioEl.muted = false; // Must NOT be muted for audio to flow
+          audioEl.volume = 0.001; // Very low but not zero (zero might stop processing)
+          document.getElementById('remoteAudios').appendChild(audioEl);
+          audioElements[label] = audioEl;
+
+          // Play the audio element (required for autoplay policy)
+          audioEl.play().then(() => {
+            console.log('[Recorder] Audio element playing for', label);
+          }).catch(err => {
+            console.error('[Recorder] Audio element play failed:', err);
+          });
+
+          // Create the Web Audio graph
           const source = audioContext.createMediaStreamSource(stream);
-          source.connect(mixedDestination);
+
+          // Add a gain node for volume control and to ensure audio flows
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = 1.0; // Full volume to mixer
+          gainNodes[label] = gainNode;
+
+          source.connect(gainNode);
+          gainNode.connect(mixedDestination);
+
+          // Also connect to destination via silent gain to keep graph active
+          const monitorGain = audioContext.createGain();
+          monitorGain.gain.value = 0; // Silent monitoring
+          gainNode.connect(monitorGain);
+          monitorGain.connect(audioContext.destination);
+
           tracksReceived++;
           console.log('[Recorder] Added stream to mixer:', label, '- Total tracks:', tracksReceived);
+
+          // Monitor track for mute/unmute
+          track.onmute = () => console.log('[Recorder] Track muted:', label);
+          track.onunmute = () => console.log('[Recorder] Track unmuted:', label);
+          track.onended = () => console.log('[Recorder] Track ended:', label);
 
           // Start recording after first track is received
           if (!recordingStarted && tracksReceived >= 1) {
@@ -204,11 +279,29 @@
       if (!peerConnections[fromId]) {
         console.log('[Recorder] Creating peer connection for', fromId);
         const pc = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
         });
 
+        // Add local tracks to peer connection (required for proper WebRTC negotiation)
+        // Even though we're not sending real audio, we need to add tracks
+        if (localStream) {
+          localStream.getTracks().forEach(track => {
+            console.log('[Recorder] Adding local track to peer connection:', track.kind);
+            pc.addTrack(track, localStream);
+          });
+        }
+
         pc.ontrack = (event) => {
-          console.log('[Recorder] Received track from', fromId, event.track.kind);
+          console.log('[Recorder] Received track from', fromId, '- kind:', event.track.kind);
+          console.log('[Recorder] Track state:', {
+            enabled: event.track.enabled,
+            muted: event.track.muted,
+            readyState: event.track.readyState
+          });
+          console.log('[Recorder] Stream has', event.streams[0].getAudioTracks().length, 'audio tracks');
           addStreamToMixer(event.streams[0], fromId);
         };
 
@@ -220,6 +313,14 @@
 
         pc.onconnectionstatechange = () => {
           console.log('[Recorder] Connection state for', fromId, ':', pc.connectionState);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          console.log('[Recorder] ICE connection state for', fromId, ':', pc.iceConnectionState);
+        };
+
+        pc.onicegatheringstatechange = () => {
+          console.log('[Recorder] ICE gathering state for', fromId, ':', pc.iceGatheringState);
         };
 
         peerConnections[fromId] = pc;
@@ -278,27 +379,65 @@
 
       try {
         const stream = mixedDestination.stream;
-        console.log('[Recorder] Mixed stream tracks:', stream.getAudioTracks().length);
+        const tracks = stream.getAudioTracks();
+        console.log('[Recorder] Mixed stream tracks:', tracks.length);
 
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        if (tracks.length > 0) {
+          const mixedTrack = tracks[0];
+          console.log('[Recorder] Mixed track details:', {
+            id: mixedTrack.id,
+            enabled: mixedTrack.enabled,
+            muted: mixedTrack.muted,
+            readyState: mixedTrack.readyState
+          });
+        }
+
+        // Use webm/opus codec for better compatibility
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        console.log('[Recorder] Using MIME type:', mimeType);
+
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType,
+          audioBitsPerSecond: 128000 // 128kbps for good quality
+        });
 
         mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             recordedChunks.push(event.data);
+            console.log('[Recorder] Chunk received, size:', event.data.size, 'bytes, total chunks:', recordedChunks.length);
           }
         };
 
         mediaRecorder.onstop = () => {
+          console.log('[Recorder] MediaRecorder stopped, total chunks:', recordedChunks.length);
           uploadRecording();
+        };
+
+        mediaRecorder.onerror = (event) => {
+          console.error('[Recorder] MediaRecorder error:', event.error);
         };
 
         mediaRecorder.start(1000); // Collect data every second
         isRecording = true;
         updateStatus('Recording in progress...', 'recording');
+        console.log('[Recorder] MediaRecorder started, state:', mediaRecorder.state);
 
         // Expose stop function for Puppeteer
         window.stopRecording = stopRecording;
         window.isRecording = true;
+
+        // Log recording stats periodically
+        const statsInterval = setInterval(() => {
+          if (!isRecording) {
+            clearInterval(statsInterval);
+            return;
+          }
+          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+          console.log('[Recorder] Recording stats - chunks:', recordedChunks.length, 'total size:', totalSize, 'bytes');
+        }, 5000);
+        window.statsInterval = statsInterval;
 
       } catch (err) {
         console.error('[Recorder] Start recording error:', err);
@@ -360,9 +499,24 @@
     }
 
     function cleanup() {
+      console.log('[Recorder] Cleaning up...');
+
       if (window.signalPollInterval) {
         clearInterval(window.signalPollInterval);
       }
+
+      if (window.statsInterval) {
+        clearInterval(window.statsInterval);
+      }
+
+      // Stop and remove audio elements
+      Object.entries(audioElements).forEach(([label, el]) => {
+        console.log('[Recorder] Stopping audio element for', label);
+        el.pause();
+        el.srcObject = null;
+        el.remove();
+      });
+      audioElements = {};
 
       Object.values(peerConnections).forEach(pc => pc.close());
       peerConnections = {};
@@ -371,9 +525,11 @@
         localStream.getTracks().forEach(track => track.stop());
       }
 
-      if (audioContext) {
+      if (audioContext && audioContext.state !== 'closed') {
         audioContext.close();
       }
+
+      console.log('[Recorder] Cleanup complete');
     }
 
     // Expose for Puppeteer control

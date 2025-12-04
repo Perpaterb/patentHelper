@@ -34,16 +34,25 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl }) 
   console.log(`[Recorder] Starting recording for ${sessionKey}`);
 
   try {
-    // Launch headless browser
+    // Launch headless browser with proper audio support
     const browser = await puppeteer.launch({
       headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--use-fake-ui-for-media-stream', // Auto-allow media permissions
-        '--use-fake-device-for-media-stream', // Use fake audio device
+        '--use-fake-device-for-media-stream', // Use fake audio device for local stream
         '--disable-web-security',
         '--allow-file-access-from-files',
+        // Audio processing flags
+        '--autoplay-policy=no-user-gesture-required', // Allow autoplay without user gesture
+        '--disable-features=AudioServiceOutOfProcess', // Keep audio in main process
+        '--enable-features=AudioServiceSandbox', // Enable audio sandbox
+        // WebRTC specific flags
+        '--enable-webrtc-hide-local-ips-with-mdns=false',
+        '--disable-rtc-smoothness-algorithm',
+        // Additional audio flags for headless mode
+        '--ignore-autoplay-restrictions',
       ],
     });
 
@@ -116,23 +125,34 @@ async function stopRecording(callId, callType) {
 
   try {
     const { browser, page } = session;
+    const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
+
+    // Get recording status before stopping
+    const recordingStatus = await page.evaluate(() => ({
+      isRecording: window.isRecording,
+      chunks: typeof recordedChunks !== 'undefined' ? recordedChunks.length : 0,
+    }));
+    console.log(`[Recorder] Recording status before stop:`, recordingStatus);
 
     // Tell the page to stop recording and wait for upload
-    const hasRecording = await page.evaluate(() => window.isRecording);
-
-    if (hasRecording) {
+    if (recordingStatus.isRecording) {
+      console.log(`[Recorder] Stopping MediaRecorder...`);
       await page.evaluate(() => window.stopRecording());
-      // Wait a bit for upload to complete
-      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Wait for upload to complete (longer wait)
+      console.log(`[Recorder] Waiting for upload to complete...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } else {
+      console.log(`[Recorder] Recording was not active`);
     }
 
     // Cleanup
+    console.log(`[Recorder] Running cleanup...`);
     await page.evaluate(() => window.cleanup());
     await browser.close();
 
     activeRecordings.delete(sessionKey);
 
-    const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
     console.log(`[Recorder] Recording stopped for ${sessionKey}. Duration: ${duration}s`);
 
     return {
