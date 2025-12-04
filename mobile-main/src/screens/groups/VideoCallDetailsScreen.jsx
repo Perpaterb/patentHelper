@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Video, ResizeMode } from 'expo-av';
 import api from '../../services/api';
@@ -388,16 +388,26 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
 
               <View style={styles.videoContainer}>
                 {console.log('[VideoCallDetails] Recording URL:', recordingUrl)}
-                <Video
-                  ref={videoRef}
-                  source={{ uri: recordingUrl }}
-                  style={styles.video}
-                  useNativeControls
-                  resizeMode={ResizeMode.CONTAIN}
-                  onPlaybackStatusUpdate={handleVideoStatusUpdate}
-                  onError={handleVideoError}
-                  shouldPlay={false}
-                />
+                {Platform.OS === 'web' ? (
+                  // Use native HTML video on web for better compatibility
+                  <video
+                    src={recordingUrl}
+                    controls
+                    style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                  />
+                ) : (
+                  // Use expo-av Video on native platforms
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: recordingUrl }}
+                    style={styles.video}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                    onError={handleVideoError}
+                    shouldPlay={false}
+                  />
+                )}
               </View>
 
               <View style={styles.videoDuration}>
