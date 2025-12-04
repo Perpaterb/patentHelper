@@ -2,13 +2,37 @@
  * WebRTC Hook for Video Calling
  *
  * Manages WebRTC peer connections for video calls.
- * Currently supports web platform with native WebRTC API.
- * Mobile support requires expo-dev-client with react-native-webrtc.
+ * Supports both web (native WebRTC API) and mobile (react-native-webrtc).
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import api from '../services/api';
+
+// Import WebRTC classes - on mobile, use react-native-webrtc
+let RTCPeerConnectionClass;
+let RTCSessionDescriptionClass;
+let RTCIceCandidateClass;
+let mediaDevicesAPI;
+
+if (Platform.OS === 'web') {
+  // Web: Use native WebRTC API
+  RTCPeerConnectionClass = typeof RTCPeerConnection !== 'undefined' ? RTCPeerConnection : null;
+  RTCSessionDescriptionClass = typeof RTCSessionDescription !== 'undefined' ? RTCSessionDescription : null;
+  RTCIceCandidateClass = typeof RTCIceCandidate !== 'undefined' ? RTCIceCandidate : null;
+  mediaDevicesAPI = typeof navigator !== 'undefined' && navigator.mediaDevices ? navigator.mediaDevices : null;
+} else {
+  // Mobile: Use react-native-webrtc
+  try {
+    const webrtc = require('react-native-webrtc');
+    RTCPeerConnectionClass = webrtc.RTCPeerConnection;
+    RTCSessionDescriptionClass = webrtc.RTCSessionDescription;
+    RTCIceCandidateClass = webrtc.RTCIceCandidate;
+    mediaDevicesAPI = webrtc.mediaDevices;
+  } catch (err) {
+    console.warn('[WebRTC] react-native-webrtc not available:', err.message);
+  }
+}
 
 /**
  * @typedef {Object} PeerConnection
@@ -49,7 +73,8 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const peerConnectionsRef = useRef({}); // { peerId: RTCPeerConnection }
   const iceServersRef = useRef([]);
   const pollingRef = useRef(null);
-  const isWebRTCSupported = Platform.OS === 'web' && typeof RTCPeerConnection !== 'undefined';
+  // WebRTC is supported if we have the necessary classes (either native web or react-native-webrtc)
+  const isWebRTCSupported = RTCPeerConnectionClass !== null && mediaDevicesAPI !== null;
 
   // API endpoint base path depends on call type
   const apiBasePath = callType === 'phone'
@@ -64,7 +89,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     console.log(`[WebRTC] Creating peer connection for ${peerId}`);
 
-    const pc = new RTCPeerConnection({
+    const pc = new RTCPeerConnectionClass({
       iceServers: iceServersRef.current,
     });
 
@@ -162,7 +187,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     try {
       console.log(`[WebRTC] Handling offer from ${peerId}`);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      await pc.setRemoteDescription(new RTCSessionDescriptionClass(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -192,7 +217,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     try {
       console.log(`[WebRTC] Handling answer from ${peerId}`);
-      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      await pc.setRemoteDescription(new RTCSessionDescriptionClass(answer));
     } catch (err) {
       console.error('[WebRTC] Failed to handle answer:', err);
       setError('Failed to handle answer');
@@ -212,7 +237,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     }
 
     try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      await pc.addIceCandidate(new RTCIceCandidateClass(candidate));
     } catch (err) {
       console.error('[WebRTC] Failed to add ICE candidate:', err);
     }
@@ -277,7 +302,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const initializeLocalStream = useCallback(async () => {
     if (!isWebRTCSupported) {
       console.log('[WebRTC] Not supported on this platform');
-      setError('WebRTC is only supported on web. Mobile support coming soon.');
+      setError('WebRTC is not available. Please use a development build with react-native-webrtc.');
       return null;
     }
 
@@ -287,7 +312,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
         video: !audioOnly, // No video for phone calls
         audio: true,
       };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await mediaDevicesAPI.getUserMedia(constraints);
       setLocalStream(stream);
       console.log('[WebRTC] Local stream initialized');
       return stream;
@@ -296,7 +321,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
       // Try audio only if video fails (for video calls)
       if (!audioOnly) {
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({
+          const audioStream = await mediaDevicesAPI.getUserMedia({
             video: false,
             audio: true,
           });
@@ -338,7 +363,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
    */
   const startConnection = useCallback(async () => {
     if (!isWebRTCSupported) {
-      setError('WebRTC is only supported on web. Mobile support coming soon.');
+      setError('WebRTC is not available. Please use a development build.');
       return;
     }
 

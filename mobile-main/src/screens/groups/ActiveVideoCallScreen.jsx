@@ -3,7 +3,7 @@
  *
  * Shows during an active or ringing video call.
  * Features:
- * - WebRTC peer-to-peer video (web only for now)
+ * - WebRTC peer-to-peer video (web and mobile with dev build)
  * - Remote video as full screen, local video as PiP
  * - Call status (ringing/active)
  * - Call duration timer (when connected)
@@ -20,6 +20,16 @@ import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useWebRTC } from '../../hooks/useWebRTC';
+
+// Import RTCView for mobile
+let RTCView = null;
+if (Platform.OS !== 'web') {
+  try {
+    RTCView = require('react-native-webrtc').RTCView;
+  } catch (e) {
+    console.log('[ActiveVideoCall] RTCView not available');
+  }
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -487,6 +497,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             playsInline
             style={styles.remoteVideo}
           />
+        ) : Platform.OS !== 'web' && RTCView && firstRemoteStream ? (
+          <RTCView
+            streamURL={firstRemoteStream.toURL()}
+            style={styles.remoteVideo}
+            objectFit="cover"
+            mirror={false}
+          />
         ) : (
           // Placeholder when no remote stream
           <View style={styles.remoteVideoPlaceholder}>
@@ -504,7 +521,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
                 <Text style={styles.connectionStatus}>
                   {isRinging ? 'Calling...' :
                    isConnecting ? 'Connecting...' :
-                   !isWebRTCSupported ? 'WebRTC not supported on mobile yet' :
+                   !isWebRTCSupported ? 'Requires development build' :
                    'Waiting for video...'}
                 </Text>
               </>
@@ -543,7 +560,15 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             muted
             style={styles.pipVideo}
           />
-        ) : hasCameraPermission && isCameraOn && Platform.OS !== 'web' ? (
+        ) : Platform.OS !== 'web' && RTCView && localStream && isCameraOn ? (
+          <RTCView
+            streamURL={localStream.toURL()}
+            style={styles.pipVideo}
+            objectFit="cover"
+            mirror={true}
+            zOrder={1}
+          />
+        ) : hasCameraPermission && isCameraOn && Platform.OS !== 'web' && !RTCView ? (
           <CameraView
             style={styles.pipVideo}
             facing={cameraFacing}

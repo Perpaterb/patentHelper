@@ -3,7 +3,7 @@
  *
  * Shows during an active or ringing phone call.
  * Features:
- * - WebRTC peer-to-peer audio (web only for now)
+ * - WebRTC peer-to-peer audio (web and mobile with dev build)
  * - Participant avatars and status
  * - Call duration timer (when connected)
  * - Mute and speaker controls
@@ -469,7 +469,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
               {isRinging ? 'Ringing...' :
                isConnecting ? 'Connecting audio...' :
                firstRemoteStream ? 'Connected' :
-               !isWebRTCSupported ? 'WebRTC not supported on mobile yet' :
+               !isWebRTCSupported ? 'Requires development build' :
                'Waiting for audio...'}
             </Text>
           </>
