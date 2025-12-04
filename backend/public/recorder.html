@@ -123,18 +123,18 @@
     }
 
     async function pollForSignals() {
-      // Poll the signaling endpoint for WebRTC signals
+      // Poll the signaling endpoint for WebRTC signals (using recorder-specific endpoint)
       const pollInterval = setInterval(async () => {
         try {
           const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
           const response = await fetch(
-            `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/signals?participantId=recorder`,
+            `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recorder-signal`,
             { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } }
           );
 
           if (response.ok) {
-            const signals = await response.json();
-            for (const signal of signals.signals || []) {
+            const data = await response.json();
+            for (const signal of data.signals || []) {
               await handleSignal(signal);
             }
           }
@@ -187,15 +187,14 @@
     async function sendSignal(toId, type, data) {
       try {
         const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
-        await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/signal`, {
+        await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recorder-signal`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${AUTH_TOKEN}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            fromId: 'recorder',
-            toId,
+            targetPeerId: toId,
             type,
             data
           })

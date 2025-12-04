@@ -1569,8 +1569,16 @@ async function getSignals(req, res) {
           peers.push({ peerId: p.groupMemberId, status: p.status });
         }
       }
+      // Add recorder as a peer if recording is active
+      if (recorderService.isRecording(callId, 'phone')) {
+        peers.push({ peerId: 'recorder', status: 'recording' });
+      }
     } else {
       peers.push({ peerId: call.initiatedBy, status: 'initiator' });
+      // Non-initiators also need to connect to recorder
+      if (recorderService.isRecording(callId, 'phone')) {
+        peers.push({ peerId: 'recorder', status: 'recording' });
+      }
     }
 
     return res.json({
@@ -1716,6 +1724,88 @@ async function getRecordingStatus(req, res) {
   }
 }
 
+/**
+ * Get WebRTC signals for the ghost recorder
+ * GET /groups/:groupId/phone-calls/:callId/recorder-signal
+ */
+async function getRecorderSignals(req, res) {
+  try {
+    const { groupId, callId } = req.params;
+
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: { participants: true },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    // Get signals meant for the recorder
+    const callSignals = signalingStore.get(callId) || {};
+    const recorderSignals = callSignals['recorder'] || [];
+
+    // Clear the signals after retrieving
+    if (callSignals['recorder']) {
+      delete callSignals['recorder'];
+    }
+
+    return res.json({
+      success: true,
+      signals: recorderSignals,
+    });
+  } catch (error) {
+    console.error('Get recorder signals error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get recorder signals', error: error.message });
+  }
+}
+
+/**
+ * Send WebRTC signal from the ghost recorder
+ * POST /groups/:groupId/phone-calls/:callId/recorder-signal
+ */
+async function sendRecorderSignal(req, res) {
+  try {
+    const { groupId, callId } = req.params;
+    const { type, data, targetPeerId } = req.body;
+
+    if (!type || !data || !targetPeerId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields: type, data, targetPeerId' });
+    }
+
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    // Store signal for target participant
+    if (!signalingStore.has(callId)) {
+      signalingStore.set(callId, {});
+    }
+    const callSignals = signalingStore.get(callId);
+
+    if (!callSignals[targetPeerId]) {
+      callSignals[targetPeerId] = [];
+    }
+
+    callSignals[targetPeerId].push({
+      from: 'recorder',
+      type,
+      data,
+    });
+
+    console.log(`[WebRTC Phone Signal] ${type} from recorder to ${targetPeerId} in call ${callId}`);
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Send recorder signal error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to send recorder signal', error: error.message });
+  }
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
@@ -1731,4 +1821,6 @@ module.exports = {
   startServerRecording,
   stopServerRecording,
   getRecordingStatus,
+  getRecorderSignals,
+  sendRecorderSignal,
 };

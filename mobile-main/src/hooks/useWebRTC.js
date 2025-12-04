@@ -297,11 +297,19 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
       // If we're the initiator and there are new peers, send offers
       if (isInitiator && peers) {
         for (const peer of peers) {
-          // Skip the ghost recorder - it receives streams but doesn't need offers from us
-          if (peer.peerId === 'recorder') continue;
-
+          // Send offers to all peers including the recorder (so it can receive our audio)
           if (!peerConnectionsRef.current[peer.peerId] && peer.status !== 'invited') {
             await createOffer(peer.peerId);
+          }
+        }
+      }
+
+      // Non-initiators also need to send offers to the recorder when it joins
+      if (!isInitiator && peers) {
+        for (const peer of peers) {
+          if (peer.peerId === 'recorder' && !peerConnectionsRef.current['recorder']) {
+            console.log('[WebRTC] Sending offer to recorder');
+            await createOffer('recorder');
           }
         }
       }

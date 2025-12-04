@@ -482,6 +482,18 @@ router.post('/:groupId/phone-calls/:callId/stop-recording', requireAuth, phoneCa
  */
 router.get('/:groupId/phone-calls/:callId/recording-status', requireAuth, phoneCallsController.getRecordingStatus);
 
+/**
+ * GET /groups/:groupId/phone-calls/:callId/recorder-signal
+ * Get WebRTC signals for the ghost recorder
+ */
+router.get('/:groupId/phone-calls/:callId/recorder-signal', requireAuth, phoneCallsController.getRecorderSignals);
+
+/**
+ * POST /groups/:groupId/phone-calls/:callId/recorder-signal
+ * Send WebRTC signal from the ghost recorder
+ */
+router.post('/:groupId/phone-calls/:callId/recorder-signal', requireAuth, phoneCallsController.sendRecorderSignal);
+
 // ============================================
 // VIDEO CALLS ROUTES
 // ============================================
@@ -573,5 +585,17 @@ router.post('/:groupId/video-calls/:callId/stop-recording', requireAuth, videoCa
  * Get recording status for a video call
  */
 router.get('/:groupId/video-calls/:callId/recording-status', requireAuth, videoCallsController.getRecordingStatus);
+
+/**
+ * GET /groups/:groupId/video-calls/:callId/recorder-signal
+ * Get WebRTC signals for the ghost recorder
+ */
+router.get('/:groupId/video-calls/:callId/recorder-signal', requireAuth, videoCallsController.getRecorderSignals);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/recorder-signal
+ * Send WebRTC signal from the ghost recorder
+ */
+router.post('/:groupId/video-calls/:callId/recorder-signal', requireAuth, videoCallsController.sendRecorderSignal);
 
 module.exports = router;
