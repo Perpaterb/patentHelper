@@ -196,6 +196,16 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
    */
   const handleVideoStatusUpdate = (status) => {
     setVideoStatus(status);
+    if (status.error) {
+      console.error('[VideoCallDetails] Video playback error:', status.error);
+    }
+  };
+
+  /**
+   * Handle video load error
+   */
+  const handleVideoError = (error) => {
+    console.error('[VideoCallDetails] Video load error:', error);
   };
 
   /**
@@ -377,6 +387,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
               <Title style={styles.sectionTitle}>Recording</Title>
 
               <View style={styles.videoContainer}>
+                {console.log('[VideoCallDetails] Recording URL:', recordingUrl)}
                 <Video
                   ref={videoRef}
                   source={{ uri: recordingUrl }}
@@ -384,6 +395,8 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                   useNativeControls
                   resizeMode={ResizeMode.CONTAIN}
                   onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                  onError={handleVideoError}
+                  shouldPlay={false}
                 />
               </View>
 

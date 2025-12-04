@@ -39,6 +39,9 @@ async function convertToMp4(inputPath, outputDir) {
         '-preset fast',
         '-crf 23', // Good quality balance
         '-movflags +faststart', // Enable streaming
+        '-profile:v baseline', // Wide compatibility (iOS, Android, web)
+        '-level 3.1', // Wide device support
+        '-pix_fmt yuv420p', // Required for QuickTime/iOS compatibility
       ])
       .on('start', (commandLine) => {
         console.log('[VideoConverter] FFmpeg command:', commandLine);
