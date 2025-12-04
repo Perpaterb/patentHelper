@@ -29,6 +29,7 @@
 
     // State
     let peerConnections = {};
+    let pendingIceCandidates = {}; // Queue ICE candidates until offer is processed
     let localStream = null;
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -159,14 +160,36 @@
       const { from: fromId, type, data } = signal;
       console.log('[Recorder] Handling signal:', type, 'from peer:', fromId);
 
+      // For ICE candidates, check if we have a peer connection with remote description
+      if (type === 'ice-candidate') {
+        const pc = peerConnections[fromId];
+        if (!pc || !pc.remoteDescription) {
+          // Queue the ICE candidate until we have the offer
+          if (!pendingIceCandidates[fromId]) {
+            pendingIceCandidates[fromId] = [];
+          }
+          console.log('[Recorder] Queuing ICE candidate for', fromId, '(waiting for offer)');
+          pendingIceCandidates[fromId].push(data);
+          return;
+        }
+        // We have remote description, add ICE candidate
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data));
+        } catch (err) {
+          console.error('[Recorder] Failed to add ICE candidate:', err.message);
+        }
+        return;
+      }
+
+      // Create peer connection if needed (for offer/answer)
       if (!peerConnections[fromId]) {
-        // Create new peer connection for this participant
+        console.log('[Recorder] Creating peer connection for', fromId);
         const pc = new RTCPeerConnection({
           iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
 
         pc.ontrack = (event) => {
-          console.log('[Recorder] Received track from', fromId);
+          console.log('[Recorder] Received track from', fromId, event.track.kind);
           addStreamToMixer(event.streams[0], fromId);
         };
 
@@ -176,20 +199,37 @@
           }
         };
 
+        pc.onconnectionstatechange = () => {
+          console.log('[Recorder] Connection state for', fromId, ':', pc.connectionState);
+        };
+
         peerConnections[fromId] = pc;
       }
 
       const pc = peerConnections[fromId];
 
       if (type === 'offer') {
+        console.log('[Recorder] Processing offer from', fromId);
         await pc.setRemoteDescription(new RTCSessionDescription(data));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await sendSignal(fromId, 'answer', answer);
+        console.log('[Recorder] Sent answer to', fromId);
+
+        // Process any queued ICE candidates
+        if (pendingIceCandidates[fromId] && pendingIceCandidates[fromId].length > 0) {
+          console.log('[Recorder] Processing', pendingIceCandidates[fromId].length, 'queued ICE candidates for', fromId);
+          for (const candidate of pendingIceCandidates[fromId]) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error('[Recorder] Failed to add queued ICE candidate:', err.message);
+            }
+          }
+          delete pendingIceCandidates[fromId];
+        }
       } else if (type === 'answer') {
         await pc.setRemoteDescription(new RTCSessionDescription(data));
-      } else if (type === 'ice-candidate') {
-        await pc.addIceCandidate(new RTCIceCandidate(data));
       }
     }
 
