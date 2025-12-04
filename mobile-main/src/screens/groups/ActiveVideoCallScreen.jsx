@@ -456,10 +456,22 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     call.participants.forEach(p => {
       // Don't add if already the initiator
       if (p.groupMemberId !== call.initiator?.groupMemberId) {
+        // Use WebRTC connection state to determine actual connectivity
+        // If we have a remote stream or WebRTC says connected, they're truly connected
+        const webrtcState = connectionStates[p.groupMemberId];
+        const hasRemoteStream = !!remoteStreams[p.groupMemberId];
+        let effectiveStatus = p.status;
+
+        if (hasRemoteStream || webrtcState === 'connected') {
+          effectiveStatus = 'joined';
+        } else if (webrtcState === 'connecting' || webrtcState === 'new') {
+          effectiveStatus = 'accepted'; // Still connecting
+        }
+
         allParticipants.push({
           ...p,
           isInitiator: false,
-          callStatus: p.status,
+          callStatus: effectiveStatus,
         });
       }
     });
