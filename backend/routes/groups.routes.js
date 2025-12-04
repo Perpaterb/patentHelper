@@ -497,4 +497,26 @@ router.put('/:groupId/video-calls/:callId/leave', requireAuth, videoCallsControl
  */
 router.post('/:groupId/video-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), videoCallsController.uploadRecording);
 
+// =====================
+// WebRTC Signaling Routes
+// =====================
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/signal
+ * Send a WebRTC signaling message (offer, answer, ice-candidate)
+ */
+router.post('/:groupId/video-calls/:callId/signal', requireAuth, videoCallsController.sendSignal);
+
+/**
+ * GET /groups/:groupId/video-calls/:callId/signal
+ * Get pending WebRTC signaling messages
+ */
+router.get('/:groupId/video-calls/:callId/signal', requireAuth, videoCallsController.getSignals);
+
+/**
+ * GET /groups/:groupId/video-calls/:callId/ice-servers
+ * Get STUN/TURN server configuration for WebRTC
+ */
+router.get('/:groupId/video-calls/:callId/ice-servers', requireAuth, videoCallsController.getIceServers);
+
 module.exports = router;

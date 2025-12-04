@@ -2,8 +2,9 @@
  * Active Video Call Screen
  *
  * Shows during an active or ringing video call.
- * Displays:
- * - Camera view (self and participants)
+ * Features:
+ * - WebRTC peer-to-peer video (web only for now)
+ * - Remote video as full screen, local video as PiP
  * - Call status (ringing/active)
  * - Call duration timer (when connected)
  * - Camera toggle, mute, and flip buttons
@@ -11,34 +12,21 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, BackHandler, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet, BackHandler, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { Audio, Video } from 'expo-av';
+import { Audio } from 'expo-av';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
+import { useWebRTC } from '../../hooks/useWebRTC';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-/**
- * Get color for participant status
- */
-const getParticipantStatusColor = (status) => {
-  switch (status) {
-    case 'joined':
-    case 'accepted':
-      return '#4caf50';
-    case 'left':
-      return '#ff9800';
-    case 'rejected':
-      return '#f44336';
-    case 'invited':
-      return '#2196f3';
-    default:
-      return '#666';
-  }
-};
+// PiP dimensions
+const PIP_WIDTH = 120;
+const PIP_HEIGHT = 160;
+const PIP_MARGIN = 16;
 
 /**
  * ActiveVideoCallScreen component
@@ -60,16 +48,42 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const [cameraFacing, setCameraFacing] = useState('front');
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [webCameraGranted, setWebCameraGranted] = useState(false);
+  const [noCameraAvailable, setNoCameraAvailable] = useState(false);
+
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('idle');
-  const [webCameraGranted, setWebCameraGranted] = useState(false); // Track web camera permission separately
-  const [noCameraAvailable, setNoCameraAvailable] = useState(false); // Track if device has no camera
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
-  const cameraRef = useRef(null);
-  const recordingRef = useRef(null);
-  const audioRecordingRef = useRef(null); // For audio-only recording when no camera
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  // WebRTC hook
+  const {
+    localStream,
+    remoteStreams,
+    isConnecting,
+    error: webrtcError,
+    connectionStates,
+    isWebRTCSupported,
+    toggleVideo,
+    toggleAudio,
+    stopConnection,
+  } = useWebRTC({
+    groupId,
+    callId,
+    isActive: call?.status === 'active',
+    isInitiator,
+  });
+
+  // Get first remote stream (for 1-to-1 calls)
+  const remoteStreamEntries = Object.entries(remoteStreams);
+  const firstRemoteStream = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][1] : null;
+  const firstRemotePeerId = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][0] : null;
 
   useEffect(() => {
     if (!passedCall) {
@@ -90,15 +104,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
     return () => {
       stopPolling();
+      stopConnection();
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync?.().catch(console.error);
-      }
-      if (audioRecordingRef.current) {
-        audioRecordingRef.current.stopAndUnloadAsync?.().catch(console.error);
-      }
+      stopRecording();
       backHandler.remove();
     };
   }, [callId]);
@@ -110,96 +120,73 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   }, [call?.status, call?.connectedAt]);
 
+  // Attach streams to video elements on web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      if (remoteVideoRef.current && firstRemoteStream) {
+        remoteVideoRef.current.srcObject = firstRemoteStream;
+      }
+    }
+  }, [localStream, firstRemoteStream]);
+
+  // Start recording when call becomes active
+  useEffect(() => {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+      console.log('[ActiveVideoCall] Call is active, starting recording...');
+      setTimeout(() => startRecording(), 500);
+    }
+  }, [call?.status]);
+
   /**
    * Request camera and microphone permissions
-   * Uses native browser API on web for proper permission popup
    */
   const requestPermissions = async () => {
     try {
-      console.log('[ActiveVideoCall] Requesting camera and microphone permissions...');
-      console.log('[ActiveVideoCall] Platform:', Platform.OS);
+      console.log('[ActiveVideoCall] Requesting permissions...');
 
-      // On web, use native browser getUserMedia to trigger permission popup
       if (Platform.OS === 'web') {
-        console.log('[ActiveVideoCall] Using native browser API for permissions...');
         try {
-          // Request both camera and microphone permissions via browser API
           const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
           });
-          console.log('[ActiveVideoCall] Browser permissions granted!');
-
-          // Stop the tracks immediately - we just needed to trigger the prompt
           stream.getTracks().forEach(track => track.stop());
-
-          // Mark web camera as granted
           setWebCameraGranted(true);
-
-          // Now request through expo-camera to update the hook state
           await requestCameraPermission();
           await requestMicPermission();
         } catch (browserError) {
-          console.log('[ActiveVideoCall] Browser permission error:', browserError.name, browserError.message);
-
-          // Try camera and mic separately in case one is denied
-          try {
-            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoStream.getTracks().forEach(track => track.stop());
-            setWebCameraGranted(true);
-            await requestCameraPermission();
-          } catch (videoErr) {
-            console.log('[ActiveVideoCall] Camera permission denied:', videoErr.message);
-            // Check if no camera is available (NotFoundError)
-            if (videoErr.name === 'NotFoundError' || videoErr.message.includes('not found')) {
-              console.log('[ActiveVideoCall] No camera device found on this device');
-              setNoCameraAvailable(true);
-            }
+          console.log('[ActiveVideoCall] Browser permission error:', browserError.name);
+          if (browserError.name === 'NotFoundError') {
+            setNoCameraAvailable(true);
           }
-
+          // Try audio only
           try {
             const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioStream.getTracks().forEach(track => track.stop());
             await requestMicPermission();
           } catch (audioErr) {
-            console.log('[ActiveVideoCall] Microphone permission denied:', audioErr.message);
+            console.log('[ActiveVideoCall] Audio permission denied');
           }
         }
       } else {
-        // Mobile - use expo-camera permission hooks
         if (!cameraPermission?.granted) {
-          const { granted: cameraGranted } = await requestCameraPermission();
-          if (!cameraGranted) {
-            CustomAlert.alert(
-              'Camera Permission Required',
-              'Please allow camera access for video calls.',
-              [{ text: 'OK' }]
-            );
-          }
+          await requestCameraPermission();
         }
-
         if (!micPermission?.granted) {
-          const { granted: micGranted } = await requestMicPermission();
-          if (!micGranted) {
-            CustomAlert.alert(
-              'Microphone Permission Required',
-              'Please allow microphone access for video calls.',
-              [{ text: 'OK' }]
-            );
-          }
+          await requestMicPermission();
         }
       }
 
-      // Set audio mode for video recording
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
       });
     } catch (error) {
-      console.error('[ActiveVideoCall] Permission request error:', error);
+      console.error('[ActiveVideoCall] Permission error:', error);
     }
   };
 
@@ -211,20 +198,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       const response = await api.get(`/groups/${groupId}/video-calls`);
       const updatedCall = response.data.videoCalls?.find(c => c.callId === callId);
       if (updatedCall) {
-        console.log('[ActiveVideoCall] Updated call data:', {
-          status: updatedCall.status,
-          participantCount: updatedCall.participants?.length,
-        });
         setCall(updatedCall);
 
-        // If call ended, stop recording and navigate away
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
           console.log('[ActiveVideoCall] Call ended remotely');
           stopPolling();
-
-          if (isRecording) {
-            await stopRecordingAndUpload();
-          }
+          await stopRecording();
+          stopConnection();
 
           navigation.replace('VideoCallDetails', {
             groupId,
@@ -238,17 +218,11 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Start polling for call status updates
-   */
   const startPolling = () => {
     fetchCallUpdate();
     pollRef.current = setInterval(fetchCallUpdate, 2000);
   };
 
-  /**
-   * Stop polling
-   */
   const stopPolling = () => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -256,23 +230,14 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Start call duration timer
-   */
   const startDurationTimer = () => {
     if (timerRef.current) return;
-
     const startTime = call.connectedAt ? new Date(call.connectedAt).getTime() : Date.now();
-
     timerRef.current = setInterval(() => {
-      const now = Date.now();
-      setCallDuration(Math.floor((now - startTime) / 1000));
+      setCallDuration(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
   };
 
-  /**
-   * Load call details from API
-   */
   const loadCallDetails = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/video-calls`);
@@ -287,223 +252,132 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Format duration in seconds to mm:ss
-   */
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  /**
-   * Toggle camera facing (front/back)
-   */
   const toggleCameraFacing = () => {
     setCameraFacing(prev => prev === 'front' ? 'back' : 'front');
   };
 
-  /**
-   * Toggle camera on/off
-   */
-  const toggleCamera = () => {
-    setIsCameraOn(prev => !prev);
+  const handleToggleCamera = () => {
+    const newValue = !isCameraOn;
+    setIsCameraOn(newValue);
+    toggleVideo(newValue);
+  };
+
+  const handleToggleMute = () => {
+    const newValue = !isMuted;
+    setIsMuted(newValue);
+    toggleAudio(!newValue);
   };
 
   /**
-   * Toggle mute
-   */
-  const toggleMute = () => {
-    setIsMuted(prev => !prev);
-  };
-
-  /**
-   * Start recording - always attempts to record regardless of permissions
-   * Falls back through: video -> audio -> silent audio
+   * Start recording using MediaRecorder API (web) or fallback
    */
   const startRecording = async () => {
     if (isRecording) return;
 
-    console.log('[ActiveVideoCall] Starting recording (will try all methods)...');
+    console.log('[ActiveVideoCall] Starting recording...');
     setRecordingStatus('recording');
     setIsRecording(true);
 
-    // Try 1: Video recording with camera
-    const cameraReady = cameraRef.current && (cameraPermission?.granted || (Platform.OS === 'web' && webCameraGranted)) && isCameraOn;
-    if (cameraReady) {
+    if (Platform.OS === 'web' && localStream) {
       try {
-        console.log('[ActiveVideoCall] Attempting video recording with camera...');
-        const recording = await cameraRef.current.recordAsync({
-          maxDuration: 3600, // 1 hour max
-          quality: '720p',
-          mute: isMuted,
+        // Combine local and remote streams for recording
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Add local audio
+        if (localStream.getAudioTracks().length > 0) {
+          const localAudioSource = audioContext.createMediaStreamSource(localStream);
+          localAudioSource.connect(destination);
+        }
+
+        // Add remote audio if available
+        if (firstRemoteStream?.getAudioTracks().length > 0) {
+          const remoteAudioSource = audioContext.createMediaStreamSource(firstRemoteStream);
+          remoteAudioSource.connect(destination);
+        }
+
+        // Create combined stream with local video + mixed audio
+        const combinedTracks = [
+          ...localStream.getVideoTracks(),
+          ...destination.stream.getAudioTracks(),
+        ];
+        const combinedStream = new MediaStream(combinedTracks);
+
+        const mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: 'video/webm;codecs=vp9',
         });
-        recordingRef.current = recording;
-        console.log('[ActiveVideoCall] Video recording started successfully');
-        return;
-      } catch (videoError) {
-        console.log('[ActiveVideoCall] Video recording failed:', videoError.message);
-      }
-    }
 
-    // Try 2: Audio-only recording (requires mic permission)
-    try {
-      console.log('[ActiveVideoCall] Attempting audio-only recording...');
-      const audioRecording = new Audio.Recording();
-      await audioRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await audioRecording.startAsync();
-      audioRecordingRef.current = audioRecording;
-      console.log('[ActiveVideoCall] Audio recording started successfully');
-      return;
-    } catch (audioError) {
-      console.log('[ActiveVideoCall] Audio recording failed:', audioError.message);
-    }
-
-    // Try 3: Silent/low-quality audio as last resort
-    try {
-      console.log('[ActiveVideoCall] Attempting fallback silent recording...');
-      const silentRecording = new Audio.Recording();
-      await silentRecording.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 8000,
-          numberOfChannels: 1,
-          bitRate: 16000,
-        },
-        ios: {
-          extension: '.m4a',
-          audioQuality: Audio.IOSAudioQuality.MIN,
-          sampleRate: 8000,
-          numberOfChannels: 1,
-          bitRate: 16000,
-          linearPCMBitDepth: 8,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 16000,
-        },
-      });
-      await silentRecording.startAsync();
-      audioRecordingRef.current = silentRecording;
-      console.log('[ActiveVideoCall] Fallback recording started');
-      return;
-    } catch (fallbackError) {
-      console.log('[ActiveVideoCall] Fallback recording also failed:', fallbackError.message);
-    }
-
-    // All recording methods failed - log but continue call
-    console.error('[ActiveVideoCall] All recording methods failed - call will proceed without recording');
-    setRecordingStatus('error');
-    // Don't set isRecording to false - we want to show we tried
-  };
-
-  /**
-   * Stop recording and upload to server
-   */
-  const stopRecordingAndUpload = async () => {
-    if (!isRecording) {
-      console.log('[ActiveVideoCall] No active recording to stop');
-      return;
-    }
-
-    try {
-      console.log('[ActiveVideoCall] Stopping recording...');
-      setRecordingStatus('uploading');
-
-      let recordingUri = null;
-      let mimeType = 'video/mp4';
-      let fileName = `video-call-${callId}.mp4`;
-
-      // Check if we have a video recording
-      if (cameraRef.current && recordingRef.current) {
-        cameraRef.current.stopRecording();
-        const recording = await recordingRef.current;
-        recordingUri = recording?.uri;
-        if (Platform.OS === 'web') {
-          mimeType = 'video/webm';
-          fileName = `video-call-${callId}.webm`;
-        }
-      }
-      // Otherwise check for audio-only recording
-      else if (audioRecordingRef.current) {
-        await audioRecordingRef.current.stopAndUnloadAsync();
-        const uri = audioRecordingRef.current.getURI();
-        recordingUri = uri;
-        mimeType = 'audio/m4a';
-        fileName = `video-call-${callId}.m4a`;
-      }
-
-      if (recordingUri) {
-        console.log('[ActiveVideoCall] Recording saved to:', recordingUri);
-
-        // Create form data for upload
-        const formData = new FormData();
-
-        if (Platform.OS === 'web') {
-          const response = await fetch(recordingUri);
-          const blob = await response.blob();
-          formData.append('recording', blob, fileName);
-        } else {
-          formData.append('recording', {
-            uri: recordingUri,
-            type: mimeType,
-            name: fileName,
-          });
-        }
-
-        // Upload to backend
-        await api.post(
-          `/groups/${groupId}/video-calls/${callId}/recording`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
           }
-        );
+        };
 
-        console.log('[ActiveVideoCall] Recording uploaded successfully');
+        mediaRecorder.start(1000); // Collect data every second
+        mediaRecorderRef.current = mediaRecorder;
+        console.log('[ActiveVideoCall] MediaRecorder started');
+      } catch (err) {
+        console.error('[ActiveVideoCall] MediaRecorder error:', err);
+        setRecordingStatus('error');
       }
-
-      recordingRef.current = null;
-      audioRecordingRef.current = null;
-      setIsRecording(false);
-      setRecordingStatus('idle');
-    } catch (error) {
-      console.error('[ActiveVideoCall] Failed to stop/upload recording:', error);
-      setRecordingStatus('error');
     }
   };
 
-  // Start recording when call becomes active - regardless of camera permission
-  useEffect(() => {
-    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
-      console.log('[ActiveVideoCall] Call is active, starting recording...');
-      // Small delay to ensure audio mode is set up
-      const timer = setTimeout(() => {
-        startRecording();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [call?.status]);
-
   /**
-   * Handle leaving the call
+   * Stop recording and upload
    */
+  const stopRecording = async () => {
+    if (!isRecording) return;
+
+    console.log('[ActiveVideoCall] Stopping recording...');
+
+    if (Platform.OS === 'web' && mediaRecorderRef.current) {
+      return new Promise((resolve) => {
+        mediaRecorderRef.current.onstop = async () => {
+          try {
+            setRecordingStatus('uploading');
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            recordedChunksRef.current = [];
+
+            const formData = new FormData();
+            formData.append('recording', blob, `video-call-${callId}.webm`);
+
+            await api.post(
+              `/groups/${groupId}/video-calls/${callId}/recording`,
+              formData,
+              { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+            console.log('[ActiveVideoCall] Recording uploaded');
+          } catch (err) {
+            console.error('[ActiveVideoCall] Upload error:', err);
+          } finally {
+            setIsRecording(false);
+            setRecordingStatus('idle');
+            resolve();
+          }
+        };
+        mediaRecorderRef.current.stop();
+      });
+    }
+
+    setIsRecording(false);
+    setRecordingStatus('idle');
+  };
+
   const handleLeaveCall = () => {
     if (leavingCall) return;
 
-    const message = isInitiator
-      ? 'As the initiator, leaving will end the call for everyone.'
-      : 'Are you sure you want to leave this call?';
-
     CustomAlert.alert(
       'Leave Video Call',
-      message,
+      isInitiator
+        ? 'As the initiator, leaving will end the call for everyone.'
+        : 'Are you sure you want to leave this call?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -512,7 +386,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           onPress: async () => {
             setLeavingCall(true);
             try {
-              await stopRecordingAndUpload();
+              await stopRecording();
+              stopConnection();
               const response = await api.put(`/groups/${groupId}/video-calls/${callId}/leave`);
               stopPolling();
 
@@ -536,9 +411,6 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     );
   };
 
-  /**
-   * Handle ending the call for everyone
-   */
   const handleEndCall = () => {
     if (endingCall) return;
 
@@ -553,7 +425,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           onPress: async () => {
             setEndingCall(true);
             try {
-              await stopRecordingAndUpload();
+              await stopRecording();
+              stopConnection();
               await api.put(`/groups/${groupId}/video-calls/${callId}/end`);
               stopPolling();
               navigation.replace('VideoCallDetails', {
@@ -585,11 +458,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Call not found</Text>
-        <Button
-          mode="contained"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+        <Button mode="contained" onPress={() => navigation.goBack()} style={styles.backButton}>
           Go Back
         </Button>
       </View>
@@ -598,215 +467,158 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
+  const hasCameraPermission = cameraPermission?.granted || webCameraGranted;
 
-  // Check if we have camera permission (expo hook or web state)
-  const hasCameraPermission = cameraPermission?.granted || (Platform.OS === 'web' && webCameraGranted);
+  // Get remote participant info
+  const remoteParticipant = call.participants?.find(p =>
+    p.groupMemberId !== call.initiatedBy && ['accepted', 'joined'].includes(p.status)
+  ) || (isInitiator ? call.participants?.[0] : call.initiator);
 
   return (
     <View style={styles.container}>
-      {/* Camera View */}
-      {hasCameraPermission && isCameraOn ? (
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing={cameraFacing}
-          mode="video"
-          mute={isMuted}
-        >
-          {/* Overlay content on camera */}
-          <View style={styles.overlay}>
-            {/* Top Status Bar */}
-            <View style={styles.topBar}>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {isRinging ? '👋 Ringing...' : '👋 Video Call'}
+      {/* Remote Video (Full Screen) */}
+      <View style={styles.remoteVideoContainer}>
+        {Platform.OS === 'web' && firstRemoteStream ? (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            style={styles.remoteVideo}
+          />
+        ) : (
+          // Placeholder when no remote stream
+          <View style={styles.remoteVideoPlaceholder}>
+            {remoteParticipant && (
+              <>
+                <Avatar.Text
+                  size={100}
+                  label={remoteParticipant.iconLetters || '?'}
+                  style={{ backgroundColor: remoteParticipant.iconColor || '#6200ee' }}
+                  color={getContrastTextColor(remoteParticipant.iconColor || '#6200ee')}
+                />
+                <Text style={styles.remoteName}>
+                  {remoteParticipant.displayName || 'Participant'}
                 </Text>
-              </View>
-              {isActive && (
-                <Text style={styles.durationText}>
-                  {formatDuration(callDuration)}
+                <Text style={styles.connectionStatus}>
+                  {isRinging ? 'Calling...' :
+                   isConnecting ? 'Connecting...' :
+                   !isWebRTCSupported ? 'WebRTC not supported on mobile yet' :
+                   'Waiting for video...'}
                 </Text>
-              )}
-              {isRecording && (
-                <View style={styles.recordingIndicator}>
-                  <View style={styles.recordingDot} />
-                  <Text style={styles.recordingLabel}>REC</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Participants Row */}
-            <View style={styles.participantsRow}>
-              <Text style={styles.participantsLabel}>
-                {isRinging ? (isInitiator ? 'Calling:' : 'Incoming from:') : 'In call:'}
-              </Text>
-              <View style={styles.participantAvatars}>
-                {call.initiator && (
-                  <View style={styles.participantBadge}>
-                    <Avatar.Text
-                      size={32}
-                      label={call.initiator.iconLetters || '?'}
-                      style={{ backgroundColor: call.initiator.iconColor || '#6200ee' }}
-                      color={getContrastTextColor(call.initiator.iconColor || '#6200ee')}
-                    />
-                    <Text style={styles.participantLabel}>
-                      {isInitiator ? 'You' : call.initiator.displayName?.split(' ')[0]}
-                    </Text>
-                  </View>
-                )}
-                {call.participants?.filter(p => p.groupMemberId !== call.initiatedBy).slice(0, 3).map(participant => (
-                  <View key={participant.groupMemberId} style={styles.participantBadge}>
-                    <Avatar.Text
-                      size={32}
-                      label={participant.iconLetters || '?'}
-                      style={{
-                        backgroundColor: participant.iconColor || '#6200ee',
-                        opacity: ['left', 'rejected'].includes(participant.status) ? 0.5 : 1,
-                      }}
-                      color={getContrastTextColor(participant.iconColor || '#6200ee')}
-                    />
-                    <Text style={[
-                      styles.participantLabel,
-                      ['left', 'rejected'].includes(participant.status) && styles.participantLabelGray
-                    ]}>
-                      {participant.displayName?.split(' ')[0]}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Bottom Controls */}
-            <View style={styles.bottomControls}>
-              {/* Control Buttons Row */}
-              <View style={styles.controlsRow}>
-                <IconButton
-                  icon={isMuted ? 'microphone-off' : 'microphone'}
-                  iconColor={isMuted ? '#f44336' : '#fff'}
-                  size={28}
-                  style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-                  onPress={toggleMute}
-                />
-                <IconButton
-                  icon={isCameraOn ? 'video' : 'video-off'}
-                  iconColor={!isCameraOn ? '#f44336' : '#fff'}
-                  size={28}
-                  style={[styles.controlButton, !isCameraOn && styles.controlButtonActive]}
-                  onPress={toggleCamera}
-                />
-                <IconButton
-                  icon="camera-flip"
-                  iconColor="#fff"
-                  size={28}
-                  style={styles.controlButton}
-                  onPress={toggleCameraFacing}
-                />
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                <Button
-                  mode="contained"
-                  onPress={handleLeaveCall}
-                  loading={leavingCall}
-                  disabled={leavingCall || endingCall}
-                  style={styles.leaveButton}
-                  buttonColor="#ff9800"
-                  textColor="#fff"
-                  icon="exit-run"
-                >
-                  {leavingCall ? 'Leaving...' : 'Leave'}
-                </Button>
-                {isInitiator && (
-                  <Button
-                    mode="contained"
-                    onPress={handleEndCall}
-                    loading={endingCall}
-                    disabled={endingCall || leavingCall}
-                    style={styles.endButton}
-                    buttonColor="#d32f2f"
-                    textColor="#fff"
-                    icon="phone-hangup"
-                  >
-                    {endingCall ? 'Ending...' : 'End All'}
-                  </Button>
-                )}
-              </View>
-            </View>
+              </>
+            )}
           </View>
-        </CameraView>
-      ) : (
-        // Camera off or no permission - show placeholder
-        <View style={styles.noCameraContainer}>
-          <View style={styles.noCameraContent}>
-            <Text style={styles.noCameraEmoji}>👋</Text>
-            <Text style={styles.noCameraText}>
-              {noCameraAvailable
-                ? 'No camera available on this device'
-                : !hasCameraPermission
-                  ? 'Camera permission required'
-                  : 'Camera is off'}
+        )}
+
+        {/* Top Status Bar */}
+        <View style={styles.topBar}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>
+              {isRinging ? '👋 Ringing...' : '👋 Video Call'}
             </Text>
-            {noCameraAvailable && (
-              <Text style={styles.noCameraSubtext}>
-                You can still participate with audio only
-              </Text>
-            )}
-            {!hasCameraPermission && !noCameraAvailable && (
-              <Button mode="contained" onPress={requestPermissions} style={styles.permissionButton}>
-                Grant Permission
-              </Button>
-            )}
           </View>
-
-          {/* Show controls even without camera */}
-          <View style={styles.bottomControlsNoCam}>
-            <View style={styles.controlsRow}>
-              <IconButton
-                icon={isMuted ? 'microphone-off' : 'microphone'}
-                iconColor={isMuted ? '#f44336' : '#fff'}
-                size={28}
-                style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-                onPress={toggleMute}
-              />
-              <IconButton
-                icon={isCameraOn ? 'video' : 'video-off'}
-                iconColor={!isCameraOn ? '#f44336' : '#fff'}
-                size={28}
-                style={[styles.controlButton, !isCameraOn && styles.controlButtonActive]}
-                onPress={toggleCamera}
-              />
+          {isActive && (
+            <Text style={styles.durationText}>
+              {formatDuration(callDuration)}
+            </Text>
+          )}
+          {isRecording && (
+            <View style={styles.recordingIndicator}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingLabel}>REC</Text>
             </View>
+          )}
+        </View>
+      </View>
 
-            <View style={styles.actionButtons}>
-              <Button
-                mode="contained"
-                onPress={handleLeaveCall}
-                loading={leavingCall}
-                disabled={leavingCall || endingCall}
-                style={styles.leaveButton}
-                buttonColor="#ff9800"
-                textColor="#fff"
-                icon="exit-run"
-              >
-                Leave
-              </Button>
-              {isInitiator && (
-                <Button
-                  mode="contained"
-                  onPress={handleEndCall}
-                  loading={endingCall}
-                  disabled={endingCall || leavingCall}
-                  style={styles.endButton}
-                  buttonColor="#d32f2f"
-                  textColor="#fff"
-                  icon="phone-hangup"
-                >
-                  End All
-                </Button>
-              )}
-            </View>
+      {/* Local Video (PiP) */}
+      <View style={styles.pipContainer}>
+        {Platform.OS === 'web' && localStream && isCameraOn ? (
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            style={styles.pipVideo}
+          />
+        ) : hasCameraPermission && isCameraOn && Platform.OS !== 'web' ? (
+          <CameraView
+            style={styles.pipVideo}
+            facing={cameraFacing}
+            mute={true}
+          />
+        ) : (
+          <View style={styles.pipPlaceholder}>
+            <Text style={styles.pipPlaceholderText}>
+              {!isCameraOn ? '📷 Off' : noCameraAvailable ? 'No cam' : 'You'}
+            </Text>
           </View>
+        )}
+        <Text style={styles.pipLabel}>You</Text>
+      </View>
+
+      {/* Bottom Controls */}
+      <View style={styles.bottomControls}>
+        <View style={styles.controlsRow}>
+          <IconButton
+            icon={isMuted ? 'microphone-off' : 'microphone'}
+            iconColor={isMuted ? '#f44336' : '#fff'}
+            size={28}
+            style={[styles.controlButton, isMuted && styles.controlButtonActive]}
+            onPress={handleToggleMute}
+          />
+          <IconButton
+            icon={isCameraOn ? 'video' : 'video-off'}
+            iconColor={!isCameraOn ? '#f44336' : '#fff'}
+            size={28}
+            style={[styles.controlButton, !isCameraOn && styles.controlButtonActive]}
+            onPress={handleToggleCamera}
+          />
+          {Platform.OS !== 'web' && (
+            <IconButton
+              icon="camera-flip"
+              iconColor="#fff"
+              size={28}
+              style={styles.controlButton}
+              onPress={toggleCameraFacing}
+            />
+          )}
+        </View>
+
+        <View style={styles.actionButtons}>
+          <Button
+            mode="contained"
+            onPress={handleLeaveCall}
+            loading={leavingCall}
+            disabled={leavingCall || endingCall}
+            style={styles.leaveButton}
+            buttonColor="#ff9800"
+            textColor="#fff"
+            icon="exit-run"
+          >
+            {leavingCall ? 'Leaving...' : 'Leave'}
+          </Button>
+          {isInitiator && (
+            <Button
+              mode="contained"
+              onPress={handleEndCall}
+              loading={endingCall}
+              disabled={endingCall || leavingCall}
+              style={styles.endButton}
+              buttonColor="#d32f2f"
+              textColor="#fff"
+              icon="phone-hangup"
+            >
+              {endingCall ? 'Ending...' : 'End All'}
+            </Button>
+          )}
+        </View>
+      </View>
+
+      {/* WebRTC Error */}
+      {webrtcError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{webrtcError}</Text>
         </View>
       )}
     </View>
@@ -818,17 +630,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1a1a2e',
   },
-  camera: {
+  remoteVideoContainer: {
     flex: 1,
+    backgroundColor: '#0d0d1a',
   },
-  overlay: {
+  remoteVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  remoteVideoPlaceholder: {
     flex: 1,
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 50,
-    paddingBottom: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#16213e',
+  },
+  remoteName: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 16,
+  },
+  connectionStatus: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 8,
   },
   topBar: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -873,37 +705,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  participantsRow: {
+  pipContainer: {
+    position: 'absolute',
+    top: 110,
+    right: PIP_MARGIN,
+    width: PIP_WIDTH,
+    height: PIP_HEIGHT,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#333',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  pipVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  pipPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#16213e',
   },
-  participantsLabel: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  participantAvatars: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  participantBadge: {
-    alignItems: 'center',
-  },
-  participantLabel: {
+  pipPlaceholderText: {
     color: '#fff',
     fontSize: 12,
-    marginTop: 4,
   },
-  participantLabelGray: {
-    color: 'rgba(255, 255, 255, 0.5)',
+  pipLabel: {
+    position: 'absolute',
+    bottom: 4,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 2,
   },
   bottomControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 40,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     alignItems: 'center',
     gap: 16,
   },
   controlsRow: {
     flexDirection: 'row',
     gap: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 8,
     borderRadius: 30,
   },
@@ -924,40 +779,6 @@ const styles = StyleSheet.create({
   endButton: {
     borderRadius: 24,
   },
-  noCameraContainer: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingVertical: 60,
-  },
-  noCameraContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noCameraEmoji: {
-    fontSize: 80,
-    marginBottom: 16,
-  },
-  noCameraText: {
-    color: '#fff',
-    fontSize: 18,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  noCameraSubtext: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  permissionButton: {
-    marginTop: 16,
-  },
-  bottomControlsNoCam: {
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 40,
-  },
   loadingText: {
     color: '#fff',
     fontSize: 18,
@@ -972,5 +793,19 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 20,
     marginHorizontal: 40,
+  },
+  errorBanner: {
+    position: 'absolute',
+    bottom: 160,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+    padding: 12,
+    borderRadius: 8,
+  },
+  errorBannerText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
