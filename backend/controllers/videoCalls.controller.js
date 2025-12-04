@@ -1147,6 +1147,25 @@ async function uploadRecording(req, res) {
       const fileBuffer = await fs.readFile(filePath);
       await fs.writeFile(finalPath, fileBuffer);
 
+      // Create metadata JSON file for storage service compatibility
+      const metadataPath = path.join(uploadsDir, `${fileId}.json`);
+      const metadata = {
+        fileId: fileId,
+        fileName: finalFileName,
+        originalName: fileName,
+        mimeType: 'video/mp4',
+        size: fileSize,
+        category: 'recordings',
+        userId: userId,
+        groupId: groupId,
+        storagePath: finalPath,
+        uploadedAt: new Date().toISOString(),
+        isHidden: false,
+        callId: callId,
+        durationMs: durationMs,
+      };
+      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+
       // Generate URL
       const recordingUrl = `/files/${fileId}`;
 

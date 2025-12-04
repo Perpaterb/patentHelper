@@ -26,6 +26,10 @@ async function convertToMp4(inputPath, outputDir) {
   const outputFileName = `${uuidv4()}.mp4`;
   const outputPath = path.join(outputDir, outputFileName);
 
+  // Log input file size
+  const inputStats = await fs.stat(inputPath);
+  console.log(`[VideoConverter] Input file size: ${(inputStats.size / 1024 / 1024).toFixed(2)} MB`);
+
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .toFormat('mp4')
@@ -36,16 +40,32 @@ async function convertToMp4(inputPath, outputDir) {
         '-crf 23', // Good quality balance
         '-movflags +faststart', // Enable streaming
       ])
-      .on('error', (err) => {
-        console.error('Video conversion error:', err);
+      .on('start', (commandLine) => {
+        console.log('[VideoConverter] FFmpeg command:', commandLine);
+      })
+      .on('progress', (progress) => {
+        if (progress.percent) {
+          console.log(`[VideoConverter] Progress: ${progress.percent.toFixed(1)}%`);
+        }
+      })
+      .on('error', (err, stdout, stderr) => {
+        console.error('[VideoConverter] FFmpeg error:', err);
+        console.error('[VideoConverter] FFmpeg stderr:', stderr);
         reject(new Error(`Video conversion failed: ${err.message}`));
       })
-      .on('end', () => {
-        resolve({
-          path: outputPath,
-          fileName: outputFileName,
-          mimeType: 'video/mp4',
-        });
+      .on('end', async () => {
+        try {
+          const outputStats = await fs.stat(outputPath);
+          console.log(`[VideoConverter] Output file size: ${(outputStats.size / 1024 / 1024).toFixed(2)} MB`);
+          console.log(`[VideoConverter] Conversion complete: ${outputPath}`);
+          resolve({
+            path: outputPath,
+            fileName: outputFileName,
+            mimeType: 'video/mp4',
+          });
+        } catch (err) {
+          reject(new Error(`Failed to read converted file: ${err.message}`));
+        }
       })
       .save(outputPath);
   });
