@@ -121,19 +121,7 @@ export default function VideoCallsScreen({ navigation, route }) {
   const formatCallTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    if (diffDays === 0) {
-      return `Today, ${timeStr}`;
-    } else if (diffDays === 1) {
-      return `Yesterday, ${timeStr}`;
-    } else if (diffDays < 7) {
-      const dayStr = date.toLocaleDateString([], { weekday: 'short' });
-      return `${dayStr}, ${timeStr}`;
-    }
     const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     return `${dateStr}, ${timeStr}`;
   };
