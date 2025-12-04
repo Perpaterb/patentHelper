@@ -539,6 +539,24 @@ const handleSubscribe = () => {
 - **Pattern**: `Platform.OS === 'web' ? <video src={url} controls /> : <Video source={{uri: url}} />`
 - **Files**: `VideoCallDetailsScreen.jsx`
 
+#### 29. **iOS Simulator Logs Are Noisy - Ignore Audio/Video Errors**
+- ❌ **WRONG**: Panicking over CoreAudio, AudioToolbox, VideoToolbox errors in logs
+- ✅ **CORRECT**: Ignore them - iOS Simulator lacks real audio/video hardware
+- **Common harmless errors**:
+  - `[AudioToolbox] LoudnessManager.mm: IsHardwareSupported: no plist loaded`
+  - `[CoreAudio] HALC_ProxySystem/HALC_ShellObject` errors
+  - `[VideoToolbox] (Fig) signalled err=-12900`
+  - `[MediaToolbox] <<<< VRP >>>> signalled err=-12852`
+- **Reality**: Audio/video work fine on real devices. Test on physical iPhone for accurate behavior.
+- **See**: `backend/CALL_RECORDING_SYSTEM.md` section "iOS Simulator Noise"
+
+#### 30. **Expo AV Deprecated - Plan Migration to expo-video**
+- **Warning**: `expo-av` will be removed in SDK 54
+- **Current state**: Using expo-av Video component for video playback on native
+- **Migration plan**: Replace with `expo-video` package before SDK 54 upgrade
+- **Note**: Web already uses native HTML `<video>` so only native needs migration
+- **Docs**: https://docs.expo.dev/versions/latest/sdk/video/
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

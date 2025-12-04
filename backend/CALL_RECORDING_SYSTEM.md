@@ -530,12 +530,38 @@ ffmpeg(inputPath)
 [Recorder] Upload response: { success: true, ... }
 ```
 
-#### 5. iOS LoudnessManager Warnings
+#### 5. iOS Simulator Noise (Safe to Ignore)
+
+When running on the iOS Simulator, you'll see many audio/video warnings. **All are harmless** - the simulator lacks real hardware:
+
+| Warning Pattern | Explanation |
+|-----------------|-------------|
+| `[AudioToolbox] LoudnessManager.mm: IsHardwareSupported: no plist loaded` | No real audio hardware |
+| `[CoreAudio] HALC_ProxySystem/HALC_ShellObject` errors | Audio proxy limitations |
+| `[AudioToolbox] iOSSimulatorAudioDevice: Abandoning I/O cycle` | Audio reconfiguration noise |
+| `[CoreFoundation] AddInstanceForFactory: No factory registered` | Audio factory registration |
+| `[CoreAudio] HALPlugIn::StopIOProc: got an error` | Audio plugin issues |
+| `[VideoToolbox] (Fig) signalled err=-12900` | Video decoder init |
+| `[MediaToolbox] <<<< VRP >>>> signalled err=-12852` | Video renderer proxy |
+| `[TranslationUI] Visual isTranslatable: NO` | Translation not supported |
+| `[VisionKitCore] Request to remove background on unsupported device` | Not supported on simulator |
+| `[CoreGraphics] verify_image_parameters: invalid bits/pixel` | Graphics quirk |
+
+**These DO NOT appear on real iOS devices.** Audio/video work correctly despite these messages.
+
+#### 6. WebRTC ICE Candidate Warning
 ```
-[AudioToolbox] LoudnessManager.mm:1215 IsHardwareSupported: no plist loaded
+WARN [WebRTC] No peer connection for <uuid> to add ICE candidate
 ```
 
-**This is harmless.** It's iOS being verbose about hardware audio features not configured in the app's plist. Audio still works correctly.
+**Expected behavior.** ICE candidates sometimes arrive before the peer connection is created locally. The code handles this gracefully.
+
+#### 7. Expo AV Deprecation Warning
+```
+WARN [expo-av]: Expo AV has been deprecated and will be removed in SDK 54.
+```
+
+**Action required before SDK 54:** Migrate from `expo-av` to `expo-video` for video playback. We already use native HTML video on web.
 
 ---
 
