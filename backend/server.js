@@ -53,6 +53,10 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files (for recorder.html used by Puppeteer)
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Request logging (development only)
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => {

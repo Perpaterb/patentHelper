@@ -51,11 +51,9 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
 
-  // Recording state (web only - mobile doesn't support MediaRecorder)
+  // Server-side recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState('idle');
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -236,98 +234,50 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   };
 
   /**
-   * Start recording using MediaRecorder API (web only)
-   * Mobile recording not supported - would need a media server for server-side recording
+   * Start server-side recording
+   * Initiator triggers the ghost recorder on the server
    */
   const startRecording = async () => {
     if (isRecording) return;
-    if (Platform.OS !== 'web') {
-      console.log('[ActivePhoneCall] Recording not supported on mobile');
+    if (!isInitiator) {
+      console.log('[ActivePhoneCall] Only initiator can start recording');
       return;
     }
 
-    console.log('[ActivePhoneCall] Starting recording...');
+    console.log('[ActivePhoneCall] Starting server-side recording...');
     setRecordingStatus('recording');
-    setIsRecording(true);
 
-    if (localStream) {
-      try {
-        // Combine local and remote audio for recording
-        const audioContext = new AudioContext();
-        const destination = audioContext.createMediaStreamDestination();
-
-        // Add local audio
-        if (localStream.getAudioTracks().length > 0) {
-          const localAudioSource = audioContext.createMediaStreamSource(localStream);
-          localAudioSource.connect(destination);
-        }
-
-        // Add remote audio if available
-        if (firstRemoteStream?.getAudioTracks().length > 0) {
-          const remoteAudioSource = audioContext.createMediaStreamSource(firstRemoteStream);
-          remoteAudioSource.connect(destination);
-        }
-
-        const mediaRecorder = new MediaRecorder(destination.stream, {
-          mimeType: 'audio/webm;codecs=opus',
-        });
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            recordedChunksRef.current.push(event.data);
-          }
-        };
-
-        mediaRecorder.start(1000);
-        mediaRecorderRef.current = mediaRecorder;
-        console.log('[ActivePhoneCall] MediaRecorder started');
-      } catch (err) {
-        console.error('[ActivePhoneCall] MediaRecorder error:', err);
-        setRecordingStatus('error');
+    try {
+      const response = await api.post(`/groups/${groupId}/phone-calls/${callId}/start-recording`);
+      if (response.data.isRecording) {
+        setIsRecording(true);
+        console.log('[ActivePhoneCall] Server-side recording started');
       }
+    } catch (err) {
+      console.error('[ActivePhoneCall] Start recording error:', err);
+      setRecordingStatus('error');
     }
   };
 
   /**
-   * Stop recording and upload (web only)
+   * Stop server-side recording
    */
   const stopRecording = async () => {
     if (!isRecording) return;
-    if (Platform.OS !== 'web') return;
+    if (!isInitiator) return;
 
-    console.log('[ActivePhoneCall] Stopping recording...');
+    console.log('[ActivePhoneCall] Stopping server-side recording...');
+    setRecordingStatus('stopping');
 
-    if (mediaRecorderRef.current) {
-      return new Promise((resolve) => {
-        mediaRecorderRef.current.onstop = async () => {
-          try {
-            setRecordingStatus('uploading');
-            const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
-            recordedChunksRef.current = [];
-
-            const formData = new FormData();
-            formData.append('recording', blob, `phone-call-${callId}.webm`);
-
-            await api.post(
-              `/groups/${groupId}/phone-calls/${callId}/recording`,
-              formData,
-              { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-            console.log('[ActivePhoneCall] Recording uploaded');
-          } catch (err) {
-            console.error('[ActivePhoneCall] Upload error:', err);
-          } finally {
-            setIsRecording(false);
-            setRecordingStatus('idle');
-            resolve();
-          }
-        };
-        mediaRecorderRef.current.stop();
-      });
+    try {
+      await api.post(`/groups/${groupId}/phone-calls/${callId}/stop-recording`);
+      console.log('[ActivePhoneCall] Server-side recording stopped');
+    } catch (err) {
+      console.error('[ActivePhoneCall] Stop recording error:', err);
+    } finally {
+      setIsRecording(false);
+      setRecordingStatus('idle');
     }
-
-    setIsRecording(false);
-    setRecordingStatus('idle');
   };
 
   const handleLeaveCall = () => {

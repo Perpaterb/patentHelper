@@ -13,6 +13,7 @@
 const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const audioConverter = require('../services/audioConverter');
+const recorderService = require('../services/recorder.service');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
@@ -1617,6 +1618,104 @@ async function getIceServers(req, res) {
   }
 }
 
+/**
+ * Start server-side recording for a call
+ * POST /groups/:groupId/phone-calls/:callId/start-recording
+ */
+async function startServerRecording(req, res) {
+  try {
+    const { groupId, callId } = req.params;
+    const userId = req.user?.userId;
+
+    // Verify user is in the call
+    const call = await prisma.phoneCall.findFirst({
+      where: { callId, groupId },
+      include: { participants: true },
+    });
+
+    if (!call) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    if (call.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Call is not active' });
+    }
+
+    // Check if already recording
+    if (recorderService.isRecording(callId, 'phone')) {
+      return res.json({ success: true, message: 'Recording already in progress', isRecording: true });
+    }
+
+    // Get auth token from request
+    const authToken = req.headers.authorization?.replace('Bearer ', '');
+    const apiUrl = `${req.protocol}://${req.get('host')}`;
+
+    // Start the ghost recorder
+    await recorderService.startRecording({
+      groupId,
+      callId,
+      callType: 'phone',
+      authToken,
+      apiUrl,
+    });
+
+    // Update call record
+    await prisma.phoneCall.update({
+      where: { callId },
+      data: { recordingStatus: 'recording' },
+    });
+
+    return res.json({ success: true, message: 'Server-side recording started', isRecording: true });
+  } catch (error) {
+    console.error('Start server recording error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to start recording', error: error.message });
+  }
+}
+
+/**
+ * Stop server-side recording for a call
+ * POST /groups/:groupId/phone-calls/:callId/stop-recording
+ */
+async function stopServerRecording(req, res) {
+  try {
+    const { groupId, callId } = req.params;
+
+    const result = await recorderService.stopRecording(callId, 'phone');
+
+    // Update call record
+    await prisma.phoneCall.update({
+      where: { callId },
+      data: { recordingStatus: 'completed' },
+    });
+
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Stop server recording error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to stop recording', error: error.message });
+  }
+}
+
+/**
+ * Get recording status for a call
+ * GET /groups/:groupId/phone-calls/:callId/recording-status
+ */
+async function getRecordingStatus(req, res) {
+  try {
+    const { callId } = req.params;
+
+    const status = recorderService.getRecordingStatus(callId, 'phone');
+
+    return res.json({
+      success: true,
+      isRecording: !!status,
+      ...status,
+    });
+  } catch (error) {
+    console.error('Get recording status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get recording status', error: error.message });
+  }
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
@@ -1629,4 +1728,7 @@ module.exports = {
   sendSignal,
   getSignals,
   getIceServers,
+  startServerRecording,
+  stopServerRecording,
+  getRecordingStatus,
 };

@@ -103,6 +103,13 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     // Handle incoming tracks
     pc.ontrack = (event) => {
       console.log(`[WebRTC] Received track from ${peerId}`, event.track.kind);
+
+      // Filter out the ghost recorder - it shouldn't appear as a participant
+      if (peerId === 'recorder') {
+        console.log('[WebRTC] Ignoring track from ghost recorder');
+        return;
+      }
+
       const stream = event.streams[0];
       setRemoteStreams(prev => ({
         ...prev,
@@ -129,6 +136,10 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC] Connection state for ${peerId}:`, pc.connectionState);
+
+      // Don't track recorder's connection state
+      if (peerId === 'recorder') return;
+
       setConnectionStates(prev => ({
         ...prev,
         [peerId]: pc.connectionState,
@@ -286,6 +297,9 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
       // If we're the initiator and there are new peers, send offers
       if (isInitiator && peers) {
         for (const peer of peers) {
+          // Skip the ghost recorder - it receives streams but doesn't need offers from us
+          if (peer.peerId === 'recorder') continue;
+
           if (!peerConnectionsRef.current[peer.peerId] && peer.status !== 'invited') {
             await createOffer(peer.peerId);
           }

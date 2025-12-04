@@ -464,6 +464,24 @@ router.get('/:groupId/phone-calls/:callId/signal', requireAuth, phoneCallsContro
  */
 router.get('/:groupId/phone-calls/:callId/ice-servers', requireAuth, phoneCallsController.getIceServers);
 
+/**
+ * POST /groups/:groupId/phone-calls/:callId/start-recording
+ * Start server-side recording for a phone call
+ */
+router.post('/:groupId/phone-calls/:callId/start-recording', requireAuth, phoneCallsController.startServerRecording);
+
+/**
+ * POST /groups/:groupId/phone-calls/:callId/stop-recording
+ * Stop server-side recording for a phone call
+ */
+router.post('/:groupId/phone-calls/:callId/stop-recording', requireAuth, phoneCallsController.stopServerRecording);
+
+/**
+ * GET /groups/:groupId/phone-calls/:callId/recording-status
+ * Get recording status for a phone call
+ */
+router.get('/:groupId/phone-calls/:callId/recording-status', requireAuth, phoneCallsController.getRecordingStatus);
+
 // ============================================
 // VIDEO CALLS ROUTES
 // ============================================
@@ -537,5 +555,23 @@ router.get('/:groupId/video-calls/:callId/signal', requireAuth, videoCallsContro
  * Get STUN/TURN server configuration for WebRTC
  */
 router.get('/:groupId/video-calls/:callId/ice-servers', requireAuth, videoCallsController.getIceServers);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/start-recording
+ * Start server-side recording for a video call
+ */
+router.post('/:groupId/video-calls/:callId/start-recording', requireAuth, videoCallsController.startServerRecording);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/stop-recording
+ * Stop server-side recording for a video call
+ */
+router.post('/:groupId/video-calls/:callId/stop-recording', requireAuth, videoCallsController.stopServerRecording);
+
+/**
+ * GET /groups/:groupId/video-calls/:callId/recording-status
+ * Get recording status for a video call
+ */
+router.get('/:groupId/video-calls/:callId/recording-status', requireAuth, videoCallsController.getRecordingStatus);
 
 module.exports = router;
