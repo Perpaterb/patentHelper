@@ -73,6 +73,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const peerConnectionsRef = useRef({}); // { peerId: RTCPeerConnection }
   const iceServersRef = useRef([]);
   const pollingRef = useRef(null);
+  const localStreamRef = useRef(null); // Ref to track localStream for cleanup
   // WebRTC is supported if we have the necessary classes (either native web or react-native-webrtc)
   const isWebRTCSupported = RTCPeerConnectionClass !== null && mediaDevicesAPI !== null;
 
@@ -335,6 +336,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
         audio: true,
       };
       const stream = await mediaDevicesAPI.getUserMedia(constraints);
+      localStreamRef.current = stream;
       setLocalStream(stream);
       console.log('[WebRTC] Local stream initialized');
       return stream;
@@ -347,6 +349,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
             video: false,
             audio: true,
           });
+          localStreamRef.current = audioStream;
           setLocalStream(audioStream);
           console.log('[WebRTC] Audio-only stream initialized (video failed)');
           return audioStream;
@@ -429,16 +432,22 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     }
     peerConnectionsRef.current = {};
 
-    // Stop local stream
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    // Stop local stream - use ref to ensure we always have access to current stream
+    const stream = localStreamRef.current;
+    if (stream) {
+      console.log('[WebRTC] Stopping local stream tracks...');
+      stream.getTracks().forEach(track => {
+        console.log(`[WebRTC] Stopping track: ${track.kind}`);
+        track.stop();
+      });
+      localStreamRef.current = null;
       setLocalStream(null);
     }
 
     // Clear remote streams
     setRemoteStreams({});
     setConnectionStates({});
-  }, [localStream]);
+  }, []);
 
   /**
    * Toggle local video
