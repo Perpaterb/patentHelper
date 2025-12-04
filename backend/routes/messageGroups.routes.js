@@ -100,4 +100,22 @@ router.put('/:messageGroupId/messages/:messageId/hide', requireAuth, messagesCon
  */
 router.put('/:messageGroupId/messages/:messageId/unhide', requireAuth, messagesController.unhideMessage);
 
+/**
+ * GET /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions
+ * Get all reactions for a message
+ */
+router.get('/:messageGroupId/messages/:messageId/reactions', requireAuth, messagesController.getReactions);
+
+/**
+ * POST /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions
+ * Add a reaction to a message
+ */
+router.post('/:messageGroupId/messages/:messageId/reactions', requireAuth, messagesController.addReaction);
+
+/**
+ * DELETE /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions/:emoji
+ * Remove a reaction from a message
+ */
+router.delete('/:messageGroupId/messages/:messageId/reactions/:emoji', requireAuth, messagesController.removeReaction);
+
 module.exports = router;

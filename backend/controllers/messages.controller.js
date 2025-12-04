@@ -268,6 +268,31 @@ async function getMessageGroupMessages(req, res) {
             },
           },
         },
+        reactions: {
+          select: {
+            reactionId: true,
+            emoji: true,
+            createdAt: true,
+            reactor: {
+              select: {
+                groupMemberId: true,
+                displayName: true,
+                iconLetters: true,
+                iconColor: true,
+                user: {
+                  select: {
+                    displayName: true,
+                    memberIcon: true,
+                    iconColor: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
       },
     };
 
@@ -315,6 +340,18 @@ async function getMessageGroupMessages(req, res) {
             ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${receipt.groupMember.user.profilePhotoFileId}`
             : null,
         })),
+        // Format reactions with reactor profile data
+        reactions: message.reactions?.map(reaction => ({
+          reactionId: reaction.reactionId,
+          emoji: reaction.emoji,
+          createdAt: reaction.createdAt,
+          reactor: {
+            groupMemberId: reaction.reactor.groupMemberId,
+            displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
+            iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
+            iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+          },
+        })) || [],
         // Convert BigInt fileSizeBytes to Number for JSON serialization
         // Include isHidden flag and deleted info for media
         media: message.media?.map(m => {
@@ -1016,6 +1053,250 @@ async function unhideMessage(req, res) {
   }
 }
 
+/**
+ * Add a reaction to a message
+ * POST /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions
+ */
+async function addReaction(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!emoji) {
+      return res.status(400).json({ error: 'Emoji is required' });
+    }
+
+    // Verify user is a member of the group
+    const groupMembership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        user: { userId: userId },
+      },
+    });
+
+    if (!groupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Verify user is a member of the message group
+    const messageGroupMembership = await prisma.messageGroupMember.findFirst({
+      where: {
+        messageGroupId: messageGroupId,
+        groupMemberId: groupMembership.groupMemberId,
+      },
+    });
+
+    if (!messageGroupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this message group',
+      });
+    }
+
+    // Verify the message exists
+    const message = await prisma.message.findUnique({
+      where: { messageId: messageId },
+    });
+
+    if (!message || message.messageGroupId !== messageGroupId) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Create or update the reaction (upsert)
+    const reaction = await prisma.messageReaction.upsert({
+      where: {
+        messageId_reactorId_emoji: {
+          messageId: messageId,
+          reactorId: groupMembership.groupMemberId,
+          emoji: emoji,
+        },
+      },
+      update: {}, // No update needed, just skip if exists
+      create: {
+        messageId: messageId,
+        reactorId: groupMembership.groupMemberId,
+        emoji: emoji,
+      },
+      include: {
+        reactor: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Format the response
+    const formattedReaction = {
+      reactionId: reaction.reactionId,
+      emoji: reaction.emoji,
+      createdAt: reaction.createdAt,
+      reactor: {
+        groupMemberId: reaction.reactor.groupMemberId,
+        displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
+        iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
+        iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+      },
+    };
+
+    res.status(201).json({
+      success: true,
+      reaction: formattedReaction,
+    });
+  } catch (error) {
+    console.error('Add reaction error:', error);
+    res.status(500).json({
+      error: 'Failed to add reaction',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Remove a reaction from a message
+ * DELETE /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions/:emoji
+ */
+async function removeReaction(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, messageId, emoji } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Verify user is a member of the group
+    const groupMembership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        user: { userId: userId },
+      },
+    });
+
+    if (!groupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Delete the reaction
+    await prisma.messageReaction.deleteMany({
+      where: {
+        messageId: messageId,
+        reactorId: groupMembership.groupMemberId,
+        emoji: decodeURIComponent(emoji),
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Reaction removed successfully',
+    });
+  } catch (error) {
+    console.error('Remove reaction error:', error);
+    res.status(500).json({
+      error: 'Failed to remove reaction',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get reactions for a message
+ * GET /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/reactions
+ */
+async function getReactions(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, messageGroupId, messageId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Verify user is a member of the group
+    const groupMembership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        user: { userId: userId },
+      },
+    });
+
+    if (!groupMembership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get all reactions for the message
+    const reactions = await prisma.messageReaction.findMany({
+      where: { messageId: messageId },
+      include: {
+        reactor: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+            iconLetters: true,
+            iconColor: true,
+            user: {
+              select: {
+                displayName: true,
+                memberIcon: true,
+                iconColor: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Format the reactions
+    const formattedReactions = reactions.map(reaction => ({
+      reactionId: reaction.reactionId,
+      emoji: reaction.emoji,
+      createdAt: reaction.createdAt,
+      reactor: {
+        groupMemberId: reaction.reactor.groupMemberId,
+        displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
+        iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
+        iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+      },
+    }));
+
+    res.status(200).json({
+      success: true,
+      reactions: formattedReactions,
+    });
+  } catch (error) {
+    console.error('Get reactions error:', error);
+    res.status(500).json({
+      error: 'Failed to get reactions',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getMessages,
   sendMessage,
@@ -1024,4 +1305,7 @@ module.exports = {
   markMessageGroupAsRead,
   hideMessage,
   unhideMessage,
+  addReaction,
+  removeReaction,
+  getReactions,
 };

@@ -122,6 +122,7 @@ model GroupMember {
   hiddenMessages             Message[]                       @relation("MessageHider")
   hiddenMedia                MessageMedia[]                  @relation("MediaHider")
   sentMessages               Message[]                       @relation("MessageSender")
+  messageReactions           MessageReaction[]               @relation("MessageReactor")
   sentFinanceMatterMessages  FinanceMatterMessage[]          @relation("FinanceMatterMessageSender")
   relationshipsAsMember1     Relationship[]                  @relation("Member1")
   relationshipsAsMember2     Relationship[]                  @relation("Member2")
@@ -372,6 +373,7 @@ model Message {
   mentions       String[]             @db.Uuid
   media          MessageMedia[]
   readReceipts   MessageReadReceipt[]
+  reactions      MessageReaction[]
   hider          GroupMember?         @relation("MessageHider", fields: [hiddenBy], references: [groupMemberId])
   messageGroup   MessageGroup         @relation(fields: [messageGroupId], references: [messageGroupId], onDelete: Cascade)
   sender         GroupMember          @relation("MessageSender", fields: [senderId], references: [groupMemberId])
@@ -379,6 +381,21 @@ model Message {
   @@index([messageGroupId, createdAt(sort: Desc)])
   @@index([senderId])
   @@map("messages")
+}
+
+model MessageReaction {
+  reactionId String      @id @default(uuid()) @map("reaction_id") @db.Uuid
+  messageId  String      @map("message_id") @db.Uuid
+  reactorId  String      @map("reactor_id") @db.Uuid
+  emoji      String      @db.VarChar(50) // The emoji character(s)
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  message    Message     @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+  reactor    GroupMember @relation("MessageReactor", fields: [reactorId], references: [groupMemberId])
+
+  @@unique([messageId, reactorId, emoji]) // One reaction per user per emoji per message
+  @@index([messageId])
+  @@index([reactorId])
+  @@map("message_reactions")
 }
 
 model MessageMedia {
