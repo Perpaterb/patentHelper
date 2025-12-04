@@ -75,37 +75,64 @@
     }
 
     async function connectToCall() {
-      try {
-        // Get call participants via API
-        const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
-        const response = await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}`, {
-          headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-        });
+      const maxRetries = 60; // Wait up to 60 seconds for call to become active
+      const retryDelay = 1000; // 1 second between retries
+      let retries = 0;
 
-        if (!response.ok) throw new Error('Failed to fetch call info');
+      while (retries < maxRetries) {
+        try {
+          // Get call participants via API
+          const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+          const response = await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}`, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
 
-        const data = await response.json();
-        const calls = CALL_TYPE === 'video' ? data.videoCalls : data.phoneCalls;
-        const call = calls?.find(c => c.callId === CALL_ID);
+          if (!response.ok) throw new Error('Failed to fetch call info');
 
-        if (!call) throw new Error('Call not found');
-        if (call.status !== 'active') throw new Error('Call is not active');
+          const data = await response.json();
+          const calls = CALL_TYPE === 'video' ? data.videoCalls : data.phoneCalls;
+          const call = calls?.find(c => c.callId === CALL_ID);
 
-        updateStatus('Connected. Starting recording...', 'connected');
+          if (!call) throw new Error('Call not found');
 
-        // Set up audio context for mixing streams
-        await setupAudioMixer();
+          if (call.status === 'ended') {
+            updateStatus('Call ended before recording could start');
+            console.log('[Recorder] Call ended, stopping');
+            return;
+          }
 
-        // Poll for WebRTC offers via signaling
-        pollForSignals();
+          if (call.status === 'active') {
+            updateStatus('Connected. Starting recording...', 'connected');
 
-        // Recording will start automatically when first track is received
-        console.log('[Recorder] Waiting for audio tracks...');
+            // Set up audio context for mixing streams
+            await setupAudioMixer();
 
-      } catch (err) {
-        updateStatus('Connection error: ' + err.message);
-        console.error('[Recorder] Connect error:', err);
+            // Poll for WebRTC offers via signaling
+            pollForSignals();
+
+            // Recording will start automatically when first track is received
+            console.log('[Recorder] Waiting for audio tracks...');
+            return;
+          }
+
+          // Call not active yet, wait and retry
+          if (retries === 0) {
+            updateStatus('Waiting for call to start...');
+            console.log('[Recorder] Call status:', call.status, '- waiting for active...');
+          }
+
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+        } catch (err) {
+          updateStatus('Connection error: ' + err.message);
+          console.error('[Recorder] Connect error:', err);
+          return;
+        }
       }
+
+      updateStatus('Timeout waiting for call to become active');
+      console.error('[Recorder] Timeout: call never became active');
     }
 
     let tracksReceived = 0;

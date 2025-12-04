@@ -139,28 +139,54 @@
     }
 
     async function connectToCall() {
-      try {
-        const response = await fetch(`${API_URL}/groups/${GROUP_ID}/video-calls`, {
-          headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
-        });
+      const maxRetries = 60; // Wait up to 60 seconds for call to become active
+      const retryDelay = 1000; // 1 second between retries
+      let retries = 0;
 
-        if (!response.ok) throw new Error('Failed to fetch call info');
+      while (retries < maxRetries) {
+        try {
+          const response = await fetch(`${API_URL}/groups/${GROUP_ID}/video-calls`, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
 
-        const data = await response.json();
-        const call = data.videoCalls?.find(c => c.callId === CALL_ID);
+          if (!response.ok) throw new Error('Failed to fetch call info');
 
-        if (!call) throw new Error('Call not found');
-        if (call.status !== 'active') throw new Error('Call is not active');
+          const data = await response.json();
+          const call = data.videoCalls?.find(c => c.callId === CALL_ID);
 
-        updateStatus('Connected. Waiting for participants...', 'connected');
+          if (!call) throw new Error('Call not found');
 
-        // Poll for WebRTC signals
-        pollForSignals();
+          if (call.status === 'ended') {
+            updateStatus('Call ended before recording could start');
+            console.log('[VideoRecorder] Call ended, stopping');
+            return;
+          }
 
-      } catch (err) {
-        updateStatus('Connection error: ' + err.message);
-        console.error('[VideoRecorder] Connect error:', err);
+          if (call.status === 'active') {
+            updateStatus('Connected. Waiting for participants...', 'connected');
+            // Poll for WebRTC signals
+            pollForSignals();
+            return;
+          }
+
+          // Call not active yet, wait and retry
+          if (retries === 0) {
+            updateStatus('Waiting for call to start...');
+            console.log('[VideoRecorder] Call status:', call.status, '- waiting for active...');
+          }
+
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+        } catch (err) {
+          updateStatus('Connection error: ' + err.message);
+          console.error('[VideoRecorder] Connect error:', err);
+          return;
+        }
       }
+
+      updateStatus('Timeout waiting for call to become active');
+      console.error('[VideoRecorder] Timeout: call never became active');
     }
 
     function startCanvasRendering() {
