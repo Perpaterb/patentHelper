@@ -7,8 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, IconButton } from 'react-native-paper';
 import { Audio } from 'expo-av';
 
 /**
@@ -189,9 +188,9 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
   };
 
   const progressPercent = duration > 0 ? (position / duration) * 100 : 0;
-  const backgroundColor = isMyMessage ? '#bbdefb' : '#f5f5f5';
-  const iconColor = isMyMessage ? '#1976d2' : '#6200ee';
-  const textColor = isMyMessage ? '#1976d2' : '#333';
+  // Color scheme based on message ownership
+  const accentColor = isMyMessage ? '#1976d2' : '#6200ee';
+  const backgroundColor = isMyMessage ? '#e3f2fd' : '#f5f5f5';
 
   if (error) {
     return (
@@ -199,38 +198,47 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
         style={[styles.container, { backgroundColor }]}
         onPress={loadSound}
       >
-        <MaterialCommunityIcons name="refresh" size={24} color="#f44336" />
-        <Text style={styles.errorText}>Tap to retry</Text>
-        {duration > 0 && (
-          <Text style={[styles.durationText, { color: textColor, marginLeft: 8 }]}>
-            {formatDuration(duration)}
-          </Text>
-        )}
+        <View style={[styles.playButtonCircle, { backgroundColor: '#f44336' }]}>
+          <IconButton
+            icon="refresh"
+            size={24}
+            iconColor="#fff"
+            style={styles.playButtonIcon}
+          />
+        </View>
+        <View style={styles.progressContainer}>
+          <Text style={styles.errorText}>Tap to retry</Text>
+        </View>
       </TouchableOpacity>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
+      {/* Circular play button */}
       <TouchableOpacity
         onPress={togglePlayPause}
         disabled={isLoading}
-        style={styles.playButton}
+        activeOpacity={0.7}
       >
-        {isLoading ? (
-          <ActivityIndicator size={28} color={iconColor} />
-        ) : (
-          <MaterialCommunityIcons
-            name={isPlaying ? 'pause-circle' : 'play-circle'}
-            size={36}
-            color={iconColor}
-          />
-        )}
+        <View style={[styles.playButtonCircle, { backgroundColor: accentColor }]}>
+          {isLoading ? (
+            <ActivityIndicator size={24} color="#fff" />
+          ) : (
+            <IconButton
+              icon={isPlaying ? 'pause' : 'play'}
+              size={24}
+              iconColor="#fff"
+              style={styles.playButtonIcon}
+            />
+          )}
+        </View>
       </TouchableOpacity>
 
       <View style={styles.progressContainer}>
+        {/* Tappable progress bar */}
         <Pressable
-          style={styles.progressBarContainer}
+          style={styles.progressBarTouchable}
           onPress={handleSeek}
           onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
         >
@@ -240,7 +248,7 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
                 styles.progressFill,
                 {
                   width: `${progressPercent}%`,
-                  backgroundColor: iconColor,
+                  backgroundColor: accentColor,
                 },
               ]}
             />
@@ -250,23 +258,19 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
                 styles.seekDot,
                 {
                   left: `${progressPercent}%`,
-                  backgroundColor: iconColor,
+                  backgroundColor: accentColor,
                 },
               ]}
             />
           </View>
         </Pressable>
-        <Text style={[styles.durationText, { color: textColor }]}>
-          {formatDuration(isPlaying ? position : duration)}
-        </Text>
-      </View>
 
-      <MaterialCommunityIcons
-        name="waveform"
-        size={20}
-        color={iconColor}
-        style={styles.waveformIcon}
-      />
+        {/* Time display: current / total */}
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatDuration(position)}</Text>
+          <Text style={styles.timeText}>{formatDuration(duration)}</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -275,50 +279,57 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
     borderRadius: 16,
-    minWidth: 200,
-    maxWidth: 280,
+    minWidth: 220,
+    maxWidth: 300,
   },
-  playButton: {
-    marginRight: 8,
+  playButtonCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  playButtonIcon: {
+    margin: 0,
   },
   progressContainer: {
     flex: 1,
-    marginRight: 8,
   },
-  progressBarContainer: {
-    marginBottom: 4,
+  progressBarTouchable: {
     paddingVertical: 8, // Larger touch target
   },
   progressBar: {
-    height: 4,
+    height: 6,
     backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 2,
+    borderRadius: 3,
     position: 'relative',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   seekDot: {
     position: 'absolute',
-    top: -4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginLeft: -6,
+    top: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginLeft: -8,
   },
-  durationText: {
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  timeText: {
     fontSize: 12,
-    fontWeight: '500',
-  },
-  waveformIcon: {
-    opacity: 0.6,
+    color: '#666',
   },
   errorText: {
     fontSize: 12,
     color: '#666',
-    marginLeft: 8,
   },
 });
