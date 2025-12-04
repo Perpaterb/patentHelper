@@ -685,13 +685,14 @@ export default function MessagesScreen({ navigation, route }) {
                       </Text>
                     </View>
                   ) : media.mediaType === 'audio' ? (
-                    <AudioPlayer
-                      key={media.mediaId}
-                      uri={getFileUrl(media.url)}
-                      duration={media.durationMs}
-                      mimeType={media.mimeType}
-                      isMyMessage={isMyMessage}
-                    />
+                    <View key={media.mediaId} style={styles.audioPlayerWrapper}>
+                      <AudioPlayer
+                        uri={getFileUrl(media.url)}
+                        duration={media.durationMs}
+                        mimeType={media.mimeType}
+                        isMyMessage={isMyMessage}
+                      />
+                    </View>
                   ) : (
                     <TouchableOpacity
                       key={media.mediaId}
@@ -1397,6 +1398,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginBottom: 8,
     gap: 8,
+  },
+  audioPlayerWrapper: {
+    width: '100%',
+    marginVertical: 4,
   },
   mediaThumbnail: {
     borderRadius: 8,

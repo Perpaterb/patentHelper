@@ -281,8 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 16,
-    minWidth: 220,
-    maxWidth: 300,
+    width: '100%',
   },
   playButtonCircle: {
     width: 48,
