@@ -12,8 +12,14 @@ import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
 // EmojiPicker is only available on native platforms (iOS/Android), not web
 let EmojiPicker = null;
-if (Platform.OS !== 'web') {
-  EmojiPicker = require('rn-emoji-keyboard').default;
+try {
+  // This will fail on web where the package isn't available
+  if (Platform.OS !== 'web') {
+    EmojiPicker = require('rn-emoji-keyboard').default;
+  }
+} catch (e) {
+  // Package not available (web platform)
+  EmojiPicker = null;
 }
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
