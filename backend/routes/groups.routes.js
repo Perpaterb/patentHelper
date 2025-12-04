@@ -445,6 +445,25 @@ router.put('/:groupId/phone-calls/:callId/hide-recording', requireAuth, phoneCal
  */
 router.post('/:groupId/phone-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), phoneCallsController.uploadRecording);
 
+// WebRTC Signaling for Phone Calls
+/**
+ * POST /groups/:groupId/phone-calls/:callId/signal
+ * Send a WebRTC signaling message (offer, answer, ice-candidate)
+ */
+router.post('/:groupId/phone-calls/:callId/signal', requireAuth, phoneCallsController.sendSignal);
+
+/**
+ * GET /groups/:groupId/phone-calls/:callId/signal
+ * Get pending WebRTC signaling messages
+ */
+router.get('/:groupId/phone-calls/:callId/signal', requireAuth, phoneCallsController.getSignals);
+
+/**
+ * GET /groups/:groupId/phone-calls/:callId/ice-servers
+ * Get STUN/TURN server configuration for WebRTC
+ */
+router.get('/:groupId/phone-calls/:callId/ice-servers', requireAuth, phoneCallsController.getIceServers);
+
 // ============================================
 // VIDEO CALLS ROUTES
 // ============================================

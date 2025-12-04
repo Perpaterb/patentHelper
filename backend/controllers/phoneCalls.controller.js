@@ -19,6 +19,34 @@ const path = require('path');
 const os = require('os');
 
 /**
+ * In-memory signaling store for WebRTC phone calls
+ * Structure: { callId: { peerId: [signals] } }
+ * Each signal: { type: 'offer'|'answer'|'ice-candidate', data: {...}, from: peerId, timestamp }
+ */
+const signalingStore = new Map();
+
+// Clean up old signals after 5 minutes
+const SIGNAL_TTL_MS = 5 * 60 * 1000;
+
+function cleanupOldSignals() {
+  const now = Date.now();
+  for (const [callId, peers] of signalingStore.entries()) {
+    for (const [peerId, signals] of Object.entries(peers)) {
+      peers[peerId] = signals.filter(s => now - s.timestamp < SIGNAL_TTL_MS);
+      if (peers[peerId].length === 0) {
+        delete peers[peerId];
+      }
+    }
+    if (Object.keys(peers).length === 0) {
+      signalingStore.delete(callId);
+    }
+  }
+}
+
+// Run cleanup every minute
+setInterval(cleanupOldSignals, 60 * 1000);
+
+/**
  * Check if user has permission to use phone calls
  * @param {Object} membership - The group membership object
  * @param {Object} settings - The group settings object
@@ -1399,6 +1427,187 @@ async function leaveCall(req, res) {
   }
 }
 
+/**
+ * Send a WebRTC signaling message for phone calls
+ * POST /groups/:groupId/phone-calls/:callId/signal
+ */
+async function sendSignal(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+    const { type, data, targetPeerId } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    if (!type || !data) {
+      return res.status(400).json({ success: false, message: 'Signal type and data are required' });
+    }
+
+    if (!['offer', 'answer', 'ice-candidate'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Invalid signal type' });
+    }
+
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({ success: false, message: 'You are not a member of this group' });
+    }
+
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: { participants: true },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(p => p.groupMemberId === membership.groupMemberId);
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({ success: false, message: 'You are not part of this call' });
+    }
+
+    const signal = {
+      type,
+      data,
+      from: membership.groupMemberId,
+      timestamp: Date.now(),
+    };
+
+    if (!signalingStore.has(callId)) {
+      signalingStore.set(callId, {});
+    }
+
+    const callSignals = signalingStore.get(callId);
+
+    if (targetPeerId) {
+      if (!callSignals[targetPeerId]) callSignals[targetPeerId] = [];
+      callSignals[targetPeerId].push(signal);
+    } else {
+      const allPeers = [call.initiatedBy, ...call.participants.map(p => p.groupMemberId)];
+      for (const peerId of allPeers) {
+        if (peerId !== membership.groupMemberId) {
+          if (!callSignals[peerId]) callSignals[peerId] = [];
+          callSignals[peerId].push(signal);
+        }
+      }
+    }
+
+    console.log(`[WebRTC Phone Signal] ${type} from ${membership.groupMemberId} in call ${callId}`);
+
+    return res.json({ success: true, message: 'Signal sent' });
+  } catch (error) {
+    console.error('Send phone signal error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to send signal', error: error.message });
+  }
+}
+
+/**
+ * Get pending WebRTC signaling messages for phone calls
+ * GET /groups/:groupId/phone-calls/:callId/signal
+ */
+async function getSignals(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({ success: false, message: 'You are not a member of this group' });
+    }
+
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: { participants: true },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({ success: false, message: 'Call not found' });
+    }
+
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(p => p.groupMemberId === membership.groupMemberId);
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({ success: false, message: 'You are not part of this call' });
+    }
+
+    const callSignals = signalingStore.get(callId) || {};
+    const mySignals = callSignals[membership.groupMemberId] || [];
+
+    if (callSignals[membership.groupMemberId]) {
+      delete callSignals[membership.groupMemberId];
+    }
+
+    const peers = [];
+    if (isInitiator) {
+      for (const p of call.participants) {
+        if (['accepted', 'joined'].includes(p.status)) {
+          peers.push({ peerId: p.groupMemberId, status: p.status });
+        }
+      }
+    } else {
+      peers.push({ peerId: call.initiatedBy, status: 'initiator' });
+    }
+
+    return res.json({
+      success: true,
+      signals: mySignals,
+      peers,
+      myPeerId: membership.groupMemberId,
+    });
+  } catch (error) {
+    console.error('Get phone signals error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get signals', error: error.message });
+  }
+}
+
+/**
+ * Get STUN/TURN server configuration for phone calls
+ * GET /groups/:groupId/phone-calls/:callId/ice-servers
+ */
+async function getIceServers(req, res) {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ];
+
+    if (process.env.TURN_SERVER_URL) {
+      iceServers.push({
+        urls: process.env.TURN_SERVER_URL,
+        username: process.env.TURN_SERVER_USERNAME || '',
+        credential: process.env.TURN_SERVER_CREDENTIAL || '',
+      });
+    }
+
+    return res.json({ success: true, iceServers });
+  } catch (error) {
+    console.error('Get ICE servers error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get ICE servers', error: error.message });
+  }
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
@@ -1408,4 +1617,7 @@ module.exports = {
   leaveCall,
   hideRecording,
   uploadRecording,
+  sendSignal,
+  getSignals,
+  getIceServers,
 };

@@ -2,34 +2,23 @@
  * Active Phone Call Screen
  *
  * Shows during an active or ringing phone call.
- * Displays:
- * - Call status (ringing/active)
- * - Participants with their status
+ * Features:
+ * - WebRTC peer-to-peer audio (web only for now)
+ * - Participant avatars and status
  * - Call duration timer (when connected)
+ * - Mute and speaker controls
  * - End call button
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, BackHandler, Platform } from 'react-native';
-import { Text, Avatar, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
+import { useWebRTC } from '../../hooks/useWebRTC';
 
-/**
- * @typedef {Object} ActivePhoneCallScreenProps
- * @property {Object} navigation - React Navigation navigation object
- * @property {Object} route - React Navigation route object
- */
-
-/**
- * ActivePhoneCallScreen component
- *
- * @param {ActivePhoneCallScreenProps} props
- * @returns {JSX.Element}
- */
 /**
  * Get color for participant status
  */
@@ -49,6 +38,9 @@ const getParticipantStatusColor = (status) => {
   }
 };
 
+/**
+ * ActivePhoneCallScreen component
+ */
 export default function ActivePhoneCallScreen({ navigation, route }) {
   const { groupId, callId, call: passedCall, isInitiator } = route.params;
   const [call, setCall] = useState(passedCall || null);
@@ -56,11 +48,41 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const [endingCall, setEndingCall] = useState(false);
   const [leavingCall, setLeavingCall] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(false);
+
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingStatus, setRecordingStatus] = useState('idle'); // idle, requesting, recording, uploading, error
+  const [recordingStatus, setRecordingStatus] = useState('idle');
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+
   const timerRef = useRef(null);
   const pollRef = useRef(null);
-  const recordingRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+
+  // WebRTC hook - audio only for phone calls
+  const {
+    localStream,
+    remoteStreams,
+    isConnecting,
+    error: webrtcError,
+    connectionStates,
+    isWebRTCSupported,
+    toggleAudio,
+    stopConnection,
+  } = useWebRTC({
+    groupId,
+    callId,
+    isActive: call?.status === 'active',
+    isInitiator,
+    audioOnly: true,
+    callType: 'phone',
+  });
+
+  // Get first remote stream (for 1-to-1 calls)
+  const remoteStreamEntries = Object.entries(remoteStreams);
+  const firstRemoteStream = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][1] : null;
 
   useEffect(() => {
     if (!passedCall) {
@@ -70,7 +92,10 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     // Start polling for call status updates
     startPolling();
 
-    // Prevent back button from leaving the call without ending
+    // Set up audio mode
+    setupAudio();
+
+    // Prevent back button from leaving without ending
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       handleEndCall();
       return true;
@@ -78,13 +103,11 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
 
     return () => {
       stopPolling();
+      stopConnection();
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      // Stop recording on cleanup (without upload - call might still be active)
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(console.error);
-      }
+      stopRecording();
       backHandler.remove();
     };
   }, [callId]);
@@ -96,30 +119,47 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     }
   }, [call?.status, call?.connectedAt]);
 
-  /**
-   * Fetch latest call data
-   */
+  // Play remote audio on web
+  useEffect(() => {
+    if (Platform.OS === 'web' && remoteAudioRef.current && firstRemoteStream) {
+      remoteAudioRef.current.srcObject = firstRemoteStream;
+    }
+  }, [firstRemoteStream]);
+
+  // Start recording when call becomes active
+  useEffect(() => {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+      console.log('[ActivePhoneCall] Call is active, starting recording...');
+      setTimeout(() => startRecording(), 500);
+    }
+  }, [call?.status]);
+
+  const setupAudio = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: !isSpeaker,
+      });
+    } catch (err) {
+      console.error('[ActivePhoneCall] Audio setup error:', err);
+    }
+  };
+
   const fetchCallUpdate = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/phone-calls`);
       const updatedCall = response.data.phoneCalls?.find(c => c.callId === callId);
       if (updatedCall) {
-        console.log('[ActivePhoneCall] Updated call data:', {
-          status: updatedCall.status,
-          participantCount: updatedCall.participants?.length,
-          participants: updatedCall.participants?.map(p => ({ name: p.displayName, status: p.status })),
-        });
         setCall(updatedCall);
 
-        // If call ended (by another participant), stop recording and navigate away
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
-          console.log('[ActivePhoneCall] Call ended remotely, stopping recording...');
+          console.log('[ActivePhoneCall] Call ended remotely');
           stopPolling();
-
-          // Stop recording and upload before navigating
-          if (recordingRef.current && isRecording) {
-            await stopRecordingAndUpload();
-          }
+          await stopRecording();
+          stopConnection();
 
           navigation.replace('PhoneCallDetails', {
             groupId,
@@ -133,20 +173,11 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Start polling for call status updates
-   */
   const startPolling = () => {
-    // Fetch immediately on start
     fetchCallUpdate();
-
-    // Then poll every 2 seconds for more responsive updates
     pollRef.current = setInterval(fetchCallUpdate, 2000);
   };
 
-  /**
-   * Stop polling
-   */
   const stopPolling = () => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -154,23 +185,14 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Start call duration timer
-   */
   const startDurationTimer = () => {
     if (timerRef.current) return;
-
     const startTime = call.connectedAt ? new Date(call.connectedAt).getTime() : Date.now();
-
     timerRef.current = setInterval(() => {
-      const now = Date.now();
-      setCallDuration(Math.floor((now - startTime) / 1000));
+      setCallDuration(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
   };
 
-  /**
-   * Load call details from API
-   */
   const loadCallDetails = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/phone-calls`);
@@ -185,219 +207,131 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     }
   };
 
-  /**
-   * Format duration in seconds to mm:ss
-   */
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  /**
-   * Request microphone permission (non-blocking - recording attempts anyway)
-   */
-  const requestMicrophonePermission = async () => {
-    try {
-      console.log('[ActivePhoneCall] Requesting microphone permission...');
-      const { status } = await Audio.requestPermissionsAsync();
-      console.log('[ActivePhoneCall] Permission status:', status);
-      return status === 'granted';
-    } catch (error) {
-      console.error('[ActivePhoneCall] Permission request error:', error);
-      return false;
-    }
+  const handleToggleMute = () => {
+    const newValue = !isMuted;
+    setIsMuted(newValue);
+    toggleAudio(!newValue);
   };
 
-  /**
-   * Start audio recording - always attempts regardless of permissions
-   * Falls back through: high quality -> low quality -> silent
-   */
-  const startRecording = async () => {
-    console.log('[ActivePhoneCall] Starting recording (will try all methods)...');
-    setRecordingStatus('recording');
-    setIsRecording(true);
-
-    // Request permission but don't block on it
-    await requestMicrophonePermission();
-
-    // Set audio mode for recording
+  const handleToggleSpeaker = async () => {
+    const newValue = !isSpeaker;
+    setIsSpeaker(newValue);
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+        playThroughEarpieceAndroid: !newValue,
       });
-    } catch (modeError) {
-      console.log('[ActivePhoneCall] Audio mode setup failed:', modeError.message);
+    } catch (err) {
+      console.error('[ActivePhoneCall] Speaker toggle error:', err);
     }
-
-    // Try 1: High quality recording
-    try {
-      console.log('[ActivePhoneCall] Attempting high quality recording...');
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-      });
-      await recording.startAsync();
-      recordingRef.current = recording;
-      console.log('[ActivePhoneCall] High quality recording started successfully');
-      return;
-    } catch (highQualityError) {
-      console.log('[ActivePhoneCall] High quality recording failed:', highQualityError.message);
-    }
-
-    // Try 2: Low quality/fallback recording
-    try {
-      console.log('[ActivePhoneCall] Attempting low quality fallback recording...');
-      const fallbackRecording = new Audio.Recording();
-      await fallbackRecording.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 8000,
-          numberOfChannels: 1,
-          bitRate: 16000,
-        },
-        ios: {
-          extension: '.m4a',
-          audioQuality: Audio.IOSAudioQuality.MIN,
-          sampleRate: 8000,
-          numberOfChannels: 1,
-          bitRate: 16000,
-          linearPCMBitDepth: 8,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 16000,
-        },
-      });
-      await fallbackRecording.startAsync();
-      recordingRef.current = fallbackRecording;
-      console.log('[ActivePhoneCall] Fallback recording started successfully');
-      return;
-    } catch (fallbackError) {
-      console.log('[ActivePhoneCall] Fallback recording failed:', fallbackError.message);
-    }
-
-    // All recording methods failed - log but continue call
-    console.error('[ActivePhoneCall] All recording methods failed - call will proceed without recording');
-    setRecordingStatus('error');
   };
 
   /**
-   * Stop recording and upload to server
+   * Start recording using MediaRecorder API (web) or Audio.Recording (mobile)
    */
-  const stopRecordingAndUpload = async () => {
-    if (!recordingRef.current || !isRecording) {
-      console.log('[ActivePhoneCall] No active recording to stop');
-      return;
-    }
+  const startRecording = async () => {
+    if (isRecording) return;
 
-    try {
-      console.log('[ActivePhoneCall] Stopping recording...');
-      setRecordingStatus('uploading');
+    console.log('[ActivePhoneCall] Starting recording...');
+    setRecordingStatus('recording');
+    setIsRecording(true);
 
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      console.log('[ActivePhoneCall] Recording saved to:', uri);
+    if (Platform.OS === 'web' && localStream) {
+      try {
+        // Combine local and remote audio for recording
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
 
-      // Reset audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-      });
-
-      if (uri) {
-        // Upload the recording
-        console.log('[ActivePhoneCall] Uploading recording...');
-
-        // Create form data for upload
-        const formData = new FormData();
-
-        if (Platform.OS === 'web') {
-          // For web, fetch the blob and append it
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          formData.append('recording', blob, `call-${callId}.webm`);
-        } else {
-          // For native, use the file URI
-          formData.append('recording', {
-            uri: uri,
-            type: 'audio/m4a',
-            name: `call-${callId}.m4a`,
-          });
+        // Add local audio
+        if (localStream.getAudioTracks().length > 0) {
+          const localAudioSource = audioContext.createMediaStreamSource(localStream);
+          localAudioSource.connect(destination);
         }
 
-        // Upload to backend
-        await api.post(
-          `/groups/${groupId}/phone-calls/${callId}/recording`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
+        // Add remote audio if available
+        if (firstRemoteStream?.getAudioTracks().length > 0) {
+          const remoteAudioSource = audioContext.createMediaStreamSource(firstRemoteStream);
+          remoteAudioSource.connect(destination);
+        }
+
+        const mediaRecorder = new MediaRecorder(destination.stream, {
+          mimeType: 'audio/webm;codecs=opus',
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
           }
-        );
+        };
 
-        console.log('[ActivePhoneCall] Recording uploaded successfully');
+        mediaRecorder.start(1000);
+        mediaRecorderRef.current = mediaRecorder;
+        console.log('[ActivePhoneCall] MediaRecorder started');
+      } catch (err) {
+        console.error('[ActivePhoneCall] MediaRecorder error:', err);
+        setRecordingStatus('error');
       }
-
-      recordingRef.current = null;
-      setIsRecording(false);
-      setRecordingStatus('idle');
-    } catch (error) {
-      console.error('[ActivePhoneCall] Failed to stop/upload recording:', error);
-      setRecordingStatus('error');
-      // Don't show error to user as call is ending anyway
     }
   };
 
-  // Start recording when call becomes active
-  useEffect(() => {
-    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
-      console.log('[ActivePhoneCall] Call is active, starting recording...');
-      startRecording();
-    }
-  }, [call?.status]);
-
   /**
-   * Handle leaving the call (without ending it for others)
+   * Stop recording and upload
    */
+  const stopRecording = async () => {
+    if (!isRecording) return;
+
+    console.log('[ActivePhoneCall] Stopping recording...');
+
+    if (Platform.OS === 'web' && mediaRecorderRef.current) {
+      return new Promise((resolve) => {
+        mediaRecorderRef.current.onstop = async () => {
+          try {
+            setRecordingStatus('uploading');
+            const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+            recordedChunksRef.current = [];
+
+            const formData = new FormData();
+            formData.append('recording', blob, `phone-call-${callId}.webm`);
+
+            await api.post(
+              `/groups/${groupId}/phone-calls/${callId}/recording`,
+              formData,
+              { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+            console.log('[ActivePhoneCall] Recording uploaded');
+          } catch (err) {
+            console.error('[ActivePhoneCall] Upload error:', err);
+          } finally {
+            setIsRecording(false);
+            setRecordingStatus('idle');
+            resolve();
+          }
+        };
+        mediaRecorderRef.current.stop();
+      });
+    }
+
+    setIsRecording(false);
+    setRecordingStatus('idle');
+  };
+
   const handleLeaveCall = () => {
     if (leavingCall) return;
 
-    const message = isInitiator
-      ? 'As the initiator, leaving will end the call for everyone.'
-      : 'Are you sure you want to leave this call? The call will continue for others.';
-
     CustomAlert.alert(
-      'Leave Call',
-      message,
+      'Leave Phone Call',
+      isInitiator
+        ? 'As the initiator, leaving will end the call for everyone.'
+        : 'Are you sure you want to leave this call?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -406,21 +340,18 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setLeavingCall(true);
             try {
-              // Stop recording and upload before leaving
-              await stopRecordingAndUpload();
-
+              await stopRecording();
+              stopConnection();
               const response = await api.put(`/groups/${groupId}/phone-calls/${callId}/leave`);
               stopPolling();
 
               if (response.data.callEnded) {
-                // Call ended, go to details
                 navigation.replace('PhoneCallDetails', {
                   groupId,
                   callId,
                   call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
                 });
               } else {
-                // Just left, go back to phone calls list
                 navigation.replace('PhoneCalls', { groupId });
               }
             } catch (err) {
@@ -434,15 +365,12 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     );
   };
 
-  /**
-   * Handle ending the call for everyone
-   */
   const handleEndCall = () => {
     if (endingCall) return;
 
     CustomAlert.alert(
-      'End Call for Everyone',
-      'This will end the call for all participants. Are you sure?',
+      'End Phone Call for Everyone',
+      'This will end the phone call for all participants. Are you sure?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -451,9 +379,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setEndingCall(true);
             try {
-              // Stop recording and upload before ending
-              await stopRecordingAndUpload();
-
+              await stopRecording();
+              stopConnection();
               await api.put(`/groups/${groupId}/phone-calls/${callId}/end`);
               stopPolling();
               navigation.replace('PhoneCallDetails', {
@@ -485,11 +412,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Call not found</Text>
-        <Button
-          mode="contained"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+        <Button mode="contained" onPress={() => navigation.goBack()} style={styles.backButton}>
           Go Back
         </Button>
       </View>
@@ -499,139 +422,122 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
 
+  // Get remote participant info
+  const remoteParticipant = call.participants?.find(p =>
+    p.groupMemberId !== call.initiatedBy && ['accepted', 'joined'].includes(p.status)
+  ) || (isInitiator ? call.participants?.[0] : call.initiator);
+
   return (
     <View style={styles.container}>
-      {/* Call Status */}
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusEmoji}>
-          {isRinging ? '📲' : '📞'}
-        </Text>
+      {/* Hidden audio element for remote stream on web */}
+      {Platform.OS === 'web' && (
+        <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
+      )}
+
+      {/* Top Status */}
+      <View style={styles.topSection}>
         <Text style={styles.statusText}>
-          {isRinging ? 'Ringing...' : 'Call Connected'}
+          {isRinging ? '📞 Calling...' : '📞 Phone Call'}
         </Text>
         {isActive && (
-          <Text style={styles.durationText}>
-            {formatDuration(callDuration)}
-          </Text>
+          <Text style={styles.durationText}>{formatDuration(callDuration)}</Text>
         )}
-        {/* Recording indicator */}
         {isRecording && (
           <View style={styles.recordingIndicator}>
             <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>Recording</Text>
+            <Text style={styles.recordingLabel}>REC</Text>
           </View>
-        )}
-        {recordingStatus === 'uploading' && (
-          <Text style={styles.uploadingText}>Uploading recording...</Text>
-        )}
-        {recordingStatus === 'error' && (
-          <Text style={styles.errorRecordingText}>Recording unavailable</Text>
         )}
       </View>
 
-      {/* Participants */}
-      <View style={styles.participantsContainer}>
-        <Text style={styles.participantsLabel}>
-          {isRinging ? (isInitiator ? 'Calling:' : 'Incoming call from:') : 'In this call:'}
-        </Text>
-        <View style={styles.participantsList}>
-          {/* Show initiator first (always - mark as "You" if current user) */}
-          {call.initiator && (
-            <View style={styles.participantItem}>
+      {/* Main Content - Participant Avatar */}
+      <View style={styles.mainContent}>
+        {remoteParticipant && (
+          <>
+            <View style={styles.avatarPulse}>
               <Avatar.Text
-                size={60}
-                label={call.initiator.iconLetters || '?'}
-                style={{ backgroundColor: call.initiator.iconColor || '#6200ee' }}
-                color={getContrastTextColor(call.initiator.iconColor || '#6200ee')}
+                size={120}
+                label={remoteParticipant.iconLetters || '?'}
+                style={{ backgroundColor: remoteParticipant.iconColor || '#6200ee' }}
+                color={getContrastTextColor(remoteParticipant.iconColor || '#6200ee')}
               />
-              <Text style={styles.participantName}>
-                {isInitiator ? 'You' : (call.initiator.displayName || 'Unknown')}
-              </Text>
-              <Text style={[styles.participantStatus, { color: '#4caf50' }]}>
-                {isActive ? 'connected' : 'calling'}
-              </Text>
             </View>
+            <Text style={styles.participantName}>
+              {remoteParticipant.displayName || 'Participant'}
+            </Text>
+            <Text style={styles.connectionStatus}>
+              {isRinging ? 'Ringing...' :
+               isConnecting ? 'Connecting audio...' :
+               firstRemoteStream ? 'Connected' :
+               !isWebRTCSupported ? 'WebRTC not supported on mobile yet' :
+               'Waiting for audio...'}
+            </Text>
+          </>
+        )}
+      </View>
+
+      {/* Bottom Controls */}
+      <View style={styles.bottomControls}>
+        <View style={styles.controlsRow}>
+          <View style={styles.controlItem}>
+            <IconButton
+              icon={isMuted ? 'microphone-off' : 'microphone'}
+              iconColor={isMuted ? '#f44336' : '#fff'}
+              size={32}
+              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
+              onPress={handleToggleMute}
+            />
+            <Text style={styles.controlLabel}>Mute</Text>
+          </View>
+
+          <View style={styles.controlItem}>
+            <IconButton
+              icon={isSpeaker ? 'volume-high' : 'volume-medium'}
+              iconColor="#fff"
+              size={32}
+              style={[styles.controlButton, isSpeaker && styles.controlButtonActive]}
+              onPress={handleToggleSpeaker}
+            />
+            <Text style={styles.controlLabel}>Speaker</Text>
+          </View>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <Button
+            mode="contained"
+            onPress={handleLeaveCall}
+            loading={leavingCall}
+            disabled={leavingCall || endingCall}
+            style={styles.leaveButton}
+            buttonColor="#ff9800"
+            textColor="#fff"
+            icon="exit-run"
+          >
+            {leavingCall ? 'Leaving...' : 'Leave'}
+          </Button>
+          {isInitiator && (
+            <Button
+              mode="contained"
+              onPress={handleEndCall}
+              loading={endingCall}
+              disabled={endingCall || leavingCall}
+              style={styles.endButton}
+              buttonColor="#d32f2f"
+              textColor="#fff"
+              icon="phone-hangup"
+            >
+              {endingCall ? 'Ending...' : 'End All'}
+            </Button>
           )}
-
-          {/* Show all other participants */}
-          {call.participants?.map(participant => {
-            // Skip showing initiator in participants list (already shown above)
-            if (participant.groupMemberId === call.initiatedBy) return null;
-
-            const bgColor = participant.iconColor || '#6200ee';
-            const statusColor = getParticipantStatusColor(participant.status);
-
-            // Show visual indicator for participants who left
-            const isInCall = ['invited', 'accepted', 'joined'].includes(participant.status);
-
-            return (
-              <View
-                key={participant.groupMemberId}
-                style={[
-                  styles.participantItem,
-                  !isInCall && styles.participantLeft
-                ]}
-              >
-                <Avatar.Text
-                  size={60}
-                  label={participant.iconLetters || '?'}
-                  style={{
-                    backgroundColor: bgColor,
-                    opacity: isInCall ? 1 : 0.5,
-                  }}
-                  color={getContrastTextColor(bgColor)}
-                />
-                <Text style={[
-                  styles.participantName,
-                  !isInCall && styles.participantNameLeft
-                ]}>
-                  {participant.displayName || 'Unknown'}
-                </Text>
-                <Text style={[styles.participantStatus, { color: statusColor }]}>
-                  {participant.status}
-                </Text>
-              </View>
-            );
-          })}
         </View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionContainer}>
-        {/* Leave Call Button - for participants to leave without ending */}
-        <Button
-          mode="contained"
-          onPress={handleLeaveCall}
-          loading={leavingCall}
-          disabled={leavingCall || endingCall}
-          style={styles.leaveCallButton}
-          buttonColor="#ff9800"
-          textColor="#fff"
-          icon="exit-run"
-          contentStyle={styles.callButtonContent}
-          labelStyle={styles.callButtonLabel}
-        >
-          {leavingCall ? 'Leaving...' : 'Leave Call'}
-        </Button>
-
-        {/* End Call Button - for initiator or to end for everyone */}
-        {isInitiator && (
-          <Button
-            mode="contained"
-            onPress={handleEndCall}
-            loading={endingCall}
-            disabled={endingCall || leavingCall}
-            style={styles.endCallButton}
-            buttonColor="#d32f2f"
-            textColor="#fff"
-            icon="phone-hangup"
-            contentStyle={styles.callButtonContent}
-            labelStyle={styles.callButtonLabel}
-          >
-            {endingCall ? 'Ending...' : 'End for All'}
-          </Button>
-        )}
-      </View>
+      {/* WebRTC Error */}
+      {webrtcError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{webrtcError}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -640,8 +546,105 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
-    justifyContent: 'space-between',
-    paddingVertical: 60,
+  },
+  topSection: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  durationText: {
+    color: '#4caf50',
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 67, 54, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+    marginRight: 6,
+  },
+  recordingLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mainContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  avatarPulse: {
+    padding: 12,
+    borderRadius: 80,
+    borderWidth: 3,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  participantName: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  connectionStatus: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  bottomControls: {
+    paddingBottom: 50,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    alignItems: 'center',
+    gap: 24,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    gap: 40,
+  },
+  controlItem: {
+    alignItems: 'center',
+  },
+  controlButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  controlButtonActive: {
+    backgroundColor: 'rgba(76, 175, 80, 0.4)',
+  },
+  controlLabel: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  leaveButton: {
+    borderRadius: 24,
+  },
+  endButton: {
+    borderRadius: 24,
   },
   loadingText: {
     color: '#fff',
@@ -658,111 +661,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: 40,
   },
-  statusContainer: {
-    alignItems: 'center',
+  errorBanner: {
+    position: 'absolute',
+    bottom: 180,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+    padding: 12,
+    borderRadius: 8,
   },
-  statusEmoji: {
-    fontSize: 80,
-    marginBottom: 16,
-  },
-  statusText: {
-    fontSize: 24,
+  errorBannerText: {
     color: '#fff',
-    fontWeight: 'bold',
-  },
-  durationText: {
-    fontSize: 36,
-    color: '#4caf50',
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  recordingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(244, 67, 54, 0.2)',
-    borderRadius: 16,
-  },
-  recordingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#f44336',
-    marginRight: 8,
-  },
-  recordingText: {
-    color: '#f44336',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  uploadingText: {
-    color: '#ff9800',
-    fontSize: 12,
-    marginTop: 8,
-  },
-  errorRecordingText: {
-    color: '#999',
-    fontSize: 12,
-    marginTop: 8,
-  },
-  participantsContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  participantsLabel: {
-    fontSize: 16,
-    color: '#999',
-    marginBottom: 20,
-  },
-  participantsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  participantItem: {
-    alignItems: 'center',
-    marginHorizontal: 10,
-  },
-  participantName: {
-    fontSize: 16,
-    color: '#fff',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  participantStatus: {
-    fontSize: 12,
-    color: '#4caf50',
-    marginTop: 4,
-    textTransform: 'capitalize',
-  },
-  participantLeft: {
-    opacity: 0.6,
-  },
-  participantNameLeft: {
-    color: '#999',
-  },
-  actionContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    gap: 12,
-  },
-  leaveCallButton: {
-    borderRadius: 40,
-    width: '100%',
-  },
-  endCallButton: {
-    borderRadius: 40,
-    width: '100%',
-  },
-  callButtonContent: {
-    height: 56,
-  },
-  callButtonLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

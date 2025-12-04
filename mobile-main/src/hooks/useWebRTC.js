@@ -27,16 +27,18 @@ import api from '../services/api';
  */
 
 /**
- * Hook for managing WebRTC video calls
+ * Hook for managing WebRTC calls (audio and video)
  *
  * @param {Object} options
  * @param {string} options.groupId - The group ID
  * @param {string} options.callId - The call ID
  * @param {boolean} options.isActive - Whether the call is active
  * @param {boolean} options.isInitiator - Whether current user initiated the call
+ * @param {boolean} options.audioOnly - Whether this is audio-only (phone call) vs video call
+ * @param {string} options.callType - 'phone' or 'video' - determines API endpoint
  * @returns {Object} WebRTC state and controls
  */
-export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
+export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = false, callType = 'video' }) {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({}); // { peerId: MediaStream }
   const [isConnecting, setIsConnecting] = useState(false);
@@ -48,6 +50,11 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
   const iceServersRef = useRef([]);
   const pollingRef = useRef(null);
   const isWebRTCSupported = Platform.OS === 'web' && typeof RTCPeerConnection !== 'undefined';
+
+  // API endpoint base path depends on call type
+  const apiBasePath = callType === 'phone'
+    ? `/groups/${groupId}/phone-calls/${callId}`
+    : `/groups/${groupId}/video-calls/${callId}`;
 
   /**
    * Create a new peer connection
@@ -83,7 +90,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
       if (event.candidate) {
         console.log(`[WebRTC] Sending ICE candidate to ${peerId}`);
         try {
-          await api.post(`/groups/${groupId}/video-calls/${callId}/signal`, {
+          await api.post(`${apiBasePath}/signal`, {
             type: 'ice-candidate',
             data: event.candidate,
             targetPeerId: peerId,
@@ -130,7 +137,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
       });
       await pc.setLocalDescription(offer);
 
-      await api.post(`/groups/${groupId}/video-calls/${callId}/signal`, {
+      await api.post(`${apiBasePath}/signal`, {
         type: 'offer',
         data: offer,
         targetPeerId: peerId,
@@ -159,7 +166,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      await api.post(`/groups/${groupId}/video-calls/${callId}/signal`, {
+      await api.post(`${apiBasePath}/signal`, {
         type: 'answer',
         data: answer,
         targetPeerId: peerId,
@@ -239,7 +246,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
     if (!isActive || !isWebRTCSupported) return;
 
     try {
-      const response = await api.get(`/groups/${groupId}/video-calls/${callId}/signal`);
+      const response = await api.get(`${apiBasePath}/signal`);
       const { signals, peers, myPeerId: receivedPeerId } = response.data;
 
       if (receivedPeerId && !myPeerId) {
@@ -275,39 +282,45 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator }) {
     }
 
     try {
-      console.log('[WebRTC] Getting local media stream...');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+      console.log(`[WebRTC] Getting local media stream (audioOnly: ${audioOnly})...`);
+      const constraints = {
+        video: !audioOnly, // No video for phone calls
         audio: true,
-      });
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
       console.log('[WebRTC] Local stream initialized');
       return stream;
     } catch (err) {
       console.error('[WebRTC] Failed to get local stream:', err);
-      // Try audio only if video fails
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          video: false,
-          audio: true,
-        });
-        setLocalStream(audioStream);
-        console.log('[WebRTC] Audio-only stream initialized');
-        return audioStream;
-      } catch (audioErr) {
-        console.error('[WebRTC] Failed to get audio stream:', audioErr);
-        setError('Failed to access camera/microphone');
+      // Try audio only if video fails (for video calls)
+      if (!audioOnly) {
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: true,
+          });
+          setLocalStream(audioStream);
+          console.log('[WebRTC] Audio-only stream initialized (video failed)');
+          return audioStream;
+        } catch (audioErr) {
+          console.error('[WebRTC] Failed to get audio stream:', audioErr);
+          setError('Failed to access microphone');
+          return null;
+        }
+      } else {
+        setError('Failed to access microphone');
         return null;
       }
     }
-  }, [isWebRTCSupported]);
+  }, [isWebRTCSupported, audioOnly]);
 
   /**
    * Fetch ICE servers
    */
   const fetchIceServers = useCallback(async () => {
     try {
-      const response = await api.get(`/groups/${groupId}/video-calls/${callId}/ice-servers`);
+      const response = await api.get(`${apiBasePath}/ice-servers`);
       iceServersRef.current = response.data.iceServers || [];
       console.log('[WebRTC] ICE servers fetched:', iceServersRef.current.length);
     } catch (err) {

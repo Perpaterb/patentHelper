@@ -62,7 +62,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
-  // WebRTC hook
+  // WebRTC hook - video calls with video enabled
   const {
     localStream,
     remoteStreams,
@@ -78,6 +78,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     callId,
     isActive: call?.status === 'active',
     isInitiator,
+    audioOnly: false,
+    callType: 'video',
   });
 
   // Get first remote stream (for 1-to-1 calls)
