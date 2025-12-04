@@ -3,31 +3,21 @@
  *
  * Shows during an active or ringing phone call.
  * Features:
- * - LiveKit for audio with server-side recording
+ * - WebRTC peer-to-peer audio (web and mobile with dev build)
  * - Participant avatars and status
  * - Call duration timer (when connected)
  * - Mute and speaker controls
  * - End call button
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, BackHandler, Platform } from 'react-native';
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
-
-// LiveKit imports
-import {
-  useRoom,
-  useParticipants,
-  AudioSession,
-  registerGlobals,
-} from '@livekit/react-native';
-
-// Register LiveKit globals for React Native
-registerGlobals();
+import { useWebRTC } from '../../hooks/useWebRTC';
 
 /**
  * Get color for participant status
@@ -61,18 +51,38 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
 
-  // LiveKit connection state
-  const [livekitConnected, setLivekitConnected] = useState(false);
-  const [livekitError, setLivekitError] = useState(null);
+  // Recording state (web only - mobile doesn't support MediaRecorder)
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingStatus, setRecordingStatus] = useState('idle');
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
-  const recordingStartedRef = useRef(false);
+  const remoteAudioRef = useRef(null);
 
-  // LiveKit Room hook
-  const { room, connect, disconnect } = useRoom();
-  const participants = useParticipants({ room });
+  // WebRTC hook - audio only for phone calls
+  const {
+    localStream,
+    remoteStreams,
+    isConnecting,
+    error: webrtcError,
+    connectionStates,
+    isWebRTCSupported,
+    toggleAudio,
+    stopConnection,
+  } = useWebRTC({
+    groupId,
+    callId,
+    isActive: call?.status === 'active',
+    isInitiator,
+    audioOnly: true,
+    callType: 'phone',
+  });
+
+  // Get first remote stream (for 1-to-1 calls)
+  const remoteStreamEntries = Object.entries(remoteStreams);
+  const firstRemoteStream = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][1] : null;
 
   useEffect(() => {
     if (!passedCall) {
@@ -93,20 +103,14 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
 
     return () => {
       stopPolling();
-      disconnectLiveKit();
+      stopConnection();
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      stopRecording();
       backHandler.remove();
     };
   }, [callId]);
-
-  // Connect to LiveKit when call becomes active
-  useEffect(() => {
-    if (call?.status === 'active' && !livekitConnected && !livekitError) {
-      connectToLiveKit();
-    }
-  }, [call?.status]);
 
   // Start duration timer when call becomes active
   useEffect(() => {
@@ -115,104 +119,32 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     }
   }, [call?.status, call?.connectedAt]);
 
-  // Start server-side recording when connected
+  // Play remote audio on web
   useEffect(() => {
-    if (livekitConnected && call?.status === 'active' && isInitiator && !recordingStartedRef.current) {
-      startServerRecording();
+    if (Platform.OS === 'web' && remoteAudioRef.current && firstRemoteStream) {
+      remoteAudioRef.current.srcObject = firstRemoteStream;
     }
-  }, [livekitConnected, call?.status, isInitiator]);
+  }, [firstRemoteStream]);
+
+  // Start recording when call becomes active
+  useEffect(() => {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+      console.log('[ActivePhoneCall] Call is active, starting recording...');
+      setTimeout(() => startRecording(), 500);
+    }
+  }, [call?.status]);
 
   const setupAudio = async () => {
     try {
-      // Configure audio for LiveKit
-      await AudioSession.configureAudio({
-        android: {
-          preferredOutputList: ['speaker', 'earpiece'],
-          audioFocusMode: 'gain',
-        },
-        ios: {
-          defaultOutput: 'earpiece',
-        },
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: !isSpeaker,
       });
-      await AudioSession.startAudioSession();
     } catch (err) {
       console.error('[ActivePhoneCall] Audio setup error:', err);
-    }
-  };
-
-  /**
-   * Connect to LiveKit room
-   */
-  const connectToLiveKit = async () => {
-    try {
-      console.log('[ActivePhoneCall] Connecting to LiveKit...');
-
-      // Get token from backend
-      const response = await api.get(`/groups/${groupId}/phone-calls/${callId}/livekit-token`);
-      const { livekitUrl, token, roomName } = response.data;
-
-      if (!livekitUrl || !token) {
-        throw new Error('LiveKit not configured on server');
-      }
-
-      // Connect to LiveKit room
-      await connect(livekitUrl, token, {
-        autoSubscribe: true,
-      });
-
-      setLivekitConnected(true);
-      console.log('[ActivePhoneCall] Connected to LiveKit room:', roomName);
-    } catch (err) {
-      console.error('[ActivePhoneCall] LiveKit connection error:', err);
-      setLivekitError(err.message || 'Failed to connect to call');
-    }
-  };
-
-  /**
-   * Disconnect from LiveKit room
-   */
-  const disconnectLiveKit = async () => {
-    try {
-      if (room) {
-        await disconnect();
-      }
-      await AudioSession.stopAudioSession();
-    } catch (err) {
-      console.error('[ActivePhoneCall] LiveKit disconnect error:', err);
-    }
-  };
-
-  /**
-   * Start server-side recording (initiator only)
-   */
-  const startServerRecording = async () => {
-    if (recordingStartedRef.current) return;
-    recordingStartedRef.current = true;
-
-    try {
-      console.log('[ActivePhoneCall] Starting server-side recording...');
-      await api.post(`/groups/${groupId}/phone-calls/${callId}/start-recording`);
-      setIsRecording(true);
-      console.log('[ActivePhoneCall] Server-side recording started');
-    } catch (err) {
-      console.error('[ActivePhoneCall] Failed to start server recording:', err);
-      // Don't fail the call if recording fails
-    }
-  };
-
-  /**
-   * Stop server-side recording
-   */
-  const stopServerRecording = async () => {
-    if (!isRecording) return;
-
-    try {
-      console.log('[ActivePhoneCall] Stopping server-side recording...');
-      await api.post(`/groups/${groupId}/phone-calls/${callId}/stop-recording`);
-      setIsRecording(false);
-      console.log('[ActivePhoneCall] Server-side recording stopped');
-    } catch (err) {
-      console.error('[ActivePhoneCall] Failed to stop server recording:', err);
     }
   };
 
@@ -226,8 +158,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
           console.log('[ActivePhoneCall] Call ended remotely');
           stopPolling();
-          await stopServerRecording();
-          await disconnectLiveKit();
+          await stopRecording();
+          stopConnection();
 
           navigation.replace('PhoneCallDetails', {
             groupId,
@@ -281,38 +213,121 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleToggleMute = async () => {
+  const handleToggleMute = () => {
     const newValue = !isMuted;
     setIsMuted(newValue);
-
-    // Toggle microphone in LiveKit
-    if (room?.localParticipant) {
-      await room.localParticipant.setMicrophoneEnabled(!newValue);
-    }
+    toggleAudio(!newValue);
   };
 
   const handleToggleSpeaker = async () => {
     const newValue = !isSpeaker;
     setIsSpeaker(newValue);
-
     try {
-      // Switch audio output
-      if (Platform.OS === 'ios') {
-        await AudioSession.configureAudio({
-          ios: {
-            defaultOutput: newValue ? 'speaker' : 'earpiece',
-          },
-        });
-      } else {
-        await AudioSession.configureAudio({
-          android: {
-            preferredOutputList: newValue ? ['speaker'] : ['earpiece', 'speaker'],
-          },
-        });
-      }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: !newValue,
+      });
     } catch (err) {
       console.error('[ActivePhoneCall] Speaker toggle error:', err);
     }
+  };
+
+  /**
+   * Start recording using MediaRecorder API (web only)
+   * Mobile recording not supported - would need a media server for server-side recording
+   */
+  const startRecording = async () => {
+    if (isRecording) return;
+    if (Platform.OS !== 'web') {
+      console.log('[ActivePhoneCall] Recording not supported on mobile');
+      return;
+    }
+
+    console.log('[ActivePhoneCall] Starting recording...');
+    setRecordingStatus('recording');
+    setIsRecording(true);
+
+    if (localStream) {
+      try {
+        // Combine local and remote audio for recording
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Add local audio
+        if (localStream.getAudioTracks().length > 0) {
+          const localAudioSource = audioContext.createMediaStreamSource(localStream);
+          localAudioSource.connect(destination);
+        }
+
+        // Add remote audio if available
+        if (firstRemoteStream?.getAudioTracks().length > 0) {
+          const remoteAudioSource = audioContext.createMediaStreamSource(firstRemoteStream);
+          remoteAudioSource.connect(destination);
+        }
+
+        const mediaRecorder = new MediaRecorder(destination.stream, {
+          mimeType: 'audio/webm;codecs=opus',
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start(1000);
+        mediaRecorderRef.current = mediaRecorder;
+        console.log('[ActivePhoneCall] MediaRecorder started');
+      } catch (err) {
+        console.error('[ActivePhoneCall] MediaRecorder error:', err);
+        setRecordingStatus('error');
+      }
+    }
+  };
+
+  /**
+   * Stop recording and upload (web only)
+   */
+  const stopRecording = async () => {
+    if (!isRecording) return;
+    if (Platform.OS !== 'web') return;
+
+    console.log('[ActivePhoneCall] Stopping recording...');
+
+    if (mediaRecorderRef.current) {
+      return new Promise((resolve) => {
+        mediaRecorderRef.current.onstop = async () => {
+          try {
+            setRecordingStatus('uploading');
+            const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+            recordedChunksRef.current = [];
+
+            const formData = new FormData();
+            formData.append('recording', blob, `phone-call-${callId}.webm`);
+
+            await api.post(
+              `/groups/${groupId}/phone-calls/${callId}/recording`,
+              formData,
+              { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+            console.log('[ActivePhoneCall] Recording uploaded');
+          } catch (err) {
+            console.error('[ActivePhoneCall] Upload error:', err);
+          } finally {
+            setIsRecording(false);
+            setRecordingStatus('idle');
+            resolve();
+          }
+        };
+        mediaRecorderRef.current.stop();
+      });
+    }
+
+    setIsRecording(false);
+    setRecordingStatus('idle');
   };
 
   const handleLeaveCall = () => {
@@ -331,10 +346,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setLeavingCall(true);
             try {
-              if (isInitiator) {
-                await stopServerRecording();
-              }
-              await disconnectLiveKit();
+              await stopRecording();
+              stopConnection();
               const response = await api.put(`/groups/${groupId}/phone-calls/${callId}/leave`);
               stopPolling();
 
@@ -372,8 +385,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
           onPress: async () => {
             setEndingCall(true);
             try {
-              await stopServerRecording();
-              await disconnectLiveKit();
+              await stopRecording();
+              stopConnection();
               await api.put(`/groups/${groupId}/phone-calls/${callId}/end`);
               stopPolling();
               navigation.replace('PhoneCallDetails', {
@@ -416,15 +429,18 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const isActive = call.status === 'active';
 
   // Get remote participant info - the person we're talking to
+  const initiatorId = call.initiator?.groupMemberId || call.initiatedBy;
   const remoteParticipant = isInitiator
     ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
     : call.initiator;
 
-  // LiveKit participants count (excluding local)
-  const remoteParticipantsCount = participants.filter(p => !p.isLocal).length;
-
   return (
     <View style={styles.container}>
+      {/* Hidden audio element for remote stream on web */}
+      {Platform.OS === 'web' && (
+        <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
+      )}
+
       {/* Top Status */}
       <View style={styles.topSection}>
         <Text style={styles.statusText}>
@@ -458,10 +474,10 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
             </Text>
             <Text style={styles.connectionStatus}>
               {isRinging ? 'Ringing...' :
-               !livekitConnected && !livekitError ? 'Connecting...' :
-               livekitError ? 'Connection failed' :
-               remoteParticipantsCount > 0 ? 'Connected' :
-               'Waiting for participant...'}
+               isConnecting ? 'Connecting audio...' :
+               firstRemoteStream ? 'Connected' :
+               !isWebRTCSupported ? 'Requires development build' :
+               'Waiting for audio...'}
             </Text>
           </>
         )}
@@ -523,10 +539,10 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* LiveKit Error */}
-      {livekitError && (
+      {/* WebRTC Error */}
+      {webrtcError && (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{livekitError}</Text>
+          <Text style={styles.errorBannerText}>{webrtcError}</Text>
         </View>
       )}
     </View>

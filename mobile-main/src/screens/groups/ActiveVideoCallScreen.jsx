@@ -3,7 +3,7 @@
  *
  * Shows during an active or ringing video call.
  * Features:
- * - LiveKit for video/audio with server-side recording
+ * - WebRTC peer-to-peer video (web and mobile with dev build)
  * - Remote video as full screen, local video as PiP
  * - Call status (ringing/active)
  * - Call duration timer (when connected)
@@ -12,26 +12,24 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, BackHandler, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet, BackHandler, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
+import { useWebRTC } from '../../hooks/useWebRTC';
 
-// LiveKit imports
-import {
-  useRoom,
-  useParticipants,
-  useTracks,
-  VideoTrack,
-  AudioSession,
-  registerGlobals,
-} from '@livekit/react-native';
-import { Track } from 'livekit-client';
-
-// Register LiveKit globals for React Native
-registerGlobals();
+// Import RTCView for mobile
+let RTCView = null;
+if (Platform.OS !== 'web') {
+  try {
+    RTCView = require('react-native-webrtc').RTCView;
+  } catch (e) {
+    console.log('[ActiveVideoCall] RTCView not available');
+  }
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -42,6 +40,9 @@ const PIP_MARGIN = 16;
 
 /**
  * ActiveVideoCallScreen component
+ *
+ * @param {Object} props
+ * @returns {JSX.Element}
  */
 export default function ActiveVideoCallScreen({ navigation, route }) {
   const { groupId, callId, call: passedCall, isInitiator } = route.params;
@@ -52,47 +53,60 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const [callDuration, setCallDuration] = useState(0);
 
   // Camera and audio state
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [cameraFacing, setCameraFacing] = useState('front');
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [webCameraGranted, setWebCameraGranted] = useState(false);
+  const [noCameraAvailable, setNoCameraAvailable] = useState(false);
 
-  // LiveKit connection state
-  const [livekitConnected, setLivekitConnected] = useState(false);
-  const [livekitError, setLivekitError] = useState(null);
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingStatus, setRecordingStatus] = useState('idle');
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
-  const recordingStartedRef = useRef(false);
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
 
-  // LiveKit Room hook
-  const { room, connect, disconnect } = useRoom();
-  const participants = useParticipants({ room });
-
-  // Get video tracks
-  const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone], {
-    room,
-    onlySubscribed: false,
+  // WebRTC hook - video calls with video enabled
+  const {
+    localStream,
+    remoteStreams,
+    isConnecting,
+    error: webrtcError,
+    connectionStates,
+    isWebRTCSupported,
+    toggleVideo,
+    toggleAudio,
+    stopConnection,
+  } = useWebRTC({
+    groupId,
+    callId,
+    isActive: call?.status === 'active',
+    isInitiator,
+    audioOnly: false,
+    callType: 'video',
   });
 
-  // Separate local and remote tracks
-  const localVideoTrack = tracks.find(
-    t => t.participant?.isLocal && t.source === Track.Source.Camera
-  );
-  const remoteVideoTrack = tracks.find(
-    t => !t.participant?.isLocal && t.source === Track.Source.Camera
-  );
+  // Get first remote stream (for 1-to-1 calls)
+  const remoteStreamEntries = Object.entries(remoteStreams);
+  const firstRemoteStream = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][1] : null;
+  const firstRemotePeerId = remoteStreamEntries.length > 0 ? remoteStreamEntries[0][0] : null;
 
   useEffect(() => {
     if (!passedCall) {
       loadCallDetails();
     }
 
+    // Request permissions on mount
+    requestPermissions();
+
     // Start polling for call status updates
     startPolling();
-
-    // Set up audio
-    setupAudio();
 
     // Prevent back button from leaving without ending
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -102,20 +116,14 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
     return () => {
       stopPolling();
-      disconnectLiveKit();
+      stopConnection();
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      stopRecording();
       backHandler.remove();
     };
   }, [callId]);
-
-  // Connect to LiveKit when call becomes active
-  useEffect(() => {
-    if (call?.status === 'active' && !livekitConnected && !livekitError) {
-      connectToLiveKit();
-    }
-  }, [call?.status]);
 
   // Start duration timer when call becomes active
   useEffect(() => {
@@ -124,113 +132,79 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     }
   }, [call?.status, call?.connectedAt]);
 
-  // Start server-side recording when connected
+  // Attach streams to video elements on web
   useEffect(() => {
-    if (livekitConnected && call?.status === 'active' && isInitiator && !recordingStartedRef.current) {
-      startServerRecording();
+    if (Platform.OS === 'web') {
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      if (remoteVideoRef.current && firstRemoteStream) {
+        remoteVideoRef.current.srcObject = firstRemoteStream;
+      }
     }
-  }, [livekitConnected, call?.status, isInitiator]);
+  }, [localStream, firstRemoteStream]);
 
-  const setupAudio = async () => {
+  // Start recording when call becomes active
+  useEffect(() => {
+    if (call?.status === 'active' && !isRecording && recordingStatus === 'idle') {
+      console.log('[ActiveVideoCall] Call is active, starting recording...');
+      setTimeout(() => startRecording(), 500);
+    }
+  }, [call?.status]);
+
+  /**
+   * Request camera and microphone permissions
+   */
+  const requestPermissions = async () => {
     try {
-      // Configure audio for LiveKit
-      await AudioSession.configureAudio({
-        android: {
-          preferredOutputList: ['speaker', 'earpiece'],
-          audioFocusMode: 'gain',
-        },
-        ios: {
-          defaultOutput: 'speaker',
-        },
+      console.log('[ActiveVideoCall] Requesting permissions...');
+
+      if (Platform.OS === 'web') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+          stream.getTracks().forEach(track => track.stop());
+          setWebCameraGranted(true);
+          await requestCameraPermission();
+          await requestMicPermission();
+        } catch (browserError) {
+          console.log('[ActiveVideoCall] Browser permission error:', browserError.name);
+          if (browserError.name === 'NotFoundError') {
+            setNoCameraAvailable(true);
+          }
+          // Try audio only
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStream.getTracks().forEach(track => track.stop());
+            await requestMicPermission();
+          } catch (audioErr) {
+            console.log('[ActiveVideoCall] Audio permission denied');
+          }
+        }
+      } else {
+        if (!cameraPermission?.granted) {
+          await requestCameraPermission();
+        }
+        if (!micPermission?.granted) {
+          await requestMicPermission();
+        }
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
       });
-      await AudioSession.startAudioSession();
-    } catch (err) {
-      console.error('[ActiveVideoCall] Audio setup error:', err);
+    } catch (error) {
+      console.error('[ActiveVideoCall] Permission error:', error);
     }
   };
 
   /**
-   * Connect to LiveKit room
+   * Fetch latest call data
    */
-  const connectToLiveKit = async () => {
-    try {
-      console.log('[ActiveVideoCall] Connecting to LiveKit...');
-
-      // Get token from backend
-      const response = await api.get(`/groups/${groupId}/video-calls/${callId}/livekit-token`);
-      const { livekitUrl, token, roomName } = response.data;
-
-      if (!livekitUrl || !token) {
-        throw new Error('LiveKit not configured on server');
-      }
-
-      // Connect to LiveKit room
-      await connect(livekitUrl, token, {
-        autoSubscribe: true,
-      });
-
-      // Enable camera and microphone
-      if (room) {
-        await room.localParticipant?.setCameraEnabled(true);
-        await room.localParticipant?.setMicrophoneEnabled(true);
-      }
-
-      setLivekitConnected(true);
-      console.log('[ActiveVideoCall] Connected to LiveKit room:', roomName);
-    } catch (err) {
-      console.error('[ActiveVideoCall] LiveKit connection error:', err);
-      setLivekitError(err.message || 'Failed to connect to call');
-    }
-  };
-
-  /**
-   * Disconnect from LiveKit room
-   */
-  const disconnectLiveKit = async () => {
-    try {
-      if (room) {
-        await disconnect();
-      }
-      await AudioSession.stopAudioSession();
-    } catch (err) {
-      console.error('[ActiveVideoCall] LiveKit disconnect error:', err);
-    }
-  };
-
-  /**
-   * Start server-side recording (initiator only)
-   */
-  const startServerRecording = async () => {
-    if (recordingStartedRef.current) return;
-    recordingStartedRef.current = true;
-
-    try {
-      console.log('[ActiveVideoCall] Starting server-side recording...');
-      await api.post(`/groups/${groupId}/video-calls/${callId}/start-recording`);
-      setIsRecording(true);
-      console.log('[ActiveVideoCall] Server-side recording started');
-    } catch (err) {
-      console.error('[ActiveVideoCall] Failed to start server recording:', err);
-      // Don't fail the call if recording fails
-    }
-  };
-
-  /**
-   * Stop server-side recording
-   */
-  const stopServerRecording = async () => {
-    if (!isRecording) return;
-
-    try {
-      console.log('[ActiveVideoCall] Stopping server-side recording...');
-      await api.post(`/groups/${groupId}/video-calls/${callId}/stop-recording`);
-      setIsRecording(false);
-      console.log('[ActiveVideoCall] Server-side recording stopped');
-    } catch (err) {
-      console.error('[ActiveVideoCall] Failed to stop server recording:', err);
-    }
-  };
-
   const fetchCallUpdate = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/video-calls`);
@@ -241,8 +215,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         if (updatedCall.status === 'ended' || updatedCall.status === 'missed') {
           console.log('[ActiveVideoCall] Call ended remotely');
           stopPolling();
-          await stopServerRecording();
-          await disconnectLiveKit();
+          await stopRecording();
+          stopConnection();
 
           navigation.replace('VideoCallDetails', {
             groupId,
@@ -296,37 +270,116 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const toggleCameraFacing = async () => {
+  const toggleCameraFacing = () => {
     setCameraFacing(prev => prev === 'front' ? 'back' : 'front');
-    // LiveKit handles camera switching internally
-    if (room?.localParticipant) {
-      const currentTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
-      if (currentTrack) {
-        // Toggle camera by disabling and re-enabling with different facingMode
-        await room.localParticipant.setCameraEnabled(false);
-        await room.localParticipant.setCameraEnabled(true, {
-          facingMode: cameraFacing === 'front' ? 'environment' : 'user',
+  };
+
+  const handleToggleCamera = () => {
+    const newValue = !isCameraOn;
+    setIsCameraOn(newValue);
+    toggleVideo(newValue);
+  };
+
+  const handleToggleMute = () => {
+    const newValue = !isMuted;
+    setIsMuted(newValue);
+    toggleAudio(!newValue);
+  };
+
+  /**
+   * Start recording using MediaRecorder API (web) or fallback
+   */
+  const startRecording = async () => {
+    if (isRecording) return;
+
+    console.log('[ActiveVideoCall] Starting recording...');
+    setRecordingStatus('recording');
+    setIsRecording(true);
+
+    if (Platform.OS === 'web' && localStream) {
+      try {
+        // Combine local and remote streams for recording
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Add local audio
+        if (localStream.getAudioTracks().length > 0) {
+          const localAudioSource = audioContext.createMediaStreamSource(localStream);
+          localAudioSource.connect(destination);
+        }
+
+        // Add remote audio if available
+        if (firstRemoteStream?.getAudioTracks().length > 0) {
+          const remoteAudioSource = audioContext.createMediaStreamSource(firstRemoteStream);
+          remoteAudioSource.connect(destination);
+        }
+
+        // Create combined stream with local video + mixed audio
+        const combinedTracks = [
+          ...localStream.getVideoTracks(),
+          ...destination.stream.getAudioTracks(),
+        ];
+        const combinedStream = new MediaStream(combinedTracks);
+
+        const mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: 'video/webm;codecs=vp9',
         });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start(1000); // Collect data every second
+        mediaRecorderRef.current = mediaRecorder;
+        console.log('[ActiveVideoCall] MediaRecorder started');
+      } catch (err) {
+        console.error('[ActiveVideoCall] MediaRecorder error:', err);
+        setRecordingStatus('error');
       }
     }
   };
 
-  const handleToggleCamera = async () => {
-    const newValue = !isCameraOn;
-    setIsCameraOn(newValue);
+  /**
+   * Stop recording and upload
+   */
+  const stopRecording = async () => {
+    if (!isRecording) return;
 
-    if (room?.localParticipant) {
-      await room.localParticipant.setCameraEnabled(newValue);
+    console.log('[ActiveVideoCall] Stopping recording...');
+
+    if (Platform.OS === 'web' && mediaRecorderRef.current) {
+      return new Promise((resolve) => {
+        mediaRecorderRef.current.onstop = async () => {
+          try {
+            setRecordingStatus('uploading');
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            recordedChunksRef.current = [];
+
+            const formData = new FormData();
+            formData.append('recording', blob, `video-call-${callId}.webm`);
+
+            await api.post(
+              `/groups/${groupId}/video-calls/${callId}/recording`,
+              formData,
+              { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+            console.log('[ActiveVideoCall] Recording uploaded');
+          } catch (err) {
+            console.error('[ActiveVideoCall] Upload error:', err);
+          } finally {
+            setIsRecording(false);
+            setRecordingStatus('idle');
+            resolve();
+          }
+        };
+        mediaRecorderRef.current.stop();
+      });
     }
-  };
 
-  const handleToggleMute = async () => {
-    const newValue = !isMuted;
-    setIsMuted(newValue);
-
-    if (room?.localParticipant) {
-      await room.localParticipant.setMicrophoneEnabled(!newValue);
-    }
+    setIsRecording(false);
+    setRecordingStatus('idle');
   };
 
   const handleLeaveCall = () => {
@@ -345,10 +398,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           onPress: async () => {
             setLeavingCall(true);
             try {
-              if (isInitiator) {
-                await stopServerRecording();
-              }
-              await disconnectLiveKit();
+              await stopRecording();
+              stopConnection();
               const response = await api.put(`/groups/${groupId}/video-calls/${callId}/leave`);
               stopPolling();
 
@@ -386,8 +437,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           onPress: async () => {
             setEndingCall(true);
             try {
-              await stopServerRecording();
-              await disconnectLiveKit();
+              await stopRecording();
+              stopConnection();
               await api.put(`/groups/${groupId}/video-calls/${callId}/end`);
               stopPolling();
               navigation.replace('VideoCallDetails', {
@@ -428,24 +479,30 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
+  const hasCameraPermission = cameraPermission?.granted || webCameraGranted;
 
   // Get remote participant info - the person we're talking to
   const remoteParticipant = isInitiator
     ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
     : call.initiator;
 
-  // LiveKit participants count (excluding local)
-  const remoteParticipantsCount = participants.filter(p => !p.isLocal).length;
-
   return (
     <View style={styles.container}>
       {/* Remote Video (Full Screen) */}
       <View style={styles.remoteVideoContainer}>
-        {remoteVideoTrack?.publication?.track ? (
-          <VideoTrack
-            trackRef={remoteVideoTrack}
+        {Platform.OS === 'web' && firstRemoteStream ? (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            style={styles.remoteVideo}
+          />
+        ) : Platform.OS !== 'web' && RTCView && firstRemoteStream ? (
+          <RTCView
+            streamURL={firstRemoteStream.toURL()}
             style={styles.remoteVideo}
             objectFit="cover"
+            mirror={false}
           />
         ) : (
           // Placeholder when no remote stream
@@ -463,10 +520,9 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
                 </Text>
                 <Text style={styles.connectionStatus}>
                   {isRinging ? 'Calling...' :
-                   !livekitConnected && !livekitError ? 'Connecting...' :
-                   livekitError ? 'Connection failed' :
-                   remoteParticipantsCount > 0 ? 'Connected (camera off)' :
-                   'Waiting for participant...'}
+                   isConnecting ? 'Connecting...' :
+                   !isWebRTCSupported ? 'Requires development build' :
+                   'Waiting for video...'}
                 </Text>
               </>
             )}
@@ -496,17 +552,32 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
       {/* Local Video (PiP) */}
       <View style={styles.pipContainer}>
-        {localVideoTrack?.publication?.track && isCameraOn ? (
-          <VideoTrack
-            trackRef={localVideoTrack}
+        {Platform.OS === 'web' && localStream && isCameraOn ? (
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            style={styles.pipVideo}
+          />
+        ) : Platform.OS !== 'web' && RTCView && localStream && isCameraOn ? (
+          <RTCView
+            streamURL={localStream.toURL()}
             style={styles.pipVideo}
             objectFit="cover"
-            mirror={cameraFacing === 'front'}
+            mirror={true}
+            zOrder={1}
+          />
+        ) : hasCameraPermission && isCameraOn && Platform.OS !== 'web' && !RTCView ? (
+          <CameraView
+            style={styles.pipVideo}
+            facing={cameraFacing}
+            mute={true}
           />
         ) : (
           <View style={styles.pipPlaceholder}>
             <Text style={styles.pipPlaceholderText}>
-              {!isCameraOn ? '📷 Off' : !livekitConnected ? 'Connecting...' : 'You'}
+              {!isCameraOn ? '📷 Off' : noCameraAvailable ? 'No cam' : 'You'}
             </Text>
           </View>
         )}
@@ -571,10 +642,10 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* LiveKit Error */}
-      {livekitError && (
+      {/* WebRTC Error */}
+      {webrtcError && (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{livekitError}</Text>
+          <Text style={styles.errorBannerText}>{webrtcError}</Text>
         </View>
       )}
     </View>
@@ -593,6 +664,7 @@ const styles = StyleSheet.create({
   remoteVideo: {
     width: '100%',
     height: '100%',
+    objectFit: 'cover',
   },
   remoteVideoPlaceholder: {
     flex: 1,
@@ -675,6 +747,7 @@ const styles = StyleSheet.create({
   pipVideo: {
     width: '100%',
     height: '100%',
+    objectFit: 'cover',
   },
   pipPlaceholder: {
     flex: 1,
