@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
 import api from '../../services/api';
@@ -41,6 +41,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [endingCall, setEndingCall] = useState(false);
+  const [progressBarWidth, setProgressBarWidth] = useState(0);
 
   useEffect(() => {
     loadGroupInfo();
@@ -256,11 +257,18 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   };
 
   /**
-   * Seek to position
+   * Handle tap on progress bar to seek
    */
-  const seekTo = async (positionMs) => {
-    if (sound) {
-      await sound.setPositionAsync(positionMs);
+  const handleSeek = async (event) => {
+    if (!sound || !playbackDuration || progressBarWidth === 0) return;
+
+    const { locationX } = event.nativeEvent;
+    const seekPosition = (locationX / progressBarWidth) * playbackDuration;
+
+    try {
+      await sound.setPositionAsync(Math.max(0, Math.floor(seekPosition)));
+    } catch (err) {
+      console.error('Seek error:', err);
     }
   };
 
@@ -453,14 +461,27 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                 />
 
                 <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0}%` }
-                      ]}
-                    />
-                  </View>
+                  <Pressable
+                    style={styles.progressBarTouchable}
+                    onPress={handleSeek}
+                    onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
+                  >
+                    <View style={styles.progressBar}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          { width: `${playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0}%` }
+                        ]}
+                      />
+                      {/* Seek indicator dot */}
+                      <View
+                        style={[
+                          styles.seekDot,
+                          { left: `${playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0}%` }
+                        ]}
+                      />
+                    </View>
+                  </Pressable>
                   <View style={styles.timeRow}>
                     <Text style={styles.timeText}>{formatDuration(playbackPosition)}</Text>
                     <Text style={styles.timeText}>
@@ -663,16 +684,29 @@ const styles = StyleSheet.create({
   progressContainer: {
     flex: 1,
   },
+  progressBarTouchable: {
+    paddingVertical: 10, // Larger touch target
+  },
   progressBar: {
     height: 6,
     backgroundColor: '#e0e0e0',
     borderRadius: 3,
     marginBottom: 8,
+    position: 'relative',
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#4caf50',
     borderRadius: 3,
+  },
+  seekDot: {
+    position: 'absolute',
+    top: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#4caf50',
+    marginLeft: -8,
   },
   timeRow: {
     flexDirection: 'row',

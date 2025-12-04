@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -168,18 +168,21 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
     }
   };
 
+  // Track progress bar width for seek calculations
+  const [progressBarWidth, setProgressBarWidth] = useState(0);
+
   /**
-   * Seek to position
+   * Seek to position when user taps on progress bar
    */
   const handleSeek = async (event) => {
-    if (!sound || !duration) return;
+    const currentSound = soundRef.current;
+    if (!currentSound || !duration || progressBarWidth === 0) return;
 
     const { locationX } = event.nativeEvent;
-    const { width } = event.target.getBoundingClientRect?.() || { width: 150 };
-    const seekPosition = (locationX / width) * duration;
+    const seekPosition = (locationX / progressBarWidth) * duration;
 
     try {
-      await sound.setPositionAsync(Math.floor(seekPosition));
+      await currentSound.setPositionAsync(Math.max(0, Math.floor(seekPosition)));
     } catch (err) {
       // Silently handle seek errors
     }
@@ -226,7 +229,11 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
       </TouchableOpacity>
 
       <View style={styles.progressContainer}>
-        <View style={styles.progressBarContainer}>
+        <Pressable
+          style={styles.progressBarContainer}
+          onPress={handleSeek}
+          onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
+        >
           <View style={styles.progressBar}>
             <View
               style={[
@@ -237,8 +244,18 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
                 },
               ]}
             />
+            {/* Seek indicator dot */}
+            <View
+              style={[
+                styles.seekDot,
+                {
+                  left: `${progressPercent}%`,
+                  backgroundColor: iconColor,
+                },
+              ]}
+            />
           </View>
-        </View>
+        </Pressable>
         <Text style={[styles.durationText, { color: textColor }]}>
           {formatDuration(isPlaying ? position : duration)}
         </Text>
@@ -272,16 +289,25 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     marginBottom: 4,
+    paddingVertical: 8, // Larger touch target
   },
   progressBar: {
     height: 4,
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 2,
-    overflow: 'hidden',
+    position: 'relative',
   },
   progressFill: {
     height: '100%',
     borderRadius: 2,
+  },
+  seekDot: {
+    position: 'absolute',
+    top: -4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: -6,
   },
   durationText: {
     fontSize: 12,
