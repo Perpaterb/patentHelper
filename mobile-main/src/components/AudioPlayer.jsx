@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Pressable, Platform } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { Audio } from 'expo-av';
 
@@ -43,6 +43,7 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
   const [error, setError] = useState(null);
 
   const soundRef = useRef(null);
+  const progressBarRef = useRef(null);
 
   // Load sound on mount
   useEffect(() => {
@@ -169,21 +170,60 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
 
   // Track progress bar width for seek calculations
   const [progressBarWidth, setProgressBarWidth] = useState(0);
+  const [progressBarLeft, setProgressBarLeft] = useState(0);
 
   /**
    * Seek to position when user taps on progress bar
+   * Works on both mobile (locationX) and web (offsetX/pageX)
    */
   const handleSeek = async (event) => {
     const currentSound = soundRef.current;
     if (!currentSound || !duration || progressBarWidth === 0) return;
 
-    const { locationX } = event.nativeEvent;
+    let locationX;
+
+    if (Platform.OS === 'web') {
+      // On web, use offsetX if available, otherwise calculate from pageX
+      if (event.nativeEvent.offsetX !== undefined) {
+        locationX = event.nativeEvent.offsetX;
+      } else if (event.nativeEvent.pageX !== undefined) {
+        locationX = event.nativeEvent.pageX - progressBarLeft;
+      } else {
+        return;
+      }
+    } else {
+      // On mobile, use locationX
+      locationX = event.nativeEvent.locationX;
+    }
+
+    if (locationX === undefined || locationX === null) return;
+
+    // Clamp to valid range
+    locationX = Math.max(0, Math.min(locationX, progressBarWidth));
     const seekPosition = (locationX / progressBarWidth) * duration;
 
     try {
       await currentSound.setPositionAsync(Math.max(0, Math.floor(seekPosition)));
     } catch (err) {
       // Silently handle seek errors
+    }
+  };
+
+  /**
+   * Handle layout to get width and position for web click handling
+   */
+  const handleProgressBarLayout = (e) => {
+    setProgressBarWidth(e.nativeEvent.layout.width);
+    // On web, also track the left position for pageX calculation
+    if (Platform.OS === 'web' && progressBarRef.current) {
+      try {
+        progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+          setProgressBarLeft(pageX || 0);
+        });
+      } catch (err) {
+        // measure might not be available, use layout.x as fallback
+        setProgressBarLeft(e.nativeEvent.layout.x || 0);
+      }
     }
   };
 
@@ -238,21 +278,24 @@ export default function AudioPlayer({ uri, duration: serverDuration, isMyMessage
       <View style={styles.progressContainer}>
         {/* Tappable progress bar */}
         <Pressable
+          ref={progressBarRef}
           style={styles.progressBarTouchable}
           onPress={handleSeek}
-          onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
+          onLayout={handleProgressBarLayout}
         >
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${progressPercent}%`,
-                  backgroundColor: accentColor,
-                },
-              ]}
-            />
-            {/* Seek indicator dot */}
+          <View style={styles.progressBarWrapper}>
+            <View style={styles.progressBar}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${progressPercent}%`,
+                    backgroundColor: accentColor,
+                  },
+                ]}
+              />
+            </View>
+            {/* Seek indicator dot - positioned relative to wrapper */}
             <View
               style={[
                 styles.seekDot,
@@ -299,12 +342,17 @@ const styles = StyleSheet.create({
   },
   progressBarTouchable: {
     paddingVertical: 8, // Larger touch target
+    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
+  },
+  progressBarWrapper: {
+    position: 'relative',
+    height: 16, // Height to contain the seek dot
+    justifyContent: 'center',
   },
   progressBar: {
     height: 6,
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 3,
-    position: 'relative',
   },
   progressFill: {
     height: '100%',
@@ -312,11 +360,11 @@ const styles = StyleSheet.create({
   },
   seekDot: {
     position: 'absolute',
-    top: -5,
+    top: 0,
     width: 16,
     height: 16,
     borderRadius: 8,
-    marginLeft: -8,
+    transform: [{ translateX: -8 }], // Center the dot on the position
   },
   timeRow: {
     flexDirection: 'row',
