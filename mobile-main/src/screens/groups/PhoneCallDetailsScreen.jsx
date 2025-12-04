@@ -56,6 +56,51 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
     };
   }, [callId]);
 
+  // Poll for recording after call ends (recording takes time to upload)
+  useEffect(() => {
+    // Only poll if call just ended and doesn't have recording yet
+    const shouldPoll = call?.status === 'ended' &&
+                       !call?.recordingUrl &&
+                       !call?.recording?.url;
+
+    if (!shouldPoll) return;
+
+    let pollCount = 0;
+    const maxPolls = 12; // Poll for up to 60 seconds (12 * 5s)
+
+    const pollForRecording = setInterval(async () => {
+      pollCount++;
+      console.log(`[CallDetails] Polling for recording (${pollCount}/${maxPolls})...`);
+
+      try {
+        const response = await api.get(`/groups/${groupId}/phone-calls`);
+        const updatedCall = response.data.phoneCalls?.find(c => c.callId === callId);
+
+        if (updatedCall) {
+          // Check if recording is now available
+          if (updatedCall.recordingUrl || updatedCall.recording?.url) {
+            console.log('[CallDetails] Recording found, updating state');
+            setCall(updatedCall);
+            clearInterval(pollForRecording);
+          } else if (updatedCall.durationMs !== call.durationMs) {
+            // Duration updated even if no recording yet
+            setCall(updatedCall);
+          }
+        }
+      } catch (err) {
+        console.error('[CallDetails] Poll error:', err);
+      }
+
+      // Stop polling after max attempts
+      if (pollCount >= maxPolls) {
+        console.log('[CallDetails] Max polls reached, stopping');
+        clearInterval(pollForRecording);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollForRecording);
+  }, [call?.status, call?.recordingUrl, call?.recording?.url, groupId, callId]);
+
   /**
    * Load group info to get user role
    */
