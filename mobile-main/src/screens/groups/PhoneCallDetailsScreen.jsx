@@ -526,7 +526,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
         <Card style={styles.card}>
           <Card.Content>
             <Title style={styles.sectionTitle}>
-              Participants ({call.participants?.length || 0})
+              Participants
             </Title>
 
             {/* Initiator */}

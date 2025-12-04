@@ -448,9 +448,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
         {/* Participants Card */}
         <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.sectionTitle}>
-              Participants ({call.participants?.length || 0})
-            </Title>
+            <Title style={styles.sectionTitle}>Participants</Title>
 
             {/* Initiator */}
             {call.initiator && (
