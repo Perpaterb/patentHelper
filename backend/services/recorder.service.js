@@ -67,8 +67,9 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl }) 
       console.error(`[Recorder Page Error] ${err.message}`);
     });
 
-    // Navigate to the recorder page
-    const recorderUrl = new URL('/recorder.html', apiUrl);
+    // Navigate to the appropriate recorder page based on call type
+    const recorderPage = callType === 'video' ? '/videoRecorder.html' : '/recorder.html';
+    const recorderUrl = new URL(recorderPage, apiUrl);
     recorderUrl.searchParams.set('apiUrl', apiUrl);
     recorderUrl.searchParams.set('groupId', groupId);
     recorderUrl.searchParams.set('callId', callId);
