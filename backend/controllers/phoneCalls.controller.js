@@ -1509,7 +1509,7 @@ async function sendSignal(req, res) {
       }
     }
 
-    console.log(`[WebRTC Phone Signal] ${type} from ${membership.groupMemberId} in call ${callId}`);
+    console.log(`[WebRTC Phone Signal] ${type} from ${membership.groupMemberId} to ${targetPeerId || 'all'} in call ${callId}`);
 
     return res.json({ success: true, message: 'Signal sent' });
   } catch (error) {
@@ -1744,6 +1744,10 @@ async function getRecorderSignals(req, res) {
     // Get signals meant for the recorder
     const callSignals = signalingStore.get(callId) || {};
     const recorderSignals = callSignals['recorder'] || [];
+
+    if (recorderSignals.length > 0) {
+      console.log(`[Recorder Signal] Returning ${recorderSignals.length} signals to recorder for call ${callId}`);
+    }
 
     // Clear the signals after retrieving
     if (callSignals['recorder']) {

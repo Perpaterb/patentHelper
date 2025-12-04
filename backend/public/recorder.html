@@ -124,22 +124,30 @@
 
     async function pollForSignals() {
       // Poll the signaling endpoint for WebRTC signals (using recorder-specific endpoint)
+      const signalUrl = `${API_URL}/groups/${GROUP_ID}/${CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls'}/${CALL_ID}/recorder-signal`;
+      console.log('[Recorder] Signal polling URL:', signalUrl);
+
       const pollInterval = setInterval(async () => {
         try {
-          const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
-          const response = await fetch(
-            `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recorder-signal`,
-            { headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` } }
-          );
+          const response = await fetch(signalUrl, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
 
-          if (response.ok) {
-            const data = await response.json();
-            for (const signal of data.signals || []) {
+          if (!response.ok) {
+            console.error('[Recorder] Signal poll failed:', response.status, response.statusText);
+            return;
+          }
+
+          const data = await response.json();
+          if (data.signals && data.signals.length > 0) {
+            console.log('[Recorder] Received', data.signals.length, 'signals');
+            for (const signal of data.signals) {
+              console.log('[Recorder] Processing signal:', signal.type, 'from', signal.from);
               await handleSignal(signal);
             }
           }
         } catch (err) {
-          console.error('[Recorder] Signal poll error:', err);
+          console.error('[Recorder] Signal poll error:', err.message || err);
         }
       }, 2000);
 
@@ -148,7 +156,8 @@
     }
 
     async function handleSignal(signal) {
-      const { fromId, type, data } = signal;
+      const { from: fromId, type, data } = signal;
+      console.log('[Recorder] Handling signal:', type, 'from peer:', fromId);
 
       if (!peerConnections[fromId]) {
         // Create new peer connection for this participant
