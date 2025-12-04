@@ -513,6 +513,32 @@ const handleSubscribe = () => {
 - **Overflow fix**: Use `transform: [{ translateX: -8 }]` not `marginLeft: -8`
 - **Files**: `AudioPlayer.jsx`, `PhoneCallDetailsScreen.jsx`
 
+#### 26. **Video Recordings Require Metadata JSON Files**
+- ❌ **WRONG**: Only saving the video file (MP4) to uploads directory
+- ✅ **CORRECT**: Must also create a `{fileId}.json` metadata file
+- **Why**: The `/files/:fileId` endpoint uses `localStorageService.getFileMetadata()` which looks for the JSON file
+- **Pattern**: Match phone call recordings - save file AND create metadata JSON
+- **Metadata includes**: fileId, fileName, mimeType, size, userId, groupId, callId, durationMs
+- **Files**: `videoCalls.controller.js` (uploadRecording function)
+
+#### 27. **Video MP4 Encoding Needs Baseline Profile for Compatibility**
+- ❌ **WRONG**: Just using `-vcodec libx264` without profile settings
+- ✅ **CORRECT**: Add compatibility flags for universal playback
+- **Required ffmpeg flags**:
+  - `-profile:v baseline` - Wide compatibility (iOS, Android, web)
+  - `-level 3.1` - Wide device support
+  - `-pix_fmt yuv420p` - Required for QuickTime/iOS
+  - `-movflags +faststart` - Enable streaming
+- **Why**: Without these, videos won't play on iOS/Safari or some Android devices
+- **Files**: `backend/services/videoConverter.js`
+
+#### 28. **Expo Web Needs Native HTML Video Player**
+- ❌ **WRONG**: Using expo-av Video component on all platforms including web
+- ✅ **CORRECT**: Use platform detection and native HTML `<video>` on web
+- **Why**: expo-av Video component doesn't work reliably on Expo Web
+- **Pattern**: `Platform.OS === 'web' ? <video src={url} controls /> : <Video source={{uri: url}} />`
+- **Files**: `VideoCallDetailsScreen.jsx`
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

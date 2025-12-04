@@ -1,6 +1,6 @@
 # Call Recording System - Technical Documentation
 
-**Last Updated:** 2025-12-04
+**Last Updated:** 2025-12-05
 **Status:** Phone Call Recording - WORKING | Video Call Recording - WORKING
 
 ---
@@ -414,6 +414,69 @@ Each participant gets equal screen space, with letterboxing to preserve aspect r
 - Black video (canvas with black fill)
 - Required for WebRTC negotiation but sends no real content
 
+### Problem 5: Video Recording Not Playing (SOLVED 2025-12-05)
+
+**Symptom:** Video recordings saved but wouldn't play - "File not found" errors.
+
+**Root Cause:** Video recordings were being saved to disk but no metadata JSON file was created. The `/files/:fileId` endpoint requires a metadata file to serve files.
+
+**Solution:** Added metadata JSON file creation in `videoCalls.controller.js` (matching the pattern used by phone calls):
+
+```javascript
+// Create metadata JSON file for storage service compatibility
+const metadataPath = path.join(uploadsDir, `${fileId}.json`);
+const metadata = {
+  fileId, fileName, mimeType: 'video/mp4',
+  size: fileSize, category: 'recordings',
+  userId, groupId, callId, durationMs,
+};
+await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+```
+
+### Problem 6: Video Not Playing on Mobile/Web (SOLVED 2025-12-05)
+
+**Symptom:** MP4 files wouldn't play on iOS, Android, or web browsers.
+
+**Root Cause:** ffmpeg conversion settings weren't optimized for universal playback compatibility.
+
+**Solution:** Added compatibility flags to `videoConverter.js`:
+
+```javascript
+ffmpeg(inputPath)
+  .outputOptions([
+    '-preset fast',
+    '-crf 23',
+    '-movflags +faststart',    // Enable streaming
+    '-profile:v baseline',      // Wide compatibility (iOS, Android, web)
+    '-level 3.1',              // Wide device support
+    '-pix_fmt yuv420p',        // Required for QuickTime/iOS
+  ])
+```
+
+### Problem 7: Video Player Not Working on Expo Web (SOLVED 2025-12-05)
+
+**Symptom:** Video recordings wouldn't play when running mobile-main on web (Expo Web).
+
+**Root Cause:** expo-av Video component doesn't work reliably on web platform.
+
+**Solution:** Added platform detection in `VideoCallDetailsScreen.jsx` to use native HTML video on web:
+
+```jsx
+{Platform.OS === 'web' ? (
+  <video
+    src={recordingUrl}
+    controls
+    style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+  />
+) : (
+  <Video
+    source={{ uri: recordingUrl }}
+    useNativeControls
+    resizeMode={ResizeMode.CONTAIN}
+  />
+)}
+```
+
 ---
 
 ## Future Enhancements
@@ -488,6 +551,9 @@ Each participant gets equal screen space, with letterboxing to preserve aspect r
 | 2025-12-04 | Removed participant count from call details |
 | 2025-12-04 | Video call recording with canvas grid layout |
 | 2025-12-04 | WebM → MP4 conversion for video recordings |
+| 2025-12-05 | Fixed metadata file creation for video recordings |
+| 2025-12-05 | Improved MP4 encoding for universal compatibility |
+| 2025-12-05 | Added native HTML video player for Expo Web |
 
 ---
 

@@ -1,8 +1,8 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-12-04)
+## Current Status (Updated: 2025-12-05)
 
-Currently working on: **Phone Call Recording Complete - Video Call Recording Complete**
+Currently working on: **Phone & Video Call Recording Systems - FULLY COMPLETE**
 
 ---
 
@@ -72,7 +72,13 @@ A **server-side "Ghost Recorder"** system using Puppeteer (headless Chrome) that
 
 ---
 
-**Just completed (2025-12-04):**
+**Just completed (2025-12-05):**
+- ✅ Fixed video recording metadata file creation (required for `/files/:fileId` endpoint)
+- ✅ Improved MP4 encoding with baseline profile for universal compatibility
+- ✅ Added native HTML video player for Expo Web (platform detection)
+- ✅ Added detailed ffmpeg logging (input/output sizes, progress, command)
+
+**Completed (2025-12-04):**
 - ✅ Phone call recording click track fix (silent Web Audio stream)
 - ✅ Auto-refresh polling for recording availability
 - ✅ Audio player seek functionality (tap progress bar to jump)
