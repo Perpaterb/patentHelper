@@ -51,30 +51,19 @@
       try {
         updateStatus('Getting media access...');
 
-        // Get local media (audio only for ghost - we just need to join)
-        // Note: We keep the local audio enabled so WebRTC negotiation works properly
-        // The fake device from Puppeteer provides silence anyway
-        localStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          },
-          video: false // Ghost doesn't need to send video
-        });
+        // Create a silent audio stream using Web Audio API
+        // This avoids the click track from Puppeteer's fake audio device
+        const silentAudioContext = new AudioContext();
+        const oscillator = silentAudioContext.createOscillator();
+        const gainNode = silentAudioContext.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        const silentDestination = silentAudioContext.createMediaStreamDestination();
+        gainNode.connect(silentDestination);
+        oscillator.start();
 
-        console.log('[Recorder] Local stream obtained:');
-        localStream.getAudioTracks().forEach(track => {
-          console.log('[Recorder] Local track:', {
-            id: track.id,
-            kind: track.kind,
-            enabled: track.enabled,
-            muted: track.muted,
-            readyState: track.readyState
-          });
-          // Keep track enabled for WebRTC negotiation
-          // The fake device provides silence anyway
-        });
+        localStream = silentDestination.stream;
+        console.log('[Recorder] Created silent local stream for WebRTC negotiation');
 
         updateStatus('Connecting to signaling server...');
         await connectToCall();
