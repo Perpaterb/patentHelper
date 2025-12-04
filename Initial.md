@@ -490,6 +490,29 @@ const handleSubscribe = () => {
   - Trial expires: Group archived (visible but read-only), data preserved, reactivate by subscribing
 - **Rationale**: Encourages trial-to-paid conversion, prevents trial abuse
 
+#### 24. **Phone/Video Call Recording Uses Server-Side Ghost Recorder**
+- ❌ **WRONG**: Recording on client device (privacy concerns, device limitations)
+- ✅ **CORRECT**: Server-side recording via Puppeteer headless Chrome "ghost" participant
+- **How it works**:
+  1. Call starts → Backend spawns Puppeteer with `recorder.html`
+  2. Ghost recorder joins call via WebRTC (REST-based signaling)
+  3. MediaRecorder captures all remote audio streams
+  4. Call ends → Recording uploaded → Browser closed
+- **Critical Implementation Details**:
+  - **Silent local stream**: MUST use Web Audio API silent oscillator, NOT `getUserMedia`
+  - Puppeteer's fake audio device produces audible click track if using `getUserMedia`
+  - The silent stream satisfies WebRTC negotiation without sending audio
+- **Files**: `backend/services/recorder.service.js`, `backend/public/recorder.html`
+- **See**: `backend/CALL_RECORDING_SYSTEM.md` for complete technical documentation
+
+#### 25. **Audio Players Need Platform-Specific Seek Handling**
+- ❌ **WRONG**: Using `event.nativeEvent.locationX` everywhere
+- ✅ **CORRECT**: Platform detection for web vs mobile
+- **Mobile (iOS/Android)**: `event.nativeEvent.locationX`
+- **Web (Expo Web)**: `event.nativeEvent.offsetX` or calculate from `pageX`
+- **Overflow fix**: Use `transform: [{ translateX: -8 }]` not `marginLeft: -8`
+- **Files**: `AudioPlayer.jsx`, `PhoneCallDetailsScreen.jsx`
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

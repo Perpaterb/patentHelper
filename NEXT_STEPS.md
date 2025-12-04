@@ -1,8 +1,83 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-12-02)
+## Current Status (Updated: 2025-12-04)
 
-Currently working on: **Mobile App Feature Complete - Polishing & Bug Fixes**
+Currently working on: **Phone Call Recording Complete - Video Recording Pending**
+
+---
+
+## Phone Call Recording System - MILESTONE COMPLETE (2025-12-04)
+
+**STATUS: FULLY WORKING**
+
+See `backend/CALL_RECORDING_SYSTEM.md` for comprehensive technical documentation.
+
+### What Was Built
+
+A **server-side "Ghost Recorder"** system using Puppeteer (headless Chrome) that:
+- Joins calls as an invisible participant
+- Records all audio streams via MediaRecorder API
+- Uploads recordings automatically when call ends
+- Stores recordings with MP3 conversion for universal playback
+
+### Key Technical Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Puppeteer Ghost Recorder | Server-side capture ensures all participants are recorded regardless of client implementation |
+| Web Audio API Silent Stream | Avoids Puppeteer's fake audio device click track while satisfying WebRTC requirements |
+| REST-based Signaling | Simpler than WebSocket for intermittent recorder connections |
+| Auto-refresh Polling | Better UX than requiring manual refresh after call ends |
+
+### Problems Solved
+
+1. **Click Track Noise (CRITICAL FIX)**
+   - **Problem:** Puppeteer's fake audio device produced audible clicking during calls
+   - **Solution:** Replaced `getUserMedia()` with silent Web Audio API oscillator stream
+   - **File:** `backend/public/recorder.html`
+
+2. **Auto-Refresh After Recording Upload**
+   - **Problem:** Users had to navigate away and back to see recording
+   - **Solution:** Polling mechanism (5s intervals, 60s max) checks for recording availability
+   - **Files:** `PhoneCallDetailsScreen.jsx`, `VideoCallDetailsScreen.jsx`
+
+3. **Audio Player Seek Not Working on Web**
+   - **Problem:** Progress bar not clickable on Expo Web, seek dot overflowing
+   - **Solution:** Platform-specific event handling (offsetX vs locationX), transform instead of marginLeft
+   - **Files:** `AudioPlayer.jsx`, `PhoneCallDetailsScreen.jsx`
+
+### Features Implemented
+
+- [x] Phone call recording start/stop via Puppeteer
+- [x] Silent audio stream (no click track)
+- [x] Automatic recording upload on call end
+- [x] Auto-refresh polling for recording availability
+- [x] Unified audio player styling (messages + call recordings match)
+- [x] Seek functionality on progress bar (tap to jump)
+- [x] Web platform support for audio player
+- [x] Removed misleading participant count
+
+### Dropped Features (Intentionally)
+
+- **Recording indicator delay** - Multiple attempts broke signaling endpoints (404 errors). Decided the 1-2 second delay is acceptable.
+
+### Pending Work
+
+- [ ] **Video Call Recording** - Infrastructure exists but not yet active
+  - recorder.service.js supports `callType: 'video'`
+  - Need video stream capture in recorder.html
+  - Need WebM → MP4 conversion
+  - Need VideoCallDetailsScreen video playback
+
+---
+
+**Just completed (2025-12-04):**
+- ✅ Phone call recording click track fix (silent Web Audio stream)
+- ✅ Auto-refresh polling for recording availability
+- ✅ Audio player seek functionality (tap progress bar to jump)
+- ✅ Unified audio player styling (messages match call recordings)
+- ✅ Web platform audio player fixes (seek bar, overflow)
+- ✅ Comprehensive documentation (backend/CALL_RECORDING_SYSTEM.md)
 
 **Just completed (2025-12-02):**
 - ✅ Force app update feature for outdated app versions
