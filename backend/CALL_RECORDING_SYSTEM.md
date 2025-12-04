@@ -1,7 +1,7 @@
 # Call Recording System - Technical Documentation
 
 **Last Updated:** 2025-12-04
-**Status:** Phone Call Recording - WORKING | Video Call Recording - PENDING
+**Status:** Phone Call Recording - WORKING | Video Call Recording - WORKING
 
 ---
 
@@ -323,21 +323,100 @@ seekDot: {
 
 ---
 
-## Pending Work
+## Video Call Recording (IMPLEMENTED 2025-12-04)
 
-### Video Call Recording (NOT YET IMPLEMENTED)
+### Architecture
 
-The infrastructure is in place but not yet active:
+Video call recording uses a separate `videoRecorder.html` that captures both video and audio:
 
-1. **recorder.service.js** already handles `callType: 'video'`
-2. **videoCalls.controller.js** has recording endpoints
-3. **Need to implement:**
-   - Video stream capture in recorder.html
-   - Video file conversion (WebM → MP4)
-   - Storage as 'videocall' media type
-   - VideoCallDetailsScreen playback UI
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    VIDEO CALL RECORDING FLOW                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   Participants                  Ghost Recorder (Puppeteer)          │
+│   ────────────                  ───────────────────────────          │
+│                                                                     │
+│   ┌─────────┐                   ┌─────────────────────────────┐     │
+│   │ User A  │ ──video+audio──►  │   videoRecorder.html        │     │
+│   └─────────┘                   │                             │     │
+│                                 │  ┌───────────────────────┐  │     │
+│   ┌─────────┐                   │  │   CANVAS (1280x720)   │  │     │
+│   │ User B  │ ──video+audio──►  │  │  ┌─────┐  ┌─────┐    │  │     │
+│   └─────────┘                   │  │  │  A  │  │  B  │    │  │     │
+│                                 │  │  └─────┘  └─────┘    │  │     │
+│   ┌─────────┐                   │  │  ┌─────┐  ┌─────┐    │  │     │
+│   │ User C  │ ──video+audio──►  │  │  │  C  │  │  D  │    │  │     │
+│   └─────────┘                   │  │  └─────┘  └─────┘    │  │     │
+│                                 │  └───────────────────────┘  │     │
+│   ┌─────────┐                   │                             │     │
+│   │ User D  │ ──video+audio──►  │  + Audio Mixer (all mixed)  │     │
+│   └─────────┘                   └─────────────────────────────┘     │
+│                                             │                       │
+│                                             ▼                       │
+│                                 ┌─────────────────────────────┐     │
+│                                 │  MediaRecorder               │     │
+│                                 │  - Canvas stream (30fps)     │     │
+│                                 │  - Mixed audio stream        │     │
+│                                 │  - Output: WebM (VP8+Opus)   │     │
+│                                 └─────────────────────────────┘     │
+│                                             │                       │
+│                                             ▼                       │
+│                                 ┌─────────────────────────────┐     │
+│                                 │  Server: Convert to MP4      │     │
+│                                 │  (ffmpeg: H.264 + AAC)       │     │
+│                                 └─────────────────────────────┘     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-### Future Enhancements
+### Grid Layout
+
+Participants are displayed in an equal-sized grid:
+
+| Participants | Grid Layout |
+|--------------|-------------|
+| 1 | 1×1 |
+| 2 | 2×1 (side by side) |
+| 3-4 | 2×2 |
+| 5-6 | 3×2 |
+| 7-9 | 3×3 |
+| 10-12 | 4×3 |
+| 13-16 | 4×4 |
+
+Each participant gets equal screen space, with letterboxing to preserve aspect ratios.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `backend/public/videoRecorder.html` | Video recording with canvas grid |
+| `backend/public/recorder.html` | Audio-only recording (phone calls) |
+| `backend/services/recorder.service.js` | Selects correct recorder based on callType |
+| `backend/services/videoConverter.js` | WebM to MP4 conversion (ffmpeg) |
+
+### Technical Details
+
+**Video Recording:**
+- Canvas size: 1280×720 (720p)
+- Frame rate: 30fps
+- Video codec: VP8 (WebM) → H.264 (MP4)
+- Video bitrate: 2.5 Mbps
+
+**Audio Recording:**
+- Sample rate: 48kHz
+- Audio codec: Opus (WebM) → AAC (MP4)
+- Audio bitrate: 128 kbps
+- All participants mixed into single track
+
+**Local Stream:**
+- Silent audio (Web Audio API oscillator with gain=0)
+- Black video (canvas with black fill)
+- Required for WebRTC negotiation but sends no real content
+
+---
+
+## Future Enhancements
 
 - [ ] Recording quality settings (bitrate options)
 - [ ] Recording compression before upload
@@ -407,6 +486,8 @@ The infrastructure is in place but not yet active:
 | 2025-12-04 | Web platform audio player fixes |
 | 2025-12-04 | Unified audio player styling |
 | 2025-12-04 | Removed participant count from call details |
+| 2025-12-04 | Video call recording with canvas grid layout |
+| 2025-12-04 | WebM → MP4 conversion for video recordings |
 
 ---
 

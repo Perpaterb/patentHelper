@@ -2,7 +2,7 @@
 
 ## Current Status (Updated: 2025-12-04)
 
-Currently working on: **Phone Call Recording Complete - Video Recording Pending**
+Currently working on: **Phone Call Recording Complete - Video Call Recording Complete**
 
 ---
 
@@ -63,11 +63,12 @@ A **server-side "Ghost Recorder"** system using Puppeteer (headless Chrome) that
 
 ### Pending Work
 
-- [ ] **Video Call Recording** - Infrastructure exists but not yet active
-  - recorder.service.js supports `callType: 'video'`
-  - Need video stream capture in recorder.html
-  - Need WebM → MP4 conversion
-  - Need VideoCallDetailsScreen video playback
+- [x] **Video Call Recording** - IMPLEMENTED 2025-12-04
+  - Created `videoRecorder.html` with canvas grid layout
+  - All participants displayed in equal-sized grid (1x1 up to 4x4)
+  - WebM recording with server-side MP4 conversion via ffmpeg
+  - Silent local audio + black video for WebRTC negotiation
+  - See `backend/CALL_RECORDING_SYSTEM.md` for full details
 
 ---
 
@@ -77,6 +78,8 @@ A **server-side "Ghost Recorder"** system using Puppeteer (headless Chrome) that
 - ✅ Audio player seek functionality (tap progress bar to jump)
 - ✅ Unified audio player styling (messages match call recordings)
 - ✅ Web platform audio player fixes (seek bar, overflow)
+- ✅ Video call recording with canvas grid layout (1x1 to 4x4 grids)
+- ✅ WebM → MP4 conversion for universal video playback
 - ✅ Comprehensive documentation (backend/CALL_RECORDING_SYSTEM.md)
 
 **Just completed (2025-12-02):**
