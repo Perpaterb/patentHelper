@@ -67,7 +67,8 @@
     "react-native-webrtc": "^124.0.7",
     "react-native-wheel-pick": "^1.2.6",
     "react-native-wheely": "^0.6.0",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "rn-emoji-keyboard": "^1.7.0"
   },
   "private": true,
   "devDependencies": {

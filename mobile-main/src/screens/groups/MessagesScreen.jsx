@@ -6,10 +6,11 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Image, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, TouchableOpacity, ScrollView, Dimensions, Image, ActivityIndicator, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
+import EmojiPicker from 'rn-emoji-keyboard';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import MediaPicker from '../../components/shared/MediaPicker';
@@ -61,6 +62,9 @@ export default function MessagesScreen({ navigation, route }) {
   const [selectedMediaUrl, setSelectedMediaUrl] = useState(null);
   const [isRecordingMode, setIsRecordingMode] = useState(false);
   const [moreMenuVisible, setMoreMenuVisible] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactionTargetMessage, setReactionTargetMessage] = useState(null);
   const mediaPickerRef = useRef(null);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
@@ -414,6 +418,167 @@ export default function MessagesScreen({ navigation, route }) {
   };
 
   /**
+   * Handle emoji selection for message input
+   */
+  const handleEmojiSelect = (emoji) => {
+    setNewMessage(prev => prev + emoji.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  /**
+   * Handle reaction emoji selection
+   */
+  const handleReactionSelect = async (emoji) => {
+    if (!reactionTargetMessage) return;
+
+    try {
+      await api.post(
+        `/groups/${groupId}/message-groups/${messageGroupId}/messages/${reactionTargetMessage.messageId}/reactions`,
+        { emoji: emoji.emoji }
+      );
+
+      // Update the message in state with the new reaction
+      setMessages(prevMessages =>
+        prevMessages.map(msg => {
+          if (msg.messageId === reactionTargetMessage.messageId) {
+            const existingReactions = msg.reactions || [];
+            // Add the new reaction
+            return {
+              ...msg,
+              reactions: [...existingReactions, {
+                emoji: emoji.emoji,
+                reactor: {
+                  groupMemberId: currentUserMemberId,
+                  // We'll get full details on next refresh
+                },
+              }],
+            };
+          }
+          return msg;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to add reaction:', err);
+      CustomAlert.alert('Error', 'Failed to add reaction');
+    }
+
+    setShowReactionPicker(false);
+    setReactionTargetMessage(null);
+  };
+
+  /**
+   * Handle removing a reaction
+   */
+  const handleRemoveReaction = async (messageId, emoji) => {
+    try {
+      await api.delete(
+        `/groups/${groupId}/message-groups/${messageGroupId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`
+      );
+
+      // Update the message in state
+      setMessages(prevMessages =>
+        prevMessages.map(msg => {
+          if (msg.messageId === messageId) {
+            return {
+              ...msg,
+              reactions: (msg.reactions || []).filter(
+                r => !(r.emoji === emoji && r.reactor?.groupMemberId === currentUserMemberId)
+              ),
+            };
+          }
+          return msg;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to remove reaction:', err);
+    }
+  };
+
+  /**
+   * Open reaction picker for a message
+   */
+  const openReactionPicker = (message) => {
+    setReactionTargetMessage(message);
+    setShowReactionPicker(true);
+    setMenuVisible(false);
+    setLongPressedMessage(null);
+  };
+
+  /**
+   * Check if a message contains only a single emoji
+   * Returns true if the message is just one emoji with no other text
+   */
+  const isSingleEmojiMessage = (content) => {
+    if (!content || typeof content !== 'string') return false;
+    const trimmed = content.trim();
+    // Emoji regex pattern - matches most emojis including compound ones
+    const emojiRegex = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic})(\u{FE0F})?(\u{200D}(\p{Emoji_Presentation}|\p{Extended_Pictographic})(\u{FE0F})?)*$/u;
+    return emojiRegex.test(trimmed);
+  };
+
+  /**
+   * Render reactions for a message
+   */
+  const renderReactions = (message, isMyMessage) => {
+    const reactions = message.reactions || [];
+    if (reactions.length === 0) return null;
+
+    // Group reactions by emoji to avoid duplicates display
+    const groupedReactions = {};
+    reactions.forEach(reaction => {
+      const emoji = reaction.emoji;
+      if (!groupedReactions[emoji]) {
+        groupedReactions[emoji] = [];
+      }
+      groupedReactions[emoji].push(reaction);
+    });
+
+    return (
+      <View style={[
+        styles.reactionsContainer,
+        isMyMessage ? styles.reactionsContainerLeft : styles.reactionsContainerRight
+      ]}>
+        {Object.entries(groupedReactions).map(([emoji, reactors]) => {
+          const firstReactor = reactors[0]?.reactor;
+          const isMyReaction = reactors.some(r => r.reactor?.groupMemberId === currentUserMemberId);
+
+          return (
+            <Pressable
+              key={emoji}
+              style={[styles.reactionItem, isMyReaction && styles.reactionItemMine]}
+              onPress={() => {
+                if (isMyReaction) {
+                  handleRemoveReaction(message.messageId, emoji);
+                } else if (userRole !== 'supervisor' && isMember) {
+                  // Add reaction if user can react
+                  handleReactionSelect({ emoji });
+                  setReactionTargetMessage(message);
+                }
+              }}
+            >
+              <View style={styles.reactionAvatarContainer}>
+                <UserAvatar
+                  profilePhotoUrl={firstReactor?.profilePhotoUrl}
+                  memberIcon={firstReactor?.iconLetters || firstReactor?.user?.memberIcon || '?'}
+                  iconColor={firstReactor?.iconColor || firstReactor?.user?.iconColor || '#ccc'}
+                  displayName={firstReactor?.displayName || 'User'}
+                  size={20}
+                />
+                <View style={styles.reactionEmojiOverlay}>
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </View>
+              </View>
+              {reactors.length > 1 && (
+                <Text style={styles.reactionCount}>+{reactors.length - 1}</Text>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  };
+
+  /**
    * Send a new message
    */
   const handleSendMessage = async () => {
@@ -647,6 +812,7 @@ export default function MessagesScreen({ navigation, route }) {
   const renderMessage = ({ item }) => {
     const isMyMessage = item.sender?.groupMemberId === currentUserMemberId;
     const isHidden = item.isHidden || false;
+    const isSingleEmoji = isSingleEmojiMessage(item.content);
 
     return (
       <TouchableOpacity
@@ -657,76 +823,103 @@ export default function MessagesScreen({ navigation, route }) {
           styles.messageWrapper,
           isMyMessage ? styles.messageWrapperRight : styles.messageWrapperLeft
         ]}>
-          <View style={[
-            styles.messageBubble,
-            isMyMessage ? styles.messageBubbleRight : styles.messageBubbleLeft,
-            isHidden && styles.messageBubbleHidden
-          ]}>
-            {isHidden && userRole === 'admin' && (
-              <View style={styles.hiddenIndicator}>
-                <IconButton icon="eye-off" size={16} iconColor="#999" style={styles.hiddenIcon} />
-                <Text style={styles.hiddenText}>Hidden Message</Text>
-              </View>
-            )}
+          {/* Reactions container - positioned outside bubble */}
+          <View style={styles.messageWithReactions}>
+            <View style={[
+              styles.messageBubble,
+              isMyMessage ? styles.messageBubbleRight : styles.messageBubbleLeft,
+              isHidden && styles.messageBubbleHidden,
+              isSingleEmoji && styles.messageBubbleSingleEmoji
+            ]}>
+              {isHidden && userRole === 'admin' && (
+                <View style={styles.hiddenIndicator}>
+                  <IconButton icon="eye-off" size={16} iconColor="#999" style={styles.hiddenIcon} />
+                  <Text style={styles.hiddenText}>Hidden Message</Text>
+                </View>
+              )}
 
-            {/* Render attached media */}
-            {item.media && item.media.length > 0 && (
-              <View style={styles.mediaContainer}>
-                {item.media.map((media) => (
-                  media.isDeleted ? (
-                    // Deleted file placeholder
-                    <View key={media.mediaId} style={styles.deletedMediaPlaceholder}>
-                      <IconButton icon="delete-circle" size={32} iconColor="#d32f2f" />
-                      <Text style={styles.deletedMediaText} numberOfLines={1}>
-                        {media.fileName || 'Deleted file'}
-                      </Text>
-                      <Text style={styles.deletedByText}>
-                        Deleted by {media.deletedBy?.displayName || 'Admin'}
-                      </Text>
-                    </View>
-                  ) : media.mediaType === 'audio' ? (
-                    <View key={media.mediaId} style={styles.audioPlayerWrapper}>
-                      <AudioPlayer
-                        uri={getFileUrl(media.url)}
-                        duration={media.durationMs}
-                        mimeType={media.mimeType}
-                        isMyMessage={isMyMessage}
-                      />
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      key={media.mediaId}
-                      onPress={() => handleMediaTap(media)}
-                      style={styles.mediaThumbnail}
-                    >
-                      {media.mediaType === 'image' ? (
-                        <Image
-                          source={{ uri: getFileUrl(media.url) }}
-                          style={styles.mediaImage}
-                          resizeMode="cover"
+              {/* Render attached media */}
+              {item.media && item.media.length > 0 && (
+                <View style={styles.mediaContainer}>
+                  {item.media.map((media) => (
+                    media.isDeleted ? (
+                      // Deleted file placeholder
+                      <View key={media.mediaId} style={styles.deletedMediaPlaceholder}>
+                        <IconButton icon="delete-circle" size={32} iconColor="#d32f2f" />
+                        <Text style={styles.deletedMediaText} numberOfLines={1}>
+                          {media.fileName || 'Deleted file'}
+                        </Text>
+                        <Text style={styles.deletedByText}>
+                          Deleted by {media.deletedBy?.displayName || 'Admin'}
+                        </Text>
+                      </View>
+                    ) : media.mediaType === 'audio' ? (
+                      <View key={media.mediaId} style={styles.audioPlayerWrapper}>
+                        <AudioPlayer
+                          uri={getFileUrl(media.url)}
+                          duration={media.durationMs}
+                          mimeType={media.mimeType}
+                          isMyMessage={isMyMessage}
                         />
-                      ) : (
-                        <View style={styles.videoThumbnail}>
-                          <IconButton icon="play-circle" size={48} iconColor="#fff" />
-                          <Text style={styles.videoText}>Video</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  )
-                ))}
-              </View>
-            )}
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        key={media.mediaId}
+                        onPress={() => handleMediaTap(media)}
+                        style={styles.mediaThumbnail}
+                      >
+                        {media.mediaType === 'image' ? (
+                          <Image
+                            source={{ uri: getFileUrl(media.url) }}
+                            style={styles.mediaImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.videoThumbnail}>
+                            <IconButton icon="play-circle" size={48} iconColor="#fff" />
+                            <Text style={styles.videoText}>Video</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    )
+                  ))}
+                </View>
+              )}
 
-            <Text style={styles.messageContent}>{item.content}</Text>
-            <View style={styles.messageFooter}>
-              <Text style={styles.senderName}>
-                {item.sender?.displayName || 'Unknown'}
+              {/* Message content - large if single emoji */}
+              <Text style={[
+                styles.messageContent,
+                isSingleEmoji && styles.messageContentSingleEmoji
+              ]}>
+                {item.content}
               </Text>
-              <View style={styles.timeAndReceipt}>
-                <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
-                {isMyMessage && renderReadReceipt(item)}
-              </View>
+
+              {/* Footer - hide for single emoji */}
+              {!isSingleEmoji && (
+                <View style={styles.messageFooter}>
+                  <Text style={styles.senderName}>
+                    {item.sender?.displayName || 'Unknown'}
+                  </Text>
+                  <View style={styles.timeAndReceipt}>
+                    <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+                    {isMyMessage && renderReadReceipt(item)}
+                  </View>
+                </View>
+              )}
+
+              {/* Minimal footer for single emoji */}
+              {isSingleEmoji && (
+                <View style={styles.messageFooterMinimal}>
+                  <Text style={styles.senderNameSmall}>
+                    {item.sender?.displayName || 'Unknown'}
+                  </Text>
+                  {isMyMessage && renderReadReceipt(item)}
+                </View>
+              )}
             </View>
+
+            {/* Render reactions */}
+            {renderReactions(item, isMyMessage)}
           </View>
         </View>
       </TouchableOpacity>
@@ -957,6 +1150,15 @@ export default function MessagesScreen({ navigation, route }) {
                 }}
                 title="Record Audio"
               />
+              <MenuDivider />
+              <Menu.Item
+                leadingIcon="emoticon-outline"
+                onPress={() => {
+                  setMoreMenuVisible(false);
+                  setShowEmojiPicker(true);
+                }}
+                title="Add Emoji"
+              />
             </Menu>
             {/* Hidden MediaPicker - triggered from menu */}
             <MediaPicker
@@ -1027,6 +1229,14 @@ export default function MessagesScreen({ navigation, route }) {
           <View style={styles.menuContainer}>
             <Text style={styles.menuTitle}>Message Options</Text>
             <MenuDivider />
+
+            {/* React option - available to all members who can send messages */}
+            {userRole !== 'supervisor' && isMember && (
+              <TouchableOpacity style={styles.menuItem} onPress={() => openReactionPicker(longPressedMessage)}>
+                <IconButton icon="emoticon-happy-outline" size={20} />
+                <Text style={styles.menuItemText}>React</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Hide/Unhide option for admins or own messages */}
             {userRole === 'admin' && !isHidden && (
@@ -1129,6 +1339,49 @@ export default function MessagesScreen({ navigation, route }) {
           }}
         />
       )}
+
+      {/* Emoji Picker for message input */}
+      <EmojiPicker
+        onEmojiSelected={handleEmojiSelect}
+        open={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        theme={{
+          backdrop: 'rgba(0, 0, 0, 0.5)',
+          knob: '#6200ee',
+          container: '#fff',
+          header: '#333',
+          skinTonesContainer: '#f5f5f5',
+          category: {
+            icon: '#666',
+            iconActive: '#6200ee',
+            container: '#f5f5f5',
+            containerActive: '#e3f2fd',
+          },
+        }}
+      />
+
+      {/* Emoji Picker for reactions */}
+      <EmojiPicker
+        onEmojiSelected={handleReactionSelect}
+        open={showReactionPicker}
+        onClose={() => {
+          setShowReactionPicker(false);
+          setReactionTargetMessage(null);
+        }}
+        theme={{
+          backdrop: 'rgba(0, 0, 0, 0.5)',
+          knob: '#6200ee',
+          container: '#fff',
+          header: '#333',
+          skinTonesContainer: '#f5f5f5',
+          category: {
+            icon: '#666',
+            iconActive: '#6200ee',
+            container: '#f5f5f5',
+            containerActive: '#e3f2fd',
+          },
+        }}
+      />
       </KeyboardAvoidingView>
     </View>
   );
@@ -1505,5 +1758,84 @@ const styles = StyleSheet.create({
   moreMenuContent: {
     backgroundColor: '#fff',
     borderRadius: 8,
+  },
+  // Single emoji message styles
+  messageBubbleSingleEmoji: {
+    backgroundColor: 'transparent',
+    elevation: 0,
+    padding: 4,
+  },
+  messageContentSingleEmoji: {
+    fontSize: 64,
+    lineHeight: 72,
+    textAlign: 'center',
+  },
+  messageFooterMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  senderNameSmall: {
+    fontSize: 10,
+    color: '#999',
+  },
+  // Reactions styles
+  messageWithReactions: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    gap: 6,
+  },
+  reactionsContainerLeft: {
+    justifyContent: 'flex-end',
+    paddingRight: 8,
+  },
+  reactionsContainerRight: {
+    justifyContent: 'flex-start',
+    paddingLeft: 8,
+  },
+  reactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 16,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  reactionItemMine: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#90caf9',
+  },
+  reactionAvatarContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+  },
+  reactionEmojiOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  reactionEmoji: {
+    fontSize: 10,
+  },
+  reactionCount: {
+    fontSize: 10,
+    color: '#666',
+    marginLeft: 2,
+    fontWeight: '600',
   },
 });
