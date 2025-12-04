@@ -1128,6 +1128,7 @@ model PhoneCall {
   // Recording (MP3 format)
   recordingFileId     String?   @map("recording_file_id") @db.Uuid
   recordingUrl        String?   @map("recording_url")
+  recordingStatus     String?   @map("recording_status") @db.VarChar(20) // processing, ready, failed
   recordingDurationMs Int?      @map("recording_duration_ms")
   recordingSizeBytes  BigInt?   @map("recording_size_bytes")
   recordingIsHidden   Boolean   @default(false) @map("recording_is_hidden")
@@ -1180,6 +1181,7 @@ model VideoCall {
   // Recording (MP4 format)
   recordingFileId     String?   @map("recording_file_id") @db.Uuid
   recordingUrl        String?   @map("recording_url")
+  recordingStatus     String?   @map("recording_status") @db.VarChar(20) // processing, ready, failed
   recordingDurationMs Int?      @map("recording_duration_ms")
   recordingSizeBytes  BigInt?   @map("recording_size_bytes")
   recordingIsHidden   Boolean   @default(false) @map("recording_is_hidden")

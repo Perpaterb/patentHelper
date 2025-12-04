@@ -262,6 +262,7 @@ async function getPhoneCalls(req, res) {
         hiddenAt: call.recordingHiddenAt,
       } : {
         isHidden: false,
+        status: call.recordingStatus || (call.recordingUrl ? 'ready' : null),
         url: call.recordingUrl,
         durationMs: call.recordingDurationMs,
       },
@@ -1105,6 +1106,12 @@ async function uploadRecording(req, res) {
       });
     }
 
+    // Set recording status to 'processing' first
+    await prisma.phoneCall.update({
+      where: { callId },
+      data: { recordingStatus: 'processing' },
+    });
+
     // Save the file temporarily
     const tempDir = os.tmpdir();
     const tempInputPath = path.join(tempDir, `phone_recording_${Date.now()}_${uuidv4()}`);
@@ -1169,6 +1176,7 @@ async function uploadRecording(req, res) {
         data: {
           recordingFileId: fileId,
           recordingUrl: recordingUrl,
+          recordingStatus: 'ready',
           recordingDurationMs: durationMs,
           recordingSizeBytes: BigInt(fileSize),
         },
@@ -1193,6 +1201,7 @@ async function uploadRecording(req, res) {
         message: 'Recording uploaded successfully',
         recording: {
           url: recordingUrl,
+          status: 'ready',
           durationMs,
           sizeBytes: fileSize,
           mimeType: 'audio/mpeg',

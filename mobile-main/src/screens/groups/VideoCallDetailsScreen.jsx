@@ -242,6 +242,8 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
   const hasRecording = (call.recording?.url || call.recordingUrl) &&
                        !call.recording?.isHidden && !call.recordingIsHidden;
   const recordingUrl = getRecordingUrl();
+  // Check if recording is still processing
+  const isRecordingProcessing = call.recording?.status === 'processing';
 
   return (
     <View style={styles.container}>
@@ -307,8 +309,24 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
           </Card.Content>
         </Card>
 
+        {/* Recording Processing Placeholder */}
+        {isRecordingProcessing && (
+          <Card style={[styles.card, styles.processingCard]}>
+            <Card.Content>
+              <Title style={styles.sectionTitle}>Recording</Title>
+              <View style={styles.processingContainer}>
+                <ActivityIndicator size="large" color="#ff9800" />
+                <Text style={styles.processingTitle}>Processing Recording</Text>
+                <Text style={styles.processingText}>
+                  Your video recording is being processed. This may take a few moments.
+                </Text>
+              </View>
+            </Card.Content>
+          </Card>
+        )}
+
         {/* Recording Card */}
-        {hasRecording && (
+        {hasRecording && !isRecordingProcessing && (
           <Card style={styles.card}>
             <Card.Content>
               <Title style={styles.sectionTitle}>Recording</Title>
@@ -533,6 +551,28 @@ const styles = StyleSheet.create({
   },
   hideButton: {
     borderColor: '#d32f2f',
+  },
+  processingCard: {
+    backgroundColor: '#fff8e1',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
+  },
+  processingContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  processingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e65100',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  processingText: {
+    fontSize: 14,
+    color: '#f57c00',
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
   deletedCard: {
     backgroundColor: '#ffebee',

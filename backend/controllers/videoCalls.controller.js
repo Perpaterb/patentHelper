@@ -261,6 +261,7 @@ async function getVideoCalls(req, res) {
         hiddenAt: call.recordingHiddenAt,
       } : {
         isHidden: false,
+        status: call.recordingStatus || (call.recordingUrl ? 'ready' : null),
         url: call.recordingUrl,
         durationMs: call.recordingDurationMs,
         sizeBytes: call.recordingSizeBytes ? Number(call.recordingSizeBytes) : null,
@@ -1103,6 +1104,12 @@ async function uploadRecording(req, res) {
       });
     }
 
+    // Set recording status to 'processing' first
+    await prisma.videoCall.update({
+      where: { callId },
+      data: { recordingStatus: 'processing' },
+    });
+
     // Save the file temporarily
     const tempDir = os.tmpdir();
     const tempInputPath = path.join(tempDir, `video_recording_${Date.now()}_${uuidv4()}`);
@@ -1148,6 +1155,7 @@ async function uploadRecording(req, res) {
         data: {
           recordingFileId: fileId,
           recordingUrl: recordingUrl,
+          recordingStatus: 'ready',
           recordingDurationMs: durationMs,
           recordingSizeBytes: BigInt(fileSize),
         },
