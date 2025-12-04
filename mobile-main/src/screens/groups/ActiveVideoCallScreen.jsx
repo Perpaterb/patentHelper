@@ -481,10 +481,10 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const isActive = call.status === 'active';
   const hasCameraPermission = cameraPermission?.granted || webCameraGranted;
 
-  // Get remote participant info
-  const remoteParticipant = call.participants?.find(p =>
-    p.groupMemberId !== call.initiatedBy && ['accepted', 'joined'].includes(p.status)
-  ) || (isInitiator ? call.participants?.[0] : call.initiator);
+  // Get remote participant info - the person we're talking to
+  const remoteParticipant = isInitiator
+    ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
+    : call.initiator;
 
   return (
     <View style={styles.container}>

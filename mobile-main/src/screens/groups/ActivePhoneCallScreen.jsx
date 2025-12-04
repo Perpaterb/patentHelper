@@ -56,6 +56,7 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const [recordingStatus, setRecordingStatus] = useState('idle');
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
+  const mobileRecordingRef = useRef(null); // For expo-av recording on mobile
 
   const timerRef = useRef(null);
   const pollRef = useRef(null);
@@ -280,6 +281,31 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         console.error('[ActivePhoneCall] MediaRecorder error:', err);
         setRecordingStatus('error');
       }
+    } else if (Platform.OS !== 'web') {
+      // Mobile recording using expo-av
+      try {
+        const { status } = await Audio.requestPermissionsAsync();
+        if (status !== 'granted') {
+          console.error('[ActivePhoneCall] Audio permission not granted');
+          setRecordingStatus('error');
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+        });
+
+        const recording = new Audio.Recording();
+        await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        await recording.startAsync();
+        mobileRecordingRef.current = recording;
+        console.log('[ActivePhoneCall] Mobile recording started');
+      } catch (err) {
+        console.error('[ActivePhoneCall] Mobile recording error:', err);
+        setRecordingStatus('error');
+      }
     }
   };
 
@@ -318,6 +344,37 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
         };
         mediaRecorderRef.current.stop();
       });
+    } else if (Platform.OS !== 'web' && mobileRecordingRef.current) {
+      // Stop mobile recording and upload
+      try {
+        setRecordingStatus('uploading');
+        await mobileRecordingRef.current.stopAndUnloadAsync();
+        const uri = mobileRecordingRef.current.getURI();
+        console.log('[ActivePhoneCall] Mobile recording stopped, URI:', uri);
+
+        if (uri) {
+          const formData = new FormData();
+          formData.append('recording', {
+            uri,
+            type: 'audio/m4a',
+            name: `phone-call-${callId}.m4a`,
+          });
+
+          await api.post(
+            `/groups/${groupId}/phone-calls/${callId}/recording`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+          );
+          console.log('[ActivePhoneCall] Mobile recording uploaded');
+        }
+      } catch (err) {
+        console.error('[ActivePhoneCall] Mobile upload error:', err);
+      } finally {
+        mobileRecordingRef.current = null;
+        setIsRecording(false);
+        setRecordingStatus('idle');
+      }
+      return;
     }
 
     setIsRecording(false);
@@ -422,10 +479,11 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   const isRinging = call.status === 'ringing';
   const isActive = call.status === 'active';
 
-  // Get remote participant info
-  const remoteParticipant = call.participants?.find(p =>
-    p.groupMemberId !== call.initiatedBy && ['accepted', 'joined'].includes(p.status)
-  ) || (isInitiator ? call.participants?.[0] : call.initiator);
+  // Get remote participant info - the person we're talking to
+  const initiatorId = call.initiator?.groupMemberId || call.initiatedBy;
+  const remoteParticipant = isInitiator
+    ? call.participants?.find(p => ['accepted', 'joined'].includes(p.status)) || call.participants?.[0]
+    : call.initiator;
 
   return (
     <View style={styles.container}>
