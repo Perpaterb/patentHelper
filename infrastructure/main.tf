@@ -624,6 +624,7 @@ resource "aws_lambda_function" "api" {
       KINDE_DOMAIN               = var.kinde_domain
       KINDE_CLIENT_ID            = var.kinde_client_id
       KINDE_CLIENT_SECRET        = var.kinde_client_secret
+      KINDE_REDIRECT_URI         = "https://${aws_cloudfront_distribution.web_app.domain_name}/auth/callback"
       STRIPE_SECRET_KEY          = var.stripe_secret_key
       STRIPE_WEBHOOK_SECRET      = var.stripe_webhook_secret
       BILLING_API_KEY            = var.billing_api_key
@@ -682,7 +683,7 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins     = var.cors_allowed_origins
+    allow_origins     = concat(var.cors_allowed_origins, ["https://${aws_cloudfront_distribution.web_app.domain_name}"])
     allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     allow_headers     = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key"]
     expose_headers    = ["*"]

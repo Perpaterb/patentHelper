@@ -6,11 +6,11 @@
 
 export const CONFIG = {
   // API Configuration
-  API_BASE_URL: 'http://localhost:3000',
+  API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
   API_TIMEOUT: 15000,
 
   // Web App URL (for subscription management)
-  WEB_APP_URL: 'http://localhost:3001',
+  WEB_APP_URL: process.env.EXPO_PUBLIC_WEB_APP_URL || 'http://localhost:3001',
 
   // Kinde Configuration (from .env)
   KINDE_DOMAIN: process.env.EXPO_PUBLIC_KINDE_DOMAIN || '',
