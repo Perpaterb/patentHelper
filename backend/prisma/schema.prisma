@@ -24,15 +24,26 @@ model User {
   memberIcon             String?                @map("member_icon") @db.VarChar(10)
   iconColor              String?                @map("icon_color") @db.VarChar(7)
   profilePhotoFileId     String?                @map("profile_photo_file_id") @db.Uuid
+
+  // Stripe billing fields (Option B - manual billing)
+  stripeCustomerId           String?   @unique @map("stripe_customer_id") @db.VarChar(255)
+  defaultPaymentMethodId     String?   @map("default_payment_method_id") @db.VarChar(255)
+  renewalDate                DateTime? @map("renewal_date") @db.Timestamp(6)
+  additionalStoragePacks     Int       @default(0) @map("additional_storage_packs")
+  lastBillingAttempt         DateTime? @map("last_billing_attempt") @db.Timestamp(6)
+  billingFailureCount        Int       @default(0) @map("billing_failure_count")
+
   groupMemberships       GroupMember[]
   createdGroups          Group[]                @relation("GroupCreator")
   pinnedItems            PinnedItem[]
   storageUsage           StorageUsage[]
   personalGiftRegistries PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
   personalItemRegistries PersonalItemRegistry[] @relation("PersonalItemRegistries")
+  billingHistory         BillingHistory[]
 
   @@index([email])
   @@index([kindeId])
+  @@index([renewalDate])
   @@map("users")
 }
 
@@ -1232,4 +1243,32 @@ model VideoCallParticipant {
   @@index([groupMemberId])
   @@index([status])
   @@map("video_call_participants")
+}
+
+// ============================================
+// BILLING HISTORY (Manual Billing - Option B)
+// ============================================
+
+model BillingHistory {
+  billingId              String   @id @default(uuid()) @map("billing_id") @db.Uuid
+  userId                 String   @map("user_id") @db.Uuid
+  stripePaymentIntentId  String?  @map("stripe_payment_intent_id") @db.VarChar(255)
+  amount                 Int      // Amount in cents (e.g., 300 = $3.00)
+  currency               String   @default("aud") @db.VarChar(3)
+  status                 String   @db.VarChar(20) // succeeded, failed, pending, refunded
+  description            String   @db.VarChar(500)
+  baseSubscriptionAmount Int      @map("base_subscription_amount") // Base subscription in cents
+  storagePacks           Int      @default(0) @map("storage_packs") // Number of additional storage packs
+  storagePackAmount      Int      @default(0) @map("storage_pack_amount") // Per-pack amount in cents
+  periodStart            DateTime @map("period_start") @db.Timestamp(6)
+  periodEnd              DateTime @map("period_end") @db.Timestamp(6)
+  failureReason          String?  @map("failure_reason") @db.VarChar(500)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("billing_history")
 }

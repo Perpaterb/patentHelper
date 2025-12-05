@@ -1,138 +1,119 @@
 /**
  * Subscriptions Routes
  *
- * Routes for subscription status queries.
- * Note: Actual subscription management is handled in web-admin app only.
+ * Routes for subscription management using manual billing (Option B).
+ * You control when and how much to charge customers.
  *
  * @module routes/subscriptions
  */
 
 const express = require('express');
 const router = express.Router();
-const subscriptionsController = require('../controllers/subscriptions.controller');
+const subscriptionController = require('../controllers/subscription.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
-/**
- * GET /subscriptions/status
- * Get current user's subscription status
- *
- * Requires valid access token in Authorization header
- *
- * Headers:
- * - Authorization: Bearer <access_token>
- *
- * Response:
- * - 200: Subscription status
- *   {
- *     success: true,
- *     subscription: {
- *       isActive: boolean,
- *       email: string
- *     }
- *   }
- * - 401: Invalid or missing token
- * - 404: User not found
- * - 500: Server error
- */
-router.get('/status', requireAuth, subscriptionsController.getSubscriptionStatus);
+// ============================================
+// PUBLIC ENDPOINTS
+// ============================================
 
 /**
  * GET /subscriptions/pricing
- * Get available subscription pricing plans
- *
- * Public endpoint - no authentication required
- *
- * Response:
- * - 200: Pricing plans
- *   {
- *     success: true,
- *     pricing: [
- *       {
- *         id: string,
- *         name: string,
- *         price: number,
- *         interval: string,
- *         features: string[]
- *       }
- *     ]
- *   }
- * - 500: Server error
+ * Get subscription pricing information
  */
-router.get('/pricing', subscriptionsController.getPricing);
+router.get('/pricing', subscriptionController.getPricing);
+
+/**
+ * POST /subscriptions/webhook
+ * Handle Stripe webhook events
+ *
+ * NOTE: This endpoint uses raw body parsing (configured in server.js)
+ * No authentication - Stripe signature verification instead
+ */
+router.post(
+  '/webhook',
+  express.raw({ type: 'application/json' }),
+  subscriptionController.handleWebhook
+);
+
+// ============================================
+// AUTHENTICATED ENDPOINTS
+// ============================================
 
 /**
  * GET /subscriptions/current
- * Get current user's detailed subscription information
- *
- * Requires valid access token in Authorization header
- *
- * Headers:
- * - Authorization: Bearer <access_token>
- *
- * Response:
- * - 200: Current subscription details
- *   {
- *     success: true,
- *     subscription: {
- *       isActive: boolean,
- *       plan: string,
- *       price?: number,
- *       interval?: string,
- *       status: string,
- *       daysRemaining?: number,
- *       currentPeriodEnd?: string,
- *       cancelAtPeriodEnd?: boolean
- *     }
- *   }
- * - 401: Invalid or missing token
- * - 404: User not found
- * - 500: Server error
+ * Get current user's subscription status
  */
-router.get('/current', requireAuth, subscriptionsController.getCurrentSubscription);
+router.get('/current', requireAuth, subscriptionController.getCurrentSubscription);
+
+/**
+ * GET /subscriptions/status
+ * Alias for /current (backward compatibility)
+ */
+router.get('/status', requireAuth, subscriptionController.getCurrentSubscription);
+
+/**
+ * POST /subscriptions/setup-intent
+ * Create a SetupIntent for saving payment method
+ *
+ * Use this to get a client secret for Stripe Elements
+ * to securely collect card details.
+ */
+router.post('/setup-intent', requireAuth, subscriptionController.createSetupIntent);
+
+/**
+ * POST /subscriptions/save-payment-method
+ * Save payment method after successful setup
+ *
+ * Body: { paymentMethodId: string }
+ */
+router.post('/save-payment-method', requireAuth, subscriptionController.savePaymentMethod);
+
+/**
+ * POST /subscriptions/subscribe
+ * Start a new subscription (charges the user)
+ *
+ * Body: { storagePacks?: number }
+ */
+router.post('/subscribe', requireAuth, subscriptionController.subscribe);
+
+/**
+ * PUT /subscriptions/storage-packs
+ * Update number of storage packs
+ *
+ * Body: { storagePacks: number }
+ */
+router.put('/storage-packs', requireAuth, subscriptionController.updateStoragePacks);
 
 /**
  * POST /subscriptions/cancel
  * Cancel subscription at end of billing period
- *
- * Requires valid access token in Authorization header
- *
- * Headers:
- * - Authorization: Bearer <access_token>
- *
- * Response:
- * - 200: Subscription canceled
- *   {
- *     success: true,
- *     message: 'Subscription will be canceled at end of billing period',
- *     cancelAt: ISO8601 timestamp
- *   }
- * - 400: No active subscription
- * - 401: Invalid or missing token
- * - 404: User not found
- * - 500: Server error
  */
-router.post('/cancel', requireAuth, subscriptionsController.cancelSubscription);
+router.post('/cancel', requireAuth, subscriptionController.cancelSubscription);
 
 /**
  * POST /subscriptions/reactivate
  * Reactivate a canceled subscription
- *
- * Requires valid access token in Authorization header
- *
- * Headers:
- * - Authorization: Bearer <access_token>
- *
- * Response:
- * - 200: Subscription reactivated
- *   {
- *     success: true,
- *     message: 'Subscription reactivated successfully'
- *   }
- * - 400: Cannot reactivate (not scheduled for cancellation)
- * - 401: Invalid or missing token
- * - 404: User not found
- * - 500: Server error
  */
-router.post('/reactivate', requireAuth, subscriptionsController.reactivateSubscription);
+router.post('/reactivate', requireAuth, subscriptionController.reactivateSubscription);
+
+/**
+ * GET /subscriptions/billing-history
+ * Get billing history for current user
+ *
+ * Query: { limit?: number } - default 12
+ */
+router.get('/billing-history', requireAuth, subscriptionController.getBillingHistory);
+
+// ============================================
+// INTERNAL/SCHEDULED ENDPOINTS
+// ============================================
+
+/**
+ * POST /subscriptions/process-renewals
+ * Process due renewals (called by EventBridge scheduler)
+ *
+ * Protected by X-API-Key header (BILLING_API_KEY env var)
+ */
+router.post('/process-renewals', subscriptionController.processRenewals);
 
 module.exports = router;

@@ -132,3 +132,9 @@ variable "stripe_webhook_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "billing_api_key" {
+  description = "API key for internal billing endpoint"
+  type        = string
+  sensitive   = true
+}

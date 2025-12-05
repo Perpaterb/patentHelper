@@ -501,6 +501,7 @@ resource "aws_lambda_function" "api" {
       KINDE_CLIENT_SECRET        = var.kinde_client_secret
       STRIPE_SECRET_KEY          = var.stripe_secret_key
       STRIPE_WEBHOOK_SECRET      = var.stripe_webhook_secret
+      BILLING_API_KEY            = var.billing_api_key
       S3_BUCKET                  = aws_s3_bucket.file_storage.id
       AWS_S3_REGION              = var.aws_region
       CORS_ORIGIN                = var.cors_origin
@@ -579,4 +580,42 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.project_name}-api-${var.environment}"
   retention_in_days = 14
+}
+
+# ============================================
+# Scheduled Billing (EventBridge)
+# Runs daily at 9 AM UTC to process renewals
+# ============================================
+resource "aws_cloudwatch_event_rule" "daily_billing" {
+  name                = "${var.project_name}-daily-billing"
+  description         = "Process subscription renewals daily"
+  schedule_expression = "cron(0 9 * * ? *)" # 9 AM UTC daily (7 PM Sydney)
+
+  tags = {
+    Name = "${var.project_name}-daily-billing"
+  }
+}
+
+resource "aws_cloudwatch_event_target" "billing_lambda" {
+  rule      = aws_cloudwatch_event_rule.daily_billing.name
+  target_id = "ProcessRenewals"
+  arn       = aws_lambda_function.api.arn
+
+  input = jsonencode({
+    httpMethod = "POST"
+    path       = "/subscriptions/process-renewals"
+    headers = {
+      "X-API-Key"    = var.billing_api_key
+      "Content-Type" = "application/json"
+    }
+    body = "{}"
+  })
+}
+
+resource "aws_lambda_permission" "eventbridge_billing" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_billing.arn
 }

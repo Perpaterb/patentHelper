@@ -36,3 +36,7 @@ kinde_client_secret    = ""  # Optional - leave empty, web app uses PKCE
 # Stripe Settings (use production keys!)
 stripe_secret_key     = "sk_live_..."
 stripe_webhook_secret = "whsec_..."
+
+# Billing Settings
+# Generate with: openssl rand -hex 32
+billing_api_key = "your-billing-api-key-here"
