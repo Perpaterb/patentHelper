@@ -1,0 +1,39 @@
+# Lambda container image for Family Helper API
+FROM public.ecr.aws/lambda/nodejs:20
+
+# Install system dependencies for ffmpeg, ffprobe, and image processing
+RUN dnf update -y && \
+    dnf install -y \
+    https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm \
+    && dnf install -y \
+    ffmpeg \
+    ffprobe \
+    && dnf clean all
+
+# Copy package files
+COPY package*.json ${LAMBDA_TASK_ROOT}/
+
+# Install production dependencies
+RUN npm ci --omit=dev
+
+# Copy Prisma schema and generate client for Lambda Linux runtime
+COPY prisma ${LAMBDA_TASK_ROOT}/prisma/
+RUN npx prisma generate
+
+# Remove non-Linux Prisma engines to save space
+RUN find ${LAMBDA_TASK_ROOT}/node_modules -name "libquery_engine-*" ! -name "*rhel*" ! -name "*linux*" -delete 2>/dev/null || true
+
+# Copy application code
+COPY controllers ${LAMBDA_TASK_ROOT}/controllers/
+COPY routes ${LAMBDA_TASK_ROOT}/routes/
+COPY services ${LAMBDA_TASK_ROOT}/services/
+COPY middleware ${LAMBDA_TASK_ROOT}/middleware/
+COPY config ${LAMBDA_TASK_ROOT}/config/
+COPY lambda.js ${LAMBDA_TASK_ROOT}/
+COPY server.js ${LAMBDA_TASK_ROOT}/
+
+# Copy public folder if it exists
+COPY public ${LAMBDA_TASK_ROOT}/public/ 2>/dev/null || true
+
+# Set the Lambda handler
+CMD [ "lambda.handler" ]

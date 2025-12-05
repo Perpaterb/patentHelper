@@ -24,8 +24,8 @@ output "web_app_bucket" {
 }
 
 output "web_app_url" {
-  description = "S3 website URL"
-  value       = aws_s3_bucket_website_configuration.web_app.website_endpoint
+  description = "CloudFront URL for web app"
+  value       = "https://${aws_cloudfront_distribution.web_app.domain_name}"
 }
 
 output "cloudfront_distribution_id" {
@@ -63,13 +63,28 @@ output "file_storage_bucket" {
 # Lambda Outputs
 # ============================================
 output "lambda_function_name" {
-  description = "Lambda function name"
+  description = "Main API Lambda function name"
   value       = aws_lambda_function.api.function_name
 }
 
 output "lambda_function_arn" {
-  description = "Lambda function ARN"
+  description = "Main API Lambda function ARN"
   value       = aws_lambda_function.api.arn
+}
+
+output "media_processor_function_name" {
+  description = "Media Processor Lambda function name"
+  value       = aws_lambda_function.media_processor.function_name
+}
+
+output "media_processor_function_arn" {
+  description = "Media Processor Lambda function ARN"
+  value       = aws_lambda_function.media_processor.arn
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for Media Processor"
+  value       = aws_ecr_repository.media_processor.repository_url
 }
 
 # ============================================

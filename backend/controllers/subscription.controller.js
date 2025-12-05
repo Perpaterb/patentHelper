@@ -439,8 +439,8 @@ async function getCurrentSubscription(req, res) {
 
     // Calculate next billing amount
     const pricing = billingService.getPricing();
-    const nextBillingAmount = pricing.baseSubscription.amount +
-      (user.additionalStoragePacks * pricing.storagePack.amount);
+    const nextBillingAmount = pricing.adminSubscription.amount +
+      (user.additionalStoragePacks * pricing.additionalStorage.amount);
 
     res.status(200).json({
       success: true,

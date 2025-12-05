@@ -42,7 +42,12 @@
       "Bash(git log:*)",
       "Bash(npx prisma format:*)",
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes\" npx prisma migrate reset:*)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "Bash(terraform apply:*)",
+      "Bash(aws s3 cp:*)",
+      "Bash(./scripts/build-lambda.sh:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(unzip:*)"
     ],
     "deny": [],
     "ask": []

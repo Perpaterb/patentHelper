@@ -3,10 +3,34 @@
  *
  * Uses a headless browser to join calls as a "ghost" participant
  * and record all audio/video streams server-side.
+ *
+ * NOTE: This service requires puppeteer which is only available
+ * in the Media Processor Lambda (container image). The main API Lambda
+ * will throw an error if these functions are called directly.
  */
 
-const puppeteer = require('puppeteer');
 const path = require('path');
+
+// Optional dependencies - only available in Media Processor Lambda
+let puppeteer = null;
+let puppeteerAvailable = false;
+
+try {
+  puppeteer = require('puppeteer');
+  puppeteerAvailable = true;
+} catch (err) {
+  console.log('[Recorder] puppeteer not available - recording disabled');
+}
+
+/**
+ * Check if puppeteer is available
+ * @throws {Error} If puppeteer is not available
+ */
+function requirePuppeteer() {
+  if (!puppeteerAvailable) {
+    throw new Error('Recording not available. This feature requires the Media Processor Lambda.');
+  }
+}
 
 // Track active recording sessions
 const activeRecordings = new Map();
@@ -23,6 +47,7 @@ const activeRecordings = new Map();
  * @returns {Promise<Object>} Recording session info
  */
 async function startRecording({ groupId, callId, callType, authToken, apiUrl }) {
+  requirePuppeteer();
   const sessionKey = `${callType}-${callId}`;
 
   // Check if already recording

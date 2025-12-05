@@ -101,49 +101,55 @@ resource "aws_s3_bucket_public_access_block" "file_storage" {
 }
 
 # ============================================
-# S3 Bucket for Web App (Static Hosting)
+# S3 Bucket for Web App (Static Hosting via CloudFront OAC)
 # ============================================
 resource "aws_s3_bucket" "web_app" {
   bucket = "${var.project_name}-web-${var.environment}"
 }
 
-resource "aws_s3_bucket_website_configuration" "web_app" {
-  bucket = aws_s3_bucket.web_app.id
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "index.html"  # SPA routing - return index.html for all routes
-  }
-}
-
+# Keep bucket private - CloudFront OAC will provide access
 resource "aws_s3_bucket_public_access_block" "web_app" {
   bucket = aws_s3_bucket.web_app.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
+# CloudFront Origin Access Control
+resource "aws_cloudfront_origin_access_control" "web_app" {
+  name                              = "${var.project_name}-web-oac"
+  description                       = "OAC for web app S3 bucket"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+# Allow CloudFront to access S3 bucket
 resource "aws_s3_bucket_policy" "web_app" {
   bucket = aws_s3_bucket.web_app.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadGetObject"
+        Sid       = "AllowCloudFrontServicePrincipal"
         Effect    = "Allow"
-        Principal = "*"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
         Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.web_app.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.web_app.arn
+          }
+        }
       }
     ]
   })
 
-  depends_on = [aws_s3_bucket_public_access_block.web_app]
+  depends_on = [aws_s3_bucket_public_access_block.web_app, aws_cloudfront_distribution.web_app]
 }
 
 # ============================================
@@ -151,15 +157,9 @@ resource "aws_s3_bucket_policy" "web_app" {
 # ============================================
 resource "aws_cloudfront_distribution" "web_app" {
   origin {
-    domain_name = aws_s3_bucket_website_configuration.web_app.website_endpoint
-    origin_id   = "S3-${aws_s3_bucket.web_app.id}"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
+    domain_name              = aws_s3_bucket.web_app.bucket_regional_domain_name
+    origin_id                = "S3-${aws_s3_bucket.web_app.id}"
+    origin_access_control_id = aws_cloudfront_origin_access_control.web_app.id
   }
 
   enabled             = true
@@ -189,7 +189,7 @@ resource "aws_cloudfront_distribution" "web_app" {
     compress               = true
   }
 
-  # Handle SPA routing - return index.html for 404s
+  # Handle SPA routing - return index.html for 403/404 errors
   custom_error_response {
     error_code         = 404
     response_code      = 200
@@ -260,7 +260,7 @@ resource "aws_security_group" "rds" {
 resource "aws_db_instance" "main" {
   identifier     = "${var.project_name}-db-${var.environment}"
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "16.6"
   instance_class = var.db_instance_class
 
   allocated_storage     = 20
@@ -472,18 +472,77 @@ resource "aws_iam_role_policy" "lambda_s3" {
   })
 }
 
+# Allow main API Lambda to invoke Media Processor Lambda
+resource "aws_iam_role_policy" "lambda_invoke_media" {
+  name = "${var.project_name}-lambda-invoke-media-policy"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:*:function:${var.project_name}-media-processor-${var.environment}"
+        ]
+      }
+    ]
+  })
+}
+
 # ============================================
-# Lambda Function (Backend API)
+# ECR Repository for Media Processor Lambda Container
+# ============================================
+resource "aws_ecr_repository" "media_processor" {
+  name                 = "${var.project_name}-media-processor"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-media-processor"
+  }
+}
+
+# ECR lifecycle policy to keep only last 5 images
+resource "aws_ecr_lifecycle_policy" "media_processor" {
+  repository = aws_ecr_repository.media_processor.name
+
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep last 5 images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 5
+      }
+      action = {
+        type = "expire"
+      }
+    }]
+  })
+}
+
+# ============================================
+# Lambda Function (Main API) - S3 Zip Deployment
 # ============================================
 resource "aws_lambda_function" "api" {
-  filename         = var.lambda_zip_path
-  function_name    = "${var.project_name}-api-${var.environment}"
-  role             = aws_iam_role.lambda.arn
-  handler          = "lambda.handler"
-  source_code_hash = filebase64sha256(var.lambda_zip_path)
-  runtime          = "nodejs20.x"
-  timeout          = 30
-  memory_size      = 512
+  function_name = "${var.project_name}-api-${var.environment}"
+  role          = aws_iam_role.lambda.arn
+  handler       = "lambda.handler"
+  runtime       = "nodejs20.x"
+  timeout       = 30
+  memory_size   = 512
+
+  # Deploy from S3 bucket (avoids 50MB direct upload limit)
+  s3_bucket = aws_s3_bucket.file_storage.id
+  s3_key    = "lambda/lambda.zip"
 
   vpc_config {
     subnet_ids         = aws_subnet.private[*].id
@@ -505,11 +564,47 @@ resource "aws_lambda_function" "api" {
       S3_BUCKET                  = aws_s3_bucket.file_storage.id
       AWS_S3_REGION              = var.aws_region
       CORS_ORIGIN                = var.cors_origin
+      MEDIA_PROCESSOR_LAMBDA     = "${var.project_name}-media-processor-${var.environment}"
     }
   }
 
   tags = {
     Name = "${var.project_name}-api"
+  }
+}
+
+# ============================================
+# Lambda Function (Media Processor) - Container Image
+# Handles video/audio conversion with ffmpeg
+# ============================================
+resource "aws_lambda_function" "media_processor" {
+  function_name = "${var.project_name}-media-processor-${var.environment}"
+  role          = aws_iam_role.lambda.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.media_processor.repository_url}:latest"
+  timeout       = 300  # 5 minutes for video processing
+  memory_size   = 2048 # More memory for ffmpeg
+
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  environment {
+    variables = {
+      NODE_ENV      = var.environment
+      S3_BUCKET     = aws_s3_bucket.file_storage.id
+      AWS_S3_REGION = var.aws_region
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-media-processor"
+  }
+
+  # Don't fail if image doesn't exist yet - will be deployed later
+  lifecycle {
+    ignore_changes = [image_uri]
   }
 }
 

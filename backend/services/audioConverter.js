@@ -3,18 +3,40 @@
  *
  * Converts audio files to universally compatible formats.
  * Uses ffmpeg to convert webm (from web browsers) to mp3.
+ *
+ * NOTE: This service requires ffmpeg dependencies which are only available
+ * in the Media Processor Lambda (container image). The main API Lambda
+ * will throw an error if these functions are called directly.
  */
 
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-const ffprobePath = require('@ffprobe-installer/ffprobe').path;
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// Set ffmpeg and ffprobe paths
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+// Optional dependencies - only available in Media Processor Lambda
+let ffmpeg = null;
+let ffmpegAvailable = false;
+
+try {
+  ffmpeg = require('fluent-ffmpeg');
+  const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+  const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+  ffmpeg.setFfmpegPath(ffmpegPath);
+  ffmpeg.setFfprobePath(ffprobePath);
+  ffmpegAvailable = true;
+} catch (err) {
+  console.log('[AudioConverter] ffmpeg not available - media processing disabled');
+}
+
+/**
+ * Check if ffmpeg is available
+ * @throws {Error} If ffmpeg is not available
+ */
+function requireFfmpeg() {
+  if (!ffmpegAvailable) {
+    throw new Error('Audio processing not available. This feature requires the Media Processor Lambda.');
+  }
+}
 
 /**
  * Convert audio file to MP3 format
@@ -23,6 +45,7 @@ ffmpeg.setFfprobePath(ffprobePath);
  * @returns {Promise<{path: string, mimeType: string}>} Converted file info
  */
 async function convertToMp3(inputPath, outputDir) {
+  requireFfmpeg();
   const outputFileName = `${uuidv4()}.mp3`;
   const outputPath = path.join(outputDir, outputFileName);
 
@@ -53,6 +76,7 @@ async function convertToMp3(inputPath, outputDir) {
  * @returns {Promise<number>} Duration in milliseconds
  */
 async function getAudioDuration(filePath) {
+  requireFfmpeg();
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) {

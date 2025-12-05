@@ -1,0 +1,28 @@
+# Lambda container image for Media Processor
+# Handles video/audio conversion with ffmpeg
+FROM public.ecr.aws/lambda/nodejs:20
+
+# Install static ffmpeg binary (Amazon Linux 2023 doesn't have ffmpeg in repos)
+# Using official static builds from https://johnvansickle.com/ffmpeg/
+RUN dnf install -y tar xz && \
+    curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o /tmp/ffmpeg.tar.xz && \
+    tar -xf /tmp/ffmpeg.tar.xz -C /tmp && \
+    mv /tmp/ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ && \
+    mv /tmp/ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ && \
+    rm -rf /tmp/ffmpeg* && \
+    chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe && \
+    dnf clean all
+
+# Create a minimal package.json for media processor only
+COPY package-media-processor.json ${LAMBDA_TASK_ROOT}/package.json
+
+# Install only media processing dependencies
+RUN npm install --omit=dev
+
+# Copy media processor Lambda handler and services
+COPY media-processor.js ${LAMBDA_TASK_ROOT}/
+COPY services/videoConverter.js ${LAMBDA_TASK_ROOT}/services/
+COPY services/audioConverter.js ${LAMBDA_TASK_ROOT}/services/
+
+# Set the Lambda handler
+CMD [ "media-processor.handler" ]
