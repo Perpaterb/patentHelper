@@ -629,7 +629,7 @@ resource "aws_lambda_function" "api" {
       BILLING_API_KEY            = var.billing_api_key
       S3_BUCKET                  = aws_s3_bucket.file_storage.id
       AWS_S3_REGION              = var.aws_region
-      CORS_ORIGIN                = var.cors_origin
+      CORS_ORIGINS               = join(",", concat(var.cors_allowed_origins, ["https://${aws_cloudfront_distribution.web_app.domain_name}"]))
       MEDIA_PROCESSOR_LAMBDA     = "${var.project_name}-media-processor-${var.environment}"
     }
   }
