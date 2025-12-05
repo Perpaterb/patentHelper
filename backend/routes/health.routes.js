@@ -87,9 +87,8 @@ router.get('/app-version', (req, res) => {
 
 /**
  * POST /health/migrate
- * Run Prisma database schema push (protected by API key)
- * This is a one-time setup endpoint for production deployment
- * Uses db push instead of migrate since Prisma CLI isn't in Lambda
+ * Add missing database columns via raw SQL (protected by API key)
+ * This runs ALTER TABLE commands to add missing columns for billing
  */
 router.post('/migrate', async (req, res) => {
   // Protect with billing API key (reuse existing secret)
@@ -99,27 +98,61 @@ router.post('/migrate', async (req, res) => {
   }
 
   try {
-    console.log('Checking database connection...');
+    console.log('Starting database migration...');
 
     // First verify we can connect
     await prisma.$queryRaw`SELECT 1`;
     console.log('Database connected successfully');
 
-    // Get table count to check if schema exists
-    const tables = await prisma.$queryRaw`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-      AND table_type = 'BASE TABLE'
-    `;
+    const results = [];
 
-    console.log('Existing tables:', tables);
+    // Add missing columns to users table for billing (if they don't exist)
+    const columnsToAdd = [
+      { column: 'stripe_customer_id', type: 'VARCHAR(255)', unique: true },
+      { column: 'default_payment_method_id', type: 'VARCHAR(255)', unique: false },
+      { column: 'renewal_date', type: 'TIMESTAMP(6)', unique: false },
+      { column: 'additional_storage_packs', type: 'INT DEFAULT 0', unique: false },
+      { column: 'last_billing_attempt', type: 'TIMESTAMP(6)', unique: false },
+      { column: 'billing_failure_count', type: 'INT DEFAULT 0', unique: false },
+    ];
+
+    for (const col of columnsToAdd) {
+      try {
+        // Check if column exists
+        const existsResult = await prisma.$queryRaw`
+          SELECT column_name FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = ${col.column}
+        `;
+
+        if (existsResult.length === 0) {
+          // Column doesn't exist, add it
+          await prisma.$executeRawUnsafe(`ALTER TABLE users ADD COLUMN ${col.column} ${col.type}`);
+          results.push({ column: col.column, status: 'added' });
+
+          // Add unique constraint if needed
+          if (col.unique) {
+            try {
+              await prisma.$executeRawUnsafe(`ALTER TABLE users ADD CONSTRAINT users_${col.column}_key UNIQUE (${col.column})`);
+              results.push({ column: col.column, status: 'unique constraint added' });
+            } catch (e) {
+              // Constraint might already exist
+              results.push({ column: col.column, status: 'unique constraint skipped', note: e.message });
+            }
+          }
+        } else {
+          results.push({ column: col.column, status: 'already exists' });
+        }
+      } catch (colError) {
+        results.push({ column: col.column, status: 'error', error: colError.message });
+      }
+    }
+
+    console.log('Migration results:', results);
 
     res.status(200).json({
       success: true,
-      message: 'Database connection verified',
-      existingTables: tables,
-      note: 'Run migrations from local machine with: DATABASE_URL=<prod_url> npx prisma migrate deploy',
+      message: 'Database migration completed',
+      results,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
