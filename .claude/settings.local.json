@@ -47,7 +47,9 @@
       "Bash(aws s3 cp:*)",
       "Bash(./scripts/build-lambda.sh:*)",
       "Bash(npm uninstall:*)",
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "Bash(aws logs tail:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

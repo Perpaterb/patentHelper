@@ -10,6 +10,7 @@ const app = require('./server');
 
 // Wrap Express app with serverless-http
 const handler = serverless(app, {
+  basePath: '/prod', // Strip the API Gateway stage prefix
   request: (request, event, context) => {
     // Add Lambda event and context to request for potential use in controllers
     request.lambdaEvent = event;

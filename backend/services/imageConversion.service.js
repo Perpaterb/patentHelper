@@ -7,11 +7,34 @@
  * Note: HEIC/HEIF files require special handling since Sharp doesn't have
  * built-in HEIC support. We use heic-convert for HEIC files.
  *
+ * NOTE: This service requires sharp and heic-convert which may not be available
+ * in all environments. Functions will throw errors if dependencies are missing.
+ *
  * @module services/imageConversion
  */
 
-const sharp = require('sharp');
-const heicConvert = require('heic-convert');
+// Optional dependencies - may not be available in all Lambda environments
+let sharp = null;
+let heicConvert = null;
+let imageProcessingAvailable = false;
+
+try {
+  sharp = require('sharp');
+  heicConvert = require('heic-convert');
+  imageProcessingAvailable = true;
+} catch (err) {
+  console.log('[ImageConversion] sharp/heic-convert not available - image conversion disabled');
+}
+
+/**
+ * Check if image processing is available
+ * @throws {Error} If dependencies are not available
+ */
+function requireImageProcessing() {
+  if (!imageProcessingAvailable) {
+    throw new Error('Image conversion not available. Sharp module could not be loaded.');
+  }
+}
 
 /**
  * MIME types that don't need conversion (already universally supported)
@@ -79,6 +102,7 @@ function isHeicBuffer(buffer) {
  * @returns {Promise<{format: string, mimeType: string, isImage: boolean}>}
  */
 async function detectImageFormat(buffer) {
+  requireImageProcessing();
   // First check for HEIC/HEIF manually (Sharp doesn't support it)
   if (isHeicBuffer(buffer)) {
     return {
@@ -132,6 +156,7 @@ async function detectImageFormat(buffer) {
  * @returns {Promise<boolean>}
  */
 async function isImageBuffer(buffer) {
+  requireImageProcessing();
   const result = await detectImageFormat(buffer);
   return result.isImage;
 }
@@ -153,6 +178,7 @@ function isSupportedImage(mimeType) {
  * @returns {Promise<Buffer>} JPEG buffer
  */
 async function convertHeicToJpeg(inputBuffer) {
+  requireImageProcessing();
   try {
     const outputBuffer = await heicConvert({
       buffer: inputBuffer,
@@ -173,6 +199,7 @@ async function convertHeicToJpeg(inputBuffer) {
  * @returns {Promise<{buffer: Buffer, mimeType: string, converted: boolean}>}
  */
 async function convertToPng(inputBuffer, originalMimeType) {
+  requireImageProcessing();
   const normalizedType = originalMimeType.toLowerCase();
 
   // If it's already a supported format, return as-is
@@ -254,6 +281,7 @@ module.exports = {
   getConvertedFilename,
   detectImageFormat,
   isImageBuffer,
+  isImageProcessingAvailable: () => imageProcessingAvailable,
   PASSTHROUGH_TYPES,
   ALL_IMAGE_TYPES,
   CONVERTIBLE_TYPES,

@@ -26,6 +26,7 @@ cp -r services lambda-build/
 cp -r middleware lambda-build/
 cp -r config lambda-build/
 cp -r prisma lambda-build/
+cp -r utils lambda-build/ 2>/dev/null || true
 cp server.js lambda-build/
 cp lambda.js lambda-build/
 cp package.json lambda-build/
@@ -41,9 +42,9 @@ echo "📥 Installing production dependencies..."
 cd lambda-build
 npm ci --omit=dev
 
-# Generate Prisma client for AWS Lambda (rhel-openssl-3.0.x only)
-echo "🗄️  Generating Prisma client for AWS Lambda..."
-PRISMA_CLI_BINARY_TARGETS=rhel-openssl-3.0.x npx prisma generate
+# Generate Prisma client (includes rhel-openssl-3.0.x for Lambda via schema.prisma)
+echo "🗄️  Generating Prisma client..."
+npx prisma generate
 
 # Remove unnecessary files to reduce package size
 echo "🧹 Cleaning up unnecessary files..."
@@ -54,16 +55,20 @@ rm -rf node_modules/fluent-ffmpeg 2>/dev/null || true
 rm -rf node_modules/@ffmpeg-installer 2>/dev/null || true
 rm -rf node_modules/@ffprobe-installer 2>/dev/null || true
 
-# Aggressively remove non-Lambda Prisma engine binaries (keep only rhel for Lambda)
+# Remove sharp (native bindings don't work cross-platform, image processing is optional)
+echo "  - Removing sharp (image conversion is optional for main API)..."
+rm -rf node_modules/sharp 2>/dev/null || true
+rm -rf node_modules/@img 2>/dev/null || true
+rm -rf node_modules/heic-convert 2>/dev/null || true
+rm -rf node_modules/libheif-js 2>/dev/null || true
+
+# Remove non-Lambda Prisma engine binaries (keep only rhel for Lambda)
 echo "  - Removing non-Lambda Prisma engines..."
-find node_modules -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
-find node_modules/@prisma -name "*darwin*" -exec rm -rf {} + 2>/dev/null || true
-find node_modules/@prisma -name "*windows*" -exec rm -rf {} + 2>/dev/null || true
-find node_modules/@prisma -name "*debian*" -exec rm -rf {} + 2>/dev/null || true
-find node_modules/@prisma -name "*linux-musl*" -exec rm -rf {} + 2>/dev/null || true
-find node_modules/prisma -type f -name "*.node" ! -name "*rhel*" -delete 2>/dev/null || true
-rm -rf node_modules/prisma/libquery_engine-* 2>/dev/null || true
-rm -rf node_modules/@prisma/engines/libquery* 2>/dev/null || true
+find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
+find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
+find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
+find node_modules/@prisma -name "*linux-musl*" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Remove packages that shouldn't be in production
 echo "  - Removing dev packages..."
