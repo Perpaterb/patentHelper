@@ -10,17 +10,28 @@ import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Touc
 import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { TextInput, IconButton, Text, Chip, Avatar, Menu, Divider as MenuDivider } from 'react-native-paper';
-// EmojiPicker is only available on native platforms (iOS/Android), not web
-let EmojiPicker = null;
-try {
-  // This will fail on web where the package isn't available
-  if (Platform.OS !== 'web') {
-    EmojiPicker = require('rn-emoji-keyboard').default;
+// Platform-specific emoji pickers
+let NativeEmojiPicker = null;
+let WebEmojiPicker = null;
+
+if (Platform.OS === 'web') {
+  // Web platform - use emoji-picker-react
+  try {
+    WebEmojiPicker = require('emoji-picker-react').default;
+  } catch (e) {
+    WebEmojiPicker = null;
   }
-} catch (e) {
-  // Package not available (web platform)
-  EmojiPicker = null;
+} else {
+  // Native platforms (iOS/Android) - use rn-emoji-keyboard
+  try {
+    NativeEmojiPicker = require('rn-emoji-keyboard').default;
+  } catch (e) {
+    NativeEmojiPicker = null;
+  }
 }
+
+// Unified flag to check if any emoji picker is available
+const hasEmojiPicker = Platform.OS === 'web' ? WebEmojiPicker !== null : NativeEmojiPicker !== null;
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import MediaPicker from '../../components/shared/MediaPicker';
@@ -1160,8 +1171,8 @@ export default function MessagesScreen({ navigation, route }) {
                 }}
                 title="Record Audio"
               />
-              {/* Add Emoji - only on native platforms */}
-              {EmojiPicker && (
+              {/* Add Emoji - available on all platforms with emoji picker */}
+              {hasEmojiPicker && (
                 <>
                   <MenuDivider />
                   <Menu.Item
@@ -1245,8 +1256,8 @@ export default function MessagesScreen({ navigation, route }) {
             <Text style={styles.menuTitle}>Message Options</Text>
             <MenuDivider />
 
-            {/* React option - available to all members who can send messages (native only) */}
-            {EmojiPicker && userRole !== 'supervisor' && isMember && (
+            {/* React option - available to all members who can send messages */}
+            {hasEmojiPicker && userRole !== 'supervisor' && isMember && (
               <TouchableOpacity style={styles.menuItem} onPress={() => openReactionPicker(longPressedMessage)}>
                 <IconButton icon="emoticon-happy-outline" size={20} />
                 <Text style={styles.menuItemText}>React</Text>
@@ -1355,9 +1366,9 @@ export default function MessagesScreen({ navigation, route }) {
         />
       )}
 
-      {/* Emoji Picker for message input - only on native platforms */}
-      {EmojiPicker && (
-        <EmojiPicker
+      {/* Native Emoji Picker for message input */}
+      {NativeEmojiPicker && (
+        <NativeEmojiPicker
           onEmojiSelected={handleEmojiSelect}
           open={showEmojiPicker}
           onClose={() => setShowEmojiPicker(false)}
@@ -1377,9 +1388,9 @@ export default function MessagesScreen({ navigation, route }) {
         />
       )}
 
-      {/* Emoji Picker for reactions - only on native platforms */}
-      {EmojiPicker && (
-        <EmojiPicker
+      {/* Native Emoji Picker for reactions */}
+      {NativeEmojiPicker && (
+        <NativeEmojiPicker
           onEmojiSelected={handleReactionSelect}
           open={showReactionPicker}
           onClose={() => {
@@ -1400,6 +1411,64 @@ export default function MessagesScreen({ navigation, route }) {
             },
           }}
         />
+      )}
+
+      {/* Web Emoji Picker Modal for message input */}
+      {Platform.OS === 'web' && WebEmojiPicker && showEmojiPicker && (
+        <Modal
+          visible={showEmojiPicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowEmojiPicker(false)}
+        >
+          <TouchableOpacity
+            style={styles.webEmojiPickerOverlay}
+            activeOpacity={1}
+            onPress={() => setShowEmojiPicker(false)}
+          >
+            <View style={styles.webEmojiPickerContainer}>
+              <WebEmojiPicker
+                onEmojiClick={(emojiData) => {
+                  handleEmojiSelect({ emoji: emojiData.emoji });
+                }}
+                width="100%"
+                height={400}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* Web Emoji Picker Modal for reactions */}
+      {Platform.OS === 'web' && WebEmojiPicker && showReactionPicker && (
+        <Modal
+          visible={showReactionPicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            setShowReactionPicker(false);
+            setReactionTargetMessage(null);
+          }}
+        >
+          <TouchableOpacity
+            style={styles.webEmojiPickerOverlay}
+            activeOpacity={1}
+            onPress={() => {
+              setShowReactionPicker(false);
+              setReactionTargetMessage(null);
+            }}
+          >
+            <View style={styles.webEmojiPickerContainer}>
+              <WebEmojiPicker
+                onEmojiClick={(emojiData) => {
+                  handleReactionSelect({ emoji: emojiData.emoji });
+                }}
+                width="100%"
+                height={400}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       )}
       </KeyboardAvoidingView>
     </View>
@@ -1856,5 +1925,19 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 2,
     fontWeight: '600',
+  },
+  // Web emoji picker styles
+  webEmojiPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  webEmojiPickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    maxWidth: 400,
+    width: '90%',
   },
 });
