@@ -18,7 +18,10 @@
  * - /files - File uploads
  */
 
-require('dotenv').config({ path: '../.env.local' });
+// Load environment variables (only in local development)
+if (process.env.NODE_ENV !== 'production' && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  require('dotenv').config({ path: '../.env.local' });
+}
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');

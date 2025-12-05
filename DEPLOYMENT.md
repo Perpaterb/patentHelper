@@ -1,0 +1,249 @@
+# Family Helper App - Deployment Guide
+
+This guide covers deploying the Family Helper App to AWS production environment.
+
+## Prerequisites
+
+1. **AWS Account** with CLI configured (`aws configure`)
+2. **Terraform** installed (v1.0+)
+3. **Node.js 20** installed
+4. **Domain** (familyhelperapp.com) registered and ready
+
+## Architecture Overview
+
+```
+                    ┌─────────────────┐
+                    │   CloudFront    │
+                    │   (CDN + SSL)   │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+    ┌─────────▼─────────┐       ┌──────────▼──────────┐
+    │   S3 (Web App)    │       │    API Gateway      │
+    │  Static Hosting   │       │    (REST API)       │
+    └───────────────────┘       └──────────┬──────────┘
+                                           │
+                                ┌──────────▼──────────┐
+                                │   Lambda Function   │
+                                │   (Express.js)      │
+                                └──────────┬──────────┘
+                                           │
+                         ┌─────────────────┼─────────────────┐
+                         │                 │                 │
+              ┌──────────▼──────┐  ┌───────▼───────┐  ┌──────▼──────┐
+              │  RDS PostgreSQL │  │ S3 (Files)    │  │ CloudWatch  │
+              │   (Database)    │  │ (User Media)  │  │  (Logs)     │
+              └─────────────────┘  └───────────────┘  └─────────────┘
+```
+
+## Deployment Steps
+
+### Step 1: Set Up Terraform Variables
+
+```bash
+cd infrastructure
+
+# Copy the example file
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit with your values
+nano terraform.tfvars
+```
+
+Fill in these values in `terraform.tfvars`:
+
+```hcl
+# Database credentials
+db_username = "familyhelper_admin"
+db_password = "YOUR_STRONG_PASSWORD_HERE"  # Use a strong password!
+
+# From your .env.local file:
+jwt_secret             = "your-jwt-secret"
+message_encryption_key = "your-64-char-hex-key"
+kinde_domain           = "https://your-app.kinde.com"
+kinde_client_id        = "your-client-id"
+kinde_client_secret    = "your-client-secret"
+
+# Stripe PRODUCTION keys (not test keys!)
+stripe_secret_key     = "sk_live_..."
+stripe_webhook_secret = "whsec_..."
+```
+
+### Step 2: Build Lambda Package
+
+```bash
+cd backend
+./scripts/build-lambda.sh
+```
+
+This creates `lambda.zip` ready for deployment.
+
+### Step 3: Initialize and Apply Terraform
+
+```bash
+cd infrastructure
+
+# Initialize Terraform
+terraform init
+
+# Preview changes
+terraform plan
+
+# Apply (creates all AWS resources)
+terraform apply
+```
+
+**Important:** First apply will take 10-15 minutes (RDS creation is slow).
+
+### Step 4: Run Database Migrations
+
+After Terraform creates the RDS instance, run migrations:
+
+```bash
+# Get the database URL from Terraform output
+terraform output rds_endpoint
+
+# Update your DATABASE_URL and run migrations
+cd ../backend
+DATABASE_URL="postgresql://familyhelper_admin:PASSWORD@RDS_ENDPOINT:5432/familyhelper" npx prisma migrate deploy
+```
+
+### Step 5: Deploy Web App
+
+```bash
+cd web-admin
+
+# Set environment variables
+export S3_BUCKET=$(cd ../infrastructure && terraform output -raw web_app_bucket)
+export CLOUDFRONT_DISTRIBUTION_ID=$(cd ../infrastructure && terraform output -raw cloudfront_distribution_id)
+
+# Deploy
+./scripts/deploy.sh
+```
+
+### Step 6: Update DNS (familyhelperapp.com)
+
+Get the CloudFront domain:
+```bash
+cd infrastructure
+terraform output cloudfront_domain
+```
+
+In your domain registrar (Route 53, Namecheap, etc.):
+1. Create a CNAME record: `www` → `<cloudfront_domain>`
+2. Create an A record (or ALIAS): `@` → `<cloudfront_domain>`
+
+### Step 7: Configure Custom Domain (Optional)
+
+To use `familyhelperapp.com` with SSL:
+
+1. Request an ACM certificate in `us-east-1` region
+2. Validate domain ownership (DNS or email)
+3. Update `infrastructure/main.tf` to use the certificate
+4. Run `terraform apply` again
+
+## Environment Variables
+
+### Backend (Lambda)
+Set via Terraform in `infrastructure/main.tf`:
+
+| Variable | Description |
+|----------|-------------|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `MESSAGE_ENCRYPTION_KEY` | 64-char hex key for message encryption |
+| `KINDE_DOMAIN` | Kinde auth domain |
+| `KINDE_CLIENT_ID` | Kinde client ID |
+| `KINDE_CLIENT_SECRET` | Kinde client secret |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret |
+| `S3_BUCKET` | File storage bucket name |
+| `CORS_ORIGIN` | Allowed origin for CORS |
+
+### Web App (Build Time)
+Create `.env.production` in `web-admin/`:
+
+```env
+EXPO_PUBLIC_API_URL=https://API_GATEWAY_URL/prod
+EXPO_PUBLIC_KINDE_DOMAIN=https://your-app.kinde.com
+EXPO_PUBLIC_KINDE_CLIENT_ID=your-client-id
+EXPO_PUBLIC_KINDE_REDIRECT_URI=https://familyhelperapp.com/callback
+EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=https://familyhelperapp.com
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+```
+
+## Monitoring
+
+### CloudWatch Logs
+- Lambda logs: `/aws/lambda/family-helper-api-prod`
+- API Gateway logs: `/aws/api-gateway/family-helper`
+
+### Useful AWS Console Links
+- [Lambda Console](https://ap-southeast-2.console.aws.amazon.com/lambda)
+- [API Gateway Console](https://ap-southeast-2.console.aws.amazon.com/apigateway)
+- [RDS Console](https://ap-southeast-2.console.aws.amazon.com/rds)
+- [S3 Console](https://s3.console.aws.amazon.com/s3)
+- [CloudFront Console](https://console.aws.amazon.com/cloudfront)
+
+## Updating the App
+
+### Backend Updates
+```bash
+cd backend
+./scripts/build-lambda.sh
+
+cd ../infrastructure
+terraform apply
+```
+
+### Web App Updates
+```bash
+cd web-admin
+./scripts/deploy.sh
+```
+
+## Cost Estimation
+
+Monthly costs (Sydney region, low traffic):
+
+| Service | Estimated Cost |
+|---------|---------------|
+| RDS (db.t3.micro) | ~$15-20/month |
+| Lambda | ~$0-5/month (free tier) |
+| API Gateway | ~$0-5/month |
+| S3 | ~$1-5/month |
+| CloudFront | ~$1-5/month |
+| NAT Gateway | ~$35/month |
+| **Total** | **~$55-70/month** |
+
+**Note:** NAT Gateway is the biggest cost. For lower costs, consider using Lambda without VPC (requires RDS Proxy or public RDS endpoint).
+
+## Troubleshooting
+
+### Lambda Timeout
+If API requests timeout, check:
+1. Lambda memory/timeout settings in Terraform
+2. RDS connection issues (security groups)
+3. NAT Gateway routing
+
+### CORS Errors
+1. Check `cors_allowed_origins` in `variables.tf`
+2. Verify API Gateway CORS settings
+3. Check CloudFront doesn't strip headers
+
+### Database Connection Failed
+1. Verify security groups allow Lambda → RDS (port 5432)
+2. Check DATABASE_URL is correct
+3. Ensure Lambda is in same VPC as RDS
+
+## Cleanup
+
+To destroy all resources:
+```bash
+cd infrastructure
+terraform destroy
+```
+
+**Warning:** This deletes everything including the database. Make backups first!

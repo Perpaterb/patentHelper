@@ -1,0 +1,38 @@
+# Family Helper App - Terraform Variables
+# Copy this to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to git!
+
+# General Settings
+project_name = "family-helper"
+environment  = "prod"
+aws_region   = "ap-southeast-2"
+
+# Domain Settings
+domain_name = "familyhelperapp.com"
+cors_origin = "https://familyhelperapp.com"
+cors_allowed_origins = [
+  "https://familyhelperapp.com",
+  "https://www.familyhelperapp.com",
+  "http://localhost:3000",
+  "http://localhost:3001"
+]
+
+# Database Settings
+db_instance_class = "db.t3.micro"
+db_name           = "familyhelper"
+db_username       = "familyhelper_admin"
+db_password       = "CHANGE_THIS_TO_A_STRONG_PASSWORD"
+
+# Lambda Settings
+lambda_zip_path = "../backend/lambda.zip"
+
+# Authentication Settings (from your .env file)
+jwt_secret             = "your-jwt-secret-from-env"
+message_encryption_key = "your-64-char-hex-encryption-key"
+kinde_domain           = "https://your-app.kinde.com"
+kinde_client_id        = "your-kinde-client-id"
+kinde_client_secret    = "your-kinde-client-secret"
+
+# Stripe Settings (use production keys!)
+stripe_secret_key     = "sk_live_..."
+stripe_webhook_secret = "whsec_..."
