@@ -26,12 +26,12 @@ db_password       = "CHANGE_THIS_TO_A_STRONG_PASSWORD"
 # Lambda Settings
 lambda_zip_path = "../backend/lambda.zip"
 
-# Authentication Settings (from your .env file)
-jwt_secret             = "your-jwt-secret-from-env"
+# Authentication Settings
+jwt_secret             = "your-jwt-secret-here"
 message_encryption_key = "your-64-char-hex-encryption-key"
 kinde_domain           = "https://your-app.kinde.com"
 kinde_client_id        = "your-kinde-client-id"
-kinde_client_secret    = "your-kinde-client-secret"
+kinde_client_secret    = ""  # Optional - leave empty, web app uses PKCE
 
 # Stripe Settings (use production keys!)
 stripe_secret_key     = "sk_live_..."

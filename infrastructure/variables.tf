@@ -112,8 +112,9 @@ variable "kinde_client_id" {
 }
 
 variable "kinde_client_secret" {
-  description = "Kinde client secret"
+  description = "Kinde client secret (optional - only needed for mobile callback)"
   type        = string
+  default     = ""
   sensitive   = true
 }
 
