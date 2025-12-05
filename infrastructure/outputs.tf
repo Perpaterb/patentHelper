@@ -104,3 +104,21 @@ output "public_subnet_ids" {
   description = "Public subnet IDs"
   value       = aws_subnet.public[*].id
 }
+
+# ============================================
+# Bastion Outputs
+# ============================================
+output "bastion_public_ip" {
+  description = "Bastion host public IP (for SSH tunneling to RDS)"
+  value       = aws_instance.bastion.public_ip
+}
+
+output "bastion_ssh_command" {
+  description = "SSH command to connect to bastion"
+  value       = "ssh -i ~/.ssh/${var.bastion_key_name}.pem ec2-user@${aws_instance.bastion.public_ip}"
+}
+
+output "database_tunnel_command" {
+  description = "SSH tunnel command for database access"
+  value       = "ssh -i ~/.ssh/${var.bastion_key_name}.pem -L 5433:${aws_db_instance.main.endpoint} ec2-user@${aws_instance.bastion.public_ip} -N"
+}

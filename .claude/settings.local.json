@@ -49,7 +49,15 @@
       "Bash(npm uninstall:*)",
       "Bash(unzip:*)",
       "Bash(aws logs tail:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(aws lambda update-function-code:*)",
+      "Bash(https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod/health/migrate)",
+      "Bash(aws ec2 describe-key-pairs:*)",
+      "Bash(DATABASE_URL=\"postgresql://familyhelper_admin:Zh3Z4VK5X2mP9xMJTDOW27xjh1cZ6Pk@localhost:5433/familyhelper\" npx prisma migrate:*)",
+      "Bash(aws ec2 authorize-security-group-ingress:*)",
+      "Bash(ssh -i ~/.ssh/family-helper-bastion.pem -o StrictHostKeyChecking=no ec2-user@54.79.179.77 \"timeout 5 bash -c ''</dev/tcp/family-helper-db-prod.c3uu4gkmcwnq.ap-southeast-2.rds.amazonaws.com/5432'' && echo ''Connection successful'' || echo ''Connection failed''\")",
+      "Bash(pkill:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []

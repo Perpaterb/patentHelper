@@ -138,3 +138,9 @@ variable "billing_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "bastion_key_name" {
+  description = "EC2 key pair name for bastion SSH access"
+  type        = string
+  default     = ""
+}

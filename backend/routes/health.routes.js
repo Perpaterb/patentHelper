@@ -86,6 +86,53 @@ router.get('/app-version', (req, res) => {
 });
 
 /**
+ * POST /health/migrate
+ * Run Prisma database schema push (protected by API key)
+ * This is a one-time setup endpoint for production deployment
+ * Uses db push instead of migrate since Prisma CLI isn't in Lambda
+ */
+router.post('/migrate', async (req, res) => {
+  // Protect with billing API key (reuse existing secret)
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey || apiKey !== process.env.BILLING_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    console.log('Checking database connection...');
+
+    // First verify we can connect
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('Database connected successfully');
+
+    // Get table count to check if schema exists
+    const tables = await prisma.$queryRaw`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+    `;
+
+    console.log('Existing tables:', tables);
+
+    res.status(200).json({
+      success: true,
+      message: 'Database connection verified',
+      existingTables: tables,
+      note: 'Run migrations from local machine with: DATABASE_URL=<prod_url> npx prisma migrate deploy',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
  * GET /health/ready
  * Readiness check - returns 200 if server can handle requests
  * Checks database connectivity and other critical services
