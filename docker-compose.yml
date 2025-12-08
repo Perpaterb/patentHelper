@@ -17,7 +17,7 @@ services:
     environment:
       POSTGRES_DB: familyhelper
       POSTGRES_USER: familyhelper_admin
-      POSTGRES_PASSWORD: dev_password_local
+      POSTGRES_PASSWORD: localdev123
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
@@ -152,7 +152,7 @@ networks:
 # ENVIRONMENT VARIABLES FOR backend/.env
 # =============================================================================
 #
-# DATABASE_URL=postgresql://familyhelper_admin:dev_password_local@localhost:5432/familyhelper
+# DATABASE_URL=postgresql://familyhelper_admin:localdev123@localhost:5432/familyhelper
 # SMTP_HOST=localhost
 # SMTP_PORT=1025
 # MEDIA_PROCESSOR_URL=http://localhost:3001
