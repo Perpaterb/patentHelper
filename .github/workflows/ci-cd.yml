@@ -100,8 +100,10 @@ jobs:
   # ============================================
   # Deploy (only on main branch, after tests pass)
   # ============================================
-  deploy-backend:
-    name: Deploy Backend (Lambda)
+
+  # Main API Lambda - Core API functionality (250MB limit)
+  deploy-api-lambda:
+    name: Deploy Main API Lambda
     runs-on: ubuntu-latest
     needs: [test-backend, test-web-admin, test-mobile-main]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -124,17 +126,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install dependencies
-        working-directory: backend
-        run: npm ci
-
       - name: Build Lambda package
         working-directory: backend
         run: |
           # Create build directory
           mkdir -p lambda-build
 
-          # Copy necessary files
+          # Copy necessary files (excluding heavy processing code)
           cp -r controllers lambda-build/
           cp -r routes lambda-build/
           cp -r services lambda-build/
@@ -154,39 +152,51 @@ jobs:
           cd lambda-build
           npm ci --omit=dev
 
-          # Generate Prisma client
+          # Generate Prisma client for Lambda (rhel)
           npx prisma generate
 
-          # Remove unnecessary packages to stay under Lambda 250MB limit
-          # Media processing packages (handled by separate Media Processor Lambda)
-          rm -rf node_modules/sharp node_modules/@img node_modules/heic-convert node_modules/libheif-js 2>/dev/null || true
+          # ==========================================
+          # AGGRESSIVE CLEANUP for 250MB Lambda limit
+          # ==========================================
+
+          # Media processing packages -> Media Processor Lambda (Docker)
+          rm -rf node_modules/sharp node_modules/@img 2>/dev/null || true
+          rm -rf node_modules/heic-convert node_modules/libheif-js 2>/dev/null || true
           rm -rf node_modules/fluent-ffmpeg node_modules/@ffmpeg-installer node_modules/@ffprobe-installer 2>/dev/null || true
 
-          # Dev tools that shouldn't be in production
+          # PDF generation -> Media Processor Lambda (Docker)
+          rm -rf node_modules/jspdf node_modules/jspdf-autotable 2>/dev/null || true
+          rm -rf node_modules/html2canvas node_modules/canvg 2>/dev/null || true
+
+          # Dev tools (should not be in production)
           rm -rf node_modules/typescript node_modules/eslint node_modules/@types 2>/dev/null || true
           rm -rf node_modules/@typescript-eslint node_modules/@eslint node_modules/@eslint-community 2>/dev/null || true
+          rm -rf node_modules/prettier node_modules/nodemon 2>/dev/null || true
 
-          # Prisma CLI (we only need @prisma/client at runtime)
+          # Prisma CLI (only @prisma/client needed at runtime)
           rm -rf node_modules/prisma 2>/dev/null || true
 
           # Heavy transitive dependencies
           rm -rf node_modules/effect node_modules/fast-check 2>/dev/null || true
           rm -rf node_modules/core-js 2>/dev/null || true
 
-          # Remove non-Lambda Prisma engines (keep only rhel for Lambda)
-          find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
-          find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
-          find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
-          find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Remove ALL non-rhel Prisma engines (Lambda runs on Amazon Linux 2 = rhel)
+          find node_modules/.prisma -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+          find node_modules/@prisma/engines -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+          find node_modules/@prisma/engines -type f -name "schema-engine-*" -delete 2>/dev/null || true
+          rm -rf node_modules/@prisma/engines/dist 2>/dev/null || true
 
           # Show final size for debugging
-          echo "Lambda package size before zip:"
+          echo "=== Lambda package size before zip ==="
           du -sh .
+          echo "=== Largest remaining packages ==="
+          du -sh node_modules/* 2>/dev/null | sort -hr | head -10
 
           # Create zip
-          zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js"
+          zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js" -x "*.md"
 
           cd ..
+          ls -lh lambda.zip
           rm -rf lambda-build
 
       - name: Upload to S3
@@ -204,6 +214,61 @@ jobs:
       - name: Wait for Lambda update
         run: |
           aws lambda wait function-updated --function-name family-helper-api-prod
+
+  # Media Processor Lambda - Heavy processing (Docker, 10GB limit)
+  # Handles: Image processing, Video processing, PDF generation
+  deploy-media-processor:
+    name: Deploy Media Processor Lambda
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-web-admin, test-mobile-main]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Check if Media Processor Dockerfile exists
+        id: check-dockerfile
+        run: |
+          if [ -f "backend/media-processor/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::warning::Media Processor Dockerfile not found. Skipping deployment."
+          fi
+
+      - name: Build and push Docker image
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        working-directory: backend/media-processor
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG=${{ github.sha }}
+
+          docker build -t $ECR_REGISTRY/family-helper-media-processor:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/family-helper-media-processor:$IMAGE_TAG $ECR_REGISTRY/family-helper-media-processor:latest
+
+          docker push $ECR_REGISTRY/family-helper-media-processor:$IMAGE_TAG
+          docker push $ECR_REGISTRY/family-helper-media-processor:latest
+
+      - name: Update Media Processor Lambda
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+
+          aws lambda update-function-code \
+            --function-name family-helper-media-processor-prod \
+            --image-uri $ECR_REGISTRY/family-helper-media-processor:latest
 
   deploy-web-admin:
     name: Deploy Web Admin (CloudFront)
@@ -269,14 +334,18 @@ jobs:
   notify:
     name: Deployment Complete
     runs-on: ubuntu-latest
-    needs: [deploy-backend, deploy-web-admin]
+    needs: [deploy-api-lambda, deploy-media-processor, deploy-web-admin]
     if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Check deployment status
         run: |
-          if [ "${{ needs.deploy-backend.result }}" == "success" ] && [ "${{ needs.deploy-web-admin.result }}" == "success" ]; then
-            echo "::notice::Deployment successful! Backend and Web Admin have been deployed."
+          echo "API Lambda: ${{ needs.deploy-api-lambda.result }}"
+          echo "Media Processor: ${{ needs.deploy-media-processor.result }}"
+          echo "Web Admin: ${{ needs.deploy-web-admin.result }}"
+
+          if [ "${{ needs.deploy-api-lambda.result }}" == "success" ] && [ "${{ needs.deploy-web-admin.result }}" == "success" ]; then
+            echo "::notice::Deployment successful! API Lambda and Web Admin have been deployed."
           else
             echo "::error::Deployment failed. Check the logs for details."
             exit 1
