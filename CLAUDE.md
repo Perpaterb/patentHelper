@@ -975,15 +975,48 @@ Before modifying ANY backend code, ask yourself:
 
 ### Kinde Authentication - NO CLIENT SECRET NEEDED
 
-**IMPORTANT:** Kinde uses PKCE flow for mobile apps. There is NO client secret.
-
-Kinde configuration:
-- **Domain**: https://familyhelperapp.kinde.com
-- **Client ID**: Required
-- **Client Secret**: NOT APPLICABLE (PKCE flow doesn't use it)
+**IMPORTANT:** Kinde uses PKCE flow. There is NO client secret.
 
 The backend warning `⚠️ Missing Kinde configuration: KINDE_CLIENT_SECRET` can be **IGNORED**.
 The app works without it. DO NOT try to "fix" this warning.
+
+#### FamilyHelperAPPProd (Production)
+
+| Setting | Value |
+|---------|-------|
+| Domain | https://familyhelperapp.kinde.com |
+| Client ID | bfbf86777e654654b374cf92f5719c74 |
+| Client Secret | NOT APPLICABLE |
+
+**Allowed Callback URLs:**
+- http://localhost:3001/auth/callback
+- https://did5g5bty80vq.cloudfront.net/auth/callback
+- https://familyhelperapp.com/auth/callback
+- https://www.familyhelperapp.com/auth/callback
+
+**Allowed Logout Redirect URLs:**
+- http://localhost:3001
+- https://did5g5bty80vq.cloudfront.net
+- https://familyhelperapp.com
+- https://www.familyhelperapp.com
+
+**Homepage/Login URI:** https://familyhelperapp.com
+
+#### FamilyHelperAPPDev (Development)
+
+| Setting | Value |
+|---------|-------|
+| Domain | https://familyhelperapp.kinde.com |
+| Client ID | 552e8d9d29f046418a8dfce0b7f0de1b |
+| Client Secret | NOT APPLICABLE |
+
+**Allowed Callback URLs:**
+- http://localhost:8081/auth/callback
+
+**Allowed Logout Redirect URLs:**
+- http://localhost:8081
+
+**Homepage/Login URI:** http://localhost:8081
 
 ### PH Messenger Companion App
 * **Messaging-only** subset of main mobile app
