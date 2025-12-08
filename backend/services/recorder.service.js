@@ -154,11 +154,12 @@ async function stopRecording(callId, callType) {
     const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
 
     // Get recording status before stopping
-    // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
+    /* eslint-disable no-undef -- runs in browser context via Puppeteer */
     const recordingStatus = await page.evaluate(() => ({
       isRecording: window.isRecording,
       chunks: typeof recordedChunks !== 'undefined' ? recordedChunks.length : 0,
     }));
+    /* eslint-enable no-undef */
     console.log(`[Recorder] Recording status before stop:`, recordingStatus);
 
     // Tell the page to stop recording and wait for upload
