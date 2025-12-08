@@ -713,6 +713,14 @@ async function createGroup(req, res) {
       },
     });
 
+    // Create GroupSettings with defaults so features are visible immediately
+    await prisma.groupSettings.create({
+      data: {
+        groupId: group.groupId,
+        // All settings use schema defaults (messaging enabled, etc.)
+      },
+    });
+
     // Create audit log
     await prisma.auditLog.create({
       data: {

@@ -73,22 +73,9 @@ export default function CreateGroupScreen({ navigation }) {
         backgroundColor: backgroundColor,
       });
 
-      // Show success message and navigate back
-      CustomAlert.alert(
-        'Success',
-        `Group "${groupName}" created successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-
-      // On web, also navigate immediately since alert is non-blocking
-      if (Platform.OS === 'web') {
-        navigation.goBack();
-      }
+      // Navigate back immediately after successful creation
+      // The new group will appear in the groups list
+      navigation.goBack();
     } catch (err) {
       console.error('Create group error:', err);
 
