@@ -7,6 +7,14 @@
 // Import Jest Native matchers
 import '@testing-library/jest-native/extend-expect';
 
+// Use fake timers to control all async timer operations
+// This prevents "Jest environment torn down" errors from lingering timers
+// advanceTimers option tells waitFor to advance timers automatically
+jest.useFakeTimers({
+  // Allow promises to resolve between timer ticks
+  advanceTimers: true,
+});
+
 // Configure React Testing Library
 import { configure } from '@testing-library/react-native';
 
@@ -14,15 +22,6 @@ configure({
   // Increase async utilities timeout
   asyncUtilTimeout: 10000,
 });
-
-// Mock setInterval globally to prevent polling from running
-// This avoids "Jest environment torn down" errors from lingering intervals
-const originalSetInterval = global.setInterval;
-global.setInterval = jest.fn((callback, delay) => {
-  // Don't actually start intervals - just return a mock timer ID
-  return 999;
-});
-global.clearInterval = jest.fn();
 
 // Silence console.warn and console.error in tests unless explicitly needed
 global.console = {
@@ -300,12 +299,15 @@ jest.mock('react-native-paper', () => {
 global.mockNavigation = mockNavigation;
 global.mockRoute = mockRoute;
 
-// Reset mocks before each test
+// Reset mocks and timers before each test
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.clearAllTimers();
 });
 
 // Clean up after each test
 afterEach(() => {
+  // Clear all pending timers to prevent leaks
+  jest.clearAllTimers();
   jest.clearAllMocks();
 });
