@@ -63,3 +63,6 @@ temp/
 
 # OS
 Thumbs.db
+
+# Recovery credentials - NEVER COMMIT
+RECOVERY_CREDENTIALS.txt
