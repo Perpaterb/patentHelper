@@ -14,10 +14,10 @@ const config = {
 
   // Kinde Authentication
   kinde: {
-    domain: process.env.EXPO_PUBLIC_KINDE_DOMAIN || 'https://parentinghelper.kinde.com',
+    domain: process.env.EXPO_PUBLIC_KINDE_DOMAIN || 'https://familyhelperapp.kinde.com',
     clientId: process.env.EXPO_PUBLIC_KINDE_CLIENT_ID || '',
-    redirectUri: process.env.EXPO_PUBLIC_KINDE_REDIRECT_URI || 'http://localhost:3001/auth/callback',
-    logoutRedirectUri: process.env.EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI || 'http://localhost:3001',
+    redirectUri: process.env.EXPO_PUBLIC_KINDE_REDIRECT_URI || 'http://localhost:8081/auth/callback',
+    logoutRedirectUri: process.env.EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI || 'http://localhost:8081',
   },
 
   // Stripe
@@ -42,22 +42,24 @@ const config = {
 
 // Validate required configuration
 function validateConfig() {
-  const errors = [];
+  const warnings = [];
 
   if (!config.kinde.clientId) {
-    errors.push('REACT_APP_KINDE_CLIENT_ID is required');
+    warnings.push('EXPO_PUBLIC_KINDE_CLIENT_ID not set - authentication will not work');
   }
 
   if (config.features.subscriptions && !config.stripe.publishableKey) {
-    console.warn('⚠️  Stripe publishable key not set. Subscription features may not work.');
+    warnings.push('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY not set - subscription features disabled');
   }
 
-  if (errors.length > 0) {
-    console.error('❌ Configuration errors:');
-    errors.forEach(error => console.error(`   - ${error}`));
+  if (warnings.length > 0) {
+    console.warn('⚠️  Configuration warnings:');
+    warnings.forEach(warning => console.warn(`   - ${warning}`));
+  } else {
+    console.log('✅ Configuration loaded successfully');
   }
 
-  return errors.length === 0;
+  return warnings.length === 0;
 }
 
 // Validate on module load
