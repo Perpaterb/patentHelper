@@ -192,6 +192,48 @@ jest.mock('./src/components/AudioPlayer', () => {
   };
 });
 
+// Mock shared components used by MessagesScreen
+jest.mock('./src/components/shared/MediaPicker', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: React.forwardRef((props, ref) => <View testID="media-picker" ref={ref} />),
+  };
+});
+
+jest.mock('./src/components/shared/ImageViewer', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ visible }) => (visible ? <View testID="image-viewer" /> : null),
+  };
+});
+
+jest.mock('./src/components/shared/VideoPlayer', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ visible }) => (visible ? <View testID="video-player" /> : null),
+  };
+});
+
+jest.mock('./src/components/shared/UserAvatar', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <View testID="user-avatar" />,
+  };
+});
+
+jest.mock('./src/components/CustomNavigationHeader', () => {
+  const { View, Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ title }) => <View testID="custom-nav-header"><Text>{title}</Text></View>,
+  };
+});
+
 // Mock React Navigation
 const mockNavigation = {
   navigate: jest.fn(),
