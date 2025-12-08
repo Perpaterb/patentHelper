@@ -141,6 +141,33 @@ jest.mock('expo-web-browser', () => ({
   maybeCompleteAuthSession: jest.fn(),
 }));
 
+// Mock rn-emoji-keyboard (used in MessagesScreen)
+jest.mock('rn-emoji-keyboard', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ open, onClose, onEmojiSelected }) => (open ? <View testID="emoji-keyboard" /> : null),
+  };
+});
+
+// Mock AudioRecorder component
+jest.mock('./src/components/AudioRecorder', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <View testID="audio-recorder" />,
+  };
+});
+
+// Mock AudioPlayer component
+jest.mock('./src/components/AudioPlayer', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <View testID="audio-player" />,
+  };
+});
+
 // Mock React Navigation
 const mockNavigation = {
   navigate: jest.fn(),
