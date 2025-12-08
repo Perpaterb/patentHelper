@@ -1,0 +1,124 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Run all tests on PR
+  # ============================================
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run linter
+        working-directory: backend
+        run: npm run lint --if-present
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test --if-present
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgresql://test:test@localhost:5432/test"
+          JWT_SECRET: "test-secret"
+          KINDE_DOMAIN: "https://test.kinde.com"
+          KINDE_CLIENT_ID: "test-client-id"
+
+  test-web-admin:
+    name: Test Web Admin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web-admin
+        run: npm install --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: web-admin
+        run: npm test --if-present -- --passWithNoTests
+        env:
+          CI: true
+
+  test-mobile-main:
+    name: Test Mobile Main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: mobile-main/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile-main
+        run: npm install --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: mobile-main
+        run: npm test --if-present -- --passWithNoTests
+        env:
+          CI: true
+
+  # Build check (ensure it compiles without errors)
+  build-check:
+    name: Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install web-admin dependencies
+        working-directory: web-admin
+        run: npm install --legacy-peer-deps
+
+      - name: Build web-admin
+        working-directory: web-admin
+        run: npx expo export --platform web
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          EXPO_PUBLIC_API_URL: "https://test.example.com"
+          EXPO_PUBLIC_KINDE_DOMAIN: "https://test.kinde.com"
+          EXPO_PUBLIC_KINDE_CLIENT_ID: "test-client-id"
+          EXPO_PUBLIC_KINDE_REDIRECT_URI: "https://test.example.com/auth/callback"
+          EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI: "https://test.example.com"

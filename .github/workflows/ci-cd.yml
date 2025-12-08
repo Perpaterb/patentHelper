@@ -1,0 +1,268 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-southeast-2
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Run Tests
+  # ============================================
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run linter
+        working-directory: backend
+        run: npm run lint --if-present
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test --if-present
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgresql://test:test@localhost:5432/test"
+          JWT_SECRET: "test-secret"
+          KINDE_DOMAIN: "https://test.kinde.com"
+          KINDE_CLIENT_ID: "test-client-id"
+
+  test-web-admin:
+    name: Test Web Admin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web-admin
+        run: npm install --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: web-admin
+        run: npm test --if-present -- --passWithNoTests
+        env:
+          CI: true
+
+  test-mobile-main:
+    name: Test Mobile Main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: mobile-main/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile-main
+        run: npm install --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: mobile-main
+        run: npm test --if-present -- --passWithNoTests
+        env:
+          CI: true
+
+  # ============================================
+  # Deploy (only on main branch, after tests pass)
+  # ============================================
+  deploy-backend:
+    name: Deploy Backend (Lambda)
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-web-admin, test-mobile-main]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build Lambda package
+        working-directory: backend
+        run: |
+          # Create build directory
+          mkdir -p lambda-build
+
+          # Copy necessary files
+          cp -r controllers lambda-build/
+          cp -r routes lambda-build/
+          cp -r services lambda-build/
+          cp -r middleware lambda-build/
+          cp -r config lambda-build/
+          cp -r prisma lambda-build/
+          cp -r utils lambda-build/ 2>/dev/null || true
+          cp server.js lambda-build/
+          cp lambda.js lambda-build/
+          cp package.json lambda-build/
+          cp package-lock.json lambda-build/
+
+          # Copy public folder if exists
+          [ -d "public" ] && cp -r public lambda-build/ || true
+
+          # Install production dependencies
+          cd lambda-build
+          npm ci --omit=dev
+
+          # Generate Prisma client
+          npx prisma generate
+
+          # Remove unnecessary packages
+          rm -rf node_modules/fluent-ffmpeg node_modules/@ffmpeg-installer node_modules/@ffprobe-installer 2>/dev/null || true
+          rm -rf node_modules/sharp node_modules/@img node_modules/heic-convert node_modules/libheif-js 2>/dev/null || true
+          rm -rf node_modules/typescript node_modules/effect node_modules/eslint node_modules/@types 2>/dev/null || true
+
+          # Remove non-Lambda Prisma engines
+          find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+          find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+          # Create zip
+          zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js"
+
+          cd ..
+          rm -rf lambda-build
+
+      - name: Upload to S3
+        working-directory: backend
+        run: |
+          aws s3 cp lambda.zip s3://family-helper-files-prod/lambda/lambda.zip
+
+      - name: Update Lambda function
+        run: |
+          aws lambda update-function-code \
+            --function-name family-helper-api-prod \
+            --s3-bucket family-helper-files-prod \
+            --s3-key lambda/lambda.zip
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated --function-name family-helper-api-prod
+
+  deploy-web-admin:
+    name: Deploy Web Admin (CloudFront)
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-web-admin, test-mobile-main]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        working-directory: web-admin
+        run: npm install --legacy-peer-deps
+
+      - name: Build for production
+        working-directory: web-admin
+        run: npx expo export --platform web
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          EXPO_PUBLIC_API_URL: "https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod"
+          EXPO_PUBLIC_API_TIMEOUT: "30000"
+          EXPO_PUBLIC_KINDE_DOMAIN: "https://familyhelperapp.kinde.com"
+          EXPO_PUBLIC_KINDE_CLIENT_ID: "bfbf86777e654654b374cf92f5719c74"
+          EXPO_PUBLIC_KINDE_REDIRECT_URI: "https://familyhelperapp.com/auth/callback"
+          EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI: "https://familyhelperapp.com"
+          EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_APP_NAME: "Parenting Helper Admin"
+          EXPO_PUBLIC_APP_VERSION: "1.0.0"
+          EXPO_PUBLIC_APP_ENVIRONMENT: "production"
+          EXPO_PUBLIC_ENABLE_SUBSCRIPTIONS: "true"
+          EXPO_PUBLIC_ENABLE_LOG_EXPORTS: "true"
+          EXPO_PUBLIC_ENABLE_STORAGE_MANAGEMENT: "true"
+
+      - name: Deploy to S3
+        working-directory: web-admin
+        run: |
+          aws s3 sync dist/ s3://family-helper-web-prod/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EOFB5YCW926IM \
+            --paths "/*"
+
+  # ============================================
+  # Notify on completion
+  # ============================================
+  notify:
+    name: Deployment Complete
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-web-admin]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Check deployment status
+        run: |
+          if [ "${{ needs.deploy-backend.result }}" == "success" ] && [ "${{ needs.deploy-web-admin.result }}" == "success" ]; then
+            echo "::notice::Deployment successful! Backend and Web Admin have been deployed."
+          else
+            echo "::error::Deployment failed. Check the logs for details."
+            exit 1
+          fi
