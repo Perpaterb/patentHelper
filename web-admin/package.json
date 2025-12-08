@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web --port 3001",
+    "web": "expo start --web --port 8081",
+    "web:clean": "expo start --web --port 8081 --clear",
+    "dev": "expo start --web --port 8081 --clear",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
