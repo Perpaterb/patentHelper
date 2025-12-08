@@ -83,7 +83,10 @@
       "Bash(. \"$NVM_DIR/nvm.sh\")",
       "Bash(python3:*)",
       "Bash(git check-ignore:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)"
     ],
     "deny": [],
     "ask": []
