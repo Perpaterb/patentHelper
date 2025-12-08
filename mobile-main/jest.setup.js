@@ -150,14 +150,14 @@ jest.mock('rn-emoji-keyboard', () => {
   };
 });
 
-// Mock emoji-picker-react (web platform)
+// Mock emoji-picker-react (web platform) - virtual because it's not installed
 jest.mock('emoji-picker-react', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
     default: () => <View testID="web-emoji-picker" />,
   };
-});
+}, { virtual: true });
 
 // Mock CustomAlert component
 jest.mock('./src/components/CustomAlert', () => {
