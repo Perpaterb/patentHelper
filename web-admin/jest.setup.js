@@ -4,6 +4,45 @@
  * Configures the testing environment for web-admin React Native (Expo) app.
  */
 
+// Mock @expo/vector-icons to prevent font loading issues in tests
+jest.mock('@expo/vector-icons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  const createIconMock = (name) => {
+    const IconMock = (props) => React.createElement(Text, { testID: `icon-${name}` }, props.name || '');
+    IconMock.displayName = name;
+    return IconMock;
+  };
+
+  return {
+    MaterialCommunityIcons: createIconMock('MaterialCommunityIcons'),
+    MaterialIcons: createIconMock('MaterialIcons'),
+    Ionicons: createIconMock('Ionicons'),
+    FontAwesome: createIconMock('FontAwesome'),
+    FontAwesome5: createIconMock('FontAwesome5'),
+    Feather: createIconMock('Feather'),
+    AntDesign: createIconMock('AntDesign'),
+    Entypo: createIconMock('Entypo'),
+    createIconSet: () => createIconMock('CustomIcon'),
+  };
+});
+
+// Mock expo-font to prevent font loading issues
+jest.mock('expo-font', () => ({
+  loadAsync: jest.fn(() => Promise.resolve()),
+  isLoaded: jest.fn(() => true),
+  isLoading: jest.fn(() => false),
+}));
+
+// Mock expo-asset to prevent asset registry issues
+jest.mock('expo-asset', () => ({
+  Asset: {
+    fromModule: jest.fn(() => ({ downloadAsync: jest.fn() })),
+    loadAsync: jest.fn(() => Promise.resolve()),
+  },
+}));
+
 // Mock expo-secure-store
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
