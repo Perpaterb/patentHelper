@@ -382,9 +382,21 @@ jest.mock('react-native-paper', () => {
       </RN.TouchableOpacity>
     ),
     Divider: RN.View,
-    Menu: {
-      Item: RN.View,
-    },
+    Menu: Object.assign(
+      ({ children, visible, onDismiss, anchor }) => (
+        <RN.View>
+          {anchor}
+          {visible && children}
+        </RN.View>
+      ),
+      {
+        Item: ({ title, onPress, leadingIcon }) => (
+          <RN.TouchableOpacity onPress={onPress}>
+            <RN.Text>{title}</RN.Text>
+          </RN.TouchableOpacity>
+        ),
+      }
+    ),
   };
 });
 
