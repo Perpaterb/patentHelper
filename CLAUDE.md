@@ -959,6 +959,32 @@ await prisma.auditLog.create({
 * **All 3 products** use same backend API endpoints
 * **Shared backend** - No duplicate API development
 
+### 🚨 CRITICAL: This is a WORKING Production App
+
+**DO NOT change backend code unless absolutely necessary.**
+
+Before modifying ANY backend code, ask yourself:
+1. Is this app already working in production? **YES**
+2. Is this a new bug introduced by my changes? Or existing behavior?
+3. Am I seeing a warning message? **Warnings are NOT errors - ignore them**
+
+**NEVER change code just because:**
+- You see a console warning
+- You think something "should" be different
+- You want to "improve" something that already works
+
+### Kinde Authentication - NO CLIENT SECRET NEEDED
+
+**IMPORTANT:** Kinde uses PKCE flow for mobile apps. There is NO client secret.
+
+Kinde configuration:
+- **Domain**: https://familyhelperapp.kinde.com
+- **Client ID**: Required
+- **Client Secret**: NOT APPLICABLE (PKCE flow doesn't use it)
+
+The backend warning `⚠️ Missing Kinde configuration: KINDE_CLIENT_SECRET` can be **IGNORED**.
+The app works without it. DO NOT try to "fix" this warning.
+
 ### PH Messenger Companion App
 * **Messaging-only** subset of main mobile app
 * **Shared components** live in `shared/components/messaging/`
