@@ -33,7 +33,6 @@
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
     "@expo/vector-icons": "^15.0.3",
-    "@expo/webpack-config": "^19.0.1",
     "@kinde-oss/kinde-auth-react": "^5.10.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "^8.5.0",
