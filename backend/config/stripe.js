@@ -6,30 +6,41 @@
 
 const Stripe = require('stripe');
 
-// Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16', // Use latest stable API version
-});
+// Initialize Stripe with secret key (only if valid key provided)
+// For local development without Stripe, stripe will be null
+let stripe = null;
+
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (stripeKey && stripeKey.startsWith('sk_')) {
+  stripe = new Stripe(stripeKey, {
+    apiVersion: '2023-10-16', // Use latest stable API version
+  });
+}
 
 /**
  * Validate Stripe configuration
  * @returns {boolean} True if configuration is valid
  */
 function validateStripeConfig() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.warn('⚠️  STRIPE_SECRET_KEY not set. Subscription features will not work.');
+  const key = process.env.STRIPE_SECRET_KEY;
+
+  if (!key || !key.startsWith('sk_')) {
+    console.warn('⚠️  Stripe not configured (no valid STRIPE_SECRET_KEY). Subscription features disabled.');
     return false;
   }
 
-  if (!process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
-    console.error('❌ Invalid STRIPE_SECRET_KEY format. Must start with sk_');
-    return false;
-  }
-
-  const isTest = process.env.STRIPE_SECRET_KEY.startsWith('sk_test_');
+  const isTest = key.startsWith('sk_test_');
   console.log(`✅ Stripe configured (${isTest ? 'TEST' : 'LIVE'} mode)`);
 
   return true;
+}
+
+/**
+ * Check if Stripe is available
+ * @returns {boolean} True if Stripe client is initialized
+ */
+function isStripeAvailable() {
+  return stripe !== null;
 }
 
 /**
@@ -43,5 +54,6 @@ const PRICE_IDS = {
 module.exports = {
   stripe,
   validateStripeConfig,
+  isStripeAvailable,
   PRICE_IDS,
 };
