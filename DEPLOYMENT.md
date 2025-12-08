@@ -1,6 +1,97 @@
 # Family Helper App - Deployment Guide
 
-This guide covers deploying the Family Helper App to AWS production environment.
+This guide covers both local development setup and deploying to AWS production.
+
+---
+
+## Local Development Setup
+
+### Prerequisites (Local)
+
+1. **Docker** and **Docker Compose** installed
+2. **Node.js 20** installed
+3. **npm** or **yarn**
+
+### Quick Start
+
+```bash
+# 1. Start Docker services (database, mailhog, media-processor)
+docker-compose up -d
+
+# 2. Setup backend
+cd backend
+cp .env.example .env    # Configure your .env file
+npm install
+npx prisma migrate dev  # Run database migrations
+
+# 3. Start backend server
+npm start               # Runs on http://localhost:3000
+
+# 4. Start web app (in another terminal)
+cd web-admin
+npm install
+npm start               # Runs on http://localhost:8081
+
+# 5. Start mobile app (in another terminal)
+cd mobile-main
+npm install
+npm start               # Opens Expo DevTools
+```
+
+### Local Services
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| PostgreSQL | localhost:5432 | Database (mirrors RDS) |
+| MailHog SMTP | localhost:1025 | Email testing |
+| MailHog Web UI | http://localhost:8025 | View test emails |
+| Media Processor | http://localhost:3001 | Video/audio/image/PDF processing |
+| Backend API | http://localhost:3000 | Express.js API server |
+| Web Admin | http://localhost:8081 | React web app |
+| pgAdmin | http://localhost:5050 | Database UI (optional) |
+
+### Docker Commands
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Start with database UI (pgAdmin)
+docker-compose --profile tools up -d
+
+# View logs
+docker-compose logs -f media-processor
+docker-compose logs -f postgres
+
+# Stop services
+docker-compose down
+
+# Reset database (fresh start)
+docker-compose down -v
+
+# Rebuild media-processor after changes
+docker-compose build media-processor
+docker-compose up -d media-processor
+```
+
+### Media Processor (Local vs Production)
+
+The media processor handles heavy operations that would exceed Lambda's 250MB limit:
+- **Video conversion** (webm, mov → mp4)
+- **Audio conversion** (webm, ogg → mp3)
+- **Image conversion** (HEIC, WebP, AVIF → JPEG/PNG)
+- **PDF generation** (audit log exports)
+
+| Environment | How It Works |
+|-------------|--------------|
+| **Local** | HTTP server at localhost:3001 (Docker container) |
+| **Production** | Container-based Lambda via ECR (same code) |
+
+The `mediaProcessor.service.js` abstraction layer automatically routes to the correct backend based on `NODE_ENV`.
+
+---
+
+## Production Deployment
 
 ## Prerequisites
 
@@ -304,6 +395,26 @@ npx expo export --platform web
 # Deploy to S3 and invalidate cache
 aws s3 sync dist/ s3://family-helper-web-prod/ --delete
 aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
+```
+
+### Media Processor Updates (ECR Lambda)
+```bash
+cd backend/media-processor
+
+# Login to ECR
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-southeast-2.amazonaws.com
+
+# Build for Lambda (must be linux/amd64)
+docker build --platform linux/amd64 -f Dockerfile.lambda -t family-helper-media-processor .
+
+# Tag and push to ECR
+docker tag family-helper-media-processor:latest <account-id>.dkr.ecr.ap-southeast-2.amazonaws.com/family-helper-media-processor:latest
+docker push <account-id>.dkr.ecr.ap-southeast-2.amazonaws.com/family-helper-media-processor:latest
+
+# Update Lambda to use new image
+aws lambda update-function-code \
+  --function-name family-helper-media-processor-prod \
+  --image-uri <account-id>.dkr.ecr.ap-southeast-2.amazonaws.com/family-helper-media-processor:latest
 ```
 
 ### Rollback Procedure

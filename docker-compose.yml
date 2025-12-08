@@ -1,52 +1,90 @@
 # Docker Compose for Local Development
-# Provides PostgreSQL database matching production environment
+# Mirrors production AWS infrastructure for consistent development experience
+#
+# Services:
+# - postgres: RDS PostgreSQL equivalent
+# - mailhog: SES email testing equivalent
+# - media-processor: ECR Lambda equivalent (ffmpeg, sharp, PDF)
+# - pgadmin: Optional database management UI (--profile tools)
 
 services:
-  # PostgreSQL Database
+  # ============================================
+  # PostgreSQL Database (mirrors RDS)
+  # ============================================
   postgres:
-    image: postgres:15-alpine
-    container_name: parenting-helper-db
+    image: postgres:16-alpine
+    container_name: family-helper-db
     environment:
-      POSTGRES_DB: parenting_helper_dev
-      POSTGRES_USER: dev_user
-      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: familyhelper
+      POSTGRES_USER: familyhelper_admin
+      POSTGRES_PASSWORD: dev_password_local
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
-      # Persist data between restarts
       - postgres_data:/var/lib/postgresql/data
-      # Optional: Auto-import schema on first run
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dev_user -d parenting_helper_dev"]
+      test: ["CMD-SHELL", "pg_isready -U familyhelper_admin -d familyhelper"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - parenting-helper-network
+      - family-helper-network
 
-  # MailHog (Email Testing Tool)
+  # ============================================
+  # MailHog (mirrors SES for email testing)
+  # ============================================
   mailhog:
     image: mailhog/mailhog:latest
-    container_name: parenting-helper-mailhog
+    container_name: family-helper-mailhog
     ports:
       - "1025:1025"  # SMTP server
       - "8025:8025"  # Web UI
     networks:
-      - parenting-helper-network
+      - family-helper-network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025"]
       interval: 10s
       timeout: 5s
       retries: 3
 
-  # pgAdmin (Optional - Web UI for database management)
+  # ============================================
+  # Media Processor (mirrors ECR Lambda)
+  # Handles: video/audio conversion (ffmpeg), image conversion (sharp), PDF generation
+  # ============================================
+  media-processor:
+    build:
+      context: ./backend/media-processor
+      dockerfile: Dockerfile
+    container_name: family-helper-media-processor
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      # Local file storage (shared with backend)
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      # Share uploads directory with backend
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - family-helper-network
+    depends_on:
+      - postgres
+
+  # ============================================
+  # pgAdmin (Optional - Database management UI)
+  # ============================================
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: parenting-helper-pgadmin
+    container_name: family-helper-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@parentinghelper.local
+      PGADMIN_DEFAULT_EMAIL: admin@familyhelper.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -56,7 +94,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - parenting-helper-network
+      - family-helper-network
     profiles:
       - tools  # Only starts with: docker-compose --profile tools up
 
@@ -67,17 +105,17 @@ volumes:
     driver: local
 
 networks:
-  parenting-helper-network:
+  family-helper-network:
     driver: bridge
 
 # =============================================================================
 # USAGE INSTRUCTIONS
 # =============================================================================
 #
-# Start database + MailHog (recommended for development):
+# Start all services (recommended for development):
 #   docker-compose up -d
 #
-# Start all services including pgAdmin:
+# Start with pgAdmin for database management:
 #   docker-compose --profile tools up -d
 #
 # Stop services:
@@ -88,36 +126,35 @@ networks:
 #
 # View logs:
 #   docker-compose logs -f postgres
+#   docker-compose logs -f media-processor
 #   docker-compose logs -f mailhog
 #
-# Access PostgreSQL CLI:
-#   docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
-#
-# Import schema manually:
-#   docker-compose exec -i postgres psql -U dev_user parenting_helper_dev < database/schema.sql
-#
-# MailHog Email Preview (ALWAYS RUNNING):
-#   Web UI: http://localhost:8025
-#   SMTP Server: localhost:1025
-#   All emails sent to localhost:1025 appear in the web UI
-#
-# pgAdmin Access (if started with --profile tools):
-#   URL: http://localhost:5050
-#   Email: admin@parentinghelper.local
-#   Password: admin
-#
-# Connection strings for .env.local:
-#   DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/parenting_helper_dev
-#   SMTP_HOST=localhost
-#   SMTP_PORT=1025
+# Rebuild media-processor after changes:
+#   docker-compose build media-processor
+#   docker-compose up -d media-processor
 #
 # =============================================================================
+# LOCAL SERVICES OVERVIEW
+# =============================================================================
 #
-# LOCAL SERVICES OVERVIEW:
-# - PostgreSQL: localhost:5432 (database)
-# - MailHog SMTP: localhost:1025 (email sending)
-# - MailHog Web UI: http://localhost:8025 (view sent emails)
-# - Express API: http://localhost:3000 (you create this in Phase 1)
-# - pgAdmin: http://localhost:5050 (optional, start with --profile tools)
+# | Service          | Local URL                    | Production Equivalent      |
+# |------------------|------------------------------|----------------------------|
+# | PostgreSQL       | localhost:5432               | RDS PostgreSQL             |
+# | MailHog SMTP     | localhost:1025               | AWS SES                    |
+# | MailHog Web UI   | http://localhost:8025        | -                          |
+# | Media Processor  | http://localhost:3001        | ECR Lambda (container)     |
+# | pgAdmin          | http://localhost:5050        | -                          |
+# | Backend API      | http://localhost:3000        | API Gateway + Lambda (zip) |
+# | Web Admin        | http://localhost:8081        | CloudFront + S3            |
+# | Mobile Main      | Expo DevTools                | App Store / Play Store     |
+#
+# =============================================================================
+# ENVIRONMENT VARIABLES FOR backend/.env
+# =============================================================================
+#
+# DATABASE_URL=postgresql://familyhelper_admin:dev_password_local@localhost:5432/familyhelper
+# SMTP_HOST=localhost
+# SMTP_PORT=1025
+# MEDIA_PROCESSOR_URL=http://localhost:3001
 #
 # =============================================================================

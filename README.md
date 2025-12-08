@@ -252,11 +252,18 @@ If true:
 
 ### Development Environment
 - **Docker & Docker Compose**
-  - **Justification**: Run PostgreSQL and MailHog locally, consistent dev environment
-  - **Services**: PostgreSQL database, MailHog email testing
+  - **Justification**: Run local services that mirror production AWS infrastructure
+  - **Services**:
+    - PostgreSQL database (mirrors RDS)
+    - MailHog email testing (mirrors SES)
+    - Media Processor container (mirrors ECR Lambda for video/audio/image/PDF processing)
 - **Express.js**
   - **Justification**: Local API server during development, converts to Lambda in Phase 6
   - **Benefit**: Faster development, no AWS costs until production
+- **Media Processor (Docker)**
+  - **Justification**: Heavy media processing (ffmpeg, sharp, PDF) runs in separate container
+  - **Local**: HTTP server at localhost:3001
+  - **Production**: Container-based Lambda via ECR (same code, different deployment)
 
 ### Additional Services
 - **Amazon SES**
@@ -587,20 +594,31 @@ During active development sessions, the developer manages these processes manual
 
 **Typical Development Session:**
 ```bash
-# Terminal 1: Backend
+# Terminal 1: Start Docker services (database, mailhog, media-processor)
+docker-compose up -d
+
+# Terminal 2: Backend API
 cd backend
 npm start
 
-# Terminal 2: Mobile App
+# Terminal 3: Mobile App
 cd mobile-main
 npm start
-
-# Terminal 3: Database
-docker-compose up postgres
 
 # Terminal 4: Claude Code (this session)
 # Developer works with Claude here while monitoring logs in other terminals
 ```
+
+**Local Services Running:**
+| Service | URL | Purpose |
+|---------|-----|---------|
+| PostgreSQL | localhost:5432 | Database (mirrors RDS) |
+| MailHog Web UI | http://localhost:8025 | View test emails |
+| MailHog SMTP | localhost:1025 | Send test emails |
+| Media Processor | http://localhost:3001 | Video/audio/image/PDF processing |
+| Backend API | http://localhost:3000 | Main API (you run this) |
+| Web Admin | http://localhost:8081 | Web app (you run this) |
+| pgAdmin | http://localhost:5050 | Database UI (optional, --profile tools) |
 
 ---
 
