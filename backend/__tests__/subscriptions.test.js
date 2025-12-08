@@ -5,10 +5,34 @@
  * If these tests fail, DO NOT change the tests - fix the code to match API.md spec.
  */
 
-// Mock problematic ES modules
+// Mock problematic ES modules BEFORE importing server
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-1234'),
 }));
+
+// Mock Stripe to avoid needing a real API key in tests
+jest.mock('stripe', () => {
+  return jest.fn().mockImplementation(() => ({
+    customers: {
+      create: jest.fn(),
+      retrieve: jest.fn(),
+    },
+    subscriptions: {
+      create: jest.fn(),
+      retrieve: jest.fn(),
+      update: jest.fn(),
+      cancel: jest.fn(),
+    },
+    checkout: {
+      sessions: {
+        create: jest.fn(),
+      },
+    },
+    webhooks: {
+      constructEvent: jest.fn(),
+    },
+  }));
+});
 
 const request = require('supertest');
 const app = require('../server');
