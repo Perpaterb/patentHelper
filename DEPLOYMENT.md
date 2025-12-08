@@ -187,21 +187,135 @@ EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 - [S3 Console](https://s3.console.aws.amazon.com/s3)
 - [CloudFront Console](https://console.aws.amazon.com/cloudfront)
 
-## Updating the App
+## CI/CD Pipeline (Automated Deployment)
 
-### Backend Updates
+The project uses **GitHub Actions** for automated testing and deployment.
+
+### Workflow Files
+
+Located in `.github/workflows/`:
+
+| File | Purpose | Trigger |
+|------|---------|---------|
+| `ci-cd.yml` | Full pipeline: tests + deployment | Push to `main` |
+| `pr-checks.yml` | Validation only: tests + build check | Pull requests |
+
+### How Automated Deployment Works
+
+**On push to `main` branch:**
+1. **Test Phase** (parallel):
+   - `test-backend`: Runs backend linting and tests
+   - `test-web-admin`: Runs web-admin tests
+   - `test-mobile-main`: Runs mobile-main tests
+
+2. **Deploy Phase** (only if ALL tests pass):
+   - `deploy-backend`: Builds Lambda package → uploads to S3 → updates Lambda
+   - `deploy-web-admin`: Builds web app → syncs to S3 → invalidates CloudFront cache
+
+### Required GitHub Secrets
+
+Configure in GitHub: **Settings → Secrets and variables → Actions**
+
+| Secret Name | Description |
+|-------------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS IAM user access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM user secret key |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key for web-admin build |
+
+### Monitoring Deployments
+
+- **GitHub Actions Dashboard**: https://github.com/Perpaterb/patentHelper/actions
+- **View deployment logs**: Click on any workflow run
+
+### Deploying Changes
+
+**Automatic (Recommended):**
 ```bash
-cd backend
-./scripts/build-lambda.sh
-
-cd ../infrastructure
-terraform apply
+# Simply push to main - CI/CD handles everything
+git add -A
+git commit -m "feat: Your feature description"
+git push
 ```
 
-### Web App Updates
+**Monitor at**: https://github.com/Perpaterb/patentHelper/actions
+
+---
+
+## Manual Deployment (Emergency/Override)
+
+Use these commands if CI/CD fails or you need to deploy manually.
+
+### Backend Updates (Lambda)
+```bash
+cd backend
+npm ci
+
+# Build Lambda package
+mkdir -p lambda-build
+cp -r controllers routes services middleware config prisma utils server.js lambda.js package.json package-lock.json lambda-build/
+[ -d "public" ] && cp -r public lambda-build/ || true
+cd lambda-build
+npm ci --omit=dev
+npx prisma generate
+
+# Remove unnecessary packages to reduce size
+rm -rf node_modules/fluent-ffmpeg node_modules/@ffmpeg-installer node_modules/@ffprobe-installer 2>/dev/null || true
+rm -rf node_modules/sharp node_modules/@img node_modules/heic-convert node_modules/libheif-js 2>/dev/null || true
+rm -rf node_modules/typescript node_modules/effect node_modules/eslint node_modules/@types 2>/dev/null || true
+
+# Remove non-Lambda Prisma engines
+find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
+find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
+find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Create zip and deploy
+zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js"
+cd ..
+rm -rf lambda-build
+
+# Upload and update Lambda
+aws s3 cp lambda.zip s3://family-helper-files-prod/lambda/lambda.zip
+aws lambda update-function-code \
+  --function-name family-helper-api-prod \
+  --s3-bucket family-helper-files-prod \
+  --s3-key lambda/lambda.zip
+```
+
+### Web App Updates (CloudFront)
 ```bash
 cd web-admin
-./scripts/deploy.sh
+npm install --legacy-peer-deps
+
+# Build for production
+npx expo export --platform web
+
+# Deploy to S3 and invalidate cache
+aws s3 sync dist/ s3://family-helper-web-prod/ --delete
+aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
+```
+
+### Rollback Procedure
+
+**Rollback Lambda to previous version:**
+```bash
+# Option 1: Redeploy from a specific git commit
+git checkout <commit-hash>
+cd backend
+# Follow manual deployment steps above
+
+# Option 2: Roll back to previous Lambda version (if versions are enabled)
+aws lambda list-versions-by-function --function-name family-helper-api-prod
+```
+
+**Rollback Web Admin:**
+```bash
+git checkout <commit-hash>
+cd web-admin
+npm install --legacy-peer-deps
+npx expo export --platform web
+aws s3 sync dist/ s3://family-helper-web-prod/ --delete
+aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
 ```
 
 ## Cost Estimation

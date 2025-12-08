@@ -1949,12 +1949,62 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 
 ---
 
-**Last Updated**: 2025-10-22
+**Last Updated**: 2025-12-08
 **Version**: 1.0.0
-**Status**: 🎉 Phase 2 Complete - Web Admin App Operational
+**Status**: 🎉 Production Deployed - CI/CD Pipeline Active
 
-**Current Phase**: Phase 3 - Mobile Main App (Next)
+**Current Phase**: Phase 3 - Mobile Main App (In Progress)
 
 **Completed Phases**:
 - ✅ Phase 1: Foundation (Authentication, Database, File Storage)
 - ✅ Phase 2: Web Admin App (Subscription Management, Log Exports)
+- ✅ CI/CD: GitHub Actions automated testing and deployment
+
+---
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for automated testing and deployment.
+
+### Workflow Files
+
+Located in `.github/workflows/`:
+
+| File | Purpose | Trigger |
+|------|---------|---------|
+| `ci-cd.yml` | Full pipeline: tests + deployment | Push to `main` |
+| `pr-checks.yml` | Validation only: tests + build check | Pull requests |
+
+### How It Works
+
+**On push to `main` branch:**
+1. Runs all tests in parallel (backend, web-admin, mobile-main)
+2. If ALL tests pass, deploys backend to Lambda
+3. Deploys web-admin to CloudFront
+4. Invalidates CloudFront cache
+
+**On pull requests:**
+- Runs tests and build check
+- No deployment (validation only)
+
+### Required GitHub Secrets
+
+Configure these in your repository settings (Settings → Secrets → Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS IAM access key for deployments |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (for web-admin build) |
+
+### Production URLs
+
+| Service | URL |
+|---------|-----|
+| Web App | https://familyhelperapp.com |
+| Web App (www) | https://www.familyhelperapp.com |
+| API | https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod |
+
+### Manual Deployment
+
+For emergency or manual deployments, see `DEPLOYMENT.md`.
