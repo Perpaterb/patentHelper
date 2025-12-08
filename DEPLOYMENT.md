@@ -258,12 +258,23 @@ cd lambda-build
 npm ci --omit=dev
 npx prisma generate
 
-# Remove unnecessary packages to reduce size
-rm -rf node_modules/fluent-ffmpeg node_modules/@ffmpeg-installer node_modules/@ffprobe-installer 2>/dev/null || true
+# Remove unnecessary packages to stay under Lambda 250MB limit
+# Media processing packages (handled by separate Media Processor Lambda)
 rm -rf node_modules/sharp node_modules/@img node_modules/heic-convert node_modules/libheif-js 2>/dev/null || true
-rm -rf node_modules/typescript node_modules/effect node_modules/eslint node_modules/@types 2>/dev/null || true
+rm -rf node_modules/fluent-ffmpeg node_modules/@ffmpeg-installer node_modules/@ffprobe-installer 2>/dev/null || true
 
-# Remove non-Lambda Prisma engines
+# Dev tools that shouldn't be in production
+rm -rf node_modules/typescript node_modules/eslint node_modules/@types 2>/dev/null || true
+rm -rf node_modules/@typescript-eslint node_modules/@eslint node_modules/@eslint-community 2>/dev/null || true
+
+# Prisma CLI (we only need @prisma/client at runtime)
+rm -rf node_modules/prisma 2>/dev/null || true
+
+# Heavy transitive dependencies
+rm -rf node_modules/effect node_modules/fast-check 2>/dev/null || true
+rm -rf node_modules/core-js 2>/dev/null || true
+
+# Remove non-Lambda Prisma engines (keep only rhel for Lambda)
 find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
 find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
 find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
