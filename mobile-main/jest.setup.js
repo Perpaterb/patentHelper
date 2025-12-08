@@ -150,6 +150,30 @@ jest.mock('rn-emoji-keyboard', () => {
   };
 });
 
+// Mock emoji-picker-react (web platform)
+jest.mock('emoji-picker-react', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: () => <View testID="web-emoji-picker" />,
+  };
+});
+
+// Mock CustomAlert component
+jest.mock('./src/components/CustomAlert', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    CustomAlert: {
+      alert: jest.fn(),
+    },
+    CustomAlertProvider: ({ children }) => children,
+    useCustomAlert: () => ({
+      showAlert: jest.fn(),
+    }),
+  };
+});
+
 // Mock AudioRecorder component
 jest.mock('./src/components/AudioRecorder', () => {
   const { View } = require('react-native');
