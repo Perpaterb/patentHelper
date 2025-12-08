@@ -147,7 +147,12 @@ function withAppLayoutAndPhoneFrame(ScreenComponent, routeName) {
 
 // Linking configuration for web URLs
 const linking = {
-  prefixes: ['http://localhost:3001', 'https://familyhelper.app'],
+  prefixes: [
+    'http://localhost:3001',
+    'https://familyhelperapp.com',
+    'https://www.familyhelperapp.com',
+    'https://did5g5bty80vq.cloudfront.net'
+  ],
   config: {
     screens: {
       // Public/Admin pages
