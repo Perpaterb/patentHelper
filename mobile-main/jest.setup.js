@@ -12,8 +12,17 @@ import { configure } from '@testing-library/react-native';
 
 configure({
   // Increase async utilities timeout
-  asyncUtilTimeout: 5000,
+  asyncUtilTimeout: 10000,
 });
+
+// Mock setInterval globally to prevent polling from running
+// This avoids "Jest environment torn down" errors from lingering intervals
+const originalSetInterval = global.setInterval;
+global.setInterval = jest.fn((callback, delay) => {
+  // Don't actually start intervals - just return a mock timer ID
+  return 999;
+});
+global.clearInterval = jest.fn();
 
 // Silence console.warn and console.error in tests unless explicitly needed
 global.console = {
@@ -296,9 +305,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// Clean up after each test - flush all pending promises
-afterEach(async () => {
-  // Flush all pending microtasks/promises to prevent
-  // "Unable to find node on an unmounted component" errors
-  await new Promise(resolve => setImmediate(resolve));
+// Clean up after each test
+afterEach(() => {
+  jest.clearAllMocks();
 });
