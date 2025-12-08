@@ -37,3 +37,7 @@ uploads/
 temp/
 
 /generated/prisma
+
+# Lambda deployment package
+lambda.zip
+lambda-build/
