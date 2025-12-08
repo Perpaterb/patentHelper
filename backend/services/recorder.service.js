@@ -154,6 +154,7 @@ async function stopRecording(callId, callType) {
     const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
 
     // Get recording status before stopping
+    // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
     const recordingStatus = await page.evaluate(() => ({
       isRecording: window.isRecording,
       chunks: typeof recordedChunks !== 'undefined' ? recordedChunks.length : 0,
@@ -163,6 +164,7 @@ async function stopRecording(callId, callType) {
     // Tell the page to stop recording and wait for upload
     if (recordingStatus.isRecording) {
       console.log(`[Recorder] Stopping MediaRecorder...`);
+      // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
       await page.evaluate(() => window.stopRecording());
 
       // Wait for upload to complete (longer wait)
@@ -174,6 +176,7 @@ async function stopRecording(callId, callType) {
 
     // Cleanup
     console.log(`[Recorder] Running cleanup...`);
+    // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
     await page.evaluate(() => window.cleanup());
     await browser.close();
 
