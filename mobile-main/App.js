@@ -9,7 +9,7 @@ import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CONFIG } from './src/constants/config';
@@ -142,7 +142,7 @@ export default function App() {
   }
 
   return (
-    <PaperProvider>
+    <PaperProvider theme={MD3LightTheme}>
       <CustomAlertProvider>
         <AlertHandlerInitializer />
         <IncomingCallProvider isAuthenticated={isAuthenticated}>

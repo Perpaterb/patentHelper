@@ -12,7 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { KindeProvider, useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import * as SecureStore from 'expo-secure-store';
 import config from './src/config/env';
@@ -359,7 +359,7 @@ export default function App() {
       redirectUri={config.kinde.redirectUri}
       logoutUri={config.kinde.logoutRedirectUri}
     >
-      <PaperProvider>
+      <PaperProvider theme={MD3LightTheme}>
         <CustomAlertProvider>
           <AlertHandlerInitializer />
           <AppNavigator />
