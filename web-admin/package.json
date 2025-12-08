@@ -9,6 +9,9 @@
     "web": "expo start --web --port 8081",
     "web:clean": "expo start --web --port 8081 --clear",
     "dev": "expo start --web --port 8081 --clear",
+    "build": "npx expo export --platform web",
+    "build:test": "npx expo export --platform web --output-dir dist-test && rm -rf dist-test && echo '✅ Production build OK'",
+    "verify": "npm run build:test && echo '✅ Ready to commit'",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
