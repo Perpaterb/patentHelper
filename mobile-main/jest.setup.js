@@ -7,6 +7,14 @@
 // Import Jest Native matchers
 import '@testing-library/jest-native/extend-expect';
 
+// Configure React Testing Library
+import { configure } from '@testing-library/react-native';
+
+configure({
+  // Increase async utilities timeout
+  asyncUtilTimeout: 5000,
+});
+
 // Silence console.warn and console.error in tests unless explicitly needed
 global.console = {
   ...console,
@@ -156,13 +164,17 @@ jest.mock('@react-navigation/native', () => {
     useRoute: () => mockRoute,
     useFocusEffect: (callback) => {
       // Use useEffect to run the callback after component mounts
-      // NOTE: For testing, we intentionally DON'T call the cleanup function
-      // to prevent intervals from being cleared during the test run.
-      // The intervals will be cleaned up when the test suite completes.
+      // Call the callback and capture cleanup function, run it on unmount
       React.useEffect(() => {
-        callback();
+        const cleanup = callback();
+        return () => {
+          if (typeof cleanup === 'function') {
+            cleanup();
+          }
+        };
       }, []);
     },
+    useIsFocused: () => true,
   };
 });
 
@@ -284,7 +296,9 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// Clean up after each test
-afterEach(() => {
-  jest.resetModules();
+// Clean up after each test - flush all pending promises
+afterEach(async () => {
+  // Flush all pending microtasks/promises to prevent
+  // "Unable to find node on an unmounted component" errors
+  await new Promise(resolve => setImmediate(resolve));
 });
