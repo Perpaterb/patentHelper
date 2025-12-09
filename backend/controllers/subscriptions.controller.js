@@ -844,6 +844,19 @@ async function sendBillingReminders(req, res) {
 
     for (const user of allUsers) {
       try {
+        // Skip users who are already paid up
+        // A subscribed user is paid up if their renewalDate is more than 7 days in the future
+        // (we only send reminders at 5 days and 1 day before due)
+        if (user.isSubscribed && user.renewalDate) {
+          const renewalDate = new Date(user.renewalDate);
+          const daysUntilRenewal = Math.ceil((renewalDate - today) / (1000 * 60 * 60 * 24));
+          // If renewal is more than 7 days away, they're paid up - skip
+          if (daysUntilRenewal > 7) {
+            results.skipped++;
+            continue;
+          }
+        }
+
         const dueDate = calculateDueDate(user);
         if (!dueDate) {
           results.skipped++;
