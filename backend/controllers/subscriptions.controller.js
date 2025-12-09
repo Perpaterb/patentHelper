@@ -137,6 +137,7 @@ async function getCurrentSubscription(req, res) {
         createdAt: true,
         subscriptionStartDate: true,
         subscriptionEndDate: true,
+        isSupportUser: true,
       },
     });
 
@@ -189,9 +190,13 @@ async function getCurrentSubscription(req, res) {
     // TODO: Replace with actual subscription data from Stripe
     // For now, return trial/subscription info based on isSubscribed flag
     if (user.isSubscribed) {
-      // Check if subscription is scheduled for cancellation
-      const hasScheduledCancellation = user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
-      const periodEnd = hasScheduledCancellation
+      // Check if this is a permanent subscription (support users, etc.)
+      const isPermanent = isPermanentSubscription(user);
+
+      // Check if subscription is scheduled for cancellation (only for non-permanent)
+      // Permanent subscriptions with far-future endDate are NOT "canceling"
+      const hasScheduledCancellation = !isPermanent && user.subscriptionEndDate && new Date(user.subscriptionEndDate) > new Date();
+      const periodEnd = user.subscriptionEndDate
         ? user.subscriptionEndDate
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -200,16 +205,17 @@ async function getCurrentSubscription(req, res) {
         subscription: {
           isActive: true,
           isSubscribed: true, // Frontend expects this field
-          plan: 'Pro', // TODO: Get from Stripe
-          price: 19.99,
+          isPermanent: isPermanent, // Flag for permanent subscriptions
+          plan: isPermanent ? 'Permanent' : 'Pro', // TODO: Get from Stripe
+          price: isPermanent ? 0 : 19.99,
           interval: 'month',
-          status: 'active',
+          status: isPermanent ? 'permanent' : 'active',
           currentPeriodEnd: new Date(periodEnd).toISOString(),
           cancelAtPeriodEnd: hasScheduledCancellation,
           createdAt: user.createdAt, // For frontend trial calculation
           // Frontend compatibility fields
           startDate: user.subscriptionStartDate || user.createdAt, // Fallback to account creation if not set
-          endDate: hasScheduledCancellation ? user.subscriptionEndDate : null, // Only set if canceling
+          endDate: hasScheduledCancellation ? user.subscriptionEndDate : null, // Only set if canceling (NOT for permanent)
           storageUsedGb: storageUsedGb,
           stripe: {
             currentPeriodEnd: new Date(periodEnd).toISOString(),
@@ -400,6 +406,30 @@ function formatDateDDMMMYYYY(date) {
 }
 
 /**
+ * Helper: Check if user has a permanent subscription
+ * Permanent subscriptions have subscriptionEndDate > 5 years in the future
+ * or are support users
+ *
+ * @param {Object} user - User object with subscriptionEndDate and isSupportUser
+ * @returns {boolean} True if permanent subscription
+ */
+function isPermanentSubscription(user) {
+  // Support users have permanent subscriptions
+  if (user.isSupportUser) {
+    return true;
+  }
+
+  // Check if subscriptionEndDate is more than 5 years in the future
+  if (user.subscriptionEndDate) {
+    const fiveYearsFromNow = new Date();
+    fiveYearsFromNow.setFullYear(fiveYearsFromNow.getFullYear() + 5);
+    return new Date(user.subscriptionEndDate) > fiveYearsFromNow;
+  }
+
+  return false;
+}
+
+/**
  * Helper: Calculate user's due date
  *
  * The next billing date is the LATEST of:
@@ -410,10 +440,17 @@ function formatDateDDMMMYYYY(date) {
  * This means trial users who subscribe could get up to 20 + 31 days
  * before their first payment.
  *
+ * Returns null for permanent subscriptions (they don't pay).
+ *
  * @param {Object} user - User object
- * @returns {Date|null} Due date
+ * @returns {Date|null} Due date, or null if permanent subscription
  */
 function calculateDueDate(user) {
+  // Permanent subscriptions don't have due dates
+  if (isPermanentSubscription(user)) {
+    return null;
+  }
+
   const now = new Date();
   const candidates = [];
 
@@ -507,6 +544,8 @@ async function getInvoice(req, res) {
         renewalDate: true,
         additionalStoragePacks: true,
         lastBillingReminderSent: true,
+        isSupportUser: true,
+        subscriptionEndDate: true,
       },
     });
 
@@ -514,6 +553,16 @@ async function getInvoice(req, res) {
       return res.status(404).json({
         error: 'User not found',
         message: 'User account not found',
+      });
+    }
+
+    // Check for permanent subscription (support users, etc.)
+    if (isPermanentSubscription(user)) {
+      return res.status(200).json({
+        success: true,
+        invoice: null,
+        isPermanentSubscription: true,
+        message: 'Permanent subscription - no billing required',
       });
     }
 

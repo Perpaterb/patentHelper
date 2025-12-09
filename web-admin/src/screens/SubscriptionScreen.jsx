@@ -288,6 +288,14 @@ export default function SubscriptionScreen({ navigation }) {
     return trialEndDate;
   }
 
+  /**
+   * Check if user has a permanent subscription (support users, etc.)
+   * @returns {boolean} True if permanent subscription
+   */
+  function isPermanentSubscription() {
+    return subscription?.isPermanent === true;
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -420,8 +428,8 @@ export default function SubscriptionScreen({ navigation }) {
           </View>
         )}
 
-        {/* Current Bill Card - Show when invoice available and subscribed or on trial */}
-        {invoice && (subscription?.isSubscribed || isOnFreeTrial()) && (
+        {/* Current Bill Card - Show when invoice available and subscribed or on trial (NOT for permanent) */}
+        {invoice && !isPermanentSubscription() && (subscription?.isSubscribed || isOnFreeTrial()) && (
           <Card style={styles.billCard}>
             <Card.Content>
               <View style={styles.billHeader}>
@@ -528,17 +536,21 @@ export default function SubscriptionScreen({ navigation }) {
                     style={[
                       styles.statusChip,
                       isOnFreeTrial() ? styles.chipInfo :
+                      isPermanentSubscription() ? styles.chipPermanent :
                       subscription.endDate ? styles.chipWarning : styles.chipSuccess
                     ]}
                     textStyle={styles.chipText}
                   >
-                    {isOnFreeTrial() ? 'Free Trial' : subscription.endDate ? 'Canceling' : 'Active'}
+                    {isOnFreeTrial() ? 'Free Trial' :
+                     isPermanentSubscription() ? 'Permanent' :
+                     subscription.endDate ? 'Canceling' : 'Active'}
                   </Chip>
 
                   <Text style={styles.statusLabel}>Subscription Started</Text>
                   <Text style={styles.statusValue}>{formatDate(subscription.startDate)}</Text>
 
-                  {(subscription.stripe?.currentPeriodEnd || subscription.endDate || isOnFreeTrial()) && (
+                  {/* Show Last day of access / Next Billing Date - but NOT for permanent subscriptions */}
+                  {!isPermanentSubscription() && (subscription.stripe?.currentPeriodEnd || subscription.endDate || isOnFreeTrial()) && (
                     <>
                       <Text style={styles.statusLabel}>
                         {isOnFreeTrial() ? 'Last day of access' : subscription.endDate ? 'Last day of access' : 'Next Billing Date'}
@@ -550,13 +562,22 @@ export default function SubscriptionScreen({ navigation }) {
                       </Text>
                     </>
                   )}
+
+                  {/* Show special message for permanent subscriptions */}
+                  {isPermanentSubscription() && (
+                    <>
+                      <Text style={styles.statusLabel}>Billing</Text>
+                      <Text style={styles.statusValue}>No billing required</Text>
+                    </>
+                  )}
                 </View>
 
                 <View style={styles.statusColumn}>
                   <Text style={styles.statusLabel}>Storage Used</Text>
                   <Text style={styles.statusValue}>{subscription.storageUsedGb || '0.00'} GB</Text>
 
-                  {parseFloat(subscription.storageUsedGb || 0) > 10 && (
+                  {/* Show storage charges only for non-permanent users */}
+                  {!isPermanentSubscription() && parseFloat(subscription.storageUsedGb || 0) > 10 && (
                     <>
                       <Text style={styles.statusLabel}>Additional Storage Charges</Text>
                       <Text style={styles.statusValue}>
@@ -570,8 +591,8 @@ export default function SubscriptionScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* Cancel or Reactivate Button - Hidden for trial users */}
-              {!isOnFreeTrial() && (
+              {/* Cancel or Reactivate Button - Hidden for trial users and permanent subscriptions */}
+              {!isOnFreeTrial() && !isPermanentSubscription() && (
                 <View style={styles.actionSection}>
                   <Divider style={styles.divider} />
                   {subscription.endDate ? (
@@ -904,6 +925,9 @@ const styles = StyleSheet.create({
   },
   chipInfo: {
     backgroundColor: '#e3f2fd',
+  },
+  chipPermanent: {
+    backgroundColor: '#f3e5f5',
   },
   chipText: {
     fontSize: 12,
