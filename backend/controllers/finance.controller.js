@@ -7,7 +7,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
-const emailService = require('../services/email');
+const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
 
 /**
@@ -546,7 +546,7 @@ async function createFinanceMatter(req, res) {
               createdBy: creatorDisplayName,
               appUrl: appUrl,
             });
-            await emailService.emailService.sendEmail({
+            await emailService.sendEmail({
               to: member.user.email,
               subject: emailContent.subject,
               text: emailContent.text,

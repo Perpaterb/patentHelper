@@ -5,7 +5,7 @@
  */
 
 const { prisma } = require('../config/database');
-const emailService = require('../services/email');
+const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
 
 /**
@@ -1077,7 +1077,7 @@ async function inviteMember(req, res) {
             role: role,
             appUrl: appUrl,
           });
-          await emailService.emailService.sendEmail({
+          await emailService.sendEmail({
             to: email.toLowerCase(),
             subject: emailContent.subject,
             text: emailContent.text,
@@ -2731,8 +2731,6 @@ async function getGroupSettings(req, res) {
       });
     }
 
-    console.log('[GET /groups/:groupId/settings] Returning settings:', JSON.stringify(settings, null, 2));
-
     res.status(200).json({
       success: true,
       settings: settings,
@@ -2754,8 +2752,6 @@ async function updateGroupSettings(req, res) {
   try {
     const { groupId } = req.params;
     const userId = req.user.userId;
-
-    console.log('[PUT /groups/:groupId/settings] Received request body:', JSON.stringify(req.body, null, 2));
 
     // Verify user is an admin
     const membership = await prisma.groupMember.findFirst({
@@ -2877,11 +2873,9 @@ async function updateGroupSettings(req, res) {
           const { executeApprovedAction } = require('./approvals.controller');
           await executeApprovedAction(approval);
 
-          console.log('[PUT /groups/:groupId/settings] Recording settings auto-approved (solo admin)');
         } else {
           recordingApprovalCreated = true;
           pendingRecordingChanges = changesDesc;
-          console.log('[PUT /groups/:groupId/settings] Created approval for recording settings change');
         }
       }
 
@@ -2920,7 +2914,6 @@ async function updateGroupSettings(req, res) {
           ...updatedData,
         },
       });
-      console.log('[PUT /groups/:groupId/settings] Saved to database:', JSON.stringify(settings, null, 2));
     } else {
       // Just fetch current settings if nothing else to update
       settings = await prisma.groupSettings.findUnique({
@@ -2967,8 +2960,6 @@ async function updateGroupSettings(req, res) {
         },
       });
     }
-
-    console.log('[PUT /groups/:groupId/settings] Returning response');
 
     // Build response message
     let responseMessage = 'Group settings updated successfully';

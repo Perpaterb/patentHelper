@@ -6,7 +6,7 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const emailService = require('../services/email');
+const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
 
 /**
@@ -91,7 +91,7 @@ async function executeApprovedAction(approval) {
                 role: data.targetRole,
                 appUrl: appUrl,
               });
-              await emailService.emailService.sendEmail({
+              await emailService.sendEmail({
                 to: data.targetEmail.toLowerCase(),
                 subject: emailContent.subject,
                 text: emailContent.text,

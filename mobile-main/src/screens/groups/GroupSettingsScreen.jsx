@@ -144,7 +144,6 @@ export default function GroupSettingsScreen({ navigation, route }) {
   const loadGroupSettings = async () => {
     try {
       const response = await api.get(`/groups/${groupId}/settings`);
-      console.log('[GroupSettings] Loaded settings:', JSON.stringify(response.data.settings, null, 2));
       if (response.data.success) {
         setGroupSettings(response.data.settings);
       }
@@ -247,9 +246,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     try {
       setSavingSettings(true);
 
-      console.log('[GroupSettings] Saving settings:', JSON.stringify(groupSettings, null, 2));
       const response = await api.put(`/groups/${groupId}/settings`, groupSettings);
-      console.log('[GroupSettings] Save response:', JSON.stringify(response.data, null, 2));
 
       CustomAlert.alert('Success', 'Group settings saved successfully');
     } catch (err) {
