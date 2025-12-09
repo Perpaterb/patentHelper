@@ -400,6 +400,9 @@ async function getGroupFiles(req, res) {
         displayName: sender?.user?.displayName || sender?.displayName || 'Unknown',
         iconLetters: sender?.user?.memberIcon || sender?.iconLetters || '?',
         iconColor: sender?.user?.iconColor || sender?.iconColor || '#6200ee',
+        profilePhotoUrl: sender?.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${sender.user.profilePhotoFileId}`
+          : null,
       };
 
       // Track unique uploaders for filter options
@@ -421,6 +424,9 @@ async function getGroupFiles(req, res) {
           displayName: file.hider.user?.displayName || file.hider.displayName || 'Unknown',
           iconLetters: file.hider.user?.memberIcon || file.hider.iconLetters || '?',
           iconColor: file.hider.user?.iconColor || file.hider.iconColor || '#6200ee',
+          profilePhotoUrl: file.hider.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${file.hider.user.profilePhotoFileId}`
+            : null,
         };
       }
 
@@ -536,6 +542,9 @@ async function getGroupFiles(req, res) {
           displayName: sender.user?.displayName || sender.displayName || 'Unknown',
           iconLetters: sender.user?.memberIcon || sender.iconLetters || '?',
           iconColor: sender.user?.iconColor || sender.iconColor || '#6200ee',
+          profilePhotoUrl: sender.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${sender.user.profilePhotoFileId}`
+            : null,
         });
       }
     }
@@ -642,6 +651,9 @@ async function getGroupFiles(req, res) {
         displayName: initiator?.user?.displayName || initiator?.displayName || 'Unknown',
         iconLetters: initiator?.user?.memberIcon || initiator?.iconLetters || '?',
         iconColor: initiator?.user?.iconColor || initiator?.iconColor || '#6200ee',
+        profilePhotoUrl: initiator?.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${initiator.user.profilePhotoFileId}`
+          : null,
       };
 
       // Track unique uploaders for filter options
@@ -658,6 +670,9 @@ async function getGroupFiles(req, res) {
           displayName: call.recordingHider.user?.displayName || call.recordingHider.displayName || 'Admin',
           iconLetters: call.recordingHider.user?.memberIcon || call.recordingHider.iconLetters || '?',
           iconColor: call.recordingHider.user?.iconColor || call.recordingHider.iconColor || '#6200ee',
+          profilePhotoUrl: call.recordingHider.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${call.recordingHider.user.profilePhotoFileId}`
+            : null,
         };
       }
 
@@ -697,6 +712,9 @@ async function getGroupFiles(req, res) {
         displayName: initiator?.user?.displayName || initiator?.displayName || 'Unknown',
         iconLetters: initiator?.user?.memberIcon || initiator?.iconLetters || '?',
         iconColor: initiator?.user?.iconColor || initiator?.iconColor || '#6200ee',
+        profilePhotoUrl: initiator?.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${initiator.user.profilePhotoFileId}`
+          : null,
       };
 
       // Track unique uploaders for filter options
@@ -713,6 +731,9 @@ async function getGroupFiles(req, res) {
           displayName: call.recordingHider.user?.displayName || call.recordingHider.displayName || 'Admin',
           iconLetters: call.recordingHider.user?.memberIcon || call.recordingHider.iconLetters || '?',
           iconColor: call.recordingHider.user?.iconColor || call.recordingHider.iconColor || '#6200ee',
+          profilePhotoUrl: call.recordingHider.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${call.recordingHider.user.profilePhotoFileId}`
+            : null,
         };
       }
 

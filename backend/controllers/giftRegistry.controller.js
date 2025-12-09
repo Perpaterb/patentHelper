@@ -136,6 +136,9 @@ async function getGiftRegistries(req, res) {
         displayName: registry.creator.user?.displayName || registry.creator.displayName,
         iconLetters: registry.creator.user?.memberIcon || registry.creator.iconLetters,
         iconColor: registry.creator.user?.iconColor || registry.creator.iconColor,
+        profilePhotoUrl: registry.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${registry.creator.user.profilePhotoFileId}`
+          : null,
       },
       isOwner: registry.creatorId === membership.groupMemberId,
       createdAt: registry.createdAt,
@@ -264,6 +267,9 @@ async function getGiftRegistry(req, res) {
             displayName: groupRegistry.creator.user?.displayName || groupRegistry.creator.displayName,
             iconLetters: groupRegistry.creator.user?.memberIcon || groupRegistry.creator.iconLetters,
             iconColor: groupRegistry.creator.user?.iconColor || groupRegistry.creator.iconColor,
+            profilePhotoUrl: groupRegistry.creator.user?.profilePhotoFileId
+              ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${groupRegistry.creator.user.profilePhotoFileId}`
+              : null,
             role: groupRegistry.creator.role,
           },
           items: filteredItems,

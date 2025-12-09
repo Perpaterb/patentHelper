@@ -924,6 +924,9 @@ async function getKrisKringle(req, res) {
             displayName: p.groupMember.user?.displayName || p.groupMember.displayName,
             iconLetters: p.groupMember.user?.memberIcon || p.groupMember.iconLetters,
             iconColor: p.groupMember.user?.iconColor || p.groupMember.iconColor,
+            profilePhotoUrl: p.groupMember.user?.profilePhotoFileId
+              ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${p.groupMember.user.profilePhotoFileId}`
+              : null,
           } : null,
           // Include match info for admin/creator when matches are assigned
           match: matchLookup[p.participantId] ? {

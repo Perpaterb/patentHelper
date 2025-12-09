@@ -189,6 +189,9 @@ async function getCalendarEvents(req, res) {
         displayName: event.creator.user?.displayName || event.creator.displayName,
         iconLetters: event.creator.user?.memberIcon || event.creator.iconLetters,
         iconColor: event.creator.user?.iconColor || event.creator.iconColor,
+        profilePhotoUrl: event.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${event.creator.user.profilePhotoFileId}`
+          : null,
         user: undefined, // Remove nested user object
       },
       attendees: event.attendees.map(attendee => ({
@@ -198,6 +201,9 @@ async function getCalendarEvents(req, res) {
           displayName: attendee.groupMember.user?.displayName || attendee.groupMember.displayName,
           iconLetters: attendee.groupMember.user?.memberIcon || attendee.groupMember.iconLetters,
           iconColor: attendee.groupMember.user?.iconColor || attendee.groupMember.iconColor,
+          profilePhotoUrl: attendee.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${attendee.groupMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
       })),
@@ -208,6 +214,9 @@ async function getCalendarEvents(req, res) {
           displayName: re.child.user?.displayName || re.child.displayName,
           iconLetters: re.child.user?.memberIcon || re.child.iconLetters,
           iconColor: re.child.user?.iconColor || re.child.iconColor,
+          profilePhotoUrl: re.child.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.child.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
         startResponsibleMember: {
@@ -215,6 +224,9 @@ async function getCalendarEvents(req, res) {
           displayName: re.startResponsibleMember.user?.displayName || re.startResponsibleMember.displayName,
           iconLetters: re.startResponsibleMember.user?.memberIcon || re.startResponsibleMember.iconLetters,
           iconColor: re.startResponsibleMember.user?.iconColor || re.startResponsibleMember.iconColor,
+          profilePhotoUrl: re.startResponsibleMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.startResponsibleMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
         endResponsibleMember: {
@@ -222,6 +234,9 @@ async function getCalendarEvents(req, res) {
           displayName: re.endResponsibleMember.user?.displayName || re.endResponsibleMember.displayName,
           iconLetters: re.endResponsibleMember.user?.memberIcon || re.endResponsibleMember.iconLetters,
           iconColor: re.endResponsibleMember.user?.iconColor || re.endResponsibleMember.iconColor,
+          profilePhotoUrl: re.endResponsibleMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.endResponsibleMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
       })),
@@ -569,6 +584,9 @@ async function getCalendarEventById(req, res) {
         displayName: event.creator.user?.displayName || event.creator.displayName,
         iconLetters: event.creator.user?.memberIcon || event.creator.iconLetters,
         iconColor: event.creator.user?.iconColor || event.creator.iconColor,
+        profilePhotoUrl: event.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${event.creator.user.profilePhotoFileId}`
+          : null,
         user: undefined,
       },
       attendees: event.attendees.map(attendee => ({
@@ -578,6 +596,9 @@ async function getCalendarEventById(req, res) {
           displayName: attendee.groupMember.user?.displayName || attendee.groupMember.displayName,
           iconLetters: attendee.groupMember.user?.memberIcon || attendee.groupMember.iconLetters,
           iconColor: attendee.groupMember.user?.iconColor || attendee.groupMember.iconColor,
+          profilePhotoUrl: attendee.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${attendee.groupMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
       })),
@@ -588,6 +609,9 @@ async function getCalendarEventById(req, res) {
           displayName: re.child.user?.displayName || re.child.displayName,
           iconLetters: re.child.user?.memberIcon || re.child.iconLetters,
           iconColor: re.child.user?.iconColor || re.child.iconColor,
+          profilePhotoUrl: re.child.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.child.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
         startResponsibleMember: {
@@ -595,6 +619,9 @@ async function getCalendarEventById(req, res) {
           displayName: re.startResponsibleMember.user?.displayName || re.startResponsibleMember.displayName,
           iconLetters: re.startResponsibleMember.user?.memberIcon || re.startResponsibleMember.iconLetters,
           iconColor: re.startResponsibleMember.user?.iconColor || re.startResponsibleMember.iconColor,
+          profilePhotoUrl: re.startResponsibleMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.startResponsibleMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
         endResponsibleMember: {
@@ -602,6 +629,9 @@ async function getCalendarEventById(req, res) {
           displayName: re.endResponsibleMember.user?.displayName || re.endResponsibleMember.displayName,
           iconLetters: re.endResponsibleMember.user?.memberIcon || re.endResponsibleMember.iconLetters,
           iconColor: re.endResponsibleMember.user?.iconColor || re.endResponsibleMember.iconColor,
+          profilePhotoUrl: re.endResponsibleMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${re.endResponsibleMember.user.profilePhotoFileId}`
+            : null,
           user: undefined,
         },
       })),

@@ -158,6 +158,9 @@ async function getFinanceMatters(req, res) {
           displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+          profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.groupMember.user.profilePhotoFileId}`
+            : null,
         },
       })),
       creator: {
@@ -165,6 +168,9 @@ async function getFinanceMatters(req, res) {
         displayName: matter.creator.user?.displayName || matter.creator.displayName,
         iconLetters: matter.creator.user?.memberIcon || matter.creator.iconLetters,
         iconColor: matter.creator.user?.iconColor || matter.creator.iconColor,
+        profilePhotoUrl: matter.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${matter.creator.user.profilePhotoFileId}`
+          : null,
       },
     }));
 
@@ -501,6 +507,9 @@ async function createFinanceMatter(req, res) {
           displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+          profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.groupMember.user.profilePhotoFileId}`
+            : null,
         },
       })),
       creator: {
@@ -508,6 +517,9 @@ async function createFinanceMatter(req, res) {
         displayName: completeFinanceMatter.creator.user?.displayName || completeFinanceMatter.creator.displayName,
         iconLetters: completeFinanceMatter.creator.user?.memberIcon || completeFinanceMatter.creator.iconLetters,
         iconColor: completeFinanceMatter.creator.user?.iconColor || completeFinanceMatter.creator.iconColor,
+        profilePhotoUrl: completeFinanceMatter.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${completeFinanceMatter.creator.user.profilePhotoFileId}`
+          : null,
       },
     };
 
@@ -785,12 +797,18 @@ async function getFinanceMatterById(req, res) {
         displayName: payment.fromMember.user?.displayName || payment.fromMember.displayName,
         iconLetters: payment.fromMember.user?.memberIcon || payment.fromMember.iconLetters,
         iconColor: payment.fromMember.user?.iconColor || payment.fromMember.iconColor,
+        profilePhotoUrl: payment.fromMember.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${payment.fromMember.user.profilePhotoFileId}`
+          : null,
       },
       to: {
         groupMemberId: payment.toMember.groupMemberId,
         displayName: payment.toMember.user?.displayName || payment.toMember.displayName,
         iconLetters: payment.toMember.user?.memberIcon || payment.toMember.iconLetters,
         iconColor: payment.toMember.user?.iconColor || payment.toMember.iconColor,
+        profilePhotoUrl: payment.toMember.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${payment.toMember.user.profilePhotoFileId}`
+          : null,
       },
     }));
 
@@ -804,11 +822,17 @@ async function getFinanceMatterById(req, res) {
           displayName: member.groupMember.user?.displayName || member.groupMember.displayName,
           iconLetters: member.groupMember.user?.memberIcon || member.groupMember.iconLetters,
           iconColor: member.groupMember.user?.iconColor || member.groupMember.iconColor,
+          profilePhotoUrl: member.groupMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${member.groupMember.user.profilePhotoFileId}`
+            : null,
         },
       })),
       creator: {
         ...financeMatter.creator,
         displayName: financeMatter.creator.user?.displayName || financeMatter.creator.displayName,
+        profilePhotoUrl: financeMatter.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${financeMatter.creator.user.profilePhotoFileId}`
+          : null,
       },
     };
 
@@ -1064,6 +1088,9 @@ async function getFinanceMatterMessages(req, res) {
         displayName: message.sender.user?.displayName || message.sender.displayName,
         iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
         iconColor: message.sender.user?.iconColor || message.sender.iconColor,
+        profilePhotoUrl: message.sender.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${message.sender.user.profilePhotoFileId}`
+          : null,
       },
     }));
 
@@ -1244,6 +1271,9 @@ async function sendFinanceMatterMessage(req, res) {
         displayName: message.sender.user?.displayName || message.sender.displayName,
         iconLetters: message.sender.user?.memberIcon || message.sender.iconLetters,
         iconColor: message.sender.user?.iconColor || message.sender.iconColor,
+        profilePhotoUrl: message.sender.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${message.sender.user.profilePhotoFileId}`
+          : null,
       },
     };
 

@@ -244,6 +244,9 @@ async function getVideoCalls(req, res) {
         displayName: call.initiator.user?.displayName || call.initiator.displayName,
         iconLetters: call.initiator.user?.memberIcon || call.initiator.iconLetters,
         iconColor: call.initiator.user?.iconColor || call.initiator.iconColor,
+        profilePhotoUrl: call.initiator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${call.initiator.user.profilePhotoFileId}`
+          : null,
         role: call.initiator.role,
       },
       participants: call.participants.map(p => ({
@@ -417,6 +420,9 @@ async function getActiveCalls(req, res) {
           displayName: p.participant.user?.displayName || p.participant.displayName,
           iconLetters: p.participant.user?.memberIcon || p.participant.iconLetters,
           iconColor: p.participant.user?.iconColor || p.participant.iconColor,
+          profilePhotoUrl: p.participant.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${p.participant.user.profilePhotoFileId}`
+            : null,
           role: p.participant.role,
           status: p.status,
         })),
@@ -651,6 +657,9 @@ async function initiateCall(req, res) {
         displayName: call.initiator.user?.displayName || call.initiator.displayName,
         iconLetters: call.initiator.user?.memberIcon || call.initiator.iconLetters,
         iconColor: call.initiator.user?.iconColor || call.initiator.iconColor,
+        profilePhotoUrl: call.initiator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${call.initiator.user.profilePhotoFileId}`
+          : null,
         role: call.initiator.role,
       },
       participants: call.participants.map(p => ({

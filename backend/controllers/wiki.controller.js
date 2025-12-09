@@ -92,6 +92,9 @@ async function getWikiDocuments(req, res) {
         displayName: doc.creator.user?.displayName || doc.creator.displayName,
         iconLetters: doc.creator.user?.memberIcon || doc.creator.iconLetters,
         iconColor: doc.creator.user?.iconColor || doc.creator.iconColor,
+        profilePhotoUrl: doc.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${doc.creator.user.profilePhotoFileId}`
+          : null,
       },
     }));
 
@@ -211,6 +214,9 @@ async function getWikiDocument(req, res) {
         displayName: document.creator.user?.displayName || document.creator.displayName,
         iconLetters: document.creator.user?.memberIcon || document.creator.iconLetters,
         iconColor: document.creator.user?.iconColor || document.creator.iconColor,
+        profilePhotoUrl: document.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${document.creator.user.profilePhotoFileId}`
+          : null,
       },
       revisions: document.revisions.map(rev => ({
         revisionId: rev.revisionId,
@@ -222,6 +228,9 @@ async function getWikiDocument(req, res) {
           displayName: rev.editor.user?.displayName || rev.editor.displayName,
           iconLetters: rev.editor.user?.memberIcon || rev.editor.iconLetters,
           iconColor: rev.editor.user?.iconColor || rev.editor.iconColor,
+          profilePhotoUrl: rev.editor.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${rev.editor.user.profilePhotoFileId}`
+            : null,
         },
       })),
     };
@@ -335,6 +344,9 @@ async function createWikiDocument(req, res) {
         displayName: document.creator.user?.displayName || document.creator.displayName,
         iconLetters: document.creator.user?.memberIcon || document.creator.iconLetters,
         iconColor: document.creator.user?.iconColor || document.creator.iconColor,
+        profilePhotoUrl: document.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${document.creator.user.profilePhotoFileId}`
+          : null,
       },
     };
 
@@ -473,6 +485,9 @@ async function updateWikiDocument(req, res) {
         displayName: document.creator.user?.displayName || document.creator.displayName,
         iconLetters: document.creator.user?.memberIcon || document.creator.iconLetters,
         iconColor: document.creator.user?.iconColor || document.creator.iconColor,
+        profilePhotoUrl: document.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${document.creator.user.profilePhotoFileId}`
+          : null,
       },
     };
 
@@ -668,6 +683,9 @@ async function searchWikiDocuments(req, res) {
         displayName: doc.creator.user?.displayName || doc.creator.displayName,
         iconLetters: doc.creator.user?.memberIcon || doc.creator.iconLetters,
         iconColor: doc.creator.user?.iconColor || doc.creator.iconColor,
+        profilePhotoUrl: doc.creator.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${doc.creator.user.profilePhotoFileId}`
+          : null,
       },
     }));
 

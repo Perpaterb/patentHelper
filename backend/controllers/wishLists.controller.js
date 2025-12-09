@@ -119,6 +119,9 @@ async function getWishLists(req, res) {
           displayName: wishList.forMember.user?.displayName || wishList.forMember.displayName,
           iconLetters: wishList.forMember.user?.memberIcon || wishList.forMember.iconLetters,
           iconColor: wishList.forMember.user?.iconColor || wishList.forMember.iconColor,
+          profilePhotoUrl: wishList.forMember.user?.profilePhotoFileId
+            ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${wishList.forMember.user.profilePhotoFileId}`
+            : null,
         },
         items: wishList.items.map(item => ({
           ...item,

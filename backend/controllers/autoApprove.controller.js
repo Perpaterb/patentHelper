@@ -108,12 +108,16 @@ async function getAutoApprovePermissions(req, res) {
       const displayName = admin.user?.displayName || admin.displayName;
       const iconLetters = admin.user?.memberIcon || admin.iconLetters;
       const iconColor = admin.user?.iconColor || admin.iconColor;
+      const profilePhotoUrl = admin.user?.profilePhotoFileId
+        ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${admin.user.profilePhotoFileId}`
+        : null;
 
       return {
         groupMemberId: admin.groupMemberId,
         displayName,
         iconLetters,
         iconColor,
+        profilePhotoUrl,
         permissions: permissionsMap[admin.groupMemberId] || {
           permissionId: null,
           canHideMessages: false,
