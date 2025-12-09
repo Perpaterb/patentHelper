@@ -1295,6 +1295,75 @@ aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
 
 ---
 
+## 🚨 CRITICAL: Lambda Package Size & Deployment
+
+**AWS Lambda has a 250MB uncompressed package limit. The backend Lambda MUST stay under this limit.**
+
+### ABSOLUTE RULES - NO EXCEPTIONS
+
+1. **NEVER install new npm packages to the backend without explicit user approval**
+   - Every new dependency increases Lambda package size
+   - Ask: "This requires adding package X (~YMB). Is that OK?"
+
+2. **NEVER manually recreate the Lambda build process**
+   - Use `backend/scripts/build-lambda.sh` - it exists for a reason
+   - The script has careful cleanup steps to remove large packages (sharp, ffmpeg, non-Lambda Prisma engines)
+   - If the script fails due to environment issues (missing `npm`, `zip`), STOP and tell the user
+
+3. **NEVER install packages to "work around" deployment issues**
+   - If `zip` isn't available, don't install `archiver`
+   - If `npm` isn't in PATH, don't try alternative approaches
+   - Just tell the user: "Please run this in an environment with X available"
+
+4. **NEVER run `npm install` or `npm ci` in deployment directories**
+   - The build script handles this with `--omit=dev`
+   - Manual npm commands will install dev dependencies and bloat the package
+
+### What Happened (Learn From This Mistake)
+
+Claude once tried to build the Lambda package when the build script failed due to missing tools. Instead of stopping:
+- ❌ Manually ran `npm ci` (installed ALL deps including dev)
+- ❌ Installed `archiver` package to create zip files
+- ❌ Created a 406MB package (way over 250MB limit)
+- ❌ Modified package.json with unnecessary dependencies
+
+**The correct response was:** "The build script requires `npm` and `zip` to be available. Please run `./scripts/build-lambda.sh` in an environment with these tools."
+
+### Packages That Are Intentionally EXCLUDED From Lambda
+
+These are removed by the build script - NEVER add them back:
+
+| Package | Reason |
+|---------|--------|
+| `sharp` | Native bindings, ~50MB, image conversion optional |
+| `@img/*` | Sharp dependencies |
+| `heic-convert` | Image conversion, handled by Media Processor Lambda |
+| `libheif-js` | HEIC support, handled by Media Processor Lambda |
+| `fluent-ffmpeg` | Video processing, handled by Media Processor Lambda |
+| `@ffmpeg-installer/*` | FFmpeg binaries, ~70MB each |
+| `@ffprobe-installer/*` | FFprobe binaries |
+| `typescript` | Dev only |
+| `eslint` | Dev only |
+| `@types/*` | TypeScript types, dev only |
+
+### Before Adding ANY Backend Dependency
+
+Ask yourself:
+1. Is this absolutely necessary?
+2. How big is this package? (Check on bundlephobia.com)
+3. Does it have native bindings? (These often don't work on Lambda)
+4. Can this be handled by the Media Processor Lambda instead?
+5. Have I asked the user for approval?
+
+### Media Processing is SEPARATE
+
+Heavy media processing (video/audio conversion, HEIC conversion) is handled by a **separate Media Processor Lambda** using container deployment. This allows the main API Lambda to stay small.
+
+- Main API Lambda: ~50-80MB (must stay under 250MB)
+- Media Processor Lambda: Container-based (no size limit)
+
+---
+
 ## 📞 When in Doubt
 
 * **Requirements unclear?** → Check appplan.md
