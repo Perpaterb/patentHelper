@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import {
   Text,
   Card,
@@ -215,7 +215,7 @@ export default function SecretSantaViewScreen({ route, navigation }) {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <div style={{ height: '100vh', overflowY: 'auto', backgroundColor: '#f5f5f5' }}>
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -498,7 +498,8 @@ export default function SecretSantaViewScreen({ route, navigation }) {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </ScrollView>
+      <View style={{ height: 40 }} />
+    </div>
   );
 }
 
