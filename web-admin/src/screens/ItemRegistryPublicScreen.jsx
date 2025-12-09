@@ -3,18 +3,17 @@
  *
  * Public screen for viewing a shared item registry.
  * Supports both public links and passcode-protected registries.
+ * Shows all item details including photos, descriptions, categories, etc.
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet, Linking, Image } from 'react-native';
 import {
   Text,
   Card,
   Button,
   ActivityIndicator,
   TextInput,
-  Chip,
-  List,
   Divider,
 } from 'react-native-paper';
 import config from '../config/env';
@@ -184,49 +183,59 @@ export default function ItemRegistryPublicScreen({ route }) {
             {(!registry.items || registry.items.length === 0) ? (
               <Text style={styles.emptyText}>No items in this registry yet.</Text>
             ) : (
-              <List.Section>
+              <View>
                 {registry.items.map((item, index) => (
                   <View key={item.itemId}>
-                    <View style={styles.itemRow}>
-                      <View style={styles.itemInfo}>
-                        <Text
-                          style={[
-                            styles.itemTitle,
-                            item.isObtained && styles.itemObtained,
-                          ]}
-                        >
-                          {item.title}
-                          {item.isObtained && ' ✓'}
+                    <View style={styles.itemContainer}>
+                      {/* Photo */}
+                      {item.photoUrl && (
+                        <Image
+                          source={{ uri: item.photoUrl }}
+                          style={styles.itemPhoto}
+                          resizeMode="cover"
+                        />
+                      )}
+
+                      {/* Item Details */}
+                      <Text style={styles.itemTitle}>{item.title}</Text>
+
+                      {item.cost && (
+                        <Text style={styles.itemCost}>
+                          ${parseFloat(item.cost).toFixed(2)}
                         </Text>
-                        {item.cost && (
-                          <Text style={styles.itemCost}>
-                            ${parseFloat(item.cost).toFixed(2)}
-                          </Text>
-                        )}
-                        {item.description && (
-                          <Text style={styles.itemDescription}>{item.description}</Text>
-                        )}
-                        {item.link && (
-                          <Text
-                            style={styles.itemLink}
-                            onPress={() => Linking.openURL(item.link)}
-                          >
-                            View Link →
-                          </Text>
-                        )}
-                      </View>
-                      <Chip
-                        mode={item.isObtained ? 'flat' : 'outlined'}
-                        style={item.isObtained ? styles.obtainedChip : styles.neededChip}
-                        textStyle={item.isObtained ? styles.obtainedChipText : styles.neededChipText}
-                      >
-                        {item.isObtained ? 'Obtained' : 'Needed'}
-                      </Chip>
+                      )}
+
+                      {item.description && (
+                        <Text style={styles.itemDescription}>{item.description}</Text>
+                      )}
+
+                      {item.category && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Category:</Text>
+                          <Text style={styles.detailValue}>{item.category}</Text>
+                        </View>
+                      )}
+
+                      {item.storageLocation && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Storage Location:</Text>
+                          <Text style={styles.detailValue}>{item.storageLocation}</Text>
+                        </View>
+                      )}
+
+                      {item.link && (
+                        <Text
+                          style={styles.itemLink}
+                          onPress={() => Linking.openURL(item.link)}
+                        >
+                          View Link →
+                        </Text>
+                      )}
                     </View>
                     {index < registry.items.length - 1 && <Divider style={styles.divider} />}
                   </View>
                 ))}
-              </List.Section>
+              </View>
             )}
           </Card.Content>
         </Card>
@@ -288,55 +297,55 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
+  itemContainer: {
+    paddingVertical: 16,
   },
-  itemInfo: {
-    flex: 1,
-    marginRight: 12,
+  itemPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#f0f0f0',
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
-  },
-  itemObtained: {
-    textDecorationLine: 'line-through',
-    color: '#999',
+    marginBottom: 4,
   },
   itemCost: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#4caf50',
     fontWeight: '600',
-    marginTop: 4,
+    marginBottom: 8,
   },
   itemDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
-    marginTop: 4,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginRight: 8,
+  },
+  detailValue: {
+    fontSize: 13,
+    color: '#333',
   },
   itemLink: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6200ee',
     marginTop: 8,
+    fontWeight: '500',
   },
   divider: {
-    marginVertical: 4,
-  },
-  obtainedChip: {
-    backgroundColor: '#e8f5e9',
-  },
-  obtainedChipText: {
-    color: '#2e7d32',
-  },
-  neededChip: {
-    borderColor: '#ff9800',
-  },
-  neededChipText: {
-    color: '#ff9800',
+    marginVertical: 8,
   },
   passcodeTitle: {
     fontSize: 18,

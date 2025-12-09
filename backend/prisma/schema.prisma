@@ -911,19 +911,20 @@ model GiftRegistry {
 }
 
 model GiftItem {
-  itemId       String    @id @default(uuid()) @map("item_id") @db.Uuid
-  registryId   String    @map("registry_id") @db.Uuid
-  title        String    @db.VarChar(255)
-  link         String?   @db.Text
-  photoUrl     String?   @map("photo_url") @db.Text
-  cost         Decimal?  @db.Decimal(10, 2)
-  description  String?   @db.Text
-  displayOrder Int       @default(0) @map("display_order")
-  isPurchased  Boolean   @default(false) @map("is_purchased")
-  purchasedBy  String?   @map("purchased_by") @db.Uuid
-  purchasedAt  DateTime? @map("purchased_at") @db.Timestamp(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  itemId          String    @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId      String    @map("registry_id") @db.Uuid
+  title           String    @db.VarChar(255)
+  link            String?   @db.Text
+  photoUrl        String?   @map("photo_url") @db.Text
+  cost            Decimal?  @db.Decimal(10, 2)
+  description     String?   @db.Text
+  displayOrder    Int       @default(0) @map("display_order")
+  isPurchased     Boolean   @default(false) @map("is_purchased")
+  purchasedBy     String?   @map("purchased_by") @db.Uuid
+  purchasedByName String?   @map("purchased_by_name") @db.VarChar(255)
+  purchasedAt     DateTime? @map("purchased_at") @db.Timestamp(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   registry  GiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
   purchaser GroupMember? @relation("ItemPurchaser", fields: [purchasedBy], references: [groupMemberId], onDelete: SetNull)
@@ -957,19 +958,20 @@ model PersonalGiftRegistry {
 }
 
 model PersonalGiftItem {
-  itemId       String    @id @default(uuid()) @map("item_id") @db.Uuid
-  registryId   String    @map("registry_id") @db.Uuid
-  title        String    @db.VarChar(255)
-  link         String?   @db.Text
-  photoUrl     String?   @map("photo_url") @db.Text
-  cost         Decimal?  @db.Decimal(10, 2)
-  description  String?   @db.Text
-  displayOrder Int       @default(0) @map("display_order")
-  isPurchased  Boolean   @default(false) @map("is_purchased")
-  purchasedBy  String?   @map("purchased_by") @db.Uuid
-  purchasedAt  DateTime? @map("purchased_at") @db.Timestamp(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  itemId          String    @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId      String    @map("registry_id") @db.Uuid
+  title           String    @db.VarChar(255)
+  link            String?   @db.Text
+  photoUrl        String?   @map("photo_url") @db.Text
+  cost            Decimal?  @db.Decimal(10, 2)
+  description     String?   @db.Text
+  displayOrder    Int       @default(0) @map("display_order")
+  isPurchased     Boolean   @default(false) @map("is_purchased")
+  purchasedBy     String?   @map("purchased_by") @db.Uuid
+  purchasedByName String?   @map("purchased_by_name") @db.VarChar(255)
+  purchasedAt     DateTime? @map("purchased_at") @db.Timestamp(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   registry  PersonalGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
   purchaser GroupMember?         @relation("PersonalItemPurchaser", fields: [purchasedBy], references: [groupMemberId], onDelete: SetNull)

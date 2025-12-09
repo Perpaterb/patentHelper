@@ -3,19 +3,21 @@
  *
  * Public screen for viewing a shared gift registry.
  * Supports both public links and passcode-protected registries.
+ * Shows all item details including photos.
+ * Anyone can mark items as purchased (with their name) - visible to everyone including owner.
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import { View, StyleSheet, Linking, Image } from 'react-native';
 import {
   Text,
   Card,
   Button,
   ActivityIndicator,
   TextInput,
-  Chip,
-  List,
   Divider,
+  Portal,
+  Modal,
 } from 'react-native-paper';
 import config from '../config/env';
 
@@ -29,6 +31,13 @@ export default function GiftRegistryPublicScreen({ route }) {
   const [passcode, setPasscode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState(null);
+
+  // Purchase modal state
+  const [purchaseModalVisible, setPurchaseModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [purchaserName, setPurchaserName] = useState('');
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState(null);
 
   // Fetch registry info
   useEffect(() => {
@@ -95,6 +104,73 @@ export default function GiftRegistryPublicScreen({ route }) {
     } finally {
       setVerifying(false);
     }
+  };
+
+  const openPurchaseModal = (item) => {
+    setSelectedItem(item);
+    setPurchaserName('');
+    setPurchaseError(null);
+    setPurchaseModalVisible(true);
+  };
+
+  const handleMarkAsPurchased = async () => {
+    if (!purchaserName.trim()) {
+      setPurchaseError('Please enter your name');
+      return;
+    }
+
+    setPurchasing(true);
+    setPurchaseError(null);
+
+    try {
+      const response = await fetch(
+        `${config.api.url}/public/gift-registry/${webToken}/items/${selectedItem.itemId}/purchase`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ purchaserName: purchaserName.trim() }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPurchaseError(data.message || 'Failed to mark as purchased');
+        return;
+      }
+
+      // Update the item in local state
+      setRegistry(prev => ({
+        ...prev,
+        items: prev.items.map(item =>
+          item.itemId === selectedItem.itemId
+            ? {
+                ...item,
+                isPurchased: true,
+                purchasedByName: purchaserName.trim(),
+                purchasedAt: new Date().toISOString(),
+              }
+            : item
+        ),
+      }));
+
+      setPurchaseModalVisible(false);
+    } catch (err) {
+      console.error('Purchase error:', err);
+      setPurchaseError('Failed to mark as purchased');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   if (loading) {
@@ -184,49 +260,70 @@ export default function GiftRegistryPublicScreen({ route }) {
             {(!registry.items || registry.items.length === 0) ? (
               <Text style={styles.emptyText}>No items in this registry yet.</Text>
             ) : (
-              <List.Section>
+              <View>
                 {registry.items.map((item, index) => (
                   <View key={item.itemId}>
-                    <View style={styles.itemRow}>
-                      <View style={styles.itemInfo}>
-                        <Text
-                          style={[
-                            styles.itemTitle,
-                            item.isPurchased && styles.itemPurchased,
-                          ]}
-                        >
-                          {item.title}
-                          {item.isPurchased && ' ✓'}
+                    <View style={styles.itemContainer}>
+                      {/* Photo */}
+                      {item.photoUrl && (
+                        <Image
+                          source={{ uri: item.photoUrl }}
+                          style={styles.itemPhoto}
+                          resizeMode="cover"
+                        />
+                      )}
+
+                      {/* Item Details */}
+                      <Text style={[
+                        styles.itemTitle,
+                        item.isPurchased && styles.itemPurchasedTitle,
+                      ]}>
+                        {item.title}
+                      </Text>
+
+                      {item.cost && (
+                        <Text style={styles.itemCost}>
+                          ${parseFloat(item.cost).toFixed(2)}
                         </Text>
-                        {item.cost && (
-                          <Text style={styles.itemCost}>
-                            ${parseFloat(item.cost).toFixed(2)}
+                      )}
+
+                      {item.description && (
+                        <Text style={styles.itemDescription}>{item.description}</Text>
+                      )}
+
+                      {item.link && (
+                        <Text
+                          style={styles.itemLink}
+                          onPress={() => Linking.openURL(item.link)}
+                        >
+                          View Link →
+                        </Text>
+                      )}
+
+                      {/* Purchase Status */}
+                      {item.isPurchased ? (
+                        <View style={styles.purchasedContainer}>
+                          <Text style={styles.purchasedBadge}>✓ Purchased</Text>
+                          <Text style={styles.purchasedBy}>
+                            by {item.purchasedByName}
+                            {item.purchasedAt && ` on ${formatDate(item.purchasedAt)}`}
                           </Text>
-                        )}
-                        {item.description && (
-                          <Text style={styles.itemDescription}>{item.description}</Text>
-                        )}
-                        {item.link && (
-                          <Text
-                            style={styles.itemLink}
-                            onPress={() => Linking.openURL(item.link)}
-                          >
-                            View Link →
-                          </Text>
-                        )}
-                      </View>
-                      <Chip
-                        mode={item.isPurchased ? 'flat' : 'outlined'}
-                        style={item.isPurchased ? styles.purchasedChip : styles.availableChip}
-                        textStyle={item.isPurchased ? styles.purchasedChipText : styles.availableChipText}
-                      >
-                        {item.isPurchased ? 'Purchased' : 'Available'}
-                      </Chip>
+                        </View>
+                      ) : (
+                        <Button
+                          mode="outlined"
+                          onPress={() => openPurchaseModal(item)}
+                          style={styles.purchaseButton}
+                          icon="gift"
+                        >
+                          Mark as Purchased
+                        </Button>
+                      )}
                     </View>
                     {index < registry.items.length - 1 && <Divider style={styles.divider} />}
                   </View>
                 ))}
-              </List.Section>
+              </View>
             )}
           </Card.Content>
         </Card>
@@ -236,6 +333,52 @@ export default function GiftRegistryPublicScreen({ route }) {
         </Text>
       </View>
       <View style={{ height: 40 }} />
+
+      {/* Purchase Modal */}
+      <Portal>
+        <Modal
+          visible={purchaseModalVisible}
+          onDismiss={() => setPurchaseModalVisible(false)}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <Text style={styles.modalTitle}>Mark as Purchased</Text>
+          <Text style={styles.modalSubtitle}>
+            You're marking "{selectedItem?.title}" as purchased.
+          </Text>
+
+          <TextInput
+            label="Your Name"
+            value={purchaserName}
+            onChangeText={setPurchaserName}
+            mode="outlined"
+            style={styles.input}
+            placeholder="Enter your name"
+          />
+
+          {purchaseError && (
+            <Text style={styles.errorMessage}>{purchaseError}</Text>
+          )}
+
+          <View style={styles.modalButtons}>
+            <Button
+              mode="outlined"
+              onPress={() => setPurchaseModalVisible(false)}
+              style={styles.modalButton}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleMarkAsPurchased}
+              loading={purchasing}
+              disabled={purchasing || !purchaserName.trim()}
+              style={styles.modalButton}
+            >
+              Confirm
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     </div>
   );
 }
@@ -288,55 +431,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
+  itemContainer: {
+    paddingVertical: 16,
   },
-  itemInfo: {
-    flex: 1,
-    marginRight: 12,
+  itemPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#f0f0f0',
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
+    marginBottom: 4,
   },
-  itemPurchased: {
+  itemPurchasedTitle: {
     textDecorationLine: 'line-through',
     color: '#999',
   },
   itemCost: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#4caf50',
     fontWeight: '600',
-    marginTop: 4,
+    marginBottom: 8,
   },
   itemDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
-    marginTop: 4,
+    marginBottom: 12,
+    lineHeight: 20,
   },
   itemLink: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6200ee',
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  purchasedContainer: {
+    backgroundColor: '#e8f5e9',
+    padding: 12,
+    borderRadius: 8,
     marginTop: 8,
   },
-  divider: {
-    marginVertical: 4,
-  },
-  purchasedChip: {
-    backgroundColor: '#e8f5e9',
-  },
-  purchasedChipText: {
+  purchasedBadge: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#2e7d32',
+    marginBottom: 4,
   },
-  availableChip: {
+  purchasedBy: {
+    fontSize: 13,
+    color: '#388e3c',
+  },
+  purchaseButton: {
+    marginTop: 8,
     borderColor: '#6200ee',
   },
-  availableChipText: {
-    color: '#6200ee',
+  divider: {
+    marginVertical: 8,
   },
   passcodeTitle: {
     fontSize: 18,
@@ -381,5 +535,34 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 12,
     marginTop: 16,
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    padding: 24,
+    margin: 20,
+    borderRadius: 12,
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    minWidth: 100,
   },
 });

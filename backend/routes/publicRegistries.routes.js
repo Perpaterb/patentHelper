@@ -18,6 +18,9 @@ router.get('/gift-registry/:webToken', giftRegistryController.getPublicGiftRegis
 // POST - Verify passcode and get full registry (for passcode-protected registries)
 router.post('/gift-registry/:webToken', giftRegistryController.verifyGiftRegistryPasscode);
 
+// POST - Mark item as purchased (public - no auth required)
+router.post('/gift-registry/:webToken/items/:itemId/purchase', giftRegistryController.markItemPurchasedPublic);
+
 
 // Public Item Registry routes - no authentication required
 

@@ -1420,7 +1420,7 @@ async function getPublicGiftRegistry(req, res) {
       });
     }
 
-    // Public registry - return full data
+    // Public registry - return full data including purchaser info
     res.status(200).json({
       success: true,
       registry: {
@@ -1435,6 +1435,8 @@ async function getPublicGiftRegistry(req, res) {
           cost: item.cost,
           description: item.description,
           isPurchased: item.isPurchased,
+          purchasedByName: item.purchasedByName,
+          purchasedAt: item.purchasedAt,
         })),
       },
     });
@@ -1536,6 +1538,8 @@ async function verifyGiftRegistryPasscode(req, res) {
             cost: item.cost,
             description: item.description,
             isPurchased: item.isPurchased,
+            purchasedByName: item.purchasedByName,
+            purchasedAt: item.purchasedAt,
           })),
         },
       });
@@ -1564,6 +1568,8 @@ async function verifyGiftRegistryPasscode(req, res) {
           cost: item.cost,
           description: item.description,
           isPurchased: item.isPurchased,
+          purchasedByName: item.purchasedByName,
+          purchasedAt: item.purchasedAt,
         })),
       },
     });
@@ -1571,6 +1577,152 @@ async function verifyGiftRegistryPasscode(req, res) {
     console.error('Verify gift registry passcode error:', error);
     res.status(500).json({
       error: 'Failed to verify passcode',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Mark item as purchased from public page
+ * POST /public/gift-registry/:webToken/items/:itemId/purchase
+ * Body: { purchaserName }
+ * No authentication required
+ */
+async function markItemPurchasedPublic(req, res) {
+  try {
+    const { webToken, itemId } = req.params;
+    const { purchaserName } = req.body;
+
+    if (!webToken) {
+      return res.status(400).json({
+        error: 'Missing webToken',
+        message: 'Registry token is required',
+      });
+    }
+
+    if (!itemId) {
+      return res.status(400).json({
+        error: 'Missing itemId',
+        message: 'Item ID is required',
+      });
+    }
+
+    if (!purchaserName || !purchaserName.trim()) {
+      return res.status(400).json({
+        error: 'Missing purchaserName',
+        message: 'Purchaser name is required',
+      });
+    }
+
+    // Try to find in group gift registries first
+    let registry = await prisma.giftRegistry.findFirst({
+      where: {
+        webToken: webToken,
+      },
+    });
+
+    let isPersonal = false;
+
+    // If not found, try personal gift registries
+    if (!registry) {
+      registry = await prisma.personalGiftRegistry.findFirst({
+        where: {
+          webToken: webToken,
+        },
+      });
+      isPersonal = true;
+    }
+
+    if (!registry) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Registry not found or link has expired',
+      });
+    }
+
+    // Check if registry is accessible (not group_only)
+    if (registry.sharingType === 'group_only') {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'This registry is only visible to group members',
+      });
+    }
+
+    // Find and update the item
+    if (isPersonal) {
+      const item = await prisma.personalGiftItem.findFirst({
+        where: {
+          itemId: itemId,
+          registryId: registry.registryId,
+        },
+      });
+
+      if (!item) {
+        return res.status(404).json({
+          error: 'Not found',
+          message: 'Item not found in this registry',
+        });
+      }
+
+      if (item.isPurchased) {
+        return res.status(400).json({
+          error: 'Already purchased',
+          message: 'This item has already been marked as purchased',
+        });
+      }
+
+      await prisma.personalGiftItem.update({
+        where: {
+          itemId: itemId,
+        },
+        data: {
+          isPurchased: true,
+          purchasedByName: purchaserName.trim(),
+          purchasedAt: new Date(),
+        },
+      });
+    } else {
+      const item = await prisma.giftItem.findFirst({
+        where: {
+          itemId: itemId,
+          registryId: registry.registryId,
+        },
+      });
+
+      if (!item) {
+        return res.status(404).json({
+          error: 'Not found',
+          message: 'Item not found in this registry',
+        });
+      }
+
+      if (item.isPurchased) {
+        return res.status(400).json({
+          error: 'Already purchased',
+          message: 'This item has already been marked as purchased',
+        });
+      }
+
+      await prisma.giftItem.update({
+        where: {
+          itemId: itemId,
+        },
+        data: {
+          isPurchased: true,
+          purchasedByName: purchaserName.trim(),
+          purchasedAt: new Date(),
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Item marked as purchased successfully',
+    });
+  } catch (error) {
+    console.error('Mark item purchased public error:', error);
+    res.status(500).json({
+      error: 'Failed to mark item as purchased',
       message: error.message,
     });
   }
@@ -1591,4 +1743,5 @@ module.exports = {
   markItemAsPurchased,
   getPublicGiftRegistry,
   verifyGiftRegistryPasscode,
+  markItemPurchasedPublic,
 };
