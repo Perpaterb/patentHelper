@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Image, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, TextInput, Button, Avatar, Divider, ActivityIndicator } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
@@ -176,11 +176,21 @@ export default function MyAccountScreen({ navigation }) {
 
       // Create FormData for file upload
       const formData = new FormData();
-      formData.append('file', {
-        uri: file.uri,
-        type: file.mimeType,
-        name: file.name,
-      });
+
+      // Handle file differently for web vs native platforms
+      if (Platform.OS === 'web') {
+        // On web, fetch the blob and append directly
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        formData.append('file', blob, file.name);
+      } else {
+        // On native platforms, use the React Native FormData pattern
+        formData.append('file', {
+          uri: file.uri,
+          type: file.mimeType,
+          name: file.name,
+        });
+      }
       formData.append('category', 'profiles');
 
       // Upload file to backend
