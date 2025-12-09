@@ -1633,7 +1633,7 @@ async function getSecretSantaData(req, res) {
     const match = krisKringle.matches.find(m => m.giverId === participant.participantId);
     const receiver = match ? krisKringle.participants.find(p => p.participantId === match.receiverId) : null;
 
-    // Build all gift registries list (from all participants)
+    // Build all gift registries list (from all participants' SS registries)
     const giftRegistries = krisKringle.participants
       .filter(p => p.ssGiftRegistry)
       .map(p => ({
@@ -1641,6 +1641,7 @@ async function getSecretSantaData(req, res) {
         participantId: p.participantId,
         participantName: p.name,
         name: p.ssGiftRegistry.name,
+        type: 'secret-santa',
         items: p.ssGiftRegistry.items.map(item => ({
           itemId: item.itemId,
           title: item.title,
@@ -1651,6 +1652,109 @@ async function getSecretSantaData(req, res) {
           isPurchased: item.isPurchased,
         })),
       }));
+
+    // Get group member IDs for participants who are group members
+    const groupMemberIds = krisKringle.participants
+      .filter(p => p.groupMemberId)
+      .map(p => p.groupMemberId);
+
+    // Fetch group gift registries created by participants who are group members
+    const groupGiftRegistries = groupMemberIds.length > 0 ? await prisma.giftRegistry.findMany({
+      where: {
+        groupId: krisKringle.groupId,
+        creatorId: { in: groupMemberIds },
+      },
+      include: {
+        creator: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        },
+        items: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    }) : [];
+
+    // Create a map of groupMemberId to participant for easy lookup
+    const groupMemberToParticipant = {};
+    krisKringle.participants.forEach(p => {
+      if (p.groupMemberId) {
+        groupMemberToParticipant[p.groupMemberId] = p;
+      }
+    });
+
+    // Add group gift registries to the list
+    groupGiftRegistries.forEach(registry => {
+      const participantInfo = groupMemberToParticipant[registry.creatorId];
+      if (participantInfo) {
+        giftRegistries.push({
+          registryId: registry.registryId,
+          participantId: participantInfo.participantId,
+          participantName: participantInfo.name,
+          name: registry.name,
+          type: 'group',
+          webToken: registry.webToken,
+          items: registry.items.map(item => ({
+            itemId: item.itemId,
+            title: item.title,
+            link: item.link,
+            photoUrl: item.photoUrl,
+            cost: item.cost,
+            description: item.description,
+            isPurchased: item.isPurchased,
+          })),
+        });
+      }
+    });
+
+    // Fetch personal gift registries linked to the group by participants who are group members
+    const personalRegistryLinks = groupMemberIds.length > 0 ? await prisma.personalGiftRegistryGroupLink.findMany({
+      where: {
+        groupId: krisKringle.groupId,
+        linkedBy: { in: groupMemberIds },
+      },
+      include: {
+        registry: {
+          include: {
+            items: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+        linker: {
+          select: {
+            groupMemberId: true,
+            displayName: true,
+          },
+        },
+      },
+    }) : [];
+
+    // Add linked personal gift registries to the list
+    personalRegistryLinks.forEach(link => {
+      const participantInfo = groupMemberToParticipant[link.linkedBy];
+      if (participantInfo && link.registry) {
+        giftRegistries.push({
+          registryId: link.registry.registryId,
+          participantId: participantInfo.participantId,
+          participantName: participantInfo.name,
+          name: link.registry.name,
+          type: 'personal',
+          webToken: link.registry.webToken,
+          items: link.registry.items.map(item => ({
+            itemId: item.itemId,
+            title: item.title,
+            link: item.link,
+            photoUrl: item.photoUrl,
+            cost: item.cost,
+            description: item.description,
+            isPurchased: item.isPurchased,
+          })),
+        });
+      }
+    });
 
     res.status(200).json({
       success: true,

@@ -353,9 +353,9 @@ export default function SecretSantaViewScreen({ route, navigation }) {
                   .map((registry) => (
                     <List.Accordion
                       key={registry.registryId}
-                      title={`${registry.participantName}'s List`}
-                      description={`${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}`}
-                      left={props => <List.Icon {...props} icon="gift" />}
+                      title={`${registry.participantName}'s ${registry.name || 'List'}`}
+                      description={`${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}${registry.type === 'group' ? ' • Group Registry' : registry.type === 'personal' ? ' • Personal Registry' : ''}`}
+                      left={props => <List.Icon {...props} icon={registry.type === 'group' ? 'account-group' : registry.type === 'personal' ? 'account' : 'gift'} />}
                       expanded={expandedRegistries[registry.registryId] || false}
                       onPress={() => setExpandedRegistries(prev => ({
                         ...prev,
