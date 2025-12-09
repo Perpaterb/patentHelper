@@ -284,6 +284,7 @@ async function getMessageGroupMessages(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },
@@ -350,6 +351,9 @@ async function getMessageGroupMessages(req, res) {
             displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
             iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
             iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+            profilePhotoUrl: reaction.reactor.user?.profilePhotoFileId
+              ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${reaction.reactor.user.profilePhotoFileId}`
+              : null,
           },
         })) || [],
         // Convert BigInt fileSizeBytes to Number for JSON serialization
@@ -1137,6 +1141,7 @@ async function addReaction(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -1154,6 +1159,9 @@ async function addReaction(req, res) {
         displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
         iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
         iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+        profilePhotoUrl: reaction.reactor.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${reaction.reactor.user.profilePhotoFileId}`
+          : null,
       },
     };
 
@@ -1290,6 +1298,7 @@ async function getReactions(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -1308,6 +1317,9 @@ async function getReactions(req, res) {
         displayName: reaction.reactor.user?.displayName || reaction.reactor.displayName,
         iconLetters: reaction.reactor.user?.memberIcon || reaction.reactor.iconLetters,
         iconColor: reaction.reactor.user?.iconColor || reaction.reactor.iconColor,
+        profilePhotoUrl: reaction.reactor.user?.profilePhotoFileId
+          ? `${process.env.API_BASE_URL || 'http://localhost:3000'}/files/${reaction.reactor.user.profilePhotoFileId}`
+          : null,
       },
     }));
 
