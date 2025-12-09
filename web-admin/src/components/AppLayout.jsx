@@ -5,7 +5,7 @@
  * React Native Paper version.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import {
   Drawer,
@@ -16,12 +16,28 @@ import {
 } from 'react-native-paper';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import * as SecureStore from 'expo-secure-store';
+import api from '../services/api';
 
 const DRAWER_WIDTH = 240;
 
 function AppLayout({ children, navigation, currentRoute }) {
   const { logout } = useKindeAuth();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const [isSupportUser, setIsSupportUser] = useState(false);
+
+  // Check if user has support access
+  useEffect(() => {
+    async function checkSupportAccess() {
+      try {
+        const response = await api.get('/support/check-access');
+        setIsSupportUser(response.data.isSupportUser || false);
+      } catch (err) {
+        // Silently fail - user is not a support user
+        setIsSupportUser(false);
+      }
+    }
+    checkSupportAccess();
+  }, []);
 
   const handleLogout = async () => {
     // Clear local storage
@@ -40,6 +56,9 @@ function AppLayout({ children, navigation, currentRoute }) {
     ...(isAdmin ? [
       { label: 'Storage', icon: 'database', route: 'Storage' },
       { label: 'Audit Logs', icon: 'history', route: 'AuditLogs' },
+    ] : []),
+    ...(isSupportUser ? [
+      { label: 'Support', icon: 'shield-account', route: 'Support' },
     ] : []),
   ];
 

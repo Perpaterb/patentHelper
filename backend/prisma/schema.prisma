@@ -26,6 +26,12 @@ model User {
   iconColor              String?                @map("icon_color") @db.VarChar(7)
   profilePhotoFileId     String?                @map("profile_photo_file_id") @db.Uuid
 
+  // Support and account status flags
+  isSupportUser          Boolean                @default(false) @map("is_support_user")
+  isLocked               Boolean                @default(false) @map("is_locked")
+  lockedAt               DateTime?              @map("locked_at") @db.Timestamp(6)
+  lockedReason           String?                @map("locked_reason") @db.VarChar(500)
+
   // Stripe billing fields (Option B - manual billing)
   stripeCustomerId           String?   @unique @map("stripe_customer_id") @db.VarChar(255)
   defaultPaymentMethodId     String?   @map("default_payment_method_id") @db.VarChar(255)
@@ -41,10 +47,13 @@ model User {
   personalGiftRegistries PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
   personalItemRegistries PersonalItemRegistry[] @relation("PersonalItemRegistries")
   billingHistory         BillingHistory[]
+  supportActionsPerformed SupportAuditLog[]     @relation("SupportActionPerformer")
+  supportActionsReceived  SupportAuditLog[]     @relation("SupportActionTarget")
 
   @@index([email])
   @@index([kindeId])
   @@index([renewalDate])
+  @@index([isSupportUser])
   @@map("users")
 }
 
@@ -1272,4 +1281,41 @@ model BillingHistory {
   @@index([status])
   @@index([createdAt])
   @@map("billing_history")
+}
+
+// ============================================
+// SUPPORT AUDIT LOG
+// Immutable log of all support actions - cannot be edited or deleted
+// ============================================
+
+model SupportAuditLog {
+  logId           String   @id @default(uuid()) @map("log_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Who performed the action
+  performedById   String   @map("performed_by_id") @db.Uuid
+  performedByEmail String  @map("performed_by_email") @db.VarChar(255)
+
+  // Who was affected (target user)
+  targetUserId    String   @map("target_user_id") @db.Uuid
+  targetUserEmail String   @map("target_user_email") @db.VarChar(255)
+
+  // Action details
+  action          String   @db.VarChar(100) // grant_subscription, revoke_subscription, grant_support, revoke_support, lock_user, unlock_user
+  details         String?  @db.Text // JSON or text with additional details
+  previousValue   String?  @map("previous_value") @db.Text // State before change
+  newValue        String?  @map("new_value") @db.Text // State after change
+
+  // IP and user agent for security
+  ipAddress       String?  @map("ip_address") @db.VarChar(45)
+  userAgent       String?  @map("user_agent") @db.VarChar(500)
+
+  performedBy     User     @relation("SupportActionPerformer", fields: [performedById], references: [userId])
+  targetUser      User     @relation("SupportActionTarget", fields: [targetUserId], references: [userId])
+
+  @@index([performedById])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("support_audit_logs")
 }

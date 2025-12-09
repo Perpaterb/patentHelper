@@ -89,6 +89,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import SubscriptionScreen from './src/screens/SubscriptionScreen';
 import StorageScreen from './src/screens/StorageScreen';
 import AuditLogsScreen from './src/screens/AuditLogsScreen';
+import SupportScreen from './src/screens/SupportScreen';
 
 const Stack = createStackNavigator();
 
@@ -161,6 +162,7 @@ const linking = {
       Subscription: 'subscription',
       Storage: 'storage',
       AuditLogs: 'audit-logs',
+      Support: 'support',
       WebAdminMyAccount: 'web-admin-my-account',
       // Mobile app screens with unique URLs
       Groups: 'web-app',
@@ -348,6 +350,7 @@ function AppNavigator() {
             <Stack.Screen name="Subscription" component={withAppLayout(SubscriptionScreen, 'Subscription')} />
             <Stack.Screen name="Storage" component={withAppLayout(StorageScreen, 'Storage')} />
             <Stack.Screen name="AuditLogs" component={withAppLayout(AuditLogsScreen, 'AuditLogs')} />
+            <Stack.Screen name="Support" component={withAppLayout(SupportScreen, 'Support')} />
           </>
         )}
       </Stack.Navigator>

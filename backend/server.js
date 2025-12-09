@@ -45,6 +45,7 @@ const personalRegistriesRoutes = require('./routes/personalRegistries.routes');
 const secretSantaRoutes = require('./routes/secretSanta.routes');
 const feedbackRoutes = require('./routes/feedback.routes');
 const storageRoutes = require('./routes/storage.routes');
+const supportRoutes = require('./routes/support.routes');
 
 // Middleware
 app.use(cors({
@@ -81,6 +82,7 @@ app.use('/logs', logsRoutes);
 app.use('/secret-santa', secretSantaRoutes);
 app.use('/feedback', feedbackRoutes);
 app.use('/storage', storageRoutes);
+app.use('/support', supportRoutes);
 
 // 404 handler
 app.use((req, res) => {
