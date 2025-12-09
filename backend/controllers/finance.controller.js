@@ -507,61 +507,69 @@ async function createFinanceMatter(req, res) {
       },
     };
 
-    // Send email notifications to members with user accounts (excluding the creator)
+    // Send email notifications to all members with email addresses (excluding the creator)
+    // This includes both registered users AND placeholder members (who haven't logged in yet)
     try {
-      console.log('[Finance] Starting email notifications...');
-      console.log('[Finance] memberIds:', memberIds);
-      console.log('[Finance] creator groupMemberId:', groupMembership.groupMemberId);
-
       const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
       const creatorDisplayName = groupMembership.displayName;
 
-      // Get members with their user email addresses (excluding the creator)
-      const membersWithUsers = await prisma.groupMember.findMany({
-        where: {
-          groupMemberId: {
-            in: memberIds.filter(id => id !== groupMembership.groupMemberId),
+      // Get all members (excluding the creator) with their email addresses
+      const otherMemberIds = memberIds.filter(id => id !== groupMembership.groupMemberId);
+
+      if (otherMemberIds.length === 0) {
+        console.log('[Finance] No other members to notify (only creator is a member)');
+      } else {
+        const membersToNotify = await prisma.groupMember.findMany({
+          where: {
+            groupMemberId: { in: otherMemberIds },
+            email: { not: null }, // Must have an email address
           },
-          userId: { not: null }, // Only members with user accounts
-        },
-        include: {
-          user: {
-            select: {
-              email: true,
-              displayName: true,
+          include: {
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      console.log('[Finance] Found members with users:', membersWithUsers.length);
-      membersWithUsers.forEach(m => console.log('[Finance] Member:', m.displayName, 'email:', m.user?.email));
+        if (membersToNotify.length === 0) {
+          console.log('[Finance] No members with email addresses to notify');
+        } else {
+          console.log(`[Finance] Sending notifications to ${membersToNotify.length} member(s)`);
 
-      // Format amount with currency
-      const formattedAmount = `${currency.toUpperCase()} ${parseFloat(totalAmount).toFixed(2)}`;
+          // Format amount with currency
+          const formattedAmount = `${currency.toUpperCase()} ${parseFloat(totalAmount).toFixed(2)}`;
 
-      for (const member of membersWithUsers) {
-        if (member.user?.email) {
-          try {
-            const emailContent = emailTemplates.finance_matter_added({
-              recipientName: member.user.displayName || member.displayName,
-              groupName: group.name,
-              matterTitle: name.trim(),
-              matterType: 'Shared Expense',
-              amount: formattedAmount,
-              createdBy: creatorDisplayName,
-              appUrl: appUrl,
-            });
-            await emailService.sendEmail({
-              to: member.user.email,
-              subject: emailContent.subject,
-              text: emailContent.text,
-              html: emailContent.html,
-            });
-            console.log(`[Finance] Notification email sent to ${member.user.email}`);
-          } catch (emailError) {
-            // Don't fail the request if email fails
-            console.error(`[Finance] Failed to send email to ${member.user.email}:`, emailError.message);
+          for (const member of membersToNotify) {
+            // Use user email if registered, otherwise use the GroupMember email
+            const recipientEmail = member.user?.email || member.email;
+            const recipientName = member.user?.displayName || member.displayName;
+
+            if (recipientEmail) {
+              try {
+                const emailContent = emailTemplates.finance_matter_added({
+                  recipientName: recipientName,
+                  groupName: group.name,
+                  matterTitle: name.trim(),
+                  matterType: 'Shared Expense',
+                  amount: formattedAmount,
+                  createdBy: creatorDisplayName,
+                  appUrl: appUrl,
+                });
+                await emailService.sendEmail({
+                  to: recipientEmail,
+                  subject: emailContent.subject,
+                  text: emailContent.text,
+                  html: emailContent.html,
+                });
+                console.log(`[Finance] Notification email sent to ${recipientEmail}`);
+              } catch (emailError) {
+                // Don't fail the request if email fails
+                console.error(`[Finance] Failed to send email to ${recipientEmail}:`, emailError.message);
+              }
+            }
           }
         }
       }

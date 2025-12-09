@@ -1065,11 +1065,9 @@ async function inviteMember(req, res) {
         },
       });
 
-      // Send invitation email to registered users only
-      // (Placeholder members don't have accounts and can't receive emails)
-      console.log('[Groups] targetUser for email:', targetUser ? targetUser.email : 'null (placeholder)');
-      if (targetUser) {
-        console.log('[Groups] Sending invitation email to:', email);
+      // Send invitation email to ALL members with email addresses
+      // This includes both registered users AND placeholder members (who haven't signed up yet)
+      if (email) {
         try {
           const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
           const emailContent = emailTemplates.group_invitation({
