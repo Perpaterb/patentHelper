@@ -404,7 +404,7 @@ export default function AuditLogsScreen({ navigation }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f5f5f5' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', backgroundColor: '#f5f5f5' }}>
       <View style={styles.header}>
         <Button
           mode="text"
@@ -431,7 +431,7 @@ export default function AuditLogsScreen({ navigation }) {
         </Surface>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
+      <div style={{ flex: 1, padding: 0 }}>
         {groups.length === 0 ? (
           <Card style={styles.card}>
             <Card.Content>
