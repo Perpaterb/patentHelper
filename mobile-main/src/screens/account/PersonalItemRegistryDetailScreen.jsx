@@ -14,6 +14,7 @@ import api from '../../services/api';
 import ImageViewer from '../../components/shared/ImageViewer';
 import { getFileUrl } from '../../services/upload.service';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import CONFIG from '../../constants/config';
 
 /**
  * @typedef {Object} PersonalItemRegistryDetailScreenProps
@@ -370,7 +371,7 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
                   <View style={styles.linkContainer}>
                     <Text style={styles.linkLabel}>Share Link:</Text>
                     <Text style={styles.linkValue} selectable>
-                      {`https://parentinghelperapp.com/registry/${registry.webToken}`}
+                      {`${CONFIG.WEB_APP_URL}/item-registry/${registry.webToken}`}
                     </Text>
                     <Text style={styles.linkHint}>
                       Anyone with this link {registry.sharingType === 'external_link_passcode' ? 'and passcode ' : ''}

@@ -107,6 +107,10 @@ import SupportScreen from './src/screens/SupportScreen';
 import SecretSantaPasscodeScreen from './src/screens/SecretSantaPasscodeScreen';
 import SecretSantaViewScreen from './src/screens/SecretSantaViewScreen';
 
+// Public registry screens (no auth required)
+import GiftRegistryPublicScreen from './src/screens/GiftRegistryPublicScreen';
+import ItemRegistryPublicScreen from './src/screens/ItemRegistryPublicScreen';
+
 const Stack = createStackNavigator();
 
 /**
@@ -176,6 +180,9 @@ const linking = {
       // Public Secret Santa pages (no auth required)
       SecretSantaPasscode: 'secret-santa/:webToken',
       SecretSantaView: 'secret-santa/:webToken/view',
+      // Public registry pages (no auth required)
+      GiftRegistryPublic: 'gift-registry/:webToken',
+      ItemRegistryPublic: 'item-registry/:webToken',
       // Public/Admin pages
       Landing: '',
       Login: 'login',
@@ -316,6 +323,9 @@ function AppNavigator() {
               {/* Public Secret Santa screens - no auth required */}
               <Stack.Screen name="SecretSantaPasscode" component={SecretSantaPasscodeScreen} />
               <Stack.Screen name="SecretSantaView" component={SecretSantaViewScreen} />
+              {/* Public registry screens - no auth required */}
+              <Stack.Screen name="GiftRegistryPublic" component={GiftRegistryPublicScreen} />
+              <Stack.Screen name="ItemRegistryPublic" component={ItemRegistryPublicScreen} />
             </>
           ) : (
           // Authenticated screens (with AppLayout)
@@ -400,6 +410,10 @@ function AppNavigator() {
             {/* Public Secret Santa screens - available when authenticated too */}
             <Stack.Screen name="SecretSantaPasscode" component={SecretSantaPasscodeScreen} />
             <Stack.Screen name="SecretSantaView" component={SecretSantaViewScreen} />
+
+            {/* Public registry screens - available when authenticated too */}
+            <Stack.Screen name="GiftRegistryPublic" component={GiftRegistryPublicScreen} />
+            <Stack.Screen name="ItemRegistryPublic" component={ItemRegistryPublicScreen} />
           </>
         )}
       </Stack.Navigator>

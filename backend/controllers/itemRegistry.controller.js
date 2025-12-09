@@ -1211,6 +1211,241 @@ async function unlinkPersonalRegistry(req, res) {
   }
 }
 
+/**
+ * Get public item registry by webToken
+ * GET /public/item-registry/:webToken
+ * No authentication required
+ */
+async function getPublicItemRegistry(req, res) {
+  try {
+    const { webToken } = req.params;
+
+    if (!webToken) {
+      return res.status(400).json({
+        error: 'Missing webToken',
+        message: 'Registry token is required',
+      });
+    }
+
+    // Try to find in group item registries first
+    let registry = await prisma.itemRegistry.findFirst({
+      where: {
+        webToken: webToken,
+      },
+      include: {
+        items: {
+          orderBy: {
+            displayOrder: 'asc',
+          },
+        },
+      },
+    });
+
+    let isPersonal = false;
+
+    // If not found, try personal item registries
+    if (!registry) {
+      registry = await prisma.personalItemRegistry.findFirst({
+        where: {
+          webToken: webToken,
+        },
+        include: {
+          items: {
+            orderBy: {
+              displayOrder: 'asc',
+            },
+          },
+        },
+      });
+      isPersonal = true;
+    }
+
+    if (!registry) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Registry not found or link has expired',
+      });
+    }
+
+    // Check if registry is accessible (not group_only)
+    if (registry.sharingType === 'group_only') {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'This registry is only visible to group members',
+      });
+    }
+
+    // If passcode protected, require passcode verification
+    if (registry.sharingType === 'passcode') {
+      return res.status(401).json({
+        requiresPasscode: true,
+        name: registry.name,
+        message: 'This registry requires a passcode',
+      });
+    }
+
+    // Public registry - return full data
+    res.status(200).json({
+      success: true,
+      registry: {
+        registryId: registry.registryId,
+        name: registry.name,
+        type: isPersonal ? 'personal' : 'group',
+        items: registry.items.map(item => ({
+          itemId: item.itemId,
+          title: item.title,
+          link: item.link,
+          photoUrl: item.photoUrl,
+          cost: item.cost,
+          description: item.description,
+          isObtained: item.isObtained,
+          category: item.category,
+          storageLocation: item.storageLocation,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Get public item registry error:', error);
+    res.status(500).json({
+      error: 'Failed to get registry',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Verify passcode and get item registry
+ * POST /public/item-registry/:webToken
+ * Body: { passcode }
+ * No authentication required
+ */
+async function verifyItemRegistryPasscode(req, res) {
+  try {
+    const { webToken } = req.params;
+    const { passcode } = req.body;
+
+    if (!webToken) {
+      return res.status(400).json({
+        error: 'Missing webToken',
+        message: 'Registry token is required',
+      });
+    }
+
+    if (!passcode) {
+      return res.status(400).json({
+        error: 'Missing passcode',
+        message: 'Passcode is required',
+      });
+    }
+
+    // Try to find in group item registries first
+    let registry = await prisma.itemRegistry.findFirst({
+      where: {
+        webToken: webToken,
+      },
+      include: {
+        items: {
+          orderBy: {
+            displayOrder: 'asc',
+          },
+        },
+      },
+    });
+
+    let isPersonal = false;
+
+    // If not found, try personal item registries
+    if (!registry) {
+      registry = await prisma.personalItemRegistry.findFirst({
+        where: {
+          webToken: webToken,
+        },
+        include: {
+          items: {
+            orderBy: {
+              displayOrder: 'asc',
+            },
+          },
+        },
+      });
+      isPersonal = true;
+    }
+
+    if (!registry) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: 'Registry not found or link has expired',
+      });
+    }
+
+    // Check if registry is accessible (not group_only)
+    if (registry.sharingType === 'group_only') {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'This registry is only visible to group members',
+      });
+    }
+
+    // If not passcode protected, just return the data
+    if (registry.sharingType !== 'passcode') {
+      return res.status(200).json({
+        success: true,
+        registry: {
+          registryId: registry.registryId,
+          name: registry.name,
+          type: isPersonal ? 'personal' : 'group',
+          items: registry.items.map(item => ({
+            itemId: item.itemId,
+            title: item.title,
+            link: item.link,
+            photoUrl: item.photoUrl,
+            cost: item.cost,
+            description: item.description,
+            isObtained: item.isObtained,
+            category: item.category,
+            storageLocation: item.storageLocation,
+          })),
+        },
+      });
+    }
+
+    // Verify passcode
+    if (registry.passcode !== passcode.trim().toUpperCase() && registry.passcode !== passcode.trim()) {
+      return res.status(401).json({
+        error: 'Invalid passcode',
+        message: 'The passcode you entered is incorrect',
+      });
+    }
+
+    // Passcode correct - return full data
+    res.status(200).json({
+      success: true,
+      registry: {
+        registryId: registry.registryId,
+        name: registry.name,
+        type: isPersonal ? 'personal' : 'group',
+        items: registry.items.map(item => ({
+          itemId: item.itemId,
+          title: item.title,
+          link: item.link,
+          photoUrl: item.photoUrl,
+          cost: item.cost,
+          description: item.description,
+          isObtained: item.isObtained,
+          category: item.category,
+          storageLocation: item.storageLocation,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Verify item registry passcode error:', error);
+    res.status(500).json({
+      error: 'Failed to verify passcode',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getItemRegistries,
   getItemRegistryById,
@@ -1223,4 +1458,6 @@ module.exports = {
   reorderItems,
   linkPersonalRegistry,
   unlinkPersonalRegistry,
+  getPublicItemRegistry,
+  verifyItemRegistryPasscode,
 };

@@ -14,6 +14,7 @@ import api from '../../services/api';
 import ImageViewer from '../../components/shared/ImageViewer';
 import { getFileUrl } from '../../services/upload.service';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import CONFIG from '../../constants/config';
 
 /**
  * @typedef {Object} ItemRegistryDetailScreenProps
@@ -394,8 +395,11 @@ export default function ItemRegistryDetailScreen({ navigation, route }) {
             {registry.webToken && (
               <View style={styles.webTokenSection}>
                 <Text style={styles.webTokenLabel}>Share Link:</Text>
-                <Text style={styles.webTokenValue} numberOfLines={1}>
-                  {`https://familyhelperapp.com/registry/${registry.webToken}`}
+                <Text
+                  style={styles.webTokenValue}
+                  selectable
+                >
+                  {`${CONFIG.WEB_APP_URL}/item-registry/${registry.webToken}`}
                 </Text>
               </View>
             )}
