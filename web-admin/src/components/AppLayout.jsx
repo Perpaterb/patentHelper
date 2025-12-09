@@ -5,7 +5,7 @@
  * React Native Paper version.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import {
   Drawer,
@@ -24,16 +24,20 @@ function AppLayout({ children, navigation, currentRoute }) {
   const { logout } = useKindeAuth();
   const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
   const [isSupportUser, setIsSupportUser] = useState(false);
+  const supportCheckRef = useRef(false);
 
-  // Check if user has support access
+  // Check if user has support access - only once using ref to prevent re-runs
   useEffect(() => {
+    if (supportCheckRef.current) return;
+    supportCheckRef.current = true;
+
     async function checkSupportAccess() {
       try {
         const response = await api.get('/support/check-access');
         setIsSupportUser(response.data.isSupportUser || false);
       } catch (err) {
         // Silently fail - user is not a support user
-        setIsSupportUser(false);
+        console.log('Support access check failed (user may not be a support user)');
       }
     }
     checkSupportAccess();
