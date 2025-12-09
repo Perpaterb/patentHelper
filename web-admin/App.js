@@ -40,6 +40,16 @@ import MobileMyAccountScreen from '../mobile-main/src/screens/account/MyAccountS
 // Web-admin My Account (different from mobile)
 import WebAdminMyAccountScreen from './src/screens/MyAccountScreen';
 
+// Import personal registry screens
+import PersonalGiftRegistriesScreen from '../mobile-main/src/screens/account/PersonalGiftRegistriesScreen';
+import PersonalItemRegistriesScreen from '../mobile-main/src/screens/account/PersonalItemRegistriesScreen';
+import AddEditPersonalGiftRegistryScreen from '../mobile-main/src/screens/account/AddEditPersonalGiftRegistryScreen';
+import AddEditPersonalItemRegistryScreen from '../mobile-main/src/screens/account/AddEditPersonalItemRegistryScreen';
+import PersonalGiftRegistryDetailScreen from '../mobile-main/src/screens/account/PersonalGiftRegistryDetailScreen';
+import PersonalItemRegistryDetailScreen from '../mobile-main/src/screens/account/PersonalItemRegistryDetailScreen';
+import AddEditPersonalGiftItemScreen from '../mobile-main/src/screens/account/AddEditPersonalGiftItemScreen';
+import AddEditPersonalItemRegistryItemScreen from '../mobile-main/src/screens/account/AddEditPersonalItemRegistryItemScreen';
+
 // Import calendar screens
 import CalendarScreen from '../mobile-main/src/screens/calendar/CalendarScreen';
 import CreateEventScreen from '../mobile-main/src/screens/calendar/CreateEventScreen';
@@ -213,6 +223,14 @@ const linking = {
       ActiveVideoCall: 'web-app/group/:groupId/video-calls/:callId/active',
       VideoCallDetails: 'web-app/group/:groupId/video-calls/:callId',
       MyAccount: 'my-account',
+      PersonalGiftRegistries: 'my-account/gift-registries',
+      PersonalItemRegistries: 'my-account/item-registries',
+      AddEditPersonalGiftRegistry: 'my-account/gift-registries/edit/:registryId?',
+      AddEditPersonalItemRegistry: 'my-account/item-registries/edit/:registryId?',
+      PersonalGiftRegistryDetail: 'my-account/gift-registries/:registryId',
+      PersonalItemRegistryDetail: 'my-account/item-registries/:registryId',
+      AddEditPersonalGiftItem: 'my-account/gift-registries/:registryId/item/:itemId?',
+      AddEditPersonalItemRegistryItem: 'my-account/item-registries/:registryId/item/:itemId?',
     },
   },
 };
@@ -359,6 +377,16 @@ function AppNavigator() {
 
             {/* Mobile app My Account - in phone frame */}
             <Stack.Screen name="MyAccount" component={withAppLayoutAndPhoneFrame(MobileMyAccountScreen, 'Groups')} />
+
+            {/* Personal Registries */}
+            <Stack.Screen name="PersonalGiftRegistries" component={withAppLayoutAndPhoneFrame(PersonalGiftRegistriesScreen, 'Groups')} />
+            <Stack.Screen name="PersonalItemRegistries" component={withAppLayoutAndPhoneFrame(PersonalItemRegistriesScreen, 'Groups')} />
+            <Stack.Screen name="AddEditPersonalGiftRegistry" component={withAppLayoutAndPhoneFrame(AddEditPersonalGiftRegistryScreen, 'Groups')} />
+            <Stack.Screen name="AddEditPersonalItemRegistry" component={withAppLayoutAndPhoneFrame(AddEditPersonalItemRegistryScreen, 'Groups')} />
+            <Stack.Screen name="PersonalGiftRegistryDetail" component={withAppLayoutAndPhoneFrame(PersonalGiftRegistryDetailScreen, 'Groups')} />
+            <Stack.Screen name="PersonalItemRegistryDetail" component={withAppLayoutAndPhoneFrame(PersonalItemRegistryDetailScreen, 'Groups')} />
+            <Stack.Screen name="AddEditPersonalGiftItem" component={withAppLayoutAndPhoneFrame(AddEditPersonalGiftItemScreen, 'Groups')} />
+            <Stack.Screen name="AddEditPersonalItemRegistryItem" component={withAppLayoutAndPhoneFrame(AddEditPersonalItemRegistryItemScreen, 'Groups')} />
 
             {/* Web-admin My Account - no phone frame */}
             <Stack.Screen name="WebAdminMyAccount" component={withAppLayout(WebAdminMyAccountScreen, 'MyAccount')} />
