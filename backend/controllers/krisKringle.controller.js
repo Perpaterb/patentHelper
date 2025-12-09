@@ -1634,24 +1634,30 @@ async function getSecretSantaData(req, res) {
     const receiver = match ? krisKringle.participants.find(p => p.participantId === match.receiverId) : null;
 
     // Build all gift registries list (from all participants' SS registries)
+    // Note: Hide isPurchased from the registry owner so they don't see what's being bought for them
     const giftRegistries = krisKringle.participants
       .filter(p => p.ssGiftRegistry)
-      .map(p => ({
-        registryId: p.ssGiftRegistry.registryId,
-        participantId: p.participantId,
-        participantName: p.name,
-        name: p.ssGiftRegistry.name,
-        type: 'secret-santa',
-        items: p.ssGiftRegistry.items.map(item => ({
-          itemId: item.itemId,
-          title: item.title,
-          link: item.link,
-          photoUrl: item.photoUrl,
-          cost: item.cost,
-          description: item.description,
-          isPurchased: item.isPurchased,
-        })),
-      }));
+      .map(p => {
+        const isOwnRegistry = p.participantId === participant.participantId;
+        return {
+          registryId: p.ssGiftRegistry.registryId,
+          participantId: p.participantId,
+          participantName: p.name,
+          name: p.ssGiftRegistry.name,
+          type: 'secret-santa',
+          isOwn: isOwnRegistry,
+          items: p.ssGiftRegistry.items.map(item => ({
+            itemId: item.itemId,
+            title: item.title,
+            link: item.link,
+            photoUrl: item.photoUrl,
+            cost: item.cost,
+            description: item.description,
+            // Hide purchased status from owner
+            isPurchased: isOwnRegistry ? false : item.isPurchased,
+          })),
+        };
+      });
 
     // Get group member IDs for participants who are group members
     const groupMemberIds = krisKringle.participants
@@ -1689,6 +1695,7 @@ async function getSecretSantaData(req, res) {
     groupGiftRegistries.forEach(registry => {
       const participantInfo = groupMemberToParticipant[registry.creatorId];
       if (participantInfo) {
+        const isOwnRegistry = participantInfo.participantId === participant.participantId;
         giftRegistries.push({
           registryId: registry.registryId,
           participantId: participantInfo.participantId,
@@ -1696,6 +1703,7 @@ async function getSecretSantaData(req, res) {
           name: registry.name,
           type: 'group',
           webToken: registry.webToken,
+          isOwn: isOwnRegistry,
           items: registry.items.map(item => ({
             itemId: item.itemId,
             title: item.title,
@@ -1703,7 +1711,8 @@ async function getSecretSantaData(req, res) {
             photoUrl: item.photoUrl,
             cost: item.cost,
             description: item.description,
-            isPurchased: item.isPurchased,
+            // Hide purchased status from owner
+            isPurchased: isOwnRegistry ? false : item.isPurchased,
           })),
         });
       }
@@ -1736,6 +1745,7 @@ async function getSecretSantaData(req, res) {
     personalRegistryLinks.forEach(link => {
       const participantInfo = groupMemberToParticipant[link.linkedBy];
       if (participantInfo && link.registry) {
+        const isOwnRegistry = participantInfo.participantId === participant.participantId;
         giftRegistries.push({
           registryId: link.registry.registryId,
           participantId: participantInfo.participantId,
@@ -1743,6 +1753,7 @@ async function getSecretSantaData(req, res) {
           name: link.registry.name,
           type: 'personal',
           webToken: link.registry.webToken,
+          isOwn: isOwnRegistry,
           items: link.registry.items.map(item => ({
             itemId: item.itemId,
             title: item.title,
@@ -1750,7 +1761,8 @@ async function getSecretSantaData(req, res) {
             photoUrl: item.photoUrl,
             cost: item.cost,
             description: item.description,
-            isPurchased: item.isPurchased,
+            // Hide purchased status from owner
+            isPurchased: isOwnRegistry ? false : item.isPurchased,
           })),
         });
       }
