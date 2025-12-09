@@ -85,9 +85,9 @@ export default function CreateChildEventScreen({ navigation, route }) {
         const childMembers = allMembers.filter(m => m.role === 'child');
         setChildren(childMembers);
 
-        // Filter adults (admin, parent, caregiver)
+        // Filter adults (admin, parent, adult, caregiver)
         const adultMembers = allMembers.filter(m =>
-          m.role === 'admin' || m.role === 'parent' || m.role === 'caregiver'
+          m.role === 'admin' || m.role === 'parent' || m.role === 'adult' || m.role === 'caregiver'
         );
         setAdults(adultMembers);
       }

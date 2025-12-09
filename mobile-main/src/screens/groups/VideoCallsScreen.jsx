@@ -70,6 +70,8 @@ export default function VideoCallsScreen({ navigation, route }) {
         setCanMakeCalls(true);
       } else if (role === 'parent' && (settings?.videoCallsUsableByParents !== false)) {
         setCanMakeCalls(true);
+      } else if (role === 'adult' && (settings?.videoCallsUsableByAdults !== false)) {
+        setCanMakeCalls(true);
       } else if (role === 'caregiver' && (settings?.videoCallsUsableByCaregivers !== false)) {
         setCanMakeCalls(true);
       } else if (role === 'child' && (settings?.videoCallsUsableByChildren !== false)) {

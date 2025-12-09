@@ -1157,6 +1157,19 @@ async function addReaction(req, res) {
       },
     };
 
+    // Create audit log entry
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'add_reaction',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'messages',
+        messageContent: `Added reaction "${emoji}" to message (Message ID: ${messageId})`,
+      },
+    });
+
     res.status(201).json({
       success: true,
       reaction: formattedReaction,
@@ -1199,11 +1212,25 @@ async function removeReaction(req, res) {
     }
 
     // Delete the reaction
+    const decodedEmoji = decodeURIComponent(emoji);
     await prisma.messageReaction.deleteMany({
       where: {
         messageId: messageId,
         reactorId: groupMembership.groupMemberId,
-        emoji: decodeURIComponent(emoji),
+        emoji: decodedEmoji,
+      },
+    });
+
+    // Create audit log entry
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'remove_reaction',
+        performedBy: groupMembership.groupMemberId,
+        performedByName: groupMembership.displayName,
+        performedByEmail: groupMembership.email || 'N/A',
+        actionLocation: 'messages',
+        messageContent: `Removed reaction "${decodedEmoji}" from message (Message ID: ${messageId})`,
       },
     });
 

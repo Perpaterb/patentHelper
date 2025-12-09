@@ -75,6 +75,7 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
         const memberRole = member.role;
         if (memberRole === 'admin' || memberRole === 'supervisor') return true;
         if (memberRole === 'parent') return settings.financeVisibleToParents === true;
+        if (memberRole === 'adult') return settings.financeVisibleToAdults === true;
         if (memberRole === 'caregiver') return settings.financeVisibleToCaregivers === true;
         if (memberRole === 'child') return settings.financeVisibleToChildren === true;
         return false;

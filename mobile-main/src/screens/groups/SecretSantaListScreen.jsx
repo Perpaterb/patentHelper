@@ -36,6 +36,8 @@ export default function SecretSantaListScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.secretSantaCreatableByParents === true || settings?.secretSantaCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.secretSantaCreatableByAdults === true || settings?.secretSantaCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.secretSantaCreatableByCaregivers === true || settings?.secretSantaCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.secretSantaCreatableByChildren === true || settings?.secretSantaCreatableByChildren === undefined)) {

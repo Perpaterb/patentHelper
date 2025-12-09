@@ -247,6 +247,7 @@ async function createMessageGroup(req, res) {
     const canCreateMessageGroup =
       userMembership.role === 'admin' ||
       (userMembership.role === 'parent' && groupSettings?.parentsCreateMessageGroups) ||
+      (userMembership.role === 'adult' && groupSettings?.messageGroupsCreatableByAdults) ||
       (userMembership.role === 'child' && groupSettings?.childrenCreateMessageGroups) ||
       (userMembership.role === 'caregiver' && groupSettings?.caregiversCreateMessageGroups);
 

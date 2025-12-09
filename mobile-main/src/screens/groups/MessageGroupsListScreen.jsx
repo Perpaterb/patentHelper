@@ -76,6 +76,8 @@ export default function MessageGroupsListScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.messageGroupsCreatableByParents === true || settings?.messageGroupsCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.messageGroupsCreatableByAdults === true || settings?.messageGroupsCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.messageGroupsCreatableByCaregivers === true || settings?.messageGroupsCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.messageGroupsCreatableByChildren === true || settings?.messageGroupsCreatableByChildren === undefined)) {

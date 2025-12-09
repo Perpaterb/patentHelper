@@ -91,6 +91,8 @@ export default function WikiScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.wikiCreatableByParents === true || settings?.wikiCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.wikiCreatableByAdults === true || settings?.wikiCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.wikiCreatableByCaregivers === true || settings?.wikiCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.wikiCreatableByChildren === true || settings?.wikiCreatableByChildren === undefined)) {

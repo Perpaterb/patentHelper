@@ -70,6 +70,8 @@ export default function PhoneCallsScreen({ navigation, route }) {
         setCanMakeCalls(true);
       } else if (role === 'parent' && (settings?.phoneCallsUsableByParents !== false)) {
         setCanMakeCalls(true);
+      } else if (role === 'adult' && (settings?.phoneCallsUsableByAdults !== false)) {
+        setCanMakeCalls(true);
       } else if (role === 'caregiver' && (settings?.phoneCallsUsableByCaregivers !== false)) {
         setCanMakeCalls(true);
       } else if (role === 'child' && (settings?.phoneCallsUsableByChildren !== false)) {

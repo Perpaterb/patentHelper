@@ -65,6 +65,8 @@ export default function FinanceListScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.financeCreatableByParents === true || settings?.financeCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.financeCreatableByAdults === true || settings?.financeCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.financeCreatableByCaregivers === true || settings?.financeCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.financeCreatableByChildren === true || settings?.financeCreatableByChildren === undefined)) {

@@ -928,6 +928,8 @@ export default function CalendarScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.calendarCreatableByParents === true || settings?.calendarCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.calendarCreatableByAdults === true || settings?.calendarCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.calendarCreatableByCaregivers === true || settings?.calendarCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.calendarCreatableByChildren === true || settings?.calendarCreatableByChildren === undefined)) {

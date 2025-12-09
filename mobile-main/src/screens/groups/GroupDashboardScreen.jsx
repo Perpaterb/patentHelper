@@ -72,6 +72,7 @@ export default function GroupDashboardScreen({ navigation, route }) {
       if (role === 'admin') return true;
       if (role === 'supervisor') return settings[`${featureKey}VisibleToSupervisors`] !== false;
       if (role === 'parent') return settings[`${featureKey}VisibleToParents`] === true || settings[`${featureKey}VisibleToParents`] === undefined;
+      if (role === 'adult') return settings[`${featureKey}VisibleToAdults`] === true || settings[`${featureKey}VisibleToAdults`] === undefined;
       if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] === true || settings[`${featureKey}VisibleToCaregivers`] === undefined;
       if (role === 'child') return settings[`${featureKey}VisibleToChildren`] === true || settings[`${featureKey}VisibleToChildren`] === undefined;
       return false;
@@ -241,6 +242,10 @@ export default function GroupDashboardScreen({ navigation, route }) {
       const key = `${featureKey}VisibleToParents`;
       // If the setting is explicitly false, hide the feature
       // If undefined or true, show it (default to visible)
+      return settings[key] === true || settings[key] === undefined;
+    }
+    if (role === 'adult') {
+      const key = `${featureKey}VisibleToAdults`;
       return settings[key] === true || settings[key] === undefined;
     }
     if (role === 'caregiver') {

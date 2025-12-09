@@ -72,6 +72,8 @@ export default function DocumentsScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.documentsCreatableByParents === true || settings?.documentsCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.documentsCreatableByAdults === true || settings?.documentsCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.documentsCreatableByCaregivers === true || settings?.documentsCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.documentsCreatableByChildren === true || settings?.documentsCreatableByChildren === undefined)) {

@@ -71,6 +71,8 @@ export default function GiftRegistryListScreen({ navigation, route }) {
         setCanCreate(true);
       } else if (role === 'parent' && (settings?.giftRegistryCreatableByParents === true || settings?.giftRegistryCreatableByParents === undefined)) {
         setCanCreate(true);
+      } else if (role === 'adult' && (settings?.giftRegistryCreatableByAdults === true || settings?.giftRegistryCreatableByAdults === undefined)) {
+        setCanCreate(true);
       } else if (role === 'caregiver' && (settings?.giftRegistryCreatableByCaregivers === true || settings?.giftRegistryCreatableByCaregivers === undefined)) {
         setCanCreate(true);
       } else if (role === 'child' && (settings?.giftRegistryCreatableByChildren === true || settings?.giftRegistryCreatableByChildren === undefined)) {

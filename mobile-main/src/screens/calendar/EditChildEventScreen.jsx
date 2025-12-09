@@ -86,7 +86,7 @@ export default function EditChildEventScreen({ route, navigation }) {
       const members = response.data.group.members || [];
 
       const children = members.filter(m => m.role === 'child');
-      const adults = members.filter(m => ['admin', 'parent', 'caregiver'].includes(m.role));
+      const adults = members.filter(m => ['admin', 'parent', 'adult', 'caregiver'].includes(m.role));
 
       setAllChildren(children);
       setAllMembers(adults);
