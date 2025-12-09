@@ -39,6 +39,9 @@ try {
   console.log('[ImageConversion] Media processor service not available');
 }
 
+// Path to shared uploads directory (mounted in Docker as /app/uploads)
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
 /**
  * Check if any form of image processing is available
  * @returns {boolean} True if processing is available (locally or via service)
@@ -317,18 +320,16 @@ async function convertViaMediaProcessor(inputBuffer, originalMimeType) {
       mimeType: originalMimeType,
     });
 
-    // Read converted file from result
-    let outputBuffer;
-    if (result.data) {
-      // Base64 data returned
-      outputBuffer = Buffer.from(result.data, 'base64');
-    } else if (result.filePath) {
-      // File path returned
-      outputBuffer = await fs.readFile(result.filePath);
-      await fs.unlink(result.filePath).catch(() => {});
-    } else {
-      throw new Error('Media processor returned no data');
-    }
+    // Media processor saves file to /app/uploads/ which maps to ./backend/uploads/
+    // Translate container path to host path
+    const fileName = result.outputFileName;
+    const hostPath = path.join(UPLOADS_DIR, fileName);
+
+    // Read converted file from shared volume
+    const outputBuffer = await fs.readFile(hostPath);
+
+    // Clean up the file in shared uploads
+    await fs.unlink(hostPath).catch(() => {});
 
     return {
       buffer: outputBuffer,

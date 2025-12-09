@@ -34,10 +34,13 @@ try {
   console.log('[AudioConverter] Local ffmpeg not available - using media processor service');
 }
 
+// Path to shared uploads directory (mounted in Docker as /app/uploads)
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
 /**
  * Convert audio using the Media Processor Docker container
  * @param {string} inputPath - Path to input audio file
- * @param {string} outputDir - Directory to save converted file
+ * @param {string} outputDir - Directory to save converted file (ignored, uses shared volume)
  * @returns {Promise<{path: string, mimeType: string}>} Converted file info
  */
 async function convertViaMPediaProcessor(inputPath, outputDir) {
@@ -55,22 +58,23 @@ async function convertViaMPediaProcessor(inputPath, outputDir) {
       throw new Error(response.data.error || 'Audio conversion failed');
     }
 
-    // The media processor returns the converted file data
-    const outputFileName = `${uuidv4()}.mp3`;
-    const outputPath = path.join(outputDir, outputFileName);
+    // Media processor saves file to /app/uploads/ which maps to ./backend/uploads/
+    // Translate container path to host path
+    const containerPath = response.data.outputPath; // e.g., /app/uploads/xxx.mp3
+    const fileName = response.data.outputFileName;  // e.g., xxx.mp3
+    const hostPath = path.join(UPLOADS_DIR, fileName);
 
-    // If media processor returns base64 data
-    if (response.data.data) {
-      const buffer = Buffer.from(response.data.data, 'base64');
-      await fs.writeFile(outputPath, buffer);
-    } else if (response.data.filePath) {
-      // If media processor returns a file path (shared volume)
-      await fs.copyFile(response.data.filePath, outputPath);
+    // Copy to the requested output directory if different
+    const finalPath = path.join(outputDir, fileName);
+    if (outputDir !== UPLOADS_DIR) {
+      await fs.copyFile(hostPath, finalPath);
+      // Clean up the file in shared uploads
+      await fs.unlink(hostPath).catch(() => {});
     }
 
     return {
-      path: outputPath,
-      fileName: outputFileName,
+      path: outputDir === UPLOADS_DIR ? hostPath : finalPath,
+      fileName: fileName,
       mimeType: 'audio/mpeg',
       durationMs: response.data.durationMs || 0,
     };

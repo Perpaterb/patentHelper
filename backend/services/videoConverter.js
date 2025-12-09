@@ -37,6 +37,9 @@ try {
   console.log('[VideoConverter] Media processor service not available');
 }
 
+// Path to shared uploads directory (mounted in Docker as /app/uploads)
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
 /**
  * Check if video processing is available (any method)
  * @returns {Promise<boolean>}
@@ -171,24 +174,22 @@ async function convertToMp4ViaMediaProcessor(inputPath, outputDir) {
     filePath: inputPath,
   });
 
-  const outputFileName = `${uuidv4()}.mp4`;
-  const outputPath = path.join(outputDir, outputFileName);
+  // Media processor saves file to /app/uploads/ which maps to ./backend/uploads/
+  // Translate container path to host path
+  const fileName = result.outputFileName;
+  const hostPath = path.join(UPLOADS_DIR, fileName);
 
-  // Write converted file from result
-  if (result.data) {
-    // Base64 data returned
-    const buffer = Buffer.from(result.data, 'base64');
-    await fs.writeFile(outputPath, buffer);
-  } else if (result.filePath) {
-    // File path returned (shared volume)
-    await fs.copyFile(result.filePath, outputPath);
-  } else {
-    throw new Error('Media processor returned no data');
+  // Copy to the requested output directory if different
+  const finalPath = path.join(outputDir, fileName);
+  if (outputDir !== UPLOADS_DIR) {
+    await fs.copyFile(hostPath, finalPath);
+    // Clean up the file in shared uploads
+    await fs.unlink(hostPath).catch(() => {});
   }
 
   return {
-    path: outputPath,
-    fileName: outputFileName,
+    path: outputDir === UPLOADS_DIR ? hostPath : finalPath,
+    fileName: fileName,
     mimeType: 'video/mp4',
     durationMs: result.durationMs || 0,
   };
