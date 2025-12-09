@@ -5,7 +5,7 @@
  * React Native Paper version for web-admin.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import {
   Text,
@@ -14,63 +14,14 @@ import {
   Title,
   Paragraph,
   Surface,
-  ActivityIndicator,
-  Divider,
 } from 'react-native-paper';
+// Note: Button, Paragraph kept for potential future use with error handling
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import api from '../services/api';
 
 export default function MyAccountScreen({ navigation }) {
   const { user } = useKindeAuth();
-  const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    fetchSubscription();
-  }, []);
-
-  async function fetchSubscription() {
-    try {
-      setLoading(true);
-      const response = await api.get('/subscriptions/current');
-      setSubscription(response.data.subscription);
-    } catch (err) {
-      console.error('Failed to fetch subscription:', err);
-      if (err.response?.status !== 404) {
-        setError('Failed to load account information.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /**
-   * Calculate additional storage charges
-   */
-  function calculateAdditionalCharges() {
-    if (!subscription || parseFloat(subscription.storageUsedGb) <= 10) {
-      return { units: 0, cost: 0, overageGb: 0 };
-    }
-
-    const overageGb = parseFloat(subscription.storageUsedGb) - 10;
-    const units = Math.ceil(overageGb / 2);
-    const cost = units * 1.0;
-
-    return { units, cost, overageGb };
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>Loading account information...</Text>
-      </View>
-    );
-  }
-
-  const additionalCharges = calculateAdditionalCharges();
 
   return (
     <ScrollView style={styles.container}>
@@ -88,87 +39,28 @@ export default function MyAccountScreen({ navigation }) {
           </Surface>
         )}
 
-        <View style={styles.cardsGrid}>
-          {/* Account Information Card */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="account" size={32} color="#1976d2" />
-                <Title style={styles.cardTitle}>Account Information</Title>
-              </View>
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoLabel}>
-                  <MaterialCommunityIcons name="email" size={20} color="#666" />
-                  <Text style={styles.labelText}>Email</Text>
-                </View>
-                <Text style={styles.infoValue}>{user?.email || 'Not available'}</Text>
-              </View>
-
-              <Surface style={styles.infoBox}>
-                <Text style={styles.infoBoxText}>
-                  Authentication is managed by Kinde with passwordless login. To update your email or
-                  security settings, please contact support.
-                </Text>
-              </Surface>
-            </Card.Content>
-          </Card>
-
-          {/* Storage Details Card */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="database" size={32} color="#1976d2" />
-                <Title style={styles.cardTitle}>Storage Details</Title>
-              </View>
-
-              {subscription ? (
-                <>
-                  <View style={styles.storageDisplay}>
-                    <Text style={styles.storageLabel}>Storage Used</Text>
-                    <Text style={styles.storageValue}>{subscription.storageUsedGb || '0.00'} GB</Text>
-                  </View>
-
-                  {additionalCharges.overageGb > 0 ? (
-                    <Surface style={styles.warningBox}>
-                      <Text style={styles.warningTitle}>Additional Storage Charges</Text>
-                      <Text style={styles.warningText}>
-                        {additionalCharges.overageGb.toFixed(2)} GB over base 10GB
-                      </Text>
-                      <Text style={styles.warningText}>
-                        {additionalCharges.units} × $1.00 USD = ${additionalCharges.cost.toFixed(2)} USD/month
-                      </Text>
-                    </Surface>
-                  ) : (
-                    <Surface style={styles.successBox}>
-                      <Text style={styles.successText}>
-                        You're using {subscription.storageUsedGb || '0.00'} GB of your base 10GB storage allocation.
-                      </Text>
-                    </Surface>
-                  )}
-
-                  <Text style={styles.storageNote}>
-                    Storage includes audit logs, images, and videos from all groups where you are an
-                    admin. Additional storage is automatically charged at $1.00 USD per 10GB chunk (billed in 10GB blocks).
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.loadingText}>Loading storage information...</Text>
-              )}
-            </Card.Content>
-          </Card>
-        </View>
-
-        {/* Need Help Card */}
-        <Card style={styles.helpCard}>
+        {/* Account Information Card */}
+        <Card style={styles.card}>
           <Card.Content>
-            <Title>Need Help?</Title>
-            <Paragraph style={styles.helpText}>
-              For account support, subscription changes, or technical issues, please contact our support team.
-            </Paragraph>
-            <Button mode="outlined" style={styles.supportButton}>
-              Contact Support
-            </Button>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons name="account" size={32} color="#1976d2" />
+              <Title style={styles.cardTitle}>Account Information</Title>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabel}>
+                <MaterialCommunityIcons name="email" size={20} color="#666" />
+                <Text style={styles.labelText}>Email</Text>
+              </View>
+              <Text style={styles.infoValue}>{user?.email || 'Not available'}</Text>
+            </View>
+
+            <Surface style={styles.infoBox}>
+              <Text style={styles.infoBoxText}>
+                Authentication is managed by Kinde with passwordless login. To update your email or
+                security settings, please contact support.
+              </Text>
+            </Surface>
           </Card.Content>
         </Card>
       </View>
@@ -186,15 +78,6 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#666',
   },
   pageTitle: {
     fontSize: 28,
@@ -218,17 +101,8 @@ const styles = StyleSheet.create({
     color: '#c62828',
     flex: 1,
   },
-  // Cards grid
-  cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
-    marginBottom: 24,
-  },
   card: {
-    flex: 1,
-    minWidth: 300,
-    margin: 8,
+    marginBottom: 24,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -266,57 +140,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     lineHeight: 18,
-  },
-  // Storage display
-  storageDisplay: {
-    marginBottom: 24,
-  },
-  storageLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  storageValue: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#1976d2',
-  },
-  warningBox: {
-    backgroundColor: '#fff3e0',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  warningTitle: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  warningText: {
-    marginBottom: 4,
-  },
-  successBox: {
-    backgroundColor: '#e8f5e9',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  successText: {
-    color: '#2e7d32',
-  },
-  storageNote: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
-  },
-  // Help card
-  helpCard: {
-    marginBottom: 24,
-  },
-  helpText: {
-    color: '#666',
-    marginBottom: 16,
-  },
-  supportButton: {
-    alignSelf: 'flex-start',
   },
 });
