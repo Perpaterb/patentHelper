@@ -6,6 +6,7 @@
 
 const { prisma } = require('../config/database');
 const { emailService } = require('../services/email');
+const emailTemplates = require('../services/email/templates');
 const crypto = require('crypto');
 
 /**
@@ -316,24 +317,40 @@ async function createKrisKringle(req, res) {
       where: { krisKringleId: krisKringle.krisKringleId },
     });
 
-    const externalUrl = process.env.APP_URL || 'https://parentinghelperapp.com';
+    const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+    const secretSantaUrl = `${appUrl}/secret-santa/${krisKringle.webToken}`;
 
+    // Send initial emails to all participants
     for (const participant of createdParticipants) {
-      try {
-        await emailService.sendEmail({
-          to: participant.email,
-          subject: `🎁 You've been added to ${krisKringle.name} Secret Santa!`,
-          text: `Hi ${participant.name},\n\nYou've been added to the Secret Santa event "${krisKringle.name}"!\n\n${krisKringle.occasion ? `Occasion: ${krisKringle.occasion}\n` : ''}${krisKringle.exchangeDate ? `Exchange date: ${new Date(krisKringle.exchangeDate).toLocaleDateString()}\n` : ''}${krisKringle.priceLimit ? `Gift value: $${krisKringle.priceLimit}\n` : ''}\nYour Secret Santa will be revealed on ${new Date(krisKringle.assigningDateTime).toLocaleString()}.\n\nTo view your assignment when it's ready, visit:\n${externalUrl}/secret-santa/${krisKringle.webToken}\n\nYour access code: ${participant.passcode}\n\n- Parenting Helper`,
-          html: `<p>Hi ${participant.name},</p><p>You've been added to the Secret Santa event <strong>"${krisKringle.name}"</strong>!</p>${krisKringle.occasion ? `<p>Occasion: ${krisKringle.occasion}</p>` : ''}${krisKringle.exchangeDate ? `<p>Exchange date: ${new Date(krisKringle.exchangeDate).toLocaleDateString()}</p>` : ''}${krisKringle.priceLimit ? `<p>Gift value: <strong>$${krisKringle.priceLimit}</strong></p>` : ''}<p>Your Secret Santa will be revealed on <strong>${new Date(krisKringle.assigningDateTime).toLocaleString()}</strong>.</p><p>To view your assignment when it's ready, visit:<br><a href="${externalUrl}/secret-santa/${krisKringle.webToken}">${externalUrl}/secret-santa/${krisKringle.webToken}</a></p><p>Your access code: <strong>${participant.passcode}</strong></p><p>- Parenting Helper</p>`,
-        });
+      if (participant.email) {
+        try {
+          const emailContent = emailTemplates.secret_santa_added({
+            recipientName: participant.name,
+            eventName: krisKringle.name,
+            occasion: krisKringle.occasion || null,
+            exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+            priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
+            revealDate: new Date(krisKringle.assigningDateTime).toLocaleString(),
+            passcode: participant.passcode,
+            secretSantaUrl: secretSantaUrl,
+            appUrl: appUrl,
+          });
+          await emailService.sendEmail({
+            to: participant.email,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+          });
+          console.log(`[KrisKringle] Invitation email sent to ${participant.email}`);
 
-        // Update email sent timestamp
-        await prisma.krisKringleParticipant.update({
-          where: { participantId: participant.participantId },
-          data: { initialEmailSentAt: new Date() },
-        });
-      } catch (emailError) {
-        console.error(`Failed to send email to ${participant.email}:`, emailError);
+          // Update email sent timestamp
+          await prisma.krisKringleParticipant.update({
+            where: { participantId: participant.participantId },
+            data: { initialEmailSentAt: new Date() },
+          });
+        } catch (emailError) {
+          console.error(`[KrisKringle] Failed to send email to ${participant.email}:`, emailError.message);
+        }
       }
     }
 
@@ -501,21 +518,42 @@ async function generateKrisKringleMatches(req, res) {
       data: { status: 'active' },
     });
 
-    // Send emails to all participants
+    // Send match reveal emails to all participants
+    const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+    const secretSantaUrl = `${appUrl}/secret-santa/${krisKringle.webToken}`;
+    let emailsSent = 0;
+
     for (const participant of krisKringle.participants) {
       const match = matches.find(m => m.giverId === participant.participantId);
       const receiver = krisKringle.participants.find(p => p.participantId === match.receiverId);
 
       if (participant.email) {
         try {
+          // Build wishlist URL if receiver has one
+          const wishlistUrl = receiver.wishListId
+            ? `${appUrl}/wishlists/${receiver.wishListId}`
+            : null;
+
+          const emailContent = emailTemplates.secret_santa_match({
+            recipientName: participant.name,
+            eventName: krisKringle.name,
+            matchName: receiver.name,
+            exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+            priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
+            wishlistUrl: wishlistUrl,
+            secretSantaUrl: secretSantaUrl,
+            appUrl: appUrl,
+          });
           await emailService.sendEmail({
             to: participant.email,
-            subject: `🎁 Kris Kringle: ${krisKringle.name}`,
-            text: `Hi ${participant.name},\n\nYou've been matched in the Kris Kringle event "${krisKringle.name}"!\n\nYou're giving a gift to: ${receiver.name}\n\n${krisKringle.priceLimit ? `Price limit: $${krisKringle.priceLimit}\n` : ''}${krisKringle.exchangeDate ? `Exchange date: ${new Date(krisKringle.exchangeDate).toLocaleDateString()}\n` : ''}\n${receiver.wishListId ? `View their wish list: [LINK TO WISH LIST]\n` : ''}\n${!participant.hasJoined ? '\nYou need to sign up for Parenting Helper to create your wish list:\n[SIGNUP LINK]\n' : ''}\nKeep it secret!\n\n- Parenting Helper`,
-            html: `<p>Hi ${participant.name},</p><p>You've been matched in the Kris Kringle event <strong>"${krisKringle.name}"</strong>!</p><p>You're giving a gift to: <strong>${receiver.name}</strong></p>${krisKringle.priceLimit ? `<p>Price limit: <strong>$${krisKringle.priceLimit}</strong></p>` : ''}${krisKringle.exchangeDate ? `<p>Exchange date: ${new Date(krisKringle.exchangeDate).toLocaleDateString()}</p>` : ''}${receiver.wishListId ? '<p><a href="[LINK]">View their wish list</a></p>' : ''}${!participant.hasJoined ? '<p>You need to sign up for Parenting Helper to create your wish list:<br><a href="[SIGNUP LINK]">Sign Up Now</a></p>' : ''}<p>Keep it secret! 🤫</p><p>- Parenting Helper</p>`,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
           });
+          emailsSent++;
+          console.log(`[KrisKringle] Match email sent to ${participant.email}`);
         } catch (emailError) {
-          console.error(`Failed to send email to ${participant.email}:`, emailError);
+          console.error(`[KrisKringle] Failed to send match email to ${participant.email}:`, emailError.message);
         }
       }
     }
@@ -940,15 +978,30 @@ async function resendParticipantEmail(req, res) {
       data: { passcode: newPasscode },
     });
 
-    // Send email
-    const externalUrl = process.env.APP_URL || 'https://parentinghelperapp.com';
+    // Send email with new access code (reusing the added template)
+    const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+    const secretSantaUrl = `${appUrl}/secret-santa/${krisKringle.webToken}`;
 
+    const emailContent = emailTemplates.secret_santa_added({
+      recipientName: participant.name,
+      eventName: krisKringle.name,
+      occasion: krisKringle.occasion || null,
+      exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+      priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
+      revealDate: new Date(krisKringle.assigningDateTime).toLocaleString(),
+      passcode: newPasscode,
+      secretSantaUrl: secretSantaUrl,
+      appUrl: appUrl,
+    });
+
+    // Override subject to indicate this is a resend
     await emailService.sendEmail({
       to: participant.email,
-      subject: `🎁 ${krisKringle.name} Secret Santa - New Access Code`,
-      text: `Hi ${participant.name},\n\nHere's your new access code for the Secret Santa event "${krisKringle.name}".\n\nTo view your assignment, visit:\n${externalUrl}/secret-santa/${krisKringle.webToken}\n\nYour new access code: ${newPasscode}\n\n- Parenting Helper`,
-      html: `<p>Hi ${participant.name},</p><p>Here's your new access code for the Secret Santa event <strong>"${krisKringle.name}"</strong>.</p><p>To view your assignment, visit:<br><a href="${externalUrl}/secret-santa/${krisKringle.webToken}">${externalUrl}/secret-santa/${krisKringle.webToken}</a></p><p>Your new access code: <strong>${newPasscode}</strong></p><p>- Parenting Helper</p>`,
+      subject: `🎁 New Access Code - "${krisKringle.name}" Surprise Santa`,
+      text: emailContent.text,
+      html: emailContent.html,
     });
+    console.log(`[KrisKringle] Resent email with new passcode to ${participant.email}`);
 
     // Update email sent timestamp
     await prisma.krisKringleParticipant.update({
