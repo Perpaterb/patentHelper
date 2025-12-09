@@ -33,7 +33,7 @@ class MailHogEmailService extends EmailInterface {
       } : undefined,
     });
 
-    this.fromAddress = process.env.EMAIL_FROM || 'noreply@parentinghelperapp.com';
+    this.fromAddress = process.env.EMAIL_FROM || 'noreply@familyhelperapp.com';
   }
 
   /**

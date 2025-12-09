@@ -6,6 +6,8 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const emailService = require('../services/email');
+const emailTemplates = require('../services/email/templates');
 
 /**
  * Execute the action for an approved approval
@@ -67,6 +69,39 @@ async function executeApprovedAction(approval) {
               messageContent: `Added ${data.targetDisplayName} (${data.targetEmail}) as ${data.targetRole} via approval workflow`,
             },
           });
+
+          // Send invitation email to registered users only
+          if (targetUserId) {
+            try {
+              // Get group name and requester info for the email
+              const group = await prisma.group.findUnique({
+                where: { groupId: approval.groupId },
+                select: { name: true },
+              });
+              const requester = await prisma.groupMember.findUnique({
+                where: { groupMemberId: approval.requestedBy },
+                select: { displayName: true },
+              });
+
+              const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+              const emailContent = emailTemplates.group_invitation({
+                recipientName: data.targetDisplayName,
+                groupName: group?.name || 'Unknown Group',
+                inviterName: requester?.displayName || 'A group admin',
+                role: data.targetRole,
+                appUrl: appUrl,
+              });
+              await emailService.emailService.sendEmail({
+                to: data.targetEmail.toLowerCase(),
+                subject: emailContent.subject,
+                text: emailContent.text,
+                html: emailContent.html,
+              });
+              console.log(`[executeApprovedAction] Invitation email sent to ${data.targetEmail}`);
+            } catch (emailError) {
+              console.error(`[executeApprovedAction] Failed to send invitation email to ${data.targetEmail}:`, emailError.message);
+            }
+          }
         }
         break;
 
