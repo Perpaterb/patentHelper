@@ -100,7 +100,7 @@ class LocalStorageService extends StorageInterface {
   async getFileMetadata(fileId) {
     try {
       // Find metadata file by searching all category directories
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
@@ -173,7 +173,7 @@ class LocalStorageService extends StorageInterface {
       metadata.isHidden = true;
 
       // Find and update the metadata file
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
@@ -215,7 +215,7 @@ class LocalStorageService extends StorageInterface {
       const bytesFreed = metadata.size || 0;
 
       // Find the file in categories
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
 
       for (const category of categories) {
         const metadataPath = path.join(this.baseUploadPath, category, `${fileId}.json`);
@@ -278,7 +278,7 @@ class LocalStorageService extends StorageInterface {
       // TODO: Implement proper storage usage tracking with groups and media types
       // Storage is tracked per userId + groupId + mediaType in database schema
       // For now, calculate by scanning metadata files
-      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
+      const categories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio', 'temp', 'recordings'];
       let totalBytes = 0;
 
       for (const category of categories) {
