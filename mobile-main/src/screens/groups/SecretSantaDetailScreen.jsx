@@ -529,17 +529,32 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {!event.isAssigned && event.canManage && (
-                  <Button
-                    mode="contained"
-                    icon="shuffle-variant"
-                    onPress={handleGenerateMatches}
-                    loading={generating}
-                    disabled={generating || event.participants.length < 3}
-                    style={styles.generateButton}
-                  >
-                    Generate Matches
-                  </Button>
+                {event.canManage && (
+                  event.isAssigned ? (
+                    <View style={styles.matchesGeneratedContainer}>
+                      <Chip
+                        icon="check-circle"
+                        style={styles.matchesGeneratedChip}
+                        textStyle={styles.matchesGeneratedText}
+                      >
+                        Matches Generated
+                      </Chip>
+                      <Text style={styles.matchesGeneratedNote}>
+                        All participants have been assigned. You can resend emails from the participant menu.
+                      </Text>
+                    </View>
+                  ) : (
+                    <Button
+                      mode="contained"
+                      icon="shuffle-variant"
+                      onPress={handleGenerateMatches}
+                      loading={generating}
+                      disabled={generating || event.participants.length < 3}
+                      style={styles.generateButton}
+                    >
+                      Generate Matches
+                    </Button>
+                  )
                 )}
               </>
             )}
@@ -653,6 +668,12 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
             {!event.isAssigned && event.participants?.length > 0 && event.participants.length < 3 && (
               <Text style={styles.warningText}>
                 Need at least 3 participants ({3 - event.participants.length} more)
+              </Text>
+            )}
+
+            {event.isAssigned && event.canManage && (
+              <Text style={styles.lockedNote}>
+                Participants cannot be added or removed after matches are generated.
               </Text>
             )}
           </Card.Content>
@@ -861,6 +882,22 @@ const styles = StyleSheet.create({
   generateButton: {
     marginTop: 8,
   },
+  matchesGeneratedContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  matchesGeneratedChip: {
+    backgroundColor: '#4caf50',
+  },
+  matchesGeneratedText: {
+    color: '#fff',
+  },
+  matchesGeneratedNote: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
   sectionTitle: {
     fontSize: 16,
     marginBottom: 12,
@@ -967,6 +1004,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 12,
+  },
+  lockedNote: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
   // Modal styles
   modal: {
