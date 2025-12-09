@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal } from 'react-native';
+import { View, StyleSheet, Modal, Platform } from 'react-native';
 import { Title, Text, Button } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 
@@ -83,7 +83,7 @@ export default function ColorPickerModal({ visible, initialColor, onConfirm, onC
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
       transparent={true}
       onRequestClose={onCancel}
     >

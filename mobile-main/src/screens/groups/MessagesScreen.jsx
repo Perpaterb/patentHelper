@@ -998,11 +998,11 @@ export default function MessagesScreen({ navigation, route }) {
         onRequestClose={() => setShowMentionPicker(false)}
       >
         <TouchableOpacity
-          style={styles.mentionPickerOverlay}
+          style={[styles.mentionPickerOverlay, Platform.OS === 'web' && styles.mentionPickerOverlayWeb]}
           activeOpacity={1}
           onPress={() => setShowMentionPicker(false)}
         >
-          <View style={styles.mentionPickerContainer}>
+          <View style={[styles.mentionPickerContainer, Platform.OS === 'web' && styles.mentionPickerContainerWeb]}>
             <ScrollView style={styles.mentionPickerScroll}>
               <Text style={styles.mentionPickerTitle}>Mention someone</Text>
               {filteredMembers.length === 0 ? (
@@ -1660,6 +1660,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  mentionPickerOverlayWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   mentionPickerContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
@@ -1667,6 +1671,12 @@ const styles = StyleSheet.create({
     maxHeight: '60%',
     paddingTop: 16,
     elevation: 5,
+  },
+  mentionPickerContainerWeb: {
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '70%',
   },
   mentionPickerScroll: {
     paddingHorizontal: 16,

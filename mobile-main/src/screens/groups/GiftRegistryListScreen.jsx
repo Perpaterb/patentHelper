@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, IconButton, Chip, Button, Divider } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -466,11 +466,11 @@ export default function GiftRegistryListScreen({ navigation, route }) {
       <Modal
         visible={showAddModal}
         transparent
-        animationType="slide"
+        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContent, Platform.OS === 'web' && styles.modalContentWeb]}>
             <Title style={styles.modalTitle}>Add Gift Registry</Title>
             <Divider style={styles.modalDivider} />
 
@@ -528,11 +528,11 @@ export default function GiftRegistryListScreen({ navigation, route }) {
       <Modal
         visible={showLinkModal}
         transparent
-        animationType="slide"
+        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
         onRequestClose={() => setShowLinkModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContent, Platform.OS === 'web' && styles.modalContentWeb]}>
             <Title style={styles.modalTitle}>Select Personal Registry</Title>
             <Divider style={styles.modalDivider} />
 
@@ -685,12 +685,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  modalOverlayWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContent: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
     maxHeight: '80%',
+  },
+  modalContentWeb: {
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '70%',
   },
   modalTitle: {
     fontSize: 20,

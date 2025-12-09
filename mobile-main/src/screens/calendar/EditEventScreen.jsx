@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal,  } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Platform } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
@@ -560,12 +560,12 @@ export default function EditEventScreen({ navigation, route }) {
       {/* Member Selection Modal */}
       <Modal
         visible={showMemberModal}
-        animationType="slide"
+        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
         transparent={true}
         onRequestClose={() => setShowMemberModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContainer, Platform.OS === 'web' && styles.modalContainerWeb]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Attendees</Text>
               <TouchableOpacity onPress={() => setShowMemberModal(false)}>
@@ -616,12 +616,12 @@ export default function EditEventScreen({ navigation, route }) {
       {/* Notification Time Modal */}
       <Modal
         visible={showNotificationModal}
-        animationType="slide"
+        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
         transparent={true}
         onRequestClose={() => setShowNotificationModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContainer, Platform.OS === 'web' && styles.modalContainerWeb]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notification Time</Text>
               <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
@@ -659,12 +659,12 @@ export default function EditEventScreen({ navigation, route }) {
       {/* Recurrence Frequency Modal */}
       <Modal
         visible={showFrequencyModal}
-        animationType="slide"
+        animationType={Platform.OS === 'web' ? 'fade' : 'slide'}
         transparent={true}
         onRequestClose={() => setShowFrequencyModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContainer, Platform.OS === 'web' && styles.modalContainerWeb]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Repeat Frequency</Text>
               <TouchableOpacity onPress={() => setShowFrequencyModal(false)}>
@@ -883,11 +883,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  modalOverlayWeb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
+  },
+  modalContainerWeb: {
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
