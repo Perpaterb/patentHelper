@@ -93,6 +93,10 @@ import StorageScreen from './src/screens/StorageScreen';
 import AuditLogsScreen from './src/screens/AuditLogsScreen';
 import SupportScreen from './src/screens/SupportScreen';
 
+// Public Secret Santa screens (no auth required)
+import SecretSantaPasscodeScreen from './src/screens/SecretSantaPasscodeScreen';
+import SecretSantaViewScreen from './src/screens/SecretSantaViewScreen';
+
 const Stack = createStackNavigator();
 
 /**
@@ -158,6 +162,9 @@ const linking = {
   ],
   config: {
     screens: {
+      // Public Secret Santa pages (no auth required)
+      SecretSantaPasscode: 'ss/:webToken',
+      SecretSantaView: 'ss/:webToken/view',
       // Public/Admin pages
       Landing: '',
       Login: 'login',
@@ -287,6 +294,9 @@ function AppNavigator() {
             <>
               <Stack.Screen name="Landing" component={LandingScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
+              {/* Public Secret Santa screens - no auth required */}
+              <Stack.Screen name="SecretSantaPasscode" component={SecretSantaPasscodeScreen} />
+              <Stack.Screen name="SecretSantaView" component={SecretSantaViewScreen} />
             </>
           ) : (
           // Authenticated screens (with AppLayout)
@@ -357,6 +367,10 @@ function AppNavigator() {
             <Stack.Screen name="Storage" component={withAppLayout(StorageScreen, 'Storage')} />
             <Stack.Screen name="AuditLogs" component={withAppLayout(AuditLogsScreen, 'AuditLogs')} />
             <Stack.Screen name="Support" component={withAppLayout(SupportScreen, 'Support')} />
+
+            {/* Public Secret Santa screens - available when authenticated too */}
+            <Stack.Screen name="SecretSantaPasscode" component={SecretSantaPasscodeScreen} />
+            <Stack.Screen name="SecretSantaView" component={SecretSantaViewScreen} />
           </>
         )}
       </Stack.Navigator>

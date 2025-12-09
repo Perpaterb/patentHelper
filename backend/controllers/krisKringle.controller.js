@@ -1515,6 +1515,449 @@ async function removeParticipant(req, res) {
   }
 }
 
+/**
+ * Helper function to verify participant access via passcode
+ * @param {string} webToken - The SS event web token
+ * @param {string} email - Participant email
+ * @param {string} passcode - Participant passcode
+ * @returns {Object} { krisKringle, participant } or throws error
+ */
+async function verifyParticipantAccess(webToken, email, passcode) {
+  const krisKringle = await prisma.krisKringle.findUnique({
+    where: { webToken: webToken },
+    include: {
+      participants: {
+        include: {
+          ssGiftRegistry: {
+            include: {
+              items: {
+                orderBy: { displayOrder: 'asc' },
+              },
+            },
+          },
+        },
+      },
+      matches: true,
+      giftRegistries: {
+        include: {
+          items: {
+            orderBy: { displayOrder: 'asc' },
+          },
+        },
+      },
+    },
+  });
+
+  if (!krisKringle || krisKringle.isHidden) {
+    const error = new Error('Secret Santa event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const participant = krisKringle.participants.find(
+    p => p.email.toLowerCase() === email.toLowerCase() && p.passcode.toUpperCase() === passcode.toUpperCase()
+  );
+
+  if (!participant) {
+    const error = new Error('Invalid email or access code');
+    error.status = 401;
+    throw error;
+  }
+
+  return { krisKringle, participant };
+}
+
+/**
+ * Get full Secret Santa data for authenticated participant
+ * POST /secret-santa/:webToken/data
+ *
+ * Returns event details, all participant registries, and the current participant's match
+ */
+async function getSecretSantaData(req, res) {
+  try {
+    const { webToken } = req.params;
+    const { email, passcode } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    const { krisKringle, participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Get the participant's match (who they're buying for)
+    const match = krisKringle.matches.find(m => m.giverId === participant.participantId);
+    const receiver = match ? krisKringle.participants.find(p => p.participantId === match.receiverId) : null;
+
+    // Build all gift registries list (from all participants)
+    const giftRegistries = krisKringle.participants
+      .filter(p => p.ssGiftRegistry)
+      .map(p => ({
+        registryId: p.ssGiftRegistry.registryId,
+        participantId: p.participantId,
+        participantName: p.name,
+        name: p.ssGiftRegistry.name,
+        items: p.ssGiftRegistry.items.map(item => ({
+          itemId: item.itemId,
+          title: item.title,
+          link: item.link,
+          photoUrl: item.photoUrl,
+          cost: item.cost,
+          description: item.description,
+          isPurchased: item.isPurchased,
+        })),
+      }));
+
+    res.status(200).json({
+      success: true,
+      event: {
+        name: krisKringle.name,
+        occasion: krisKringle.occasion,
+        exchangeDate: krisKringle.exchangeDate,
+        priceLimit: krisKringle.priceLimit,
+        isAssigned: krisKringle.isAssigned,
+      },
+      currentParticipant: {
+        participantId: participant.participantId,
+        name: participant.name,
+        email: participant.email,
+        isGroupMember: !!participant.groupMemberId,
+        hasGiftRegistry: !!participant.ssGiftRegistry,
+        giftRegistryId: participant.ssGiftRegistry?.registryId || null,
+      },
+      match: match && receiver ? {
+        name: receiver.name,
+        hasGiftRegistry: !!receiver.ssGiftRegistry,
+        giftRegistryId: receiver.ssGiftRegistry?.registryId || null,
+      } : null,
+      giftRegistries: giftRegistries,
+      participants: krisKringle.participants.map(p => ({
+        participantId: p.participantId,
+        name: p.name,
+        hasGiftRegistry: !!p.ssGiftRegistry,
+      })),
+    });
+  } catch (error) {
+    console.error('Get Secret Santa data error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to get Secret Santa data',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Create or get a gift registry for a participant
+ * POST /secret-santa/:webToken/registry
+ */
+async function createParticipantRegistry(req, res) {
+  try {
+    const { webToken } = req.params;
+    const { email, passcode, name } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    const { krisKringle, participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Check if participant already has a registry
+    if (participant.ssGiftRegistry) {
+      return res.status(200).json({
+        success: true,
+        message: 'Registry already exists',
+        registry: {
+          registryId: participant.ssGiftRegistry.registryId,
+          name: participant.ssGiftRegistry.name,
+          items: participant.ssGiftRegistry.items,
+        },
+      });
+    }
+
+    // Create new registry
+    const registryName = name || `${participant.name}'s Gift Ideas`;
+    const registry = await prisma.secretSantaGiftRegistry.create({
+      data: {
+        krisKringleId: krisKringle.krisKringleId,
+        name: registryName,
+      },
+    });
+
+    // Link registry to participant
+    await prisma.krisKringleParticipant.update({
+      where: { participantId: participant.participantId },
+      data: { ssGiftRegistryId: registry.registryId },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Gift registry created',
+      registry: {
+        registryId: registry.registryId,
+        name: registry.name,
+        items: [],
+      },
+    });
+  } catch (error) {
+    console.error('Create participant registry error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to create gift registry',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Add item to participant's gift registry
+ * POST /secret-santa/:webToken/registry/:registryId/items
+ */
+async function addRegistryItem(req, res) {
+  try {
+    const { webToken, registryId } = req.params;
+    const { email, passcode, title, link, photoUrl, cost, description } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    if (!title) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Title is required',
+      });
+    }
+
+    const { participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Verify the participant owns this registry
+    if (participant.ssGiftRegistryId !== registryId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only add items to your own registry',
+      });
+    }
+
+    // Get current max display order
+    const maxOrder = await prisma.secretSantaGiftItem.aggregate({
+      where: { registryId: registryId },
+      _max: { displayOrder: true },
+    });
+
+    const item = await prisma.secretSantaGiftItem.create({
+      data: {
+        registryId: registryId,
+        title: title.trim(),
+        link: link?.trim() || null,
+        photoUrl: photoUrl?.trim() || null,
+        cost: cost ? parseFloat(cost) : null,
+        description: description?.trim() || null,
+        displayOrder: (maxOrder._max.displayOrder || 0) + 1,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Item added to registry',
+      item: item,
+    });
+  } catch (error) {
+    console.error('Add registry item error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to add item',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Update item in participant's gift registry
+ * PUT /secret-santa/:webToken/registry/:registryId/items/:itemId
+ */
+async function updateRegistryItem(req, res) {
+  try {
+    const { webToken, registryId, itemId } = req.params;
+    const { email, passcode, title, link, photoUrl, cost, description } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    const { participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Verify the participant owns this registry
+    if (participant.ssGiftRegistryId !== registryId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only update items in your own registry',
+      });
+    }
+
+    // Verify item exists and belongs to this registry
+    const existingItem = await prisma.secretSantaGiftItem.findUnique({
+      where: { itemId: itemId },
+    });
+
+    if (!existingItem || existingItem.registryId !== registryId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Item not found',
+      });
+    }
+
+    const item = await prisma.secretSantaGiftItem.update({
+      where: { itemId: itemId },
+      data: {
+        title: title?.trim() || existingItem.title,
+        link: link !== undefined ? (link?.trim() || null) : existingItem.link,
+        photoUrl: photoUrl !== undefined ? (photoUrl?.trim() || null) : existingItem.photoUrl,
+        cost: cost !== undefined ? (cost ? parseFloat(cost) : null) : existingItem.cost,
+        description: description !== undefined ? (description?.trim() || null) : existingItem.description,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Item updated',
+      item: item,
+    });
+  } catch (error) {
+    console.error('Update registry item error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to update item',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Delete item from participant's gift registry
+ * DELETE /secret-santa/:webToken/registry/:registryId/items/:itemId
+ */
+async function deleteRegistryItem(req, res) {
+  try {
+    const { webToken, registryId, itemId } = req.params;
+    const { email, passcode } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    const { participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Verify the participant owns this registry
+    if (participant.ssGiftRegistryId !== registryId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only delete items from your own registry',
+      });
+    }
+
+    // Verify item exists and belongs to this registry
+    const existingItem = await prisma.secretSantaGiftItem.findUnique({
+      where: { itemId: itemId },
+    });
+
+    if (!existingItem || existingItem.registryId !== registryId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Item not found',
+      });
+    }
+
+    await prisma.secretSantaGiftItem.delete({
+      where: { itemId: itemId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Item deleted',
+    });
+  } catch (error) {
+    console.error('Delete registry item error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to delete item',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Mark an item as purchased (by another participant)
+ * POST /secret-santa/:webToken/registry/:registryId/items/:itemId/purchase
+ */
+async function markItemPurchased(req, res) {
+  try {
+    const { webToken, registryId, itemId } = req.params;
+    const { email, passcode, isPurchased } = req.body;
+
+    if (!email || !passcode) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Email and passcode are required',
+      });
+    }
+
+    const { participant } = await verifyParticipantAccess(webToken, email, passcode);
+
+    // Verify item exists
+    const existingItem = await prisma.secretSantaGiftItem.findUnique({
+      where: { itemId: itemId },
+      include: {
+        registry: true,
+      },
+    });
+
+    if (!existingItem || existingItem.registryId !== registryId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Item not found',
+      });
+    }
+
+    // Don't allow marking your own items as purchased
+    if (participant.ssGiftRegistryId === registryId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You cannot mark your own items as purchased',
+      });
+    }
+
+    const item = await prisma.secretSantaGiftItem.update({
+      where: { itemId: itemId },
+      data: {
+        isPurchased: isPurchased !== false,
+        purchasedAt: isPurchased !== false ? new Date() : null,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: isPurchased !== false ? 'Item marked as purchased' : 'Purchase removed',
+      item: item,
+    });
+  } catch (error) {
+    console.error('Mark item purchased error:', error);
+    res.status(error.status || 500).json({
+      error: 'Failed to update item',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getKrisKringles,
   getKrisKringle,
@@ -1528,4 +1971,11 @@ module.exports = {
   resendParticipantEmail,
   verifySecretSantaAccess,
   getSecretSantaPublic,
+  // Public Secret Santa site endpoints
+  getSecretSantaData,
+  createParticipantRegistry,
+  addRegistryItem,
+  updateRegistryItem,
+  deleteRegistryItem,
+  markItemPurchased,
 };

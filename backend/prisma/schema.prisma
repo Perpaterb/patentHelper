@@ -9,46 +9,46 @@ datasource db {
 }
 
 model User {
-  userId                 String                 @id @default(uuid()) @map("user_id") @db.Uuid
-  email                  String                 @unique @db.VarChar(255)
-  kindeId                String                 @unique @map("kinde_id") @db.VarChar(255)
-  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt              DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  isSubscribed           Boolean                @default(false) @map("is_subscribed")
-  subscriptionId         String?                @map("subscription_id") @db.VarChar(255)
-  subscriptionStartDate  DateTime?              @map("subscription_start_date") @db.Timestamp(6)
-  subscriptionEndDate    DateTime?              @map("subscription_end_date") @db.Timestamp(6)
-  storageLimitGb         Int                    @default(0) @map("storage_limit_gb")
-  storageUsedBytes       BigInt                 @default(0) @map("storage_used_bytes")
-  lastLogin              DateTime?              @map("last_login") @db.Timestamp(6)
-  displayName            String?                @map("display_name") @db.VarChar(255)
-  memberIcon             String?                @map("member_icon") @db.VarChar(10)
-  iconColor              String?                @map("icon_color") @db.VarChar(7)
-  profilePhotoFileId     String?                @map("profile_photo_file_id") @db.Uuid
+  userId                String    @id @default(uuid()) @map("user_id") @db.Uuid
+  email                 String    @unique @db.VarChar(255)
+  kindeId               String    @unique @map("kinde_id") @db.VarChar(255)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  isSubscribed          Boolean   @default(false) @map("is_subscribed")
+  subscriptionId        String?   @map("subscription_id") @db.VarChar(255)
+  subscriptionStartDate DateTime? @map("subscription_start_date") @db.Timestamp(6)
+  subscriptionEndDate   DateTime? @map("subscription_end_date") @db.Timestamp(6)
+  storageLimitGb        Int       @default(0) @map("storage_limit_gb")
+  storageUsedBytes      BigInt    @default(0) @map("storage_used_bytes")
+  lastLogin             DateTime? @map("last_login") @db.Timestamp(6)
+  displayName           String?   @map("display_name") @db.VarChar(255)
+  memberIcon            String?   @map("member_icon") @db.VarChar(10)
+  iconColor             String?   @map("icon_color") @db.VarChar(7)
+  profilePhotoFileId    String?   @map("profile_photo_file_id") @db.Uuid
 
   // Support and account status flags
-  isSupportUser          Boolean                @default(false) @map("is_support_user")
-  isLocked               Boolean                @default(false) @map("is_locked")
-  lockedAt               DateTime?              @map("locked_at") @db.Timestamp(6)
-  lockedReason           String?                @map("locked_reason") @db.VarChar(500)
+  isSupportUser Boolean   @default(false) @map("is_support_user")
+  isLocked      Boolean   @default(false) @map("is_locked")
+  lockedAt      DateTime? @map("locked_at") @db.Timestamp(6)
+  lockedReason  String?   @map("locked_reason") @db.VarChar(500)
 
   // Stripe billing fields (Option B - manual billing)
-  stripeCustomerId           String?   @unique @map("stripe_customer_id") @db.VarChar(255)
-  defaultPaymentMethodId     String?   @map("default_payment_method_id") @db.VarChar(255)
-  renewalDate                DateTime? @map("renewal_date") @db.Timestamp(6)
-  additionalStoragePacks     Int       @default(0) @map("additional_storage_packs")
-  lastBillingAttempt         DateTime? @map("last_billing_attempt") @db.Timestamp(6)
-  billingFailureCount        Int       @default(0) @map("billing_failure_count")
+  stripeCustomerId       String?   @unique @map("stripe_customer_id") @db.VarChar(255)
+  defaultPaymentMethodId String?   @map("default_payment_method_id") @db.VarChar(255)
+  renewalDate            DateTime? @map("renewal_date") @db.Timestamp(6)
+  additionalStoragePacks Int       @default(0) @map("additional_storage_packs")
+  lastBillingAttempt     DateTime? @map("last_billing_attempt") @db.Timestamp(6)
+  billingFailureCount    Int       @default(0) @map("billing_failure_count")
 
-  groupMemberships       GroupMember[]
-  createdGroups          Group[]                @relation("GroupCreator")
-  pinnedItems            PinnedItem[]
-  storageUsage           StorageUsage[]
-  personalGiftRegistries PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
-  personalItemRegistries PersonalItemRegistry[] @relation("PersonalItemRegistries")
-  billingHistory         BillingHistory[]
-  supportActionsPerformed SupportAuditLog[]     @relation("SupportActionPerformer")
-  supportActionsReceived  SupportAuditLog[]     @relation("SupportActionTarget")
+  groupMemberships        GroupMember[]
+  createdGroups           Group[]                @relation("GroupCreator")
+  pinnedItems             PinnedItem[]
+  storageUsage            StorageUsage[]
+  personalGiftRegistries  PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
+  personalItemRegistries  PersonalItemRegistry[] @relation("PersonalItemRegistries")
+  billingHistory          BillingHistory[]
+  supportActionsPerformed SupportAuditLog[]      @relation("SupportActionPerformer")
+  supportActionsReceived  SupportAuditLog[]      @relation("SupportActionTarget")
 
   @@index([email])
   @@index([kindeId])
@@ -757,26 +757,27 @@ model WishListItem {
 // ============================================
 
 model KrisKringle {
-  krisKringleId     String                   @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
-  groupId           String                   @map("group_id") @db.Uuid
-  name              String                   @db.VarChar(255)
-  description       String?                  @db.Text
-  occasion          String?                  @db.VarChar(255)
-  priceLimit        Decimal?                 @map("price_limit") @db.Decimal(12, 2)
-  assigningDateTime DateTime?                @map("assigning_date_time") @db.Timestamp(6)
-  exchangeDate      DateTime?                @map("exchange_date") @db.Timestamp(6)
-  webToken          String?                  @unique @map("web_token") @db.VarChar(64)
-  createdBy         String                   @map("created_by") @db.Uuid
-  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt         DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  status            String                   @default("draft") @db.VarChar(20)
-  isHidden          Boolean                  @default(false) @map("is_hidden")
-  isAssigned        Boolean                  @default(false) @map("is_assigned")
+  krisKringleId     String                    @id @default(uuid()) @map("kris_kringle_id") @db.Uuid
+  groupId           String                    @map("group_id") @db.Uuid
+  name              String                    @db.VarChar(255)
+  description       String?                   @db.Text
+  occasion          String?                   @db.VarChar(255)
+  priceLimit        Decimal?                  @map("price_limit") @db.Decimal(12, 2)
+  assigningDateTime DateTime?                 @map("assigning_date_time") @db.Timestamp(6)
+  exchangeDate      DateTime?                 @map("exchange_date") @db.Timestamp(6)
+  webToken          String?                   @unique @map("web_token") @db.VarChar(64)
+  createdBy         String                    @map("created_by") @db.Uuid
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  status            String                    @default("draft") @db.VarChar(20)
+  isHidden          Boolean                   @default(false) @map("is_hidden")
+  isAssigned        Boolean                   @default(false) @map("is_assigned")
   participants      KrisKringleParticipant[]
   matches           KrisKringleMatch[]
   exclusions        KrisKringleExclusion[]
-  group             Group                    @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  creator           GroupMember              @relation(fields: [createdBy], references: [groupMemberId])
+  giftRegistries    SecretSantaGiftRegistry[]
+  group             Group                     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator           GroupMember               @relation(fields: [createdBy], references: [groupMemberId])
 
   @@index([groupId])
   @@index([status])
@@ -785,28 +786,29 @@ model KrisKringle {
 }
 
 model KrisKringleParticipant {
-  participantId         String                 @id @default(uuid()) @map("participant_id") @db.Uuid
-  krisKringleId         String                 @map("kris_kringle_id") @db.Uuid
-  groupMemberId         String?                @map("group_member_id") @db.Uuid
-  email                 String                 @db.VarChar(255)
-  name                  String                 @db.VarChar(255)
-  passcode              String                 @db.VarChar(6)
-  hasJoined             Boolean                @default(false) @map("has_joined")
-  hasViewed             Boolean                @default(false) @map("has_viewed")
-  viewedAt              DateTime?              @map("viewed_at") @db.Timestamp(6)
-  wishListId            String?                @map("wish_list_id") @db.Uuid
-  giftRegistryId        String?                @map("gift_registry_id") @db.Uuid
-  joinedAt              DateTime?              @map("joined_at") @db.Timestamp(6)
-  initialEmailSentAt    DateTime?              @map("initial_email_sent_at") @db.Timestamp(6)
-  assignmentEmailSentAt DateTime?              @map("assignment_email_sent_at") @db.Timestamp(6)
-  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamp(6)
-  krisKringle           KrisKringle            @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
-  groupMember           GroupMember?           @relation(fields: [groupMemberId], references: [groupMemberId])
-  wishList              WishList?              @relation(fields: [wishListId], references: [wishListId])
-  givingTo              KrisKringleMatch[]     @relation("GivingMatches")
-  receivingFrom         KrisKringleMatch[]     @relation("ReceivingMatches")
-  exclusionsFrom        KrisKringleExclusion[] @relation("ExclusionPerson1")
-  exclusionsTo          KrisKringleExclusion[] @relation("ExclusionPerson2")
+  participantId         String                   @id @default(uuid()) @map("participant_id") @db.Uuid
+  krisKringleId         String                   @map("kris_kringle_id") @db.Uuid
+  groupMemberId         String?                  @map("group_member_id") @db.Uuid
+  email                 String                   @db.VarChar(255)
+  name                  String                   @db.VarChar(255)
+  passcode              String                   @db.VarChar(6)
+  hasJoined             Boolean                  @default(false) @map("has_joined")
+  hasViewed             Boolean                  @default(false) @map("has_viewed")
+  viewedAt              DateTime?                @map("viewed_at") @db.Timestamp(6)
+  wishListId            String?                  @map("wish_list_id") @db.Uuid
+  ssGiftRegistryId      String?                  @unique @map("ss_gift_registry_id") @db.Uuid
+  joinedAt              DateTime?                @map("joined_at") @db.Timestamp(6)
+  initialEmailSentAt    DateTime?                @map("initial_email_sent_at") @db.Timestamp(6)
+  assignmentEmailSentAt DateTime?                @map("assignment_email_sent_at") @db.Timestamp(6)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  krisKringle           KrisKringle              @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  groupMember           GroupMember?             @relation(fields: [groupMemberId], references: [groupMemberId])
+  wishList              WishList?                @relation(fields: [wishListId], references: [wishListId])
+  ssGiftRegistry        SecretSantaGiftRegistry? @relation(fields: [ssGiftRegistryId], references: [registryId])
+  givingTo              KrisKringleMatch[]       @relation("GivingMatches")
+  receivingFrom         KrisKringleMatch[]       @relation("ReceivingMatches")
+  exclusionsFrom        KrisKringleExclusion[]   @relation("ExclusionPerson1")
+  exclusionsTo          KrisKringleExclusion[]   @relation("ExclusionPerson2")
 
   @@index([krisKringleId])
   @@index([groupMemberId])
@@ -842,6 +844,44 @@ model KrisKringleExclusion {
   @@unique([krisKringleId, participant1Id, participant2Id])
   @@index([krisKringleId])
   @@map("kris_kringle_exclusions")
+}
+
+// ============================================
+// SECRET SANTA TEMPORARY GIFT REGISTRY
+// (For SS participants to create gift lists, deleted with SS event)
+// ============================================
+
+model SecretSantaGiftRegistry {
+  registryId    String                  @id @default(uuid()) @map("registry_id") @db.Uuid
+  krisKringleId String                  @map("kris_kringle_id") @db.Uuid
+  name          String                  @db.VarChar(255)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  krisKringle   KrisKringle             @relation(fields: [krisKringleId], references: [krisKringleId], onDelete: Cascade)
+  participant   KrisKringleParticipant?
+  items         SecretSantaGiftItem[]
+
+  @@index([krisKringleId])
+  @@map("secret_santa_gift_registries")
+}
+
+model SecretSantaGiftItem {
+  itemId       String                  @id @default(uuid()) @map("item_id") @db.Uuid
+  registryId   String                  @map("registry_id") @db.Uuid
+  title        String                  @db.VarChar(255)
+  link         String?                 @db.Text
+  photoUrl     String?                 @map("photo_url") @db.Text
+  cost         Decimal?                @db.Decimal(10, 2)
+  description  String?                 @db.Text
+  displayOrder Int                     @default(0) @map("display_order")
+  isPurchased  Boolean                 @default(false) @map("is_purchased")
+  purchasedAt  DateTime?               @map("purchased_at") @db.Timestamp(6)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  registry     SecretSantaGiftRegistry @relation(fields: [registryId], references: [registryId], onDelete: Cascade)
+
+  @@index([registryId, displayOrder])
+  @@map("secret_santa_gift_items")
 }
 
 // ============================================
@@ -1263,7 +1303,7 @@ model BillingHistory {
   billingId              String   @id @default(uuid()) @map("billing_id") @db.Uuid
   userId                 String   @map("user_id") @db.Uuid
   stripePaymentIntentId  String?  @map("stripe_payment_intent_id") @db.VarChar(255)
-  amount                 Int      // Amount in cents (e.g., 300 = $3.00)
+  amount                 Int // Amount in cents (e.g., 300 = $3.00)
   currency               String   @default("aud") @db.VarChar(3)
   status                 String   @db.VarChar(20) // succeeded, failed, pending, refunded
   description            String   @db.VarChar(500)
@@ -1289,29 +1329,29 @@ model BillingHistory {
 // ============================================
 
 model SupportAuditLog {
-  logId           String   @id @default(uuid()) @map("log_id") @db.Uuid
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  logId     String   @id @default(uuid()) @map("log_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Who performed the action
-  performedById   String   @map("performed_by_id") @db.Uuid
-  performedByEmail String  @map("performed_by_email") @db.VarChar(255)
+  performedById    String @map("performed_by_id") @db.Uuid
+  performedByEmail String @map("performed_by_email") @db.VarChar(255)
 
   // Who was affected (target user)
-  targetUserId    String   @map("target_user_id") @db.Uuid
-  targetUserEmail String   @map("target_user_email") @db.VarChar(255)
+  targetUserId    String @map("target_user_id") @db.Uuid
+  targetUserEmail String @map("target_user_email") @db.VarChar(255)
 
   // Action details
-  action          String   @db.VarChar(100) // grant_subscription, revoke_subscription, grant_support, revoke_support, lock_user, unlock_user
-  details         String?  @db.Text // JSON or text with additional details
-  previousValue   String?  @map("previous_value") @db.Text // State before change
-  newValue        String?  @map("new_value") @db.Text // State after change
+  action        String  @db.VarChar(100) // grant_subscription, revoke_subscription, grant_support, revoke_support, lock_user, unlock_user
+  details       String? @db.Text // JSON or text with additional details
+  previousValue String? @map("previous_value") @db.Text // State before change
+  newValue      String? @map("new_value") @db.Text // State after change
 
   // IP and user agent for security
-  ipAddress       String?  @map("ip_address") @db.VarChar(45)
-  userAgent       String?  @map("user_agent") @db.VarChar(500)
+  ipAddress String? @map("ip_address") @db.VarChar(45)
+  userAgent String? @map("user_agent") @db.VarChar(500)
 
-  performedBy     User     @relation("SupportActionPerformer", fields: [performedById], references: [userId])
-  targetUser      User     @relation("SupportActionTarget", fields: [targetUserId], references: [userId])
+  performedBy User @relation("SupportActionPerformer", fields: [performedById], references: [userId])
+  targetUser  User @relation("SupportActionTarget", fields: [targetUserId], references: [userId])
 
   @@index([performedById])
   @@index([targetUserId])
