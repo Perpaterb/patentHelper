@@ -93,6 +93,8 @@ describe('SubscriptionScreen', () => {
     dueDate: '15-Dec-2025',
     daysUntilDue: 5,
     canPayNow: true,
+    canGenerateBillEmail: true,
+    lastBillingEmailSent: false,
     currency: 'USD',
   };
 

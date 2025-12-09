@@ -36,7 +36,6 @@ export default function SubscriptionScreen({ navigation }) {
   const [successMessage, setSuccessMessage] = useState(null);
   const [infoMessage, setInfoMessage] = useState(null);
   const [invoice, setInvoice] = useState(null);
-  const [payingNow, setPayingNow] = useState(false);
   const [regeneratingBill, setRegeneratingBill] = useState(false);
 
   useEffect(() => {
@@ -114,25 +113,17 @@ export default function SubscriptionScreen({ navigation }) {
   }
 
   /**
-   * Handle pay now button click
+   * Check if regenerate bill button should be enabled
+   * - Trial users: can regenerate anytime
+   * - Subscribed users: only within 7 days of due date
+   * @returns {boolean} True if button should be enabled
    */
-  async function handlePayNow() {
-    try {
-      setPayingNow(true);
-      setError(null);
-
-      const response = await api.post('/subscriptions/pay-now');
-
-      // Refresh all data
-      await fetchData();
-
-      setSuccessMessage(`Payment successful! Your next renewal date is ${response.data.renewalDate}`);
-    } catch (err) {
-      console.error('Payment failed:', err);
-      setError(err.response?.data?.message || 'Payment failed. Please try again.');
-    } finally {
-      setPayingNow(false);
+  function canRegenerateBill() {
+    if (isOnFreeTrial()) {
+      return true; // Trial users can always regenerate
     }
+    // Subscribed users: only within 7 days
+    return invoice && invoice.daysUntilDue <= 7;
   }
 
   /**
@@ -148,7 +139,7 @@ export default function SubscriptionScreen({ navigation }) {
       // Update invoice with new data
       setInvoice(response.data.invoice);
 
-      setSuccessMessage('Bill regenerated and email sent with updated pricing.');
+      setSuccessMessage('Billing email sent! Check your inbox for the payment link.');
     } catch (err) {
       console.error('Regenerate bill failed:', err);
       setError(err.response?.data?.message || 'Failed to regenerate bill. Please try again.');
@@ -429,7 +420,7 @@ export default function SubscriptionScreen({ navigation }) {
           </View>
         )}
 
-        {/* Current Bill Card - Show when invoice available and within 7 days or trial */}
+        {/* Current Bill Card - Show when invoice available and subscribed or on trial */}
         {invoice && (subscription?.isSubscribed || isOnFreeTrial()) && (
           <Card style={styles.billCard}>
             <Card.Content>
@@ -475,35 +466,39 @@ export default function SubscriptionScreen({ navigation }) {
                 </Text>
               </View>
 
-              {/* Action Buttons */}
+              {/* Trial user note about billing date */}
+              {isOnFreeTrial() && (
+                <Surface style={styles.trialBillingNote}>
+                  <MaterialCommunityIcons name="information" size={18} color="#1565c0" />
+                  <Text style={styles.trialBillingNoteText}>
+                    Your first billing date is at the end of your 20-day trial. After subscribing, your next bill will be 31 days later (you could get up to 51 days before your first payment!).
+                  </Text>
+                </Surface>
+              )}
+
+              {/* Generate/Regenerate Bill Email Button */}
               <View style={styles.billActions}>
                 <Button
                   mode="contained"
-                  onPress={handlePayNow}
-                  loading={payingNow}
-                  disabled={payingNow || !invoice.canPayNow || regeneratingBill}
-                  style={[styles.payNowButton, !invoice.canPayNow && styles.buttonDisabled]}
-                  icon="credit-card"
-                >
-                  Pay Bill Now
-                </Button>
-                <Button
-                  mode="outlined"
                   onPress={handleRegenerateBill}
                   loading={regeneratingBill}
-                  disabled={regeneratingBill || payingNow}
-                  style={styles.regenerateBillButton}
-                  icon="refresh"
+                  disabled={regeneratingBill || !canRegenerateBill()}
+                  style={[styles.generateBillButton, !canRegenerateBill() && styles.buttonDisabled]}
+                  icon="email-send"
                 >
-                  Regenerate Bill
+                  {invoice.lastBillingEmailSent ? 'Regenerate Bill Email' : 'Generate Bill Email'}
                 </Button>
               </View>
 
-              {!invoice.canPayNow && (
-                <Text style={styles.payNowNote}>
-                  You can pay your bill within 7 days of the due date.
+              {!canRegenerateBill() && !isOnFreeTrial() && (
+                <Text style={styles.billNote}>
+                  You can generate a billing email within 7 days of your due date.
                 </Text>
               )}
+
+              <Text style={styles.paymentNote}>
+                To pay your bill, click the payment link in the billing email we send you.
+              </Text>
 
               {/* Warning about non-payment */}
               <Surface style={styles.billWarning}>
@@ -1074,29 +1069,40 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   billActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
     marginBottom: 12,
   },
-  payNowButton: {
+  generateBillButton: {
     backgroundColor: '#6200ee',
-    flex: 1,
-    minWidth: 150,
-  },
-  regenerateBillButton: {
-    borderColor: '#6200ee',
-    flex: 1,
-    minWidth: 150,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
-  payNowNote: {
+  billNote: {
     fontSize: 12,
     color: '#666',
-    marginBottom: 16,
+    marginBottom: 12,
     fontStyle: 'italic',
+  },
+  paymentNote: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  trialBillingNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  trialBillingNoteText: {
+    fontSize: 13,
+    color: '#1565c0',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
   },
   billWarning: {
     flexDirection: 'row',

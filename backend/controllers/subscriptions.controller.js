@@ -401,19 +401,37 @@ function formatDateDDMMMYYYY(date) {
 
 /**
  * Helper: Calculate user's due date
- * For trial users: createdAt + 20 days
- * For subscribed users: renewalDate
+ *
+ * The next billing date is the LATEST of:
+ * - Current subscription end date (renewalDate)
+ * - Current date (can't bill for the past)
+ * - Trial end date (createdAt + 20 days)
+ *
+ * This means trial users who subscribe could get up to 20 + 31 days
+ * before their first payment.
+ *
  * @param {Object} user - User object
  * @returns {Date|null} Due date
  */
 function calculateDueDate(user) {
-  if (user.isSubscribed && user.renewalDate) {
-    return new Date(user.renewalDate);
-  }
-  // Trial user: 20 days from account creation
+  const now = new Date();
+  const candidates = [];
+
+  // Add current date as minimum (can't bill for the past)
+  candidates.push(now);
+
+  // Add trial end date (20 days from account creation)
   const trialEnd = new Date(user.createdAt);
   trialEnd.setDate(trialEnd.getDate() + 20);
-  return trialEnd;
+  candidates.push(trialEnd);
+
+  // Add renewal date if subscribed and has one
+  if (user.isSubscribed && user.renewalDate) {
+    candidates.push(new Date(user.renewalDate));
+  }
+
+  // Return the latest date
+  return new Date(Math.max(...candidates.map(d => d.getTime())));
 }
 
 /**
@@ -488,6 +506,7 @@ async function getInvoice(req, res) {
         createdAt: true,
         renewalDate: true,
         additionalStoragePacks: true,
+        lastBillingReminderSent: true,
       },
     });
 
@@ -519,8 +538,9 @@ async function getInvoice(req, res) {
     const storageCharges = parseFloat(storageInfo.storageCharges);
     const totalAmount = (baseAmount + storageCharges).toFixed(2);
 
-    // User can pay now if within 7 days of due date
-    const canPayNow = daysUntilDue <= 7;
+    // User can generate bill email if within 7 days OR on trial
+    const isOnTrial = !user.isSubscribed;
+    const canGenerateBillEmail = daysUntilDue <= 7 || isOnTrial;
 
     res.status(200).json({
       success: true,
@@ -533,7 +553,9 @@ async function getInvoice(req, res) {
         dueDate: formatDateDDMMMYYYY(dueDate),
         dueDateRaw: dueDate.toISOString(),
         daysUntilDue: daysUntilDue,
-        canPayNow: canPayNow,
+        canPayNow: daysUntilDue <= 7, // Keep for backward compatibility
+        canGenerateBillEmail: canGenerateBillEmail,
+        lastBillingEmailSent: user.lastBillingReminderSent ? true : false,
         currency: 'USD',
       },
     });
