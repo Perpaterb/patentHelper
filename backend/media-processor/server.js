@@ -65,7 +65,7 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     service: 'media-processor',
     version: '1.0.0',
-    capabilities: ['video', 'audio', 'image', 'pdf'],
+    capabilities: ['video', 'audio', 'image', 'pdf', 'recording'],
     timestamp: new Date().toISOString(),
   });
 });
@@ -275,6 +275,97 @@ app.delete('/files/:filename', async (req, res) => {
   } catch (error) {
     res.status(404).json({ success: false, error: 'File not found' });
   }
+});
+
+// ============================================
+// Recording Service (Puppeteer)
+// ============================================
+const recorderService = require('./services/recorder.service');
+
+// Start recording: POST /recording/start
+app.post('/recording/start', async (req, res) => {
+  const startTime = Date.now();
+  console.log('[MediaProcessor] Start recording request received');
+
+  try {
+    const { groupId, callId, callType, authToken, apiUrl } = req.body;
+
+    if (!groupId || !callId || !callType || !authToken || !apiUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: groupId, callId, callType, authToken, apiUrl',
+      });
+    }
+
+    const result = await recorderService.startRecording({
+      groupId,
+      callId,
+      callType,
+      authToken,
+      apiUrl,
+      uploadsDir: UPLOADS_DIR,
+    });
+
+    console.log(`[MediaProcessor] Recording start complete in ${Date.now() - startTime}ms`);
+
+    res.json({
+      ...result,
+      processingTimeMs: Date.now() - startTime,
+    });
+  } catch (error) {
+    console.error('[MediaProcessor] Recording start error:', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Stop recording: POST /recording/stop
+app.post('/recording/stop', async (req, res) => {
+  const startTime = Date.now();
+  console.log('[MediaProcessor] Stop recording request received');
+
+  try {
+    const { callId, callType } = req.body;
+
+    if (!callId || !callType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: callId, callType',
+      });
+    }
+
+    const result = await recorderService.stopRecording(callId, callType);
+
+    console.log(`[MediaProcessor] Recording stop complete in ${Date.now() - startTime}ms`);
+
+    res.json({
+      ...result,
+      processingTimeMs: Date.now() - startTime,
+    });
+  } catch (error) {
+    console.error('[MediaProcessor] Recording stop error:', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Get recording status: GET /recording/status/:callType/:callId
+app.get('/recording/status/:callType/:callId', (req, res) => {
+  const { callType, callId } = req.params;
+
+  const status = recorderService.getRecordingStatus(callId, callType);
+
+  res.json({
+    success: true,
+    isRecording: !!status,
+    ...status,
+  });
 });
 
 // ============================================

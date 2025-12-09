@@ -1,42 +1,33 @@
 /**
- * Puppeteer Recording Service
+ * Recorder Service
  *
- * Uses a headless browser to join calls as a "ghost" participant
- * and record all audio/video streams server-side.
+ * Routes call recording requests to the Media Processor Docker container (local)
+ * or Media Processor Lambda (production).
  *
- * NOTE: This service requires puppeteer which is only available
- * in the Media Processor Lambda (container image). The main API Lambda
- * will throw an error if these functions are called directly.
+ * The actual Puppeteer/Chrome recording happens in the media-processor service,
+ * not in the main API backend.
  */
 
-const path = require('path');
+const axios = require('axios');
 
-// Optional dependencies - only available in Media Processor Lambda
-let puppeteer = null;
-let puppeteerAvailable = false;
-
-try {
-  puppeteer = require('puppeteer');
-  puppeteerAvailable = true;
-} catch (err) {
-  console.log('[Recorder] puppeteer not available - recording disabled');
-}
+// Configuration
+const MEDIA_PROCESSOR_URL = process.env.MEDIA_PROCESSOR_URL || 'http://localhost:3001';
 
 /**
- * Check if puppeteer is available
- * @throws {Error} If puppeteer is not available
+ * Check if recording service is available
+ * @returns {Promise<boolean>}
  */
-function requirePuppeteer() {
-  if (!puppeteerAvailable) {
-    throw new Error('Recording not available. This feature requires the Media Processor Lambda.');
+async function isAvailable() {
+  try {
+    const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, { timeout: 5000 });
+    return response.data.status === 'healthy' && response.data.capabilities?.includes('recording');
+  } catch (error) {
+    return false;
   }
 }
 
-// Track active recording sessions
-const activeRecordings = new Map();
-
 /**
- * Start recording a call
+ * Start recording a call via Media Processor
  *
  * @param {Object} options - Recording options
  * @param {string} options.groupId - Group ID
@@ -47,219 +38,126 @@ const activeRecordings = new Map();
  * @returns {Promise<Object>} Recording session info
  */
 async function startRecording({ groupId, callId, callType, authToken, apiUrl }) {
-  requirePuppeteer();
-  const sessionKey = `${callType}-${callId}`;
-
-  // Check if already recording
-  if (activeRecordings.has(sessionKey)) {
-    console.log(`[Recorder] Already recording ${sessionKey}`);
-    return { success: true, message: 'Recording already in progress' };
-  }
-
-  console.log(`[Recorder] Starting recording for ${sessionKey}`);
+  console.log(`[Recorder] Starting recording via media processor for ${callType}-${callId}`);
 
   try {
-    // Launch headless browser with proper audio support
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--use-fake-ui-for-media-stream', // Auto-allow media permissions
-        '--use-fake-device-for-media-stream', // Use fake audio device for local stream
-        '--disable-web-security',
-        '--allow-file-access-from-files',
-        // Audio processing flags
-        '--autoplay-policy=no-user-gesture-required', // Allow autoplay without user gesture
-        '--disable-features=AudioServiceOutOfProcess', // Keep audio in main process
-        '--enable-features=AudioServiceSandbox', // Enable audio sandbox
-        // WebRTC specific flags
-        '--enable-webrtc-hide-local-ips-with-mdns=false',
-        '--disable-rtc-smoothness-algorithm',
-        // Additional audio flags for headless mode
-        '--ignore-autoplay-restrictions',
-      ],
-    });
+    const response = await axios.post(
+      `${MEDIA_PROCESSOR_URL}/recording/start`,
+      {
+        groupId,
+        callId,
+        callType,
+        authToken,
+        apiUrl,
+      },
+      {
+        timeout: 60000, // 1 minute timeout for browser launch
+      }
+    );
 
-    const page = await browser.newPage();
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to start recording');
+    }
 
-    // Set up console logging from the page
-    page.on('console', msg => {
-      console.log(`[Recorder Page] ${msg.text()}`);
-    });
-
-    page.on('pageerror', err => {
-      console.error(`[Recorder Page Error] ${err.message}`);
-    });
-
-    // Navigate to the appropriate recorder page based on call type
-    const recorderPage = callType === 'video' ? '/videoRecorder.html' : '/recorder.html';
-    const recorderUrl = new URL(recorderPage, apiUrl);
-    recorderUrl.searchParams.set('apiUrl', apiUrl);
-    recorderUrl.searchParams.set('groupId', groupId);
-    recorderUrl.searchParams.set('callId', callId);
-    recorderUrl.searchParams.set('callType', callType);
-    recorderUrl.searchParams.set('token', authToken);
-
-    console.log(`[Recorder] Loading recorder page...`);
-    await page.goto(recorderUrl.toString(), { waitUntil: 'networkidle0' });
-
-    // Wait for recorder to initialize
-    await page.waitForFunction('window.recorderReady === true', { timeout: 30000 });
-
-    console.log(`[Recorder] Recording started for ${sessionKey}`);
-
-    // Store the session
-    activeRecordings.set(sessionKey, {
-      browser,
-      page,
-      groupId,
-      callId,
-      callType,
-      startedAt: new Date(),
-    });
-
-    return {
-      success: true,
-      message: 'Recording started',
-      sessionKey,
-    };
-
-  } catch (err) {
-    console.error(`[Recorder] Failed to start recording:`, err);
-    throw new Error(`Failed to start recording: ${err.message}`);
+    console.log(`[Recorder] Recording started successfully`);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(`Media processor error: ${error.response.data?.error || error.response.status}`);
+    }
+    throw error;
   }
 }
 
 /**
- * Stop recording a call
+ * Stop recording a call via Media Processor
  *
  * @param {string} callId - Call ID
  * @param {string} callType - 'phone' or 'video'
  * @returns {Promise<Object>} Recording result
  */
 async function stopRecording(callId, callType) {
-  const sessionKey = `${callType}-${callId}`;
-  const session = activeRecordings.get(sessionKey);
-
-  if (!session) {
-    console.log(`[Recorder] No active recording for ${sessionKey}`);
-    return { success: false, message: 'No active recording found' };
-  }
-
-  console.log(`[Recorder] Stopping recording for ${sessionKey}`);
+  console.log(`[Recorder] Stopping recording via media processor for ${callType}-${callId}`);
 
   try {
-    const { browser, page } = session;
-    const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
+    const response = await axios.post(
+      `${MEDIA_PROCESSOR_URL}/recording/stop`,
+      {
+        callId,
+        callType,
+      },
+      {
+        timeout: 30000, // 30 second timeout
+      }
+    );
 
-    // Get recording status before stopping
-    /* eslint-disable no-undef -- runs in browser context via Puppeteer */
-    const recordingStatus = await page.evaluate(() => ({
-      isRecording: window.isRecording,
-      chunks: typeof recordedChunks !== 'undefined' ? recordedChunks.length : 0,
-    }));
-    /* eslint-enable no-undef */
-    console.log(`[Recorder] Recording status before stop:`, recordingStatus);
-
-    // Tell the page to stop recording and wait for upload
-    if (recordingStatus.isRecording) {
-      console.log(`[Recorder] Stopping MediaRecorder...`);
-      // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
-      await page.evaluate(() => window.stopRecording());
-
-      // Wait for upload to complete (longer wait)
-      console.log(`[Recorder] Waiting for upload to complete...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    } else {
-      console.log(`[Recorder] Recording was not active`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to stop recording');
     }
 
-    // Cleanup
-    console.log(`[Recorder] Running cleanup...`);
-    // eslint-disable-next-line no-undef -- runs in browser context via Puppeteer
-    await page.evaluate(() => window.cleanup());
-    await browser.close();
+    console.log(`[Recorder] Recording stopped successfully`);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(`Media processor error: ${error.response.data?.error || error.response.status}`);
+    }
+    throw error;
+  }
+}
 
-    activeRecordings.delete(sessionKey);
+/**
+ * Check if a call is being recorded via Media Processor
+ *
+ * @param {string} callId - Call ID
+ * @param {string} callType - 'phone' or 'video'
+ * @returns {Promise<boolean>}
+ */
+async function isRecording(callId, callType) {
+  try {
+    const response = await axios.get(
+      `${MEDIA_PROCESSOR_URL}/recording/status/${callType}/${callId}`,
+      { timeout: 5000 }
+    );
+    return response.data.isRecording === true;
+  } catch (error) {
+    return false;
+  }
+}
 
-    console.log(`[Recorder] Recording stopped for ${sessionKey}. Duration: ${duration}s`);
+/**
+ * Get recording status via Media Processor
+ *
+ * @param {string} callId - Call ID
+ * @param {string} callType - 'phone' or 'video'
+ * @returns {Promise<Object|null>}
+ */
+async function getRecordingStatus(callId, callType) {
+  try {
+    const response = await axios.get(
+      `${MEDIA_PROCESSOR_URL}/recording/status/${callType}/${callId}`,
+      { timeout: 5000 }
+    );
+
+    if (!response.data.isRecording) {
+      return null;
+    }
 
     return {
-      success: true,
-      message: 'Recording stopped and uploaded',
-      duration,
+      isRecording: response.data.isRecording,
+      startedAt: response.data.startedAt,
+      duration: response.data.duration,
     };
-
-  } catch (err) {
-    console.error(`[Recorder] Error stopping recording:`, err);
-
-    // Force cleanup
-    try {
-      const session = activeRecordings.get(sessionKey);
-      if (session?.browser) {
-        await session.browser.close();
-      }
-    } catch (cleanupErr) {
-      console.error(`[Recorder] Cleanup error:`, cleanupErr);
-    }
-
-    activeRecordings.delete(sessionKey);
-    return { success: false, message: err.message };
-  }
-}
-
-/**
- * Check if a call is being recorded
- *
- * @param {string} callId - Call ID
- * @param {string} callType - 'phone' or 'video'
- * @returns {boolean}
- */
-function isRecording(callId, callType) {
-  const sessionKey = `${callType}-${callId}`;
-  return activeRecordings.has(sessionKey);
-}
-
-/**
- * Get recording status
- *
- * @param {string} callId - Call ID
- * @param {string} callType - 'phone' or 'video'
- * @returns {Object|null}
- */
-function getRecordingStatus(callId, callType) {
-  const sessionKey = `${callType}-${callId}`;
-  const session = activeRecordings.get(sessionKey);
-
-  if (!session) {
+  } catch (error) {
     return null;
   }
-
-  return {
-    isRecording: true,
-    startedAt: session.startedAt,
-    duration: Math.floor((Date.now() - session.startedAt.getTime()) / 1000),
-  };
 }
 
 /**
  * Stop all active recordings (for graceful shutdown)
+ * Note: This is a no-op in the routing service - the media processor handles its own cleanup
  */
 async function stopAllRecordings() {
-  console.log(`[Recorder] Stopping all active recordings (${activeRecordings.size} sessions)`);
-
-  const promises = [];
-  for (const [sessionKey, session] of activeRecordings) {
-    promises.push(
-      stopRecording(session.callId, session.callType).catch(err => {
-        console.error(`[Recorder] Failed to stop ${sessionKey}:`, err);
-      })
-    );
-  }
-
-  await Promise.all(promises);
-  console.log(`[Recorder] All recordings stopped`);
+  console.log(`[Recorder] stopAllRecordings called - media processor handles its own cleanup`);
 }
 
 module.exports = {
@@ -268,4 +166,5 @@ module.exports = {
   isRecording,
   getRecordingStatus,
   stopAllRecordings,
+  isAvailable,
 };
