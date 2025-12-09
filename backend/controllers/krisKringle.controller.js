@@ -526,10 +526,13 @@ async function generateKrisKringleMatches(req, res) {
       })),
     });
 
-    // Update status to active
+    // Update status to active and mark as assigned
     await prisma.krisKringle.update({
       where: { krisKringleId: krisKringleId },
-      data: { status: 'active' },
+      data: {
+        status: 'active',
+        isAssigned: true,
+      },
     });
 
     // Send match reveal emails to all participants
@@ -858,6 +861,16 @@ async function getKrisKringle(req, res) {
             },
           },
         },
+        matches: {
+          include: {
+            receiver: {
+              select: {
+                participantId: true,
+                name: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             participants: true,
@@ -879,10 +892,19 @@ async function getKrisKringle(req, res) {
     const isAdmin = membership.role === 'admin';
     const canManage = isCreator || isAdmin;
 
+    // Build match lookup for participants (only if admin/creator and isAssigned)
+    const matchLookup = {};
+    if (canManage && krisKringle.isAssigned) {
+      krisKringle.matches.forEach(m => {
+        matchLookup[m.giverId] = m.receiver;
+      });
+    }
+
     res.status(200).json({
       success: true,
       krisKringle: {
         ...krisKringle,
+        matches: undefined, // Don't expose raw matches array
         creator: {
           groupMemberId: krisKringle.creator.groupMemberId,
           displayName: krisKringle.creator.user?.displayName || krisKringle.creator.displayName,
@@ -901,6 +923,11 @@ async function getKrisKringle(req, res) {
             displayName: p.groupMember.user?.displayName || p.groupMember.displayName,
             iconLetters: p.groupMember.user?.memberIcon || p.groupMember.iconLetters,
             iconColor: p.groupMember.user?.iconColor || p.groupMember.iconColor,
+          } : null,
+          // Include match info for admin/creator when matches are assigned
+          match: matchLookup[p.participantId] ? {
+            participantId: matchLookup[p.participantId].participantId,
+            name: matchLookup[p.participantId].name,
           } : null,
         })),
         canManage: canManage,

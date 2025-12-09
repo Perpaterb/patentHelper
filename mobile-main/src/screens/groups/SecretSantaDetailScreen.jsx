@@ -27,6 +27,7 @@ import {
 import { TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
 import { useFocusEffect } from '@react-navigation/native';
+import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import api from '../../services/api';
 
 export default function SecretSantaDetailScreen({ navigation, route }) {
@@ -422,16 +423,16 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle} numberOfLines={1}>{eventName || event.name}</Text>
-        <IconButton
-          icon="delete"
-          onPress={handleDelete}
-          loading={deleting}
-          disabled={deleting}
-        />
-      </View>
+      <CustomNavigationHeader
+        title={eventName || event.name}
+        onBack={() => navigation.goBack()}
+        rightButtons={[
+          {
+            icon: 'delete',
+            onPress: handleDelete,
+          },
+        ]}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -794,22 +795,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 44,
-    paddingHorizontal: 4,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

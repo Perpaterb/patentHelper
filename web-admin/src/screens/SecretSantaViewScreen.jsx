@@ -35,6 +35,7 @@ export default function SecretSantaViewScreen({ route, navigation }) {
   const [newItem, setNewItem] = useState({ title: '', link: '', cost: '', description: '' });
   const [addingItem, setAddingItem] = useState(false);
   const [creatingRegistry, setCreatingRegistry] = useState(false);
+  const [expandedRegistries, setExpandedRegistries] = useState({});
 
   // Fetch all Secret Santa data
   const fetchData = useCallback(async () => {
@@ -338,70 +339,82 @@ export default function SecretSantaViewScreen({ route, navigation }) {
           <Card.Content>
             <Text style={styles.cardTitle}>Everyone's Gift Lists</Text>
             <Text style={styles.sectionSubtitle}>
-              Browse gift ideas from all participants
+              Tap a name to see their gift ideas
             </Text>
 
-            {data.giftRegistries.length === 0 ? (
+            {data.giftRegistries.filter(r => r.participantId !== data.currentParticipant.participantId).length === 0 ? (
               <Text style={styles.emptyText}>
                 No one has added gift ideas yet.
               </Text>
             ) : (
-              data.giftRegistries
-                .filter(r => r.participantId !== data.currentParticipant.participantId)
-                .map((registry) => (
-                  <View key={registry.registryId} style={styles.registrySection}>
-                    <Text style={styles.registryOwner}>{registry.participantName}'s List</Text>
-                    {registry.items.length === 0 ? (
-                      <Text style={styles.emptyRegistryText}>No items yet</Text>
-                    ) : (
-                      registry.items.map((item) => (
-                        <View key={item.itemId} style={styles.otherItemRow}>
-                          <View style={styles.itemInfo}>
-                            <Text
-                              style={[
-                                styles.itemTitle,
-                                item.isPurchased && styles.itemPurchased,
-                              ]}
-                            >
-                              {item.title}
-                              {item.isPurchased && ' ✓'}
-                            </Text>
-                            {item.cost && (
-                              <Text style={styles.itemCost}>
-                                ${parseFloat(item.cost).toFixed(2)}
-                              </Text>
-                            )}
-                            {item.description && (
-                              <Text style={styles.itemDescription}>{item.description}</Text>
-                            )}
-                            {item.link && (
+              <List.Section>
+                {data.giftRegistries
+                  .filter(r => r.participantId !== data.currentParticipant.participantId)
+                  .map((registry) => (
+                    <List.Accordion
+                      key={registry.registryId}
+                      title={`${registry.participantName}'s List`}
+                      description={`${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}`}
+                      left={props => <List.Icon {...props} icon="gift" />}
+                      expanded={expandedRegistries[registry.registryId] || false}
+                      onPress={() => setExpandedRegistries(prev => ({
+                        ...prev,
+                        [registry.registryId]: !prev[registry.registryId]
+                      }))}
+                      style={styles.accordion}
+                      titleStyle={styles.accordionTitle}
+                    >
+                      {registry.items.length === 0 ? (
+                        <Text style={styles.emptyRegistryText}>No items yet</Text>
+                      ) : (
+                        registry.items.map((item) => (
+                          <View key={item.itemId} style={styles.otherItemRow}>
+                            <View style={styles.itemInfo}>
                               <Text
-                                style={styles.itemLink}
-                                onPress={() => Linking.openURL(item.link)}
+                                style={[
+                                  styles.itemTitle,
+                                  item.isPurchased && styles.itemPurchased,
+                                ]}
                               >
-                                View Link
+                                {item.title}
+                                {item.isPurchased && ' ✓'}
                               </Text>
-                            )}
+                              {item.cost && (
+                                <Text style={styles.itemCost}>
+                                  ${parseFloat(item.cost).toFixed(2)}
+                                </Text>
+                              )}
+                              {item.description && (
+                                <Text style={styles.itemDescription}>{item.description}</Text>
+                              )}
+                              {item.link && (
+                                <Text
+                                  style={styles.itemLink}
+                                  onPress={() => Linking.openURL(item.link)}
+                                >
+                                  View Link
+                                </Text>
+                              )}
+                            </View>
+                            <Chip
+                              mode={item.isPurchased ? 'flat' : 'outlined'}
+                              onPress={() =>
+                                handleMarkPurchased(
+                                  registry.registryId,
+                                  item.itemId,
+                                  !item.isPurchased
+                                )
+                              }
+                              style={item.isPurchased ? styles.purchasedChip : styles.markPurchasedChip}
+                            >
+                              {item.isPurchased ? 'Purchased' : 'Mark Purchased'}
+                            </Chip>
                           </View>
-                          <Chip
-                            mode={item.isPurchased ? 'flat' : 'outlined'}
-                            onPress={() =>
-                              handleMarkPurchased(
-                                registry.registryId,
-                                item.itemId,
-                                !item.isPurchased
-                              )
-                            }
-                            style={item.isPurchased ? styles.purchasedChip : styles.markPurchasedChip}
-                          >
-                            {item.isPurchased ? 'Purchased' : 'Mark Purchased'}
-                          </Chip>
-                        </View>
-                      ))
-                    )}
-                    <Divider style={styles.divider} />
-                  </View>
-                ))
+                        ))
+                      )}
+                    </List.Accordion>
+                  ))}
+              </List.Section>
             )}
           </Card.Content>
         </Card>
@@ -633,6 +646,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -682,7 +696,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     fontStyle: 'italic',
-    marginLeft: 8,
+    marginLeft: 16,
+    paddingVertical: 12,
+  },
+  accordion: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  accordionTitle: {
+    fontWeight: '600',
   },
   divider: {
     marginTop: 16,
