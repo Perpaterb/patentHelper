@@ -79,19 +79,31 @@ function AppLayout({ children, navigation, currentRoute }) {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Desktop Drawer - always visible */}
-      <View style={styles.desktopDrawer}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'row',
+      height: '100vh',
+      backgroundColor: '#f5f5f5',
+    }}>
+      {/* Desktop Drawer - always visible, fixed position */}
+      <div style={{
+        width: DRAWER_WIDTH,
+        backgroundColor: '#fff',
+        borderRight: '1px solid #e0e0e0',
+        flexShrink: 0,
+        overflow: 'auto',
+      }}>
         <DrawerContent />
-      </View>
+      </div>
 
-      {/* Main Content Area */}
-      <View style={styles.mainArea}>
-        {/* Content */}
-        <View style={styles.content}>
-          {children}
-        </View>
-      </View>
+      {/* Main Content Area - scrollable */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        backgroundColor: '#f5f5f5',
+      }}>
+        {children}
+      </div>
 
       {/* Mobile Menu Modal */}
       <Portal>
@@ -103,24 +115,16 @@ function AppLayout({ children, navigation, currentRoute }) {
           <DrawerContent />
         </Modal>
       </Portal>
-    </View>
+    </div>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    height: '100vh',
-    overflow: 'hidden',
-  },
   desktopDrawer: {
     width: DRAWER_WIDTH,
     backgroundColor: '#fff',
     borderRightWidth: 1,
     borderRightColor: '#e0e0e0',
-    // Hide on mobile - show on desktop
     display: 'flex',
   },
   drawerContent: {
@@ -140,18 +144,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 8,
-  },
-  mainArea: {
-    flex: 1,
-    flexDirection: 'column',
-    height: '100%',
-    overflow: 'hidden',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    height: '100%',
-    overflow: 'auto',
   },
   mobileDrawer: {
     backgroundColor: '#fff',
