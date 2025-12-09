@@ -1,8 +1,48 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-12-05)
+## Current Status (Updated: 2025-12-09)
 
-Currently working on: **Phone & Video Call Recording Systems - FULLY COMPLETE**
+Currently working on: **Production Deployment Preparation**
+
+---
+
+## Recent Updates (2025-12-09)
+
+### Support Section for Web-Admin - COMPLETE
+Added a dedicated Support section in web-admin for managing users (only visible to support users).
+
+**Features:**
+- List all users with search by email/name
+- Toggle subscription access (grant/revoke)
+- Toggle support user access
+- Lock/unlock user accounts
+- Immutable support audit logs
+
+**Database Changes:**
+- Added `isSupportUser`, `isLocked`, `lockedAt`, `lockedReason` to User model
+- Created `SupportAuditLog` model for tracking all support actions
+
+**API Endpoints:**
+- `GET /support/check-access` - Check if current user has support access
+- `GET /support/users` - List all users with pagination and search
+- `PUT /support/users/:userId/subscription` - Toggle subscription access
+- `PUT /support/users/:userId/support-access` - Toggle support user access
+- `PUT /support/users/:userId/lock` - Lock/unlock user accounts
+- `GET /support/audit-logs` - View support audit logs
+
+**Scripts:**
+- `backend/scripts/grant-subscription.js` - Grant indefinite subscription to testers
+- `backend/scripts/seed-support-user.js` - Set up default support user (zcarss@gmail.com)
+
+### Bug Fixes (2025-12-09)
+- Added Adult role option to InviteMemberScreen (was missing from role selection)
+- Fixed AuditLogsScreen scrolling (changed AppLayout to native HTML divs)
+- Previous Exports section moved to top and made collapsible
+
+### Docker Media Processor - COMPLETE (2025-12-08)
+- Moved Puppeteer call recording to Docker container (Lambda was at 241MB/250MB limit)
+- Fixed Docker container network access for WSL2 environment
+- Added `DOCKER_HOST_URL` environment variable for container-to-host communication
 
 ---
 

@@ -6,7 +6,7 @@
 A cross-platform family and co-parenting helper application designed to facilitate communication, scheduling, and financial coordination between parents, children, caregivers, and supervisors. The app provides three core functionalities: messaging, calendar management, and financial tracking, with comprehensive logging and approval systems for administrative oversight.
 
 **Key Features:**
-- Role-based group management (Admin, Parent, Child, Caregiver, Supervisor)
+- Role-based group management (Admin, Parent, Adult, Child, Caregiver, Supervisor)
 - Secure messaging with administrative oversight and audit trails
 - Visual calendar with child responsibility tracking
 - Financial matter tracking with payment reporting and approval workflows
@@ -676,7 +676,7 @@ CREATE TABLE group_members (
     group_member_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
-    role VARCHAR(50) NOT NULL, -- 'admin', 'parent', 'child', 'caregiver', 'supervisor'
+    role VARCHAR(50) NOT NULL, -- 'admin', 'parent', 'adult', 'child', 'caregiver', 'supervisor'
     display_name VARCHAR(255) NOT NULL,
     icon_letters VARCHAR(3) NOT NULL,
     icon_color VARCHAR(7) NOT NULL,
@@ -695,7 +695,7 @@ CREATE TABLE group_members (
     notify_mention_finance BOOLEAN DEFAULT TRUE,
 
     UNIQUE(group_id, user_id),
-    CHECK (role IN ('admin', 'parent', 'child', 'caregiver', 'supervisor'))
+    CHECK (role IN ('admin', 'parent', 'adult', 'child', 'caregiver', 'supervisor'))
 );
 
 CREATE INDEX idx_group_members_group ON group_members(group_id);

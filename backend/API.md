@@ -20,6 +20,7 @@ If an endpoint is missing or incorrect, **FIX THIS FILE FIRST**, then update cod
 - [Health & Version](#health--version)
 - [Authentication](#authentication)
 - [Subscriptions](#subscriptions)
+- [Support (Admin Only)](#support-admin-only)
 - [Groups](#groups)
 - [Invitations](#invitations)
 - [Messages](#messages)
@@ -329,6 +330,216 @@ Simple subscription status check.
   "subscription": {
     "isActive": true,
     "email": "user@example.com"
+  }
+}
+```
+
+---
+
+## Support (Admin Only)
+
+Support endpoints for managing users. **Only accessible to users with `isSupportUser: true`**.
+
+All actions are logged to `SupportAuditLog` and cannot be deleted.
+
+### GET /support/check-access
+
+Check if current user has support access.
+
+**Used by**: web-admin (AppLayout navigation)
+
+**Authentication**: Required
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "isSupportUser": true
+}
+```
+
+---
+
+### GET /support/users
+
+List all users with pagination and search.
+
+**Used by**: web-admin (SupportScreen)
+
+**Authentication**: Required + Support User
+
+**Query Parameters**:
+- `search` (optional): Search by email or display name
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "users": [
+    {
+      "userId": "uuid",
+      "email": "user@example.com",
+      "displayName": "John Doe",
+      "memberIcon": "JD",
+      "iconColor": "#6200ee",
+      "isSubscribed": true,
+      "subscriptionId": "SUPPORT_GRANTED",
+      "subscriptionEndDate": "2125-12-09T00:00:00.000Z",
+      "storageLimitGb": 100,
+      "isSupportUser": false,
+      "isLocked": false,
+      "lockedAt": null,
+      "lockedReason": null,
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "lastLoginAt": "2025-12-09T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 150,
+    "totalPages": 8
+  }
+}
+```
+
+**Error Responses**:
+- 403: `{ "success": false, "error": "Support access required" }`
+
+---
+
+### PUT /support/users/:userId/subscription
+
+Grant or revoke unlimited subscription access.
+
+**Used by**: web-admin (SupportScreen)
+
+**Authentication**: Required + Support User
+
+**Request Body**:
+```json
+{
+  "grant": true
+}
+```
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Subscription granted"
+}
+```
+
+**Notes**:
+- When granting: Sets 100-year expiration, 100GB storage, subscriptionId = "SUPPORT_GRANTED"
+- When revoking: Clears all subscription fields
+- All actions logged to SupportAuditLog
+
+---
+
+### PUT /support/users/:userId/support-access
+
+Grant or revoke support user access.
+
+**Used by**: web-admin (SupportScreen)
+
+**Authentication**: Required + Support User
+
+**Request Body**:
+```json
+{
+  "grant": true
+}
+```
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "Support access granted"
+}
+```
+
+**Error Responses**:
+- 400: `{ "success": false, "error": "Cannot remove your own support access" }`
+
+---
+
+### PUT /support/users/:userId/lock
+
+Lock or unlock a user account.
+
+**Used by**: web-admin (SupportScreen)
+
+**Authentication**: Required + Support User
+
+**Request Body**:
+```json
+{
+  "lock": true,
+  "reason": "Violation of terms of service"
+}
+```
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "message": "User account locked"
+}
+```
+
+**Error Responses**:
+- 400: `{ "success": false, "error": "Cannot lock your own account" }`
+
+**Notes**:
+- Locked users cannot access any authenticated endpoints
+- Lock reason is recorded in SupportAuditLog
+
+---
+
+### GET /support/audit-logs
+
+Get support audit logs with pagination and filtering.
+
+**Used by**: web-admin (SupportScreen)
+
+**Authentication**: Required + Support User
+
+**Query Parameters**:
+- `search` (optional): Search by target or performer email
+- `action` (optional): Filter by action type (grant_subscription, revoke_subscription, grant_support, revoke_support, lock_user, unlock_user)
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 50, max: 100)
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "logs": [
+    {
+      "logId": "uuid",
+      "createdAt": "2025-12-09T00:00:00.000Z",
+      "performedById": "uuid",
+      "performedByEmail": "support@example.com",
+      "targetUserId": "uuid",
+      "targetUserEmail": "user@example.com",
+      "action": "grant_subscription",
+      "details": "Granted unlimited subscription access",
+      "previousValue": "{...}",
+      "newValue": "{...}",
+      "ipAddress": "192.168.1.1",
+      "userAgent": "Mozilla/5.0..."
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 100,
+    "totalPages": 2
   }
 }
 ```
