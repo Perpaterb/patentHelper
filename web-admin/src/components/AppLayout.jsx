@@ -112,6 +112,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: '#f5f5f5',
+    height: '100vh',
+    overflow: 'hidden',
   },
   desktopDrawer: {
     width: DRAWER_WIDTH,
@@ -142,10 +144,14 @@ const styles = StyleSheet.create({
   mainArea: {
     flex: 1,
     flexDirection: 'column',
+    height: '100%',
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    height: '100%',
+    overflow: 'auto',
   },
   mobileDrawer: {
     backgroundColor: '#fff',

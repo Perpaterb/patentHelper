@@ -428,7 +428,7 @@ export default function AuditLogsScreen({ navigation }) {
         </Surface>
       )}
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
         {groups.length === 0 ? (
           <Card style={styles.card}>
             <Card.Content>
@@ -741,9 +741,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    height: '100%',
+    overflow: 'hidden',
   },
   scrollView: {
     flex: 1,
+    height: '100%',
+  },
+  scrollViewContent: {
+    paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,
