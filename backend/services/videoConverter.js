@@ -24,9 +24,9 @@ try {
   ffmpeg.setFfmpegPath(ffmpegPath);
   ffmpeg.setFfprobePath(ffprobePath);
   localFfmpegAvailable = true;
-  console.log('[VideoConverter] Local ffmpeg available');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 } catch (err) {
-  console.log('[VideoConverter] Local ffmpeg not available - using media processor service');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 }
 
 // Media processor service for remote processing
@@ -34,7 +34,7 @@ let mediaProcessor = null;
 try {
   mediaProcessor = require('./mediaProcessor.service');
 } catch (err) {
-  console.log('[VideoConverter] Media processor service not available');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 }
 
 // Path to shared uploads directory (mounted in Docker as /app/uploads)

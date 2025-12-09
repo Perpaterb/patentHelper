@@ -26,9 +26,9 @@ try {
   sharp = require('sharp');
   heicConvert = require('heic-convert');
   localProcessingAvailable = true;
-  console.log('[ImageConversion] Local sharp/heic-convert available');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 } catch (err) {
-  console.log('[ImageConversion] Local sharp/heic-convert not available - using media processor service');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 }
 
 // Media processor service for remote processing
@@ -36,7 +36,7 @@ let mediaProcessor = null;
 try {
   mediaProcessor = require('./mediaProcessor.service');
 } catch (err) {
-  console.log('[ImageConversion] Media processor service not available');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 }
 
 // Path to shared uploads directory (mounted in Docker as /app/uploads)

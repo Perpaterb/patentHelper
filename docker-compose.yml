@@ -57,7 +57,7 @@ services:
     build:
       context: ./backend/media-processor
       dockerfile: Dockerfile
-    container_name: family-helper-media-processor
+    container_name: fh-media-video-audio-image-pdf-recorder
     ports:
       - "3001:3001"
     environment:

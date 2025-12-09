@@ -23,7 +23,7 @@ try {
   LambdaClient = awsLambda.LambdaClient;
   InvokeCommand = awsLambda.InvokeCommand;
 } catch (err) {
-  console.log('[MediaProcessor] AWS SDK not available - running in local mode only');
+  // AWS SDK not available in local development - expected behavior
 }
 
 // Configuration
@@ -325,6 +325,75 @@ async function getHealth() {
   }
 }
 
+/**
+ * Check media processor status and log capabilities at startup
+ * This consolidates all media processing capability logs into one place
+ * @returns {Promise<Object>} Health status with capabilities
+ */
+async function checkAndLogStatus() {
+  const capabilities = {
+    video: false,
+    audio: false,
+    image: false,
+    pdf: false,
+    callRecording: false,
+  };
+
+  let statusMessage = '';
+  let containerUp = false;
+
+  if (isProduction) {
+    // In production, Lambda handles all processing
+    statusMessage = '☁️  Media processing via AWS Lambda';
+    capabilities.video = true;
+    capabilities.audio = true;
+    capabilities.image = true;
+    capabilities.pdf = true;
+    capabilities.callRecording = true;
+    containerUp = true;
+  } else {
+    // Check local Docker container
+    try {
+      const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, {
+        timeout: 5000,
+      });
+
+      if (response.data.status === 'healthy') {
+        containerUp = true;
+        const caps = response.data.capabilities || [];
+        capabilities.video = caps.includes('video');
+        capabilities.audio = caps.includes('audio');
+        capabilities.image = caps.includes('image');
+        capabilities.pdf = caps.includes('pdf');
+        capabilities.callRecording = caps.includes('recording') || caps.includes('puppeteer');
+
+        // Build status message
+        const enabledCaps = [];
+        if (capabilities.video) enabledCaps.push('video');
+        if (capabilities.audio) enabledCaps.push('audio');
+        if (capabilities.image) enabledCaps.push('image');
+        if (capabilities.pdf) enabledCaps.push('PDF');
+        if (capabilities.callRecording) enabledCaps.push('call recording');
+
+        statusMessage = `✅ Media Processor (Docker) - ${enabledCaps.join(', ')} ready`;
+      } else {
+        statusMessage = '❌ Media Processor (Docker) - unhealthy';
+      }
+    } catch (error) {
+      statusMessage = `❌ Media Processor (Docker) - not running (${MEDIA_PROCESSOR_URL})`;
+    }
+  }
+
+  console.log(statusMessage);
+
+  return {
+    containerUp,
+    capabilities,
+    url: MEDIA_PROCESSOR_URL,
+    isProduction,
+  };
+}
+
 module.exports = {
   convertVideo,
   convertAudio,
@@ -332,6 +401,7 @@ module.exports = {
   generatePDF,
   isAvailable,
   getHealth,
+  checkAndLogStatus,
   // Export config for debugging
   config: {
     isProduction,

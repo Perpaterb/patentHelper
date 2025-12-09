@@ -31,6 +31,7 @@ const app = express();
 const { validateKindeConfig } = require('./config/auth');
 const { validateStripeConfig } = require('./config/stripe');
 const { emailService } = require('./services/email');
+const mediaProcessor = require('./services/mediaProcessor.service');
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
@@ -127,6 +128,9 @@ if (process.env.NODE_ENV !== 'test') {
 
     // Verify email service connection
     emailService.verifyConnection();
+
+    // Check media processor Docker container
+    mediaProcessor.checkAndLogStatus();
 
     console.log('');
     console.log('Press Ctrl+C to stop');

@@ -508,8 +508,11 @@ async function createFinanceMatter(req, res) {
     };
 
     // Send email notifications to members with user accounts (excluding the creator)
-    // This runs after the response to not block the API
     try {
+      console.log('[Finance] Starting email notifications...');
+      console.log('[Finance] memberIds:', memberIds);
+      console.log('[Finance] creator groupMemberId:', groupMembership.groupMemberId);
+
       const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
       const creatorDisplayName = groupMembership.displayName;
 
@@ -530,6 +533,9 @@ async function createFinanceMatter(req, res) {
           },
         },
       });
+
+      console.log('[Finance] Found members with users:', membersWithUsers.length);
+      membersWithUsers.forEach(m => console.log('[Finance] Member:', m.displayName, 'email:', m.user?.email));
 
       // Format amount with currency
       const formattedAmount = `${currency.toUpperCase()} ${parseFloat(totalAmount).toFixed(2)}`;

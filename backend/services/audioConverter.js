@@ -29,9 +29,9 @@ try {
   ffmpeg.setFfmpegPath(ffmpegPath);
   ffmpeg.setFfprobePath(ffprobePath);
   ffmpegAvailable = true;
-  console.log('[AudioConverter] Local ffmpeg available');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 } catch (err) {
-  console.log('[AudioConverter] Local ffmpeg not available - using media processor service');
+  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 }
 
 // Path to shared uploads directory (mounted in Docker as /app/uploads)
