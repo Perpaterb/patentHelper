@@ -31,6 +31,21 @@ function generateWebToken() {
 }
 
 /**
+ * Format date as DD-MMM-YYYY (e.g., 19-Dec-2025)
+ * @param {Date|string} date - Date to format
+ * @returns {string|null} Formatted date string or null
+ */
+function formatDate(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
  * Shuffle array using Fisher-Yates algorithm
  * @param {Array} array - Array to shuffle
  * @returns {Array} Shuffled array
@@ -328,7 +343,7 @@ async function createKrisKringle(req, res) {
             recipientName: participant.name,
             eventName: krisKringle.name,
             occasion: krisKringle.occasion || null,
-            exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+            exchangeDate: formatDate(krisKringle.exchangeDate),
             priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
             passcode: participant.passcode,
             secretSantaUrl: secretSantaUrl,
@@ -537,7 +552,7 @@ async function generateKrisKringleMatches(req, res) {
             recipientName: participant.name,
             eventName: krisKringle.name,
             matchName: receiver.name,
-            exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+            exchangeDate: formatDate(krisKringle.exchangeDate),
             priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
             wishlistUrl: wishlistUrl,
             secretSantaUrl: secretSantaUrl,
@@ -986,7 +1001,7 @@ async function resendParticipantEmail(req, res) {
       recipientName: participant.name,
       eventName: krisKringle.name,
       occasion: krisKringle.occasion || null,
-      exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+      exchangeDate: formatDate(krisKringle.exchangeDate),
       priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
       passcode: newPasscode,
       secretSantaUrl: secretSantaUrl,
@@ -1379,7 +1394,7 @@ async function addParticipant(req, res) {
         recipientName: participant.name,
         eventName: krisKringle.name,
         occasion: krisKringle.occasion || null,
-        exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+        exchangeDate: formatDate(krisKringle.exchangeDate),
         priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
         passcode: participant.passcode,
         secretSantaUrl: secretSantaUrl,
