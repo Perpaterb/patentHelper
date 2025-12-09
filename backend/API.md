@@ -393,7 +393,7 @@ List all users with pagination and search.
       "lockedAt": null,
       "lockedReason": null,
       "createdAt": "2025-01-01T00:00:00.000Z",
-      "lastLoginAt": "2025-12-09T00:00:00.000Z"
+      "lastLogin": "2025-12-09T00:00:00.000Z"
     }
   ],
   "pagination": {

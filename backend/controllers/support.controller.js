@@ -118,7 +118,7 @@ const listUsers = async (req, res) => {
           lockedAt: true,
           lockedReason: true,
           createdAt: true,
-          lastLoginAt: true,
+          lastLogin: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
