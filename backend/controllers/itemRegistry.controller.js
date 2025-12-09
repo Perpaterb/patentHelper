@@ -65,6 +65,7 @@ async function getItemRegistries(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -94,6 +95,7 @@ async function getItemRegistries(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
             items: {
@@ -219,6 +221,7 @@ async function getItemRegistryById(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -264,6 +267,7 @@ async function getItemRegistryById(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
             items: {

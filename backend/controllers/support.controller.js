@@ -109,6 +109,7 @@ const listUsers = async (req, res) => {
           displayName: true,
           memberIcon: true,
           iconColor: true,
+          profilePhotoFileId: true,
           isSubscribed: true,
           subscriptionId: true,
           subscriptionEndDate: true,

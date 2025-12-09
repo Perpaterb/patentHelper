@@ -262,6 +262,7 @@ async function getMessageGroupMessages(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },

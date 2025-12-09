@@ -64,6 +64,7 @@ async function getGiftRegistries(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -93,6 +94,7 @@ async function getGiftRegistries(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
             items: {
@@ -219,6 +221,7 @@ async function getGiftRegistry(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
           },
@@ -285,6 +288,7 @@ async function getGiftRegistry(req, res) {
                 displayName: true,
                 memberIcon: true,
                 iconColor: true,
+                profilePhotoFileId: true,
               },
             },
             items: {

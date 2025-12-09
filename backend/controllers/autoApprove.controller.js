@@ -70,6 +70,7 @@ async function getAutoApprovePermissions(req, res) {
             displayName: true,
             memberIcon: true,
             iconColor: true,
+            profilePhotoFileId: true,
           },
         },
       },

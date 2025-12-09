@@ -855,6 +855,7 @@ async function getKrisKringle(req, res) {
                     displayName: true,
                     memberIcon: true,
                     iconColor: true,
+                    profilePhotoFileId: true,
                   },
                 },
               },
