@@ -49,6 +49,8 @@ import EditChildEventScreen from '../mobile-main/src/screens/calendar/EditChildE
 
 // Import finance screens
 import FinanceListScreen from '../mobile-main/src/screens/groups/FinanceListScreen';
+import CreateFinanceMatterScreen from '../mobile-main/src/screens/finance/CreateFinanceMatterScreen';
+import FinanceMatterDetailsScreen from '../mobile-main/src/screens/finance/FinanceMatterDetailsScreen';
 
 // Import registry screens
 import GiftRegistryListScreen from '../mobile-main/src/screens/groups/GiftRegistryListScreen';
@@ -181,6 +183,8 @@ const linking = {
       EditEvent: 'web-app/group/:groupId/calendar/:eventId/edit',
       EditChildEvent: 'web-app/group/:groupId/calendar/:eventId/edit-child',
       Finance: 'web-app/group/:groupId/finance',
+      CreateFinanceMatter: 'web-app/group/:groupId/finance/create',
+      FinanceMatterDetails: 'web-app/group/:groupId/finance/:financeMatterId',
       GiftRegistryList: 'web-app/group/:groupId/gift-registry',
       GiftRegistryDetail: 'web-app/group/:groupId/gift-registry/:registryId',
       ItemRegistryList: 'web-app/group/:groupId/item-registry',
@@ -310,6 +314,8 @@ function AppNavigator() {
 
             {/* Finance */}
             <Stack.Screen name="Finance" component={withAppLayoutAndPhoneFrame(FinanceListScreen, 'Groups')} />
+            <Stack.Screen name="CreateFinanceMatter" component={withAppLayoutAndPhoneFrame(CreateFinanceMatterScreen, 'Groups')} />
+            <Stack.Screen name="FinanceMatterDetails" component={withAppLayoutAndPhoneFrame(FinanceMatterDetailsScreen, 'Groups')} />
 
             {/* Registries */}
             <Stack.Screen name="GiftRegistryList" component={withAppLayoutAndPhoneFrame(GiftRegistryListScreen, 'Groups')} />
