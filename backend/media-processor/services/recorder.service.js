@@ -16,6 +16,27 @@ const activeRecordings = new Map();
 // Chromium executable path (set via environment or use default)
 const CHROMIUM_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
 
+// Docker host URL - used to translate localhost URLs to host-accessible URLs
+// In Docker, 'localhost' refers to the container, not the host machine
+// We need to use 'host.docker.internal' (Docker Desktop) or the actual host IP
+const DOCKER_HOST = process.env.DOCKER_HOST_URL || 'host.docker.internal';
+
+/**
+ * Translate localhost URLs to Docker host URLs
+ * When running in Docker, localhost:3000 from the backend becomes inaccessible.
+ * We need to use host.docker.internal or the host IP instead.
+ */
+function translateUrlForDocker(url) {
+  if (!url) return url;
+
+  // Replace localhost with the Docker host
+  return url
+    .replace('http://localhost:', `http://${DOCKER_HOST}:`)
+    .replace('https://localhost:', `https://${DOCKER_HOST}:`)
+    .replace('ws://localhost:', `ws://${DOCKER_HOST}:`)
+    .replace('wss://localhost:', `wss://${DOCKER_HOST}:`);
+}
+
 /**
  * Start recording a call
  *
@@ -75,14 +96,18 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl, up
     });
 
     // Navigate to the appropriate recorder page based on call type
+    // Translate localhost URLs to Docker-accessible URLs
+    const dockerApiUrl = translateUrlForDocker(apiUrl);
     const recorderPage = callType === 'video' ? '/videoRecorder.html' : '/recorder.html';
-    const recorderUrl = new URL(recorderPage, apiUrl);
-    recorderUrl.searchParams.set('apiUrl', apiUrl);
+    const recorderUrl = new URL(recorderPage, dockerApiUrl);
+    recorderUrl.searchParams.set('apiUrl', dockerApiUrl);
     recorderUrl.searchParams.set('groupId', groupId);
     recorderUrl.searchParams.set('callId', callId);
     recorderUrl.searchParams.set('callType', callType);
     recorderUrl.searchParams.set('token', authToken);
 
+    console.log(`[Recorder] Original API URL: ${apiUrl}`);
+    console.log(`[Recorder] Docker API URL: ${dockerApiUrl}`);
     console.log(`[Recorder] Loading recorder page: ${recorderUrl.toString()}`);
     await page.goto(recorderUrl.toString(), { waitUntil: 'networkidle0', timeout: 60000 });
 

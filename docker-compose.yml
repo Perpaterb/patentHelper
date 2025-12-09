@@ -50,7 +50,8 @@ services:
 
   # ============================================
   # Media Processor (mirrors ECR Lambda)
-  # Handles: video/audio conversion (ffmpeg), image conversion (sharp), PDF generation
+  # Handles: video/audio conversion (ffmpeg), image conversion (sharp), PDF generation,
+  # and call recording (puppeteer with headless Chrome)
   # ============================================
   media-processor:
     build:
@@ -64,9 +65,17 @@ services:
       PORT: 3001
       # Local file storage (shared with backend)
       UPLOADS_DIR: /app/uploads
+      # WSL2: Docker host URL for Puppeteer to reach the backend
+      # In WSL2, host.docker.internal doesn't work reliably, so we use the WSL IP
+      # Run: ip addr show eth0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
+      # Or set DOCKER_HOST_URL in your shell before docker-compose up
+      DOCKER_HOST_URL: ${DOCKER_HOST_URL:-host.docker.internal}
     volumes:
       # Share uploads directory with backend
       - ./backend/uploads:/app/uploads
+    # Allow container to access host machine (for Puppeteer to reach backend at localhost:3000)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
