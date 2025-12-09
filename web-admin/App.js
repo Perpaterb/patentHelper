@@ -155,6 +155,7 @@ function withAppLayoutAndPhoneFrame(ScreenComponent, routeName) {
 // Linking configuration for web URLs
 const linking = {
   prefixes: [
+    'http://localhost:8081',
     'http://localhost:3001',
     'https://familyhelperapp.com',
     'https://www.familyhelperapp.com',
