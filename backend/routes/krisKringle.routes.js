@@ -16,9 +16,14 @@ router.use(requireAuth);
 router.get('/', krisKringleController.getKrisKringles);
 router.get('/:krisKringleId', krisKringleController.getKrisKringle);
 router.post('/', krisKringleController.createKrisKringle);
+router.put('/:krisKringleId', krisKringleController.updateKrisKringle);
 router.post('/:krisKringleId/generate-matches', krisKringleController.generateKrisKringleMatches);
 router.get('/:krisKringleId/my-match', krisKringleController.getMyMatch);
 router.delete('/:krisKringleId', krisKringleController.deleteKrisKringle);
+
+// Participant routes
+router.post('/:krisKringleId/participants', krisKringleController.addParticipant);
+router.delete('/:krisKringleId/participants/:participantId', krisKringleController.removeParticipant);
 router.post('/:krisKringleId/participants/:participantId/resend', krisKringleController.resendParticipantEmail);
 
 module.exports = router;

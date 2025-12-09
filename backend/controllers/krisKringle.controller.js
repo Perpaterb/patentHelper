@@ -330,7 +330,6 @@ async function createKrisKringle(req, res) {
             occasion: krisKringle.occasion || null,
             exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
             priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
-            revealDate: new Date(krisKringle.assigningDateTime).toLocaleString(),
             passcode: participant.passcode,
             secretSantaUrl: secretSantaUrl,
             appUrl: appUrl,
@@ -882,6 +881,7 @@ async function getKrisKringle(req, res) {
           hasViewed: p.hasViewed,
           initialEmailSentAt: p.initialEmailSentAt,
           assignmentEmailSentAt: p.assignmentEmailSentAt,
+          groupMemberId: p.groupMemberId, // Include the groupMemberId to identify external vs group members
           groupMember: p.groupMember ? {
             displayName: p.groupMember.user?.displayName || p.groupMember.displayName,
             iconLetters: p.groupMember.user?.memberIcon || p.groupMember.iconLetters,
@@ -988,7 +988,6 @@ async function resendParticipantEmail(req, res) {
       occasion: krisKringle.occasion || null,
       exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
       priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
-      revealDate: new Date(krisKringle.assigningDateTime).toLocaleString(),
       passcode: newPasscode,
       secretSantaUrl: secretSantaUrl,
       appUrl: appUrl,
@@ -997,7 +996,7 @@ async function resendParticipantEmail(req, res) {
     // Override subject to indicate this is a resend
     await emailService.sendEmail({
       to: participant.email,
-      subject: `🎁 New Access Code - "${krisKringle.name}" Surprise Santa`,
+      subject: `🎁 New Access Code - "${krisKringle.name}" Secret Santa`,
       text: emailContent.text,
       html: emailContent.html,
     });
@@ -1187,13 +1186,345 @@ async function getSecretSantaPublic(req, res) {
   }
 }
 
+/**
+ * Update a Kris Kringle event (before matches are generated)
+ * PUT /groups/:groupId/kris-kringle/:krisKringleId
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function updateKrisKringle(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, krisKringleId } = req.params;
+    const { name, priceLimit, exchangeDate, occasion } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get Kris Kringle event
+    const krisKringle = await prisma.krisKringle.findUnique({
+      where: { krisKringleId: krisKringleId },
+    });
+
+    if (!krisKringle || krisKringle.groupId !== groupId || krisKringle.isHidden) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Kris Kringle event not found',
+      });
+    }
+
+    // Only creator or admins can update
+    if (krisKringle.createdBy !== membership.groupMemberId && membership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only the event creator or admins can update this event',
+      });
+    }
+
+    // Cannot update after matches are generated
+    if (krisKringle.isAssigned) {
+      return res.status(400).json({
+        error: 'Cannot Update',
+        message: 'Cannot update event details after matches have been generated',
+      });
+    }
+
+    // Update the event
+    const updatedKrisKringle = await prisma.krisKringle.update({
+      where: { krisKringleId: krisKringleId },
+      data: {
+        name: name?.trim() || krisKringle.name,
+        priceLimit: priceLimit !== undefined ? priceLimit : krisKringle.priceLimit,
+        exchangeDate: exchangeDate ? new Date(exchangeDate) : krisKringle.exchangeDate,
+        occasion: occasion !== undefined ? occasion : krisKringle.occasion,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Event updated successfully',
+      krisKringle: updatedKrisKringle,
+    });
+  } catch (error) {
+    console.error('Update Kris Kringle error:', error);
+    res.status(500).json({
+      error: 'Failed to update Kris Kringle event',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Add a participant to a Kris Kringle event (before matches are generated)
+ * POST /groups/:groupId/kris-kringle/:krisKringleId/participants
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function addParticipant(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, krisKringleId } = req.params;
+    const { groupMemberId, name, email } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!name || !email) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Name and email are required',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get Kris Kringle event
+    const krisKringle = await prisma.krisKringle.findUnique({
+      where: { krisKringleId: krisKringleId },
+      include: { participants: true },
+    });
+
+    if (!krisKringle || krisKringle.groupId !== groupId || krisKringle.isHidden) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Kris Kringle event not found',
+      });
+    }
+
+    // Only creator or admins can add participants
+    if (krisKringle.createdBy !== membership.groupMemberId && membership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only the event creator or admins can add participants',
+      });
+    }
+
+    // Cannot add after matches are generated
+    if (krisKringle.isAssigned) {
+      return res.status(400).json({
+        error: 'Cannot Add',
+        message: 'Cannot add participants after matches have been generated',
+      });
+    }
+
+    // Check if email already exists
+    if (krisKringle.participants.some(p => p.email.toLowerCase() === email.toLowerCase())) {
+      return res.status(400).json({
+        error: 'Already Added',
+        message: 'A participant with this email already exists',
+      });
+    }
+
+    // Create participant
+    const passcode = generatePasscode();
+    const participant = await prisma.krisKringleParticipant.create({
+      data: {
+        krisKringleId: krisKringleId,
+        groupMemberId: groupMemberId || null,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        passcode: passcode,
+        hasJoined: !!groupMemberId,
+      },
+    });
+
+    // Send email to the new participant
+    const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+    const secretSantaUrl = `${appUrl}/secret-santa/${krisKringle.webToken}`;
+
+    try {
+      const emailContent = emailTemplates.secret_santa_added({
+        recipientName: participant.name,
+        eventName: krisKringle.name,
+        occasion: krisKringle.occasion || null,
+        exchangeDate: krisKringle.exchangeDate ? new Date(krisKringle.exchangeDate).toLocaleDateString() : null,
+        priceLimit: krisKringle.priceLimit ? `$${krisKringle.priceLimit}` : null,
+        passcode: participant.passcode,
+        secretSantaUrl: secretSantaUrl,
+        appUrl: appUrl,
+      });
+      await emailService.sendEmail({
+        to: participant.email,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html,
+      });
+      console.log(`[KrisKringle] Invitation email sent to ${participant.email}`);
+
+      // Update email sent timestamp
+      await prisma.krisKringleParticipant.update({
+        where: { participantId: participant.participantId },
+        data: { initialEmailSentAt: new Date() },
+      });
+    } catch (emailError) {
+      console.error(`[KrisKringle] Failed to send email to ${participant.email}:`, emailError.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Participant added successfully',
+      participant: {
+        participantId: participant.participantId,
+        name: participant.name,
+        email: participant.email,
+        groupMemberId: participant.groupMemberId,
+      },
+    });
+  } catch (error) {
+    console.error('Add participant error:', error);
+    res.status(500).json({
+      error: 'Failed to add participant',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Remove a participant from a Kris Kringle event (before matches are generated)
+ * DELETE /groups/:groupId/kris-kringle/:krisKringleId/participants/:participantId
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function removeParticipant(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, krisKringleId, participantId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get Kris Kringle event
+    const krisKringle = await prisma.krisKringle.findUnique({
+      where: { krisKringleId: krisKringleId },
+    });
+
+    if (!krisKringle || krisKringle.groupId !== groupId || krisKringle.isHidden) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Kris Kringle event not found',
+      });
+    }
+
+    // Only creator or admins can remove participants
+    if (krisKringle.createdBy !== membership.groupMemberId && membership.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only the event creator or admins can remove participants',
+      });
+    }
+
+    // Cannot remove after matches are generated
+    if (krisKringle.isAssigned) {
+      return res.status(400).json({
+        error: 'Cannot Remove',
+        message: 'Cannot remove participants after matches have been generated',
+      });
+    }
+
+    // Get participant
+    const participant = await prisma.krisKringleParticipant.findUnique({
+      where: { participantId: participantId },
+    });
+
+    if (!participant || participant.krisKringleId !== krisKringleId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Participant not found',
+      });
+    }
+
+    // Delete participant
+    await prisma.krisKringleParticipant.delete({
+      where: { participantId: participantId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Participant removed successfully',
+    });
+  } catch (error) {
+    console.error('Remove participant error:', error);
+    res.status(500).json({
+      error: 'Failed to remove participant',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getKrisKringles,
   getKrisKringle,
   createKrisKringle,
+  updateKrisKringle,
   generateKrisKringleMatches,
   getMyMatch,
   deleteKrisKringle,
+  addParticipant,
+  removeParticipant,
   resendParticipantEmail,
   verifySecretSantaAccess,
   getSecretSantaPublic,

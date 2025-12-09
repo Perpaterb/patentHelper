@@ -32,7 +32,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
   const [name, setName] = useState('');
   const [priceLimit, setPriceLimit] = useState('');
   const [exchangeDate, setExchangeDate] = useState(new Date());
-  const [assigningDateTime, setAssigningDateTime] = useState(new Date());
 
   // Participants
   const [participants, setParticipants] = useState([]);
@@ -40,7 +39,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
 
   // Date picker modal state
   const [showExchangeDatePicker, setShowExchangeDatePicker] = useState(false);
-  const [showAssigningDatePicker, setShowAssigningDatePicker] = useState(false);
 
   // Modal state
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -192,7 +190,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         name: name.trim(),
         priceLimit: priceLimit ? parseFloat(priceLimit) : null,
         exchangeDate: exchangeDate.toISOString(),
-        assigningDateTime: assigningDateTime.toISOString(),
         participants: participants.map((p, index) => ({
           groupMemberId: p.groupMemberId || null,
           name: p.name,
@@ -270,13 +267,9 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
               <Text style={styles.dateValue}>{formatDateByType(exchangeDate, 2)}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowAssigningDatePicker(true)}
-            >
-              <Text style={styles.dateLabel}>Reveal Names On</Text>
-              <Text style={styles.dateValue}>{formatDateByType(assigningDateTime, 2)}</Text>
-            </TouchableOpacity>
+            <Text style={styles.noteText}>
+              You'll generate and reveal the matches manually when you're ready.
+            </Text>
           </Card.Content>
         </Card>
 
@@ -495,16 +488,6 @@ export default function CreateSecretSantaScreen({ navigation, route }) {
         onClose={() => setShowExchangeDatePicker(false)}
         title="Exchange Date"
       />
-
-      {/* Assigning Date Picker */}
-      <DateTimeSelector
-        value={assigningDateTime}
-        onChange={setAssigningDateTime}
-        format={2}
-        visible={showAssigningDatePicker}
-        onClose={() => setShowAssigningDatePicker(false)}
-        title="Reveal Names On"
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -545,6 +528,12 @@ const styles = StyleSheet.create({
   },
   dateValue: {
     fontSize: 14,
+  },
+  noteText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   participantsHeader: {
     flexDirection: 'row',

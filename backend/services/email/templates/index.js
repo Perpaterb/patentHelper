@@ -499,27 +499,27 @@ ${appUrl}
  * @param {string} data.occasion - Occasion for the event (optional)
  * @param {string} data.exchangeDate - Date of gift exchange (optional)
  * @param {string} data.priceLimit - Price limit (optional)
- * @param {string} data.revealDate - When assignments will be revealed
  * @param {string} data.passcode - Access code for the participant
  * @param {string} data.secretSantaUrl - URL to view the Secret Santa
  * @param {string} data.appUrl - Main app URL
  * @returns {Object} Email content {subject, text, html}
  */
 function secret_santa_added(data) {
-  const { recipientName, eventName, occasion, exchangeDate, priceLimit, revealDate, passcode, secretSantaUrl, appUrl } = data;
+  const { recipientName, eventName, occasion, exchangeDate, priceLimit, passcode, secretSantaUrl, appUrl } = data;
 
-  const subject = `🎁 You've been added to "${eventName}" Surprise Santa!`;
+  const subject = `🎁 You've been added to "${eventName}" Secret Santa!`;
 
   const text = `
 Hi ${recipientName},
 
-You've been added to the Surprise Santa event "${eventName}"!
+You've been added to the Secret Santa event "${eventName}"!
 
 Event Details:
 ${occasion ? `- Occasion: ${occasion}` : ''}
 ${exchangeDate ? `- Exchange Date: ${exchangeDate}` : ''}
 ${priceLimit ? `- Gift Value: ${priceLimit}` : ''}
-- Assignments Revealed: ${revealDate}
+
+You'll receive another email when the Secret Santa assignments are ready.
 
 To view your assignment when it's ready:
 ${secretSantaUrl}
@@ -541,7 +541,7 @@ ${appUrl}
   const html = `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
   <div style="background: linear-gradient(135deg, #c62828 0%, #f44336 100%); padding: 30px; text-align: center;">
-    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎁 Surprise Santa</h1>
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎁 Secret Santa</h1>
     <p style="color: #ffcdd2; margin: 10px 0 0 0; font-size: 16px;">${eventName}</p>
   </div>
 
@@ -549,7 +549,7 @@ ${appUrl}
     <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
 
     <p style="font-size: 16px; color: #333;">
-      You've been added to the Surprise Santa event <strong>"${eventName}"</strong>! 🎄
+      You've been added to the Secret Santa event <strong>"${eventName}"</strong>! 🎄
     </p>
 
     <div style="background: #ffebee; border-radius: 8px; padding: 20px; margin: 20px 0;">
@@ -567,12 +567,12 @@ ${appUrl}
           <td style="padding: 8px 0; color: #666;">Gift Value:</td>
           <td style="padding: 8px 0; color: #c62828; font-weight: bold;">${priceLimit}</td>
         </tr>` : ''}
-        <tr>
-          <td style="padding: 8px 0; color: #666;">Reveal Date:</td>
-          <td style="padding: 8px 0; color: #333; font-weight: bold;">${revealDate}</td>
-        </tr>
       </table>
     </div>
+
+    <p style="font-size: 14px; color: #666; text-align: center;">
+      You'll receive another email when assignments are ready!
+    </p>
 
     <div style="background: #fff3e0; border: 2px dashed #ff9800; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
       <p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">Your Access Code</p>
@@ -582,7 +582,7 @@ ${appUrl}
 
     <div style="text-align: center; margin: 30px 0;">
       <a href="${secretSantaUrl}" style="display: inline-block; background: #c62828; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-        View Surprise Santa
+        View Secret Santa
       </a>
     </div>
   </div>
@@ -620,12 +620,12 @@ ${appUrl}
 function secret_santa_match(data) {
   const { recipientName, eventName, matchName, exchangeDate, priceLimit, wishlistUrl, secretSantaUrl, appUrl } = data;
 
-  const subject = `🎅 Your Surprise Santa match is ready!`;
+  const subject = `🎅 Your Secret Santa match is ready!`;
 
   const text = `
 Hi ${recipientName},
 
-The Surprise Santa assignments for "${eventName}" are in!
+The Secret Santa assignments for "${eventName}" are in!
 
 🎁 You are buying a gift for: ${matchName}
 
@@ -650,14 +650,14 @@ ${appUrl}
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
   <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); padding: 30px; text-align: center;">
     <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎅 It's Time!</h1>
-    <p style="color: #c8e6c9; margin: 10px 0 0 0; font-size: 16px;">Your Surprise Santa match is ready</p>
+    <p style="color: #c8e6c9; margin: 10px 0 0 0; font-size: 16px;">Your Secret Santa match is ready</p>
   </div>
 
   <div style="padding: 30px;">
     <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
 
     <p style="font-size: 16px; color: #333;">
-      The Surprise Santa assignments for <strong>"${eventName}"</strong> are in!
+      The Secret Santa assignments for <strong>"${eventName}"</strong> are in!
     </p>
 
     <div style="background: linear-gradient(135deg, #c62828 0%, #f44336 100%); border-radius: 12px; padding: 30px; margin: 25px 0; text-align: center;">
@@ -690,7 +690,7 @@ ${appUrl}
 
     <div style="text-align: center; margin: 30px 0;">
       <a href="${secretSantaUrl}" style="display: inline-block; background: #2e7d32; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-        View Surprise Santa
+        View Secret Santa
       </a>
     </div>
 
