@@ -84,6 +84,18 @@ describe('SubscriptionScreen', () => {
     storageUsedGb: '1.00',
   };
 
+  const mockInvoice = {
+    baseAmount: '3.00',
+    storageUsedGb: '2.50',
+    storagePacksNeeded: 0,
+    storageCharges: '0.00',
+    totalAmount: '3.00',
+    dueDate: '15-Dec-2025',
+    daysUntilDue: 5,
+    canPayNow: true,
+    currency: 'USD',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocation.search = '';
@@ -94,6 +106,9 @@ describe('SubscriptionScreen', () => {
       }
       if (url === '/subscriptions/current') {
         return Promise.resolve({ data: { subscription: null } });
+      }
+      if (url === '/subscriptions/invoice') {
+        return Promise.resolve({ data: { invoice: mockInvoice } });
       }
       return Promise.reject(new Error('Not found'));
     });
@@ -196,6 +211,9 @@ describe('SubscriptionScreen', () => {
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: mockActiveSubscription } });
         }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
+        }
         return Promise.reject(new Error('Not found'));
       });
     });
@@ -259,6 +277,9 @@ describe('SubscriptionScreen', () => {
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: mockCanceledSubscription } });
         }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
+        }
         return Promise.reject(new Error('Not found'));
       });
     });
@@ -300,6 +321,9 @@ describe('SubscriptionScreen', () => {
         }
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: mockTrialSubscription } });
+        }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
         }
         return Promise.reject(new Error('Not found'));
       });
@@ -363,6 +387,9 @@ describe('SubscriptionScreen', () => {
         }
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: mockActiveSubscription } });
+        }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
         }
         return Promise.reject(new Error('Not found'));
       });
@@ -441,6 +468,9 @@ describe('SubscriptionScreen', () => {
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: null } });
         }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
+        }
         return Promise.reject(new Error('Not found'));
       });
 
@@ -459,6 +489,9 @@ describe('SubscriptionScreen', () => {
         }
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: null } });
+        }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
         }
         return Promise.reject(new Error('Not found'));
       });
@@ -497,6 +530,9 @@ describe('SubscriptionScreen', () => {
         }
         if (url === '/subscriptions/current') {
           return Promise.resolve({ data: { subscription: overStorageSubscription } });
+        }
+        if (url === '/subscriptions/invoice') {
+          return Promise.resolve({ data: { invoice: mockInvoice } });
         }
         return Promise.reject(new Error('Not found'));
       });

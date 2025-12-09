@@ -35,6 +35,9 @@ export default function SubscriptionScreen({ navigation }) {
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
   const [infoMessage, setInfoMessage] = useState(null);
+  const [invoice, setInvoice] = useState(null);
+  const [payingNow, setPayingNow] = useState(false);
+  const [regeneratingBill, setRegeneratingBill] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -62,7 +65,7 @@ export default function SubscriptionScreen({ navigation }) {
    * Fetch both pricing and subscription data
    */
   async function fetchData() {
-    await Promise.all([fetchPricing(), fetchSubscription()]);
+    await Promise.all([fetchPricing(), fetchSubscription(), fetchInvoice()]);
   }
 
   /**
@@ -94,6 +97,63 @@ export default function SubscriptionScreen({ navigation }) {
       if (err.response?.status !== 404) {
         setError('Failed to load subscription information.');
       }
+    }
+  }
+
+  /**
+   * Fetch current invoice/bill breakdown
+   */
+  async function fetchInvoice() {
+    try {
+      const response = await api.get('/subscriptions/invoice');
+      setInvoice(response.data.invoice);
+    } catch (err) {
+      console.error('Failed to fetch invoice:', err);
+      // Don't show error - invoice may not be available yet
+    }
+  }
+
+  /**
+   * Handle pay now button click
+   */
+  async function handlePayNow() {
+    try {
+      setPayingNow(true);
+      setError(null);
+
+      const response = await api.post('/subscriptions/pay-now');
+
+      // Refresh all data
+      await fetchData();
+
+      setSuccessMessage(`Payment successful! Your next renewal date is ${response.data.renewalDate}`);
+    } catch (err) {
+      console.error('Payment failed:', err);
+      setError(err.response?.data?.message || 'Payment failed. Please try again.');
+    } finally {
+      setPayingNow(false);
+    }
+  }
+
+  /**
+   * Handle regenerate bill button click
+   */
+  async function handleRegenerateBill() {
+    try {
+      setRegeneratingBill(true);
+      setError(null);
+
+      const response = await api.post('/subscriptions/regenerate-bill');
+
+      // Update invoice with new data
+      setInvoice(response.data.invoice);
+
+      setSuccessMessage('Bill regenerated and email sent with updated pricing.');
+    } catch (err) {
+      console.error('Regenerate bill failed:', err);
+      setError(err.response?.data?.message || 'Failed to regenerate bill. Please try again.');
+    } finally {
+      setRegeneratingBill(false);
     }
   }
 
@@ -367,6 +427,95 @@ export default function SubscriptionScreen({ navigation }) {
               </Card.Content>
             </Card>
           </View>
+        )}
+
+        {/* Current Bill Card - Show when invoice available and within 7 days or trial */}
+        {invoice && (subscription?.isSubscribed || isOnFreeTrial()) && (
+          <Card style={styles.billCard}>
+            <Card.Content>
+              <View style={styles.billHeader}>
+                <MaterialCommunityIcons name="receipt" size={28} color="#6200ee" />
+                <Title style={styles.billTitle}>Your Current Bill</Title>
+              </View>
+              <Divider style={styles.divider} />
+
+              {/* Cost Breakdown Table */}
+              <View style={styles.billTable}>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Admin Subscription</Text>
+                  <Text style={styles.billValue}>${invoice.baseAmount} USD</Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Storage Used</Text>
+                  <Text style={styles.billValue}>{invoice.storageUsedGb} GB</Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Additional Storage ({invoice.storagePacksNeeded} × 10GB)</Text>
+                  <Text style={styles.billValue}>${invoice.storageCharges} USD</Text>
+                </View>
+                <View style={[styles.billRow, styles.billTotalRow]}>
+                  <Text style={styles.billTotalLabel}>TOTAL DUE</Text>
+                  <Text style={styles.billTotalValue}>${invoice.totalAmount} USD</Text>
+                </View>
+              </View>
+
+              {/* Due Date */}
+              <View style={styles.dueDateContainer}>
+                <MaterialCommunityIcons
+                  name="calendar-clock"
+                  size={20}
+                  color={invoice.daysUntilDue <= 3 ? '#d32f2f' : invoice.daysUntilDue <= 5 ? '#f57c00' : '#666'}
+                />
+                <Text style={[
+                  styles.dueDateText,
+                  invoice.daysUntilDue <= 3 && styles.dueDateUrgent,
+                  invoice.daysUntilDue <= 5 && invoice.daysUntilDue > 3 && styles.dueDateWarning,
+                ]}>
+                  Due: {invoice.dueDate} ({invoice.daysUntilDue} day{invoice.daysUntilDue !== 1 ? 's' : ''})
+                </Text>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.billActions}>
+                <Button
+                  mode="contained"
+                  onPress={handlePayNow}
+                  loading={payingNow}
+                  disabled={payingNow || !invoice.canPayNow || regeneratingBill}
+                  style={[styles.payNowButton, !invoice.canPayNow && styles.buttonDisabled]}
+                  icon="credit-card"
+                >
+                  Pay Bill Now
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={handleRegenerateBill}
+                  loading={regeneratingBill}
+                  disabled={regeneratingBill || payingNow}
+                  style={styles.regenerateBillButton}
+                  icon="refresh"
+                >
+                  Regenerate Bill
+                </Button>
+              </View>
+
+              {!invoice.canPayNow && (
+                <Text style={styles.payNowNote}>
+                  You can pay your bill within 7 days of the due date.
+                </Text>
+              )}
+
+              {/* Warning about non-payment */}
+              <Surface style={styles.billWarning}>
+                <MaterialCommunityIcons name="alert" size={20} color="#d32f2f" />
+                <View style={styles.billWarningContent}>
+                  <Text style={styles.billWarningTitle}>If not paid by {invoice.dueDate}:</Text>
+                  <Text style={styles.billWarningText}>• Groups where you're the only admin will become read-only for everyone</Text>
+                  <Text style={styles.billWarningText}>• Groups with other admins: you'll lose admin access</Text>
+                </View>
+              </Surface>
+            </Card.Content>
+          </Card>
         )}
 
         {/* Current Subscription Status */}
@@ -851,5 +1000,125 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     lineHeight: 18,
+  },
+  // Bill card styles
+  billCard: {
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#6200ee',
+  },
+  billHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  billTitle: {
+    fontSize: 20,
+    marginLeft: 12,
+    color: '#333',
+  },
+  billTable: {
+    marginBottom: 16,
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  billLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  billValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  billTotalRow: {
+    borderBottomWidth: 0,
+    borderTopWidth: 2,
+    borderTopColor: '#6200ee',
+    marginTop: 8,
+    paddingTop: 12,
+  },
+  billTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  billTotalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6200ee',
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  dueDateText: {
+    fontSize: 15,
+    marginLeft: 8,
+    color: '#666',
+  },
+  dueDateWarning: {
+    color: '#f57c00',
+    fontWeight: '600',
+  },
+  dueDateUrgent: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+  },
+  billActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  payNowButton: {
+    backgroundColor: '#6200ee',
+    flex: 1,
+    minWidth: 150,
+  },
+  regenerateBillButton: {
+    borderColor: '#6200ee',
+    flex: 1,
+    minWidth: 150,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  payNowNote: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  billWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  billWarningContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  billWarningTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#d32f2f',
+    marginBottom: 4,
+  },
+  billWarningText: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
 });

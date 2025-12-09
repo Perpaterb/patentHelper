@@ -9,6 +9,15 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const billingService = require('../services/billing.service');
+const MailHogEmailService = require('../services/email/mailhogEmailService');
+
+// Initialize email service
+const emailService = new MailHogEmailService();
+
+// Base pricing constants (in cents)
+const BASE_SUBSCRIPTION_CENTS = 300; // $3.00 USD
+const STORAGE_PACK_CENTS = 100; // $1.00 USD per 10GB
 
 /**
  * Get current user's subscription status
@@ -376,10 +385,534 @@ async function reactivateSubscription(req, res) {
   }
 }
 
+/**
+ * Helper: Format date as DD-MMM-YYYY
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date
+ */
+function formatDateDDMMMYYYY(date) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
+ * Helper: Calculate user's due date
+ * For trial users: createdAt + 20 days
+ * For subscribed users: renewalDate
+ * @param {Object} user - User object
+ * @returns {Date|null} Due date
+ */
+function calculateDueDate(user) {
+  if (user.isSubscribed && user.renewalDate) {
+    return new Date(user.renewalDate);
+  }
+  // Trial user: 20 days from account creation
+  const trialEnd = new Date(user.createdAt);
+  trialEnd.setDate(trialEnd.getDate() + 20);
+  return trialEnd;
+}
+
+/**
+ * Helper: Calculate storage used and required packs
+ * @param {string} userId - User ID
+ * @returns {Object} Storage info
+ */
+async function calculateStorageInfo(userId) {
+  // Get all groups where user is admin
+  const adminGroups = await prisma.groupMember.findMany({
+    where: {
+      userId: userId,
+      role: 'admin',
+    },
+    select: { groupId: true },
+  });
+
+  const adminGroupIds = adminGroups.map(g => g.groupId);
+
+  // Sum all file sizes from MessageMedia in those groups
+  let storageUsedBytes = BigInt(0);
+
+  if (adminGroupIds.length > 0) {
+    const mediaResult = await prisma.messageMedia.aggregate({
+      where: {
+        message: {
+          messageGroup: {
+            groupId: { in: adminGroupIds },
+          },
+        },
+      },
+      _sum: { fileSizeBytes: true },
+    });
+    storageUsedBytes = mediaResult._sum.fileSizeBytes || BigInt(0);
+  }
+
+  // Convert bytes to GB
+  const storageUsedGb = Number(storageUsedBytes) / (1024 * 1024 * 1024);
+
+  // Calculate storage packs needed (base is 10GB)
+  const baseStorageGb = 10;
+  const additionalGbNeeded = Math.max(0, storageUsedGb - baseStorageGb);
+  const storagePacksNeeded = Math.ceil(additionalGbNeeded / 10); // Each pack is 10GB
+
+  return {
+    storageUsedBytes: Number(storageUsedBytes),
+    storageUsedGb: storageUsedGb.toFixed(2),
+    baseStorageGb,
+    storagePacksNeeded,
+    storageCharges: (storagePacksNeeded * STORAGE_PACK_CENTS / 100).toFixed(2),
+  };
+}
+
+/**
+ * Get current user's invoice/bill breakdown
+ * GET /subscriptions/invoice
+ *
+ * Returns the current billing breakdown with costs and due date
+ *
+ * @param {Object} req - Express request (with user attached by requireAuth middleware)
+ * @param {Object} res - Express response
+ */
+async function getInvoice(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { userId: req.user.userId },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        isSubscribed: true,
+        createdAt: true,
+        renewalDate: true,
+        additionalStoragePacks: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User account not found',
+      });
+    }
+
+    // Calculate due date
+    const dueDate = calculateDueDate(user);
+    if (!dueDate) {
+      return res.status(400).json({
+        error: 'No billing date',
+        message: 'Unable to determine billing date',
+      });
+    }
+
+    // Calculate days until due
+    const now = new Date();
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+    // Calculate storage info
+    const storageInfo = await calculateStorageInfo(user.userId);
+
+    // Calculate totals
+    const baseAmount = BASE_SUBSCRIPTION_CENTS / 100; // $3.00
+    const storageCharges = parseFloat(storageInfo.storageCharges);
+    const totalAmount = (baseAmount + storageCharges).toFixed(2);
+
+    // User can pay now if within 7 days of due date
+    const canPayNow = daysUntilDue <= 7;
+
+    res.status(200).json({
+      success: true,
+      invoice: {
+        baseAmount: baseAmount.toFixed(2),
+        storageUsedGb: storageInfo.storageUsedGb,
+        storagePacksNeeded: storageInfo.storagePacksNeeded,
+        storageCharges: storageInfo.storageCharges,
+        totalAmount: totalAmount,
+        dueDate: formatDateDDMMMYYYY(dueDate),
+        dueDateRaw: dueDate.toISOString(),
+        daysUntilDue: daysUntilDue,
+        canPayNow: canPayNow,
+        currency: 'USD',
+      },
+    });
+  } catch (error) {
+    console.error('Get invoice error:', error);
+    res.status(500).json({
+      error: 'Failed to get invoice',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Pay bill now (early payment)
+ * POST /subscriptions/pay-now
+ *
+ * Allows user to pay their bill early (within 7 days of due date)
+ *
+ * @param {Object} req - Express request (with user attached by requireAuth middleware)
+ * @param {Object} res - Express response
+ */
+async function payNow(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { userId: req.user.userId },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        isSubscribed: true,
+        createdAt: true,
+        renewalDate: true,
+        stripeCustomerId: true,
+        defaultPaymentMethodId: true,
+        additionalStoragePacks: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User account not found',
+      });
+    }
+
+    // Calculate due date
+    const dueDate = calculateDueDate(user);
+    if (!dueDate) {
+      return res.status(400).json({
+        error: 'No billing date',
+        message: 'Unable to determine billing date',
+      });
+    }
+
+    // Check if within 7 days
+    const now = new Date();
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilDue > 7) {
+      return res.status(400).json({
+        error: 'Too early to pay',
+        message: `You can only pay your bill within 7 days of the due date. Current: ${daysUntilDue} days remaining.`,
+      });
+    }
+
+    // Check if user has payment method
+    if (!user.stripeCustomerId || !user.defaultPaymentMethodId) {
+      return res.status(400).json({
+        error: 'No payment method',
+        message: 'Please add a payment method first',
+      });
+    }
+
+    // Calculate storage info for accurate billing
+    const storageInfo = await calculateStorageInfo(user.userId);
+
+    // Use billing service to charge user
+    try {
+      const result = await billingService.chargeUser({
+        ...user,
+        additionalStoragePacks: storageInfo.storagePacksNeeded,
+      });
+
+      // Clear any subscriptionEndDate (reactivation)
+      await prisma.user.update({
+        where: { userId: user.userId },
+        data: {
+          isSubscribed: true,
+          subscriptionEndDate: null,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Payment successful',
+        paymentIntentId: result.paymentIntentId,
+        amount: result.amount,
+        renewalDate: formatDateDDMMMYYYY(result.renewalDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+      });
+    } catch (chargeError) {
+      console.error('Payment failed:', chargeError);
+      return res.status(400).json({
+        error: 'Payment failed',
+        message: chargeError.message,
+      });
+    }
+  } catch (error) {
+    console.error('Pay now error:', error);
+    res.status(500).json({
+      error: 'Failed to process payment',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Regenerate bill and send new billing reminder email
+ * POST /subscriptions/regenerate-bill
+ *
+ * Recalculates storage costs and sends a new billing email
+ *
+ * @param {Object} req - Express request (with user attached by requireAuth middleware)
+ * @param {Object} res - Express response
+ */
+async function regenerateBill(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { userId: req.user.userId },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        isSubscribed: true,
+        createdAt: true,
+        renewalDate: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User account not found',
+      });
+    }
+
+    // Calculate due date
+    const dueDate = calculateDueDate(user);
+    if (!dueDate) {
+      return res.status(400).json({
+        error: 'No billing date',
+        message: 'Unable to determine billing date',
+      });
+    }
+
+    // Calculate days until due
+    const now = new Date();
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+
+    // Calculate storage info
+    const storageInfo = await calculateStorageInfo(user.userId);
+
+    // Calculate totals
+    const baseAmount = BASE_SUBSCRIPTION_CENTS / 100;
+    const storageCharges = parseFloat(storageInfo.storageCharges);
+    const totalAmount = (baseAmount + storageCharges).toFixed(2);
+
+    // Prepare email data
+    const emailData = {
+      userName: user.displayName || user.email,
+      daysUntilDue: Math.max(1, daysUntilDue), // At least 1 day
+      dueDate: formatDateDDMMMYYYY(dueDate),
+      storageUsedGb: storageInfo.storageUsedGb,
+      storagePacks: storageInfo.storagePacksNeeded,
+      storageCharges: storageInfo.storageCharges,
+      totalAmount: totalAmount,
+      payNowUrl: process.env.WEB_APP_URL || 'https://familyhelperapp.com/subscription',
+    };
+
+    // Send billing reminder email
+    try {
+      await emailService.sendTemplate('billing_reminder', user.email, emailData);
+      console.log(`[Billing] Regenerated bill email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send billing reminder email:', emailError);
+      // Continue even if email fails
+    }
+
+    // Update lastBillingReminderSent
+    await prisma.user.update({
+      where: { userId: user.userId },
+      data: { lastBillingReminderSent: now },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Bill regenerated and email sent',
+      invoice: {
+        baseAmount: baseAmount.toFixed(2),
+        storageUsedGb: storageInfo.storageUsedGb,
+        storagePacksNeeded: storageInfo.storagePacksNeeded,
+        storageCharges: storageInfo.storageCharges,
+        totalAmount: totalAmount,
+        dueDate: formatDateDDMMMYYYY(dueDate),
+        daysUntilDue: daysUntilDue,
+        canPayNow: daysUntilDue <= 7,
+        currency: 'USD',
+      },
+    });
+  } catch (error) {
+    console.error('Regenerate bill error:', error);
+    res.status(500).json({
+      error: 'Failed to regenerate bill',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Send billing reminders to users due soon (scheduled job)
+ * POST /subscriptions/send-billing-reminders
+ *
+ * Called daily by AWS EventBridge to send reminders at 5 days and 1 day before due
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function sendBillingReminders(req, res) {
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Calculate target dates for reminders (5 days and 1 day before)
+    const fiveDaysFromNow = new Date(today);
+    fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+    const oneDayFromNow = new Date(today);
+    oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
+
+    // Helper to check if date matches target (same day)
+    const isSameDay = (d1, d2) => {
+      return d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
+    };
+
+    // Find subscribed users due in 5 days or 1 day
+    const subscribedUsers = await prisma.user.findMany({
+      where: {
+        isSubscribed: true,
+        renewalDate: { not: null },
+      },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        isSubscribed: true,
+        createdAt: true,
+        renewalDate: true,
+        lastBillingReminderSent: true,
+      },
+    });
+
+    // Find trial users (not subscribed) whose trial ends in 5 or 1 days
+    const trialUsers = await prisma.user.findMany({
+      where: {
+        isSubscribed: false,
+      },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        isSubscribed: true,
+        createdAt: true,
+        renewalDate: true,
+        lastBillingReminderSent: true,
+      },
+    });
+
+    const results = {
+      processed: 0,
+      sent: 0,
+      skipped: 0,
+      errors: [],
+    };
+
+    const allUsers = [...subscribedUsers, ...trialUsers];
+
+    for (const user of allUsers) {
+      try {
+        const dueDate = calculateDueDate(user);
+        if (!dueDate) {
+          results.skipped++;
+          continue;
+        }
+
+        const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        // Check if this is a reminder day (5 or 1 day before)
+        const shouldSend = daysUntilDue === 5 || daysUntilDue === 1;
+
+        if (!shouldSend) {
+          results.skipped++;
+          continue;
+        }
+
+        // Check if we already sent a reminder today
+        if (user.lastBillingReminderSent) {
+          const lastSent = new Date(user.lastBillingReminderSent);
+          if (isSameDay(lastSent, today)) {
+            results.skipped++;
+            continue;
+          }
+        }
+
+        // Calculate storage info
+        const storageInfo = await calculateStorageInfo(user.userId);
+
+        // Calculate totals
+        const baseAmount = BASE_SUBSCRIPTION_CENTS / 100;
+        const storageCharges = parseFloat(storageInfo.storageCharges);
+        const totalAmount = (baseAmount + storageCharges).toFixed(2);
+
+        // Prepare email data
+        const emailData = {
+          userName: user.displayName || user.email,
+          daysUntilDue: daysUntilDue,
+          dueDate: formatDateDDMMMYYYY(dueDate),
+          storageUsedGb: storageInfo.storageUsedGb,
+          storagePacks: storageInfo.storagePacksNeeded,
+          storageCharges: storageInfo.storageCharges,
+          totalAmount: totalAmount,
+          payNowUrl: process.env.WEB_APP_URL || 'https://familyhelperapp.com/subscription',
+        };
+
+        // Send email
+        await emailService.sendTemplate('billing_reminder', user.email, emailData);
+
+        // Update lastBillingReminderSent
+        await prisma.user.update({
+          where: { userId: user.userId },
+          data: { lastBillingReminderSent: now },
+        });
+
+        console.log(`[Billing] Sent ${daysUntilDue}-day reminder to ${user.email}`);
+        results.sent++;
+        results.processed++;
+      } catch (error) {
+        console.error(`[Billing] Failed to process user ${user.email}:`, error.message);
+        results.errors.push({
+          userId: user.userId,
+          email: user.email,
+          error: error.message,
+        });
+        results.processed++;
+      }
+    }
+
+    console.log(`[Billing] Reminders complete: ${results.sent} sent, ${results.skipped} skipped, ${results.errors.length} errors`);
+
+    res.status(200).json({
+      success: true,
+      results: results,
+    });
+  } catch (error) {
+    console.error('Send billing reminders error:', error);
+    res.status(500).json({
+      error: 'Failed to send billing reminders',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getSubscriptionStatus,
   getPricing,
   getCurrentSubscription,
   cancelSubscription,
   reactivateSubscription,
+  getInvoice,
+  payNow,
+  regenerateBill,
+  sendBillingReminders,
 };

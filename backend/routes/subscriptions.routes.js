@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const subscriptionController = require('../controllers/subscription.controller');
+const subscriptionsController = require('../controllers/subscriptions.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 // ============================================
@@ -115,5 +116,35 @@ router.get('/billing-history', requireAuth, subscriptionController.getBillingHis
  * Protected by X-API-Key header (BILLING_API_KEY env var)
  */
 router.post('/process-renewals', subscriptionController.processRenewals);
+
+// ============================================
+// BILLING REMINDER ENDPOINTS
+// ============================================
+
+/**
+ * GET /subscriptions/invoice
+ * Get current billing breakdown and due date
+ */
+router.get('/invoice', requireAuth, subscriptionsController.getInvoice);
+
+/**
+ * POST /subscriptions/pay-now
+ * Pay bill early (within 7 days of due date)
+ */
+router.post('/pay-now', requireAuth, subscriptionsController.payNow);
+
+/**
+ * POST /subscriptions/regenerate-bill
+ * Recalculate costs and send new billing email
+ */
+router.post('/regenerate-bill', requireAuth, subscriptionsController.regenerateBill);
+
+/**
+ * POST /subscriptions/send-billing-reminders
+ * Send billing reminders to users due soon (scheduled job)
+ *
+ * Protected by X-API-Key header (BILLING_API_KEY env var)
+ */
+router.post('/send-billing-reminders', subscriptionsController.sendBillingReminders);
 
 module.exports = router;

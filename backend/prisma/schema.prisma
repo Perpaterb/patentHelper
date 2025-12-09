@@ -39,6 +39,7 @@ model User {
   additionalStoragePacks Int       @default(0) @map("additional_storage_packs")
   lastBillingAttempt     DateTime? @map("last_billing_attempt") @db.Timestamp(6)
   billingFailureCount    Int       @default(0) @map("billing_failure_count")
+  lastBillingReminderSent DateTime? @map("last_billing_reminder_sent") @db.Timestamp(6)
 
   groupMemberships        GroupMember[]
   createdGroups           Group[]                @relation("GroupCreator")

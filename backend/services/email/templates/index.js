@@ -711,6 +711,126 @@ ${appUrl}
   return { subject, text, html };
 }
 
+/**
+ * Billing reminder email template
+ * Sent 5 days and 1 day before subscription/trial renewal date
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.userName - User's name or email
+ * @param {number} data.daysUntilDue - Days until payment is due
+ * @param {string} data.dueDate - Formatted due date (DD-MMM-YYYY)
+ * @param {string} data.storageUsedGb - Storage used in GB (e.g., "5.23")
+ * @param {number} data.storagePacks - Number of additional storage packs
+ * @param {string} data.storageCharges - Storage charges formatted (e.g., "1.00")
+ * @param {string} data.totalAmount - Total amount formatted (e.g., "4.00")
+ * @param {string} data.payNowUrl - URL to the subscription page
+ * @returns {Object} Email content {subject, text, html}
+ */
+function billing_reminder(data) {
+  const { userName, daysUntilDue, dueDate, storageUsedGb, storagePacks, storageCharges, totalAmount, payNowUrl } = data;
+
+  const dayText = daysUntilDue === 1 ? 'day' : 'days';
+  const subject = `Your Family Helper payment is due in ${daysUntilDue} ${dayText}`;
+
+  const text = `
+Hi ${userName},
+
+Your subscription payment is due on ${dueDate}.
+
+COST BREAKDOWN:
+- Admin Subscription: $3.00 USD
+- Storage Used: ${storageUsedGb} GB
+- Additional Storage (${storagePacks} packs × 10GB): $${storageCharges} USD
+- TOTAL DUE: $${totalAmount} USD
+
+Pay now: ${payNowUrl}
+
+IMPORTANT:
+1. Reduced your storage? Click "Regenerate Bill" on the subscription
+   page to get updated pricing before paying.
+
+2. If payment is not received by ${dueDate}:
+   - Groups where you're the ONLY admin will become READ-ONLY for everyone
+   - Groups with other admins: You'll lose admin access (demoted to member)
+
+Questions? Contact support@familyhelperapp.com
+
+Best regards,
+The Family Helper Team
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #6200ee 0%, #9c4dcc 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Payment Due Soon</h1>
+    <p style="color: #e1bee7; margin: 10px 0 0 0; font-size: 16px;">Due in ${daysUntilDue} ${dayText}</p>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 16px; color: #333;">Hi ${userName},</p>
+
+    <p style="font-size: 16px; color: #333;">
+      Your subscription payment is due on <strong>${dueDate}</strong>.
+    </p>
+
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin: 25px 0;">
+      <h3 style="margin: 0 0 15px 0; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Cost Breakdown</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Admin Subscription</td>
+          <td style="padding: 8px 0; color: #333; text-align: right;">$3.00 USD</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Storage Used</td>
+          <td style="padding: 8px 0; color: #333; text-align: right;">${storageUsedGb} GB</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Additional Storage (${storagePacks} × 10GB)</td>
+          <td style="padding: 8px 0; color: #333; text-align: right;">$${storageCharges} USD</td>
+        </tr>
+        <tr style="border-top: 2px solid #6200ee;">
+          <td style="padding: 12px 0 8px 0; color: #333; font-weight: bold; font-size: 18px;">TOTAL DUE</td>
+          <td style="padding: 12px 0 8px 0; color: #6200ee; font-weight: bold; font-size: 18px; text-align: right;">$${totalAmount} USD</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${payNowUrl}" style="display: inline-block; background: #6200ee; color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px;">
+        Pay Now
+      </a>
+    </div>
+
+    <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 25px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #e65100;">💡 Reduced your storage?</h4>
+      <p style="margin: 0; color: #666; font-size: 14px;">
+        Click "Regenerate Bill" on the subscription page to get updated pricing before paying.
+      </p>
+    </div>
+
+    <div style="background: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 25px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #c62828;">⚠️ If payment is not received by ${dueDate}:</h4>
+      <ul style="margin: 0; color: #666; font-size: 14px; padding-left: 20px;">
+        <li>Groups where you're the ONLY admin will become <strong>READ-ONLY</strong> for everyone</li>
+        <li>Groups with other admins: You'll lose admin access (demoted to member)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0 0 10px 0;">
+      Questions? Contact support@familyhelperapp.com
+    </p>
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      <strong>Family Helper App</strong>
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
 module.exports = {
   welcome,
   trial_reminder,
@@ -719,4 +839,5 @@ module.exports = {
   finance_matter_added,
   secret_santa_added,
   secret_santa_match,
+  billing_reminder,
 };
