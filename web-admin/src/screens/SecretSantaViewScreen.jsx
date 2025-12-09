@@ -334,28 +334,25 @@ export default function SecretSantaViewScreen({ route, navigation }) {
           </Card.Content>
         </Card>
 
-        {/* All Gift Registries Section */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text style={styles.cardTitle}>Everyone's Gift Lists</Text>
-            <Text style={styles.sectionSubtitle}>
-              Tap a name to see their gift ideas
-            </Text>
-
-            {data.giftRegistries.filter(r => r.participantId !== data.currentParticipant.participantId).length === 0 ? (
-              <Text style={styles.emptyText}>
-                No one has added gift ideas yet.
-              </Text>
-            ) : (
-              <List.Section>
-                {data.giftRegistries
-                  .filter(r => r.participantId !== data.currentParticipant.participantId)
-                  .map((registry) => (
+        {/* Secret Santa Gift Lists */}
+        {(() => {
+          const ssRegistries = data.giftRegistries.filter(
+            r => r.participantId !== data.currentParticipant.participantId && r.type === 'secret-santa'
+          );
+          return ssRegistries.length > 0 && (
+            <Card style={styles.card}>
+              <Card.Content>
+                <Text style={styles.cardTitle}>🎅 Secret Santa Gift Lists</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Gift ideas added specifically for this Secret Santa
+                </Text>
+                <List.Section>
+                  {ssRegistries.map((registry) => (
                     <List.Accordion
                       key={registry.registryId}
-                      title={`${registry.participantName}'s ${registry.name || 'List'}`}
-                      description={`${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}${registry.type === 'group' ? ' • Group Registry' : registry.type === 'personal' ? ' • Personal Registry' : ''}`}
-                      left={props => <List.Icon {...props} icon={registry.type === 'group' ? 'account-group' : registry.type === 'personal' ? 'account' : 'gift'} />}
+                      title={`${registry.participantName}'s List`}
+                      description={`${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}`}
+                      left={props => <List.Icon {...props} icon="gift" />}
                       expanded={expandedRegistries[registry.registryId] || false}
                       onPress={() => setExpandedRegistries(prev => ({
                         ...prev,
@@ -414,10 +411,189 @@ export default function SecretSantaViewScreen({ route, navigation }) {
                       )}
                     </List.Accordion>
                   ))}
-              </List.Section>
-            )}
-          </Card.Content>
-        </Card>
+                </List.Section>
+              </Card.Content>
+            </Card>
+          );
+        })()}
+
+        {/* Group Gift Registries */}
+        {(() => {
+          const groupRegistries = data.giftRegistries.filter(
+            r => r.participantId !== data.currentParticipant.participantId && r.type === 'group'
+          );
+          return groupRegistries.length > 0 && (
+            <Card style={styles.card}>
+              <Card.Content>
+                <Text style={styles.cardTitle}>👨‍👩‍👧‍👦 From the Group</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Gift registries shared in the group
+                </Text>
+                <List.Section>
+                  {groupRegistries.map((registry) => (
+                    <List.Accordion
+                      key={registry.registryId}
+                      title={registry.name}
+                      description={`By ${registry.participantName} • ${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}`}
+                      left={props => <List.Icon {...props} icon="account-group" />}
+                      expanded={expandedRegistries[registry.registryId] || false}
+                      onPress={() => setExpandedRegistries(prev => ({
+                        ...prev,
+                        [registry.registryId]: !prev[registry.registryId]
+                      }))}
+                      style={styles.accordion}
+                      titleStyle={styles.accordionTitle}
+                    >
+                      {registry.items.length === 0 ? (
+                        <Text style={styles.emptyRegistryText}>No items yet</Text>
+                      ) : (
+                        registry.items.map((item) => (
+                          <View key={item.itemId} style={styles.otherItemRow}>
+                            <View style={styles.itemInfo}>
+                              <Text
+                                style={[
+                                  styles.itemTitle,
+                                  item.isPurchased && styles.itemPurchased,
+                                ]}
+                              >
+                                {item.title}
+                                {item.isPurchased && ' ✓'}
+                              </Text>
+                              {item.cost && (
+                                <Text style={styles.itemCost}>
+                                  ${parseFloat(item.cost).toFixed(2)}
+                                </Text>
+                              )}
+                              {item.description && (
+                                <Text style={styles.itemDescription}>{item.description}</Text>
+                              )}
+                              {item.link && (
+                                <Text
+                                  style={styles.itemLink}
+                                  onPress={() => Linking.openURL(item.link)}
+                                >
+                                  View Link
+                                </Text>
+                              )}
+                            </View>
+                            <Chip
+                              mode={item.isPurchased ? 'flat' : 'outlined'}
+                              onPress={() =>
+                                handleMarkPurchased(
+                                  registry.registryId,
+                                  item.itemId,
+                                  !item.isPurchased
+                                )
+                              }
+                              style={item.isPurchased ? styles.purchasedChip : styles.markPurchasedChip}
+                            >
+                              {item.isPurchased ? 'Purchased' : 'Mark Purchased'}
+                            </Chip>
+                          </View>
+                        ))
+                      )}
+                    </List.Accordion>
+                  ))}
+                </List.Section>
+              </Card.Content>
+            </Card>
+          );
+        })()}
+
+        {/* Personal Gift Registries */}
+        {(() => {
+          const personalRegistries = data.giftRegistries.filter(
+            r => r.participantId !== data.currentParticipant.participantId && r.type === 'personal'
+          );
+          return personalRegistries.length > 0 && (
+            <Card style={styles.card}>
+              <Card.Content>
+                <Text style={styles.cardTitle}>🎁 Personal Gift Registries</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Personal registries linked to the group
+                </Text>
+                <List.Section>
+                  {personalRegistries.map((registry) => (
+                    <List.Accordion
+                      key={registry.registryId}
+                      title={registry.name}
+                      description={`By ${registry.participantName} • ${registry.items.length} item${registry.items.length !== 1 ? 's' : ''}`}
+                      left={props => <List.Icon {...props} icon="account" />}
+                      expanded={expandedRegistries[registry.registryId] || false}
+                      onPress={() => setExpandedRegistries(prev => ({
+                        ...prev,
+                        [registry.registryId]: !prev[registry.registryId]
+                      }))}
+                      style={styles.accordion}
+                      titleStyle={styles.accordionTitle}
+                    >
+                      {registry.items.length === 0 ? (
+                        <Text style={styles.emptyRegistryText}>No items yet</Text>
+                      ) : (
+                        registry.items.map((item) => (
+                          <View key={item.itemId} style={styles.otherItemRow}>
+                            <View style={styles.itemInfo}>
+                              <Text
+                                style={[
+                                  styles.itemTitle,
+                                  item.isPurchased && styles.itemPurchased,
+                                ]}
+                              >
+                                {item.title}
+                                {item.isPurchased && ' ✓'}
+                              </Text>
+                              {item.cost && (
+                                <Text style={styles.itemCost}>
+                                  ${parseFloat(item.cost).toFixed(2)}
+                                </Text>
+                              )}
+                              {item.description && (
+                                <Text style={styles.itemDescription}>{item.description}</Text>
+                              )}
+                              {item.link && (
+                                <Text
+                                  style={styles.itemLink}
+                                  onPress={() => Linking.openURL(item.link)}
+                                >
+                                  View Link
+                                </Text>
+                              )}
+                            </View>
+                            <Chip
+                              mode={item.isPurchased ? 'flat' : 'outlined'}
+                              onPress={() =>
+                                handleMarkPurchased(
+                                  registry.registryId,
+                                  item.itemId,
+                                  !item.isPurchased
+                                )
+                              }
+                              style={item.isPurchased ? styles.purchasedChip : styles.markPurchasedChip}
+                            >
+                              {item.isPurchased ? 'Purchased' : 'Mark Purchased'}
+                            </Chip>
+                          </View>
+                        ))
+                      )}
+                    </List.Accordion>
+                  ))}
+                </List.Section>
+              </Card.Content>
+            </Card>
+          );
+        })()}
+
+        {/* Show message if no registries at all */}
+        {data.giftRegistries.filter(r => r.participantId !== data.currentParticipant.participantId).length === 0 && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text style={styles.cardTitle}>Gift Lists</Text>
+              <Text style={styles.emptyText}>
+                No one has added gift ideas yet.
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Participants List */}
         <Card style={styles.card}>
