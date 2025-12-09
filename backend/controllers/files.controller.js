@@ -48,7 +48,7 @@ async function uploadFile(req, res) {
     const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
@@ -322,7 +322,7 @@ async function uploadMultipleFiles(req, res) {
     const userId = req.user.userId;
 
     // Validate category
-    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'wiki', 'item-registry', 'secure-documents', 'audio'];
+    const validCategories = ['messages', 'calendar', 'finance', 'profiles', 'gift-registry', 'personal-gift-registry', 'wiki', 'item-registry', 'personal-item-registry', 'secure-documents', 'audio'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         error: 'Invalid category',
