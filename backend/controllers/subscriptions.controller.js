@@ -206,10 +206,10 @@ async function getCurrentSubscription(req, res) {
           isActive: true,
           isSubscribed: true, // Frontend expects this field
           isPermanent: isPermanent, // Flag for permanent subscriptions
-          plan: isPermanent ? 'Permanent' : 'Pro', // TODO: Get from Stripe
-          price: isPermanent ? 0 : 19.99,
+          plan: 'Pro', // TODO: Get from Stripe
+          price: 19.99,
           interval: 'month',
-          status: isPermanent ? 'permanent' : 'active',
+          status: 'active', // Always show as active (permanent is just a flag)
           currentPeriodEnd: new Date(periodEnd).toISOString(),
           cancelAtPeriodEnd: hasScheduledCancellation,
           createdAt: user.createdAt, // For frontend trial calculation
@@ -557,17 +557,16 @@ async function getInvoice(req, res) {
     }
 
     // Check for permanent subscription (support users, etc.)
-    if (isPermanentSubscription(user)) {
-      return res.status(200).json({
-        success: true,
-        invoice: null,
-        isPermanentSubscription: true,
-        message: 'Permanent subscription - no billing required',
-      });
+    const isPermanent = isPermanentSubscription(user);
+
+    // Calculate due date - for permanent users, use their subscriptionEndDate
+    let dueDate;
+    if (isPermanent && user.subscriptionEndDate) {
+      dueDate = new Date(user.subscriptionEndDate);
+    } else {
+      dueDate = calculateDueDate(user);
     }
 
-    // Calculate due date
-    const dueDate = calculateDueDate(user);
     if (!dueDate) {
       return res.status(400).json({
         error: 'No billing date',
@@ -587,9 +586,9 @@ async function getInvoice(req, res) {
     const storageCharges = parseFloat(storageInfo.storageCharges);
     const totalAmount = (baseAmount + storageCharges).toFixed(2);
 
-    // User can generate bill email if within 7 days OR on trial
+    // User can generate bill email if within 7 days OR on trial (but NOT permanent)
     const isOnTrial = !user.isSubscribed;
-    const canGenerateBillEmail = daysUntilDue <= 7 || isOnTrial;
+    const canGenerateBillEmail = !isPermanent && (daysUntilDue <= 7 || isOnTrial);
 
     res.status(200).json({
       success: true,
@@ -602,9 +601,10 @@ async function getInvoice(req, res) {
         dueDate: formatDateDDMMMYYYY(dueDate),
         dueDateRaw: dueDate.toISOString(),
         daysUntilDue: daysUntilDue,
-        canPayNow: daysUntilDue <= 7, // Keep for backward compatibility
+        canPayNow: !isPermanent && daysUntilDue <= 7, // Keep for backward compatibility
         canGenerateBillEmail: canGenerateBillEmail,
         lastBillingEmailSent: user.lastBillingReminderSent ? true : false,
+        isPermanentSubscription: isPermanent,
         currency: 'USD',
       },
     });

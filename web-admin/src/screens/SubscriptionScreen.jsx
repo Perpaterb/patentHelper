@@ -428,8 +428,8 @@ export default function SubscriptionScreen({ navigation }) {
           </View>
         )}
 
-        {/* Current Bill Card - Show when invoice available and subscribed or on trial (NOT for permanent) */}
-        {invoice && !isPermanentSubscription() && (subscription?.isSubscribed || isOnFreeTrial()) && (
+        {/* Current Bill Card - Show when invoice available and subscribed or on trial */}
+        {invoice && (subscription?.isSubscribed || isOnFreeTrial()) && (
           <Card style={styles.billCard}>
             <Card.Content>
               <View style={styles.billHeader}>
@@ -484,40 +484,46 @@ export default function SubscriptionScreen({ navigation }) {
                 </Surface>
               )}
 
-              {/* Generate/Regenerate Bill Email Button */}
-              <View style={styles.billActions}>
-                <Button
-                  mode="outlined"
-                  onPress={handleRegenerateBill}
-                  loading={regeneratingBill}
-                  disabled={regeneratingBill || !canRegenerateBill()}
-                  style={[styles.generateBillButton, !canRegenerateBill() && styles.buttonDisabled]}
-                  textColor="#6200ee"
-                  icon="email-send"
-                >
-                  {invoice.lastBillingEmailSent ? 'Regenerate Bill Email' : 'Generate Bill Email'}
-                </Button>
-              </View>
+              {/* Generate/Regenerate Bill Email Button - disabled for permanent subscriptions */}
+              {!isPermanentSubscription() && (
+                <View style={styles.billActions}>
+                  <Button
+                    mode="outlined"
+                    onPress={handleRegenerateBill}
+                    loading={regeneratingBill}
+                    disabled={regeneratingBill || !canRegenerateBill()}
+                    style={[styles.generateBillButton, !canRegenerateBill() && styles.buttonDisabled]}
+                    textColor="#6200ee"
+                    icon="email-send"
+                  >
+                    {invoice.lastBillingEmailSent ? 'Regenerate Bill Email' : 'Generate Bill Email'}
+                  </Button>
+                </View>
+              )}
 
-              {!canRegenerateBill() && !isOnFreeTrial() && (
+              {!isPermanentSubscription() && !canRegenerateBill() && !isOnFreeTrial() && (
                 <Text style={styles.billNote}>
                   You can generate a billing email within 7 days of your due date.
                 </Text>
               )}
 
-              <Text style={styles.paymentNote}>
-                To pay your bill, click the payment link in the billing email we send you.
-              </Text>
+              {!isPermanentSubscription() && (
+                <Text style={styles.paymentNote}>
+                  To pay your bill, click the payment link in the billing email we send you.
+                </Text>
+              )}
 
-              {/* Warning about non-payment */}
-              <Surface style={styles.billWarning}>
-                <MaterialCommunityIcons name="alert" size={20} color="#d32f2f" />
-                <View style={styles.billWarningContent}>
-                  <Text style={styles.billWarningTitle}>If not paid by {invoice.dueDate}:</Text>
-                  <Text style={styles.billWarningText}>• Groups where you're the only admin will become read-only for everyone</Text>
-                  <Text style={styles.billWarningText}>• Groups with other admins: you'll lose admin access</Text>
-                </View>
-              </Surface>
+              {/* Warning about non-payment - hidden for permanent subscriptions */}
+              {!isPermanentSubscription() && (
+                <Surface style={styles.billWarning}>
+                  <MaterialCommunityIcons name="alert" size={20} color="#d32f2f" />
+                  <View style={styles.billWarningContent}>
+                    <Text style={styles.billWarningTitle}>If not paid by {invoice.dueDate}:</Text>
+                    <Text style={styles.billWarningText}>• Groups where you're the only admin will become read-only for everyone</Text>
+                    <Text style={styles.billWarningText}>• Groups with other admins: you'll lose admin access</Text>
+                  </View>
+                </Surface>
+              )}
             </Card.Content>
           </Card>
         )}
@@ -536,21 +542,19 @@ export default function SubscriptionScreen({ navigation }) {
                     style={[
                       styles.statusChip,
                       isOnFreeTrial() ? styles.chipInfo :
-                      isPermanentSubscription() ? styles.chipPermanent :
                       subscription.endDate ? styles.chipWarning : styles.chipSuccess
                     ]}
                     textStyle={styles.chipText}
                   >
                     {isOnFreeTrial() ? 'Free Trial' :
-                     isPermanentSubscription() ? 'Permanent' :
                      subscription.endDate ? 'Canceling' : 'Active'}
                   </Chip>
 
                   <Text style={styles.statusLabel}>Subscription Started</Text>
                   <Text style={styles.statusValue}>{formatDate(subscription.startDate)}</Text>
 
-                  {/* Show Last day of access / Next Billing Date - but NOT for permanent subscriptions */}
-                  {!isPermanentSubscription() && (subscription.stripe?.currentPeriodEnd || subscription.endDate || isOnFreeTrial()) && (
+                  {/* Show Next Billing Date for all users (permanent will have far future date) */}
+                  {(subscription.stripe?.currentPeriodEnd || subscription.endDate || isOnFreeTrial()) && (
                     <>
                       <Text style={styles.statusLabel}>
                         {isOnFreeTrial() ? 'Last day of access' : subscription.endDate ? 'Last day of access' : 'Next Billing Date'}
@@ -562,22 +566,14 @@ export default function SubscriptionScreen({ navigation }) {
                       </Text>
                     </>
                   )}
-
-                  {/* Show special message for permanent subscriptions */}
-                  {isPermanentSubscription() && (
-                    <>
-                      <Text style={styles.statusLabel}>Billing</Text>
-                      <Text style={styles.statusValue}>No billing required</Text>
-                    </>
-                  )}
                 </View>
 
                 <View style={styles.statusColumn}>
                   <Text style={styles.statusLabel}>Storage Used</Text>
                   <Text style={styles.statusValue}>{subscription.storageUsedGb || '0.00'} GB</Text>
 
-                  {/* Show storage charges only for non-permanent users */}
-                  {!isPermanentSubscription() && parseFloat(subscription.storageUsedGb || 0) > 10 && (
+                  {/* Show storage charges for all users over 10GB */}
+                  {parseFloat(subscription.storageUsedGb || 0) > 10 && (
                     <>
                       <Text style={styles.statusLabel}>Additional Storage Charges</Text>
                       <Text style={styles.statusValue}>
@@ -591,12 +587,12 @@ export default function SubscriptionScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* Cancel or Reactivate Button - Hidden for trial users and permanent subscriptions */}
-              {!isOnFreeTrial() && !isPermanentSubscription() && (
+              {/* Cancel or Reactivate Button - Hidden for trial users, disabled for permanent subscriptions */}
+              {!isOnFreeTrial() && (
                 <View style={styles.actionSection}>
                   <Divider style={styles.divider} />
-                  {subscription.endDate ? (
-                    // Show Reactivate button if subscription is canceled but still active
+                  {subscription.endDate && !isPermanentSubscription() ? (
+                    // Show Reactivate button if subscription is canceled but still active (not permanent)
                     <>
                       <Button
                         mode="outlined"
@@ -613,28 +609,30 @@ export default function SubscriptionScreen({ navigation }) {
                       </Text>
                     </>
                   ) : (
-                    // Show Cancel button if subscription is active
+                    // Show Cancel button if subscription is active (disabled for permanent)
                     <>
                       <Button
                         mode="outlined"
                         onPress={() => setShowCancelDialog(true)}
                         loading={canceling}
-                        disabled={canceling}
-                        style={styles.cancelButton}
+                        disabled={canceling || isPermanentSubscription()}
+                        style={[styles.cancelButton, isPermanentSubscription() && styles.buttonDisabled]}
                         textColor="#d32f2f"
                       >
                         Cancel Subscription
                       </Button>
                       <Text style={styles.actionNote}>
-                        Access will continue until the end of your current billing period
+                        {isPermanentSubscription()
+                          ? 'Permanent subscriptions cannot be canceled'
+                          : 'Access will continue until the end of your current billing period'}
                       </Text>
                     </>
                   )}
                 </View>
               )}
 
-              {/* Cancellation Warning Message */}
-              {subscription.endDate && (
+              {/* Cancellation Warning Message - not for permanent subscriptions */}
+              {subscription.endDate && !isPermanentSubscription() && (
                 <Surface style={styles.alertWarning}>
                   <Text style={styles.alertWarningText}>
                     Your subscription has been canceled. Your last day of access will be {formatDate(subscription.endDate)}. You can reactivate above to keep your access.
@@ -925,9 +923,6 @@ const styles = StyleSheet.create({
   },
   chipInfo: {
     backgroundColor: '#e3f2fd',
-  },
-  chipPermanent: {
-    backgroundColor: '#f3e5f5',
   },
   chipText: {
     fontSize: 12,
