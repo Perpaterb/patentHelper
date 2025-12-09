@@ -46,6 +46,9 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
   // Menu states
   const [menuVisible, setMenuVisible] = useState(null);
 
+  // Match visibility - hidden by default so admin doesn't see spoilers
+  const [showMatches, setShowMatches] = useState(false);
+
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -565,9 +568,21 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
         {/* Participants Card */}
         <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.sectionTitle}>
-              Participants ({event.participants?.length || 0})
-            </Title>
+            <View style={styles.participantsTitleRow}>
+              <Title style={styles.sectionTitle}>
+                Participants ({event.participants?.length || 0})
+              </Title>
+              {event.isAssigned && event.canManage && isRevealed() && (
+                <Button
+                  mode="text"
+                  icon={showMatches ? 'eye-off' : 'eye'}
+                  onPress={() => setShowMatches(!showMatches)}
+                  compact
+                >
+                  {showMatches ? 'Hide Matches' : 'Show Matches'}
+                </Button>
+              )}
+            </View>
 
             {event.participants?.length === 0 ? (
               <Text style={styles.noParticipants}>No participants added</Text>
@@ -595,7 +610,7 @@ export default function SecretSantaDetailScreen({ navigation, route }) {
                             Viewed
                           </Chip>
                         )}
-                        {event.isAssigned && participant.match && isRevealed() && (
+                        {event.isAssigned && participant.match && isRevealed() && showMatches && (
                           <Chip
                             style={styles.matchChip}
                             textStyle={styles.chipText}
@@ -914,21 +929,34 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 4,
   },
+  participantsTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   externalChip: {
     backgroundColor: '#ff9800',
-    height: 24,
+    height: 28,
+    justifyContent: 'center',
   },
   viewedChip: {
     backgroundColor: '#4caf50',
-    height: 24,
+    height: 28,
+    justifyContent: 'center',
   },
   matchChip: {
     backgroundColor: '#2196f3',
-    height: 24,
+    height: 28,
+    justifyContent: 'center',
   },
   chipText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 14,
+    marginVertical: 0,
+    marginTop: 0,
+    marginBottom: 0,
   },
   participantDivider: {
     marginVertical: 4,
