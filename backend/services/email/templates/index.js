@@ -295,8 +295,428 @@ The Parenting Helper Team
   return { subject, text, html };
 }
 
+/**
+ * Group invitation email template
+ * Sent when a user is invited to join a group
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.recipientName - Recipient's name
+ * @param {string} data.groupName - Name of the group
+ * @param {string} data.inviterName - Name of the person who invited them
+ * @param {string} data.role - Role in the group (admin, parent, child, etc.)
+ * @param {string} data.appUrl - URL to the app
+ * @returns {Object} Email content {subject, text, html}
+ */
+function group_invitation(data) {
+  const { recipientName, groupName, inviterName, role, appUrl } = data;
+
+  const subject = `You've been invited to join "${groupName}" on Family Helper`;
+
+  const text = `
+Hi ${recipientName},
+
+${inviterName} has invited you to join the group "${groupName}" on Family Helper!
+
+Your Role: ${role.charAt(0).toUpperCase() + role.slice(1)}
+
+Family Helper helps families coordinate with:
+- Secure messaging between family members
+- Shared calendar for scheduling
+- Financial tracking for shared expenses
+- Document storage and wiki
+- Complete audit logs for transparency
+
+To accept this invitation:
+1. Log in to Family Helper at: ${appUrl}
+2. Check your pending invitations
+3. Accept or decline the invitation
+
+If you don't have an account yet, you can create one for free at ${appUrl}.
+
+Questions? Reply to this email.
+
+Best regards,
+The Family Helper Team
+
+---
+Family Helper App
+${appUrl}
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #6200ee 0%, #9c4dcc 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">You're Invited!</h1>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
+
+    <p style="font-size: 16px; color: #333;">
+      <strong>${inviterName}</strong> has invited you to join the group <strong>"${groupName}"</strong> on Family Helper!
+    </p>
+
+    <div style="background: #f8f4ff; border-left: 4px solid #6200ee; padding: 15px; margin: 20px 0;">
+      <p style="margin: 0; color: #6200ee; font-weight: bold;">Your Role: ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
+    </div>
+
+    <h2 style="color: #333; font-size: 18px;">What is Family Helper?</h2>
+    <p style="color: #666;">Family Helper makes family coordination easier with:</p>
+    <ul style="color: #666;">
+      <li>Secure messaging between family members</li>
+      <li>Shared calendar for scheduling</li>
+      <li>Financial tracking for shared expenses</li>
+      <li>Document storage and wiki</li>
+      <li>Complete audit logs for transparency</li>
+    </ul>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${appUrl}" style="display: inline-block; background: #6200ee; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+        View Invitation
+      </a>
+    </div>
+
+    <p style="color: #666; font-size: 14px;">
+      Don't have an account yet? Create one for free when you click the button above.
+    </p>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0 0 10px 0;">
+      Questions? Reply to this email.
+    </p>
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      <strong>Family Helper App</strong><br>
+      <a href="${appUrl}" style="color: #6200ee;">${appUrl}</a>
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
+/**
+ * Finance matter notification email template
+ * Sent when a user is added as a participant in a finance matter
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.recipientName - Recipient's name
+ * @param {string} data.groupName - Name of the group
+ * @param {string} data.matterTitle - Title of the finance matter
+ * @param {string} data.matterType - Type of finance matter (expense, income, etc.)
+ * @param {string} data.amount - Amount (formatted with currency)
+ * @param {string} data.createdBy - Name of person who created it
+ * @param {string} data.appUrl - URL to the app
+ * @returns {Object} Email content {subject, text, html}
+ */
+function finance_matter_added(data) {
+  const { recipientName, groupName, matterTitle, matterType, amount, createdBy, appUrl } = data;
+
+  const subject = `You've been added to a finance matter: "${matterTitle}"`;
+
+  const text = `
+Hi ${recipientName},
+
+${createdBy} has added you to a finance matter in "${groupName}".
+
+Details:
+- Title: ${matterTitle}
+- Type: ${matterType}
+- Amount: ${amount}
+
+To view this finance matter and manage your participation:
+1. Log in to Family Helper at: ${appUrl}
+2. Navigate to the "${groupName}" group
+3. Go to Finance
+
+Questions? Reply to this email.
+
+Best regards,
+The Family Helper Team
+
+---
+Family Helper App
+${appUrl}
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">💰 Finance Matter Update</h1>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
+
+    <p style="font-size: 16px; color: #333;">
+      <strong>${createdBy}</strong> has added you to a finance matter in <strong>"${groupName}"</strong>.
+    </p>
+
+    <div style="background: #e8f5e9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+      <h3 style="margin: 0 0 15px 0; color: #2e7d32;">${matterTitle}</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Type:</td>
+          <td style="padding: 8px 0; color: #333; font-weight: bold;">${matterType}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Amount:</td>
+          <td style="padding: 8px 0; color: #2e7d32; font-weight: bold; font-size: 18px;">${amount}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${appUrl}" style="display: inline-block; background: #4caf50; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+        View Finance Matter
+      </a>
+    </div>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0 0 10px 0;">
+      Questions? Reply to this email.
+    </p>
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      <strong>Family Helper App</strong><br>
+      <a href="${appUrl}" style="color: #4caf50;">${appUrl}</a>
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
+/**
+ * Secret Santa participant added email template
+ * Sent when a participant is added to a Secret Santa event
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.recipientName - Participant's name
+ * @param {string} data.eventName - Name of the Secret Santa event
+ * @param {string} data.occasion - Occasion for the event (optional)
+ * @param {string} data.exchangeDate - Date of gift exchange (optional)
+ * @param {string} data.priceLimit - Price limit (optional)
+ * @param {string} data.revealDate - When assignments will be revealed
+ * @param {string} data.passcode - Access code for the participant
+ * @param {string} data.secretSantaUrl - URL to view the Secret Santa
+ * @param {string} data.appUrl - Main app URL
+ * @returns {Object} Email content {subject, text, html}
+ */
+function secret_santa_added(data) {
+  const { recipientName, eventName, occasion, exchangeDate, priceLimit, revealDate, passcode, secretSantaUrl, appUrl } = data;
+
+  const subject = `🎁 You've been added to "${eventName}" Surprise Santa!`;
+
+  const text = `
+Hi ${recipientName},
+
+You've been added to the Surprise Santa event "${eventName}"!
+
+Event Details:
+${occasion ? `- Occasion: ${occasion}` : ''}
+${exchangeDate ? `- Exchange Date: ${exchangeDate}` : ''}
+${priceLimit ? `- Gift Value: ${priceLimit}` : ''}
+- Assignments Revealed: ${revealDate}
+
+To view your assignment when it's ready:
+${secretSantaUrl}
+
+Your access code: ${passcode}
+
+Keep this code safe! You'll need it to see who you're buying for.
+
+Questions? Reply to this email.
+
+Best regards,
+The Family Helper Team
+
+---
+Family Helper App
+${appUrl}
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #c62828 0%, #f44336 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎁 Surprise Santa</h1>
+    <p style="color: #ffcdd2; margin: 10px 0 0 0; font-size: 16px;">${eventName}</p>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
+
+    <p style="font-size: 16px; color: #333;">
+      You've been added to the Surprise Santa event <strong>"${eventName}"</strong>! 🎄
+    </p>
+
+    <div style="background: #ffebee; border-radius: 8px; padding: 20px; margin: 20px 0;">
+      <h3 style="margin: 0 0 15px 0; color: #c62828;">Event Details</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${occasion ? `<tr>
+          <td style="padding: 8px 0; color: #666;">Occasion:</td>
+          <td style="padding: 8px 0; color: #333; font-weight: bold;">${occasion}</td>
+        </tr>` : ''}
+        ${exchangeDate ? `<tr>
+          <td style="padding: 8px 0; color: #666;">Exchange Date:</td>
+          <td style="padding: 8px 0; color: #333; font-weight: bold;">${exchangeDate}</td>
+        </tr>` : ''}
+        ${priceLimit ? `<tr>
+          <td style="padding: 8px 0; color: #666;">Gift Value:</td>
+          <td style="padding: 8px 0; color: #c62828; font-weight: bold;">${priceLimit}</td>
+        </tr>` : ''}
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Reveal Date:</td>
+          <td style="padding: 8px 0; color: #333; font-weight: bold;">${revealDate}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background: #fff3e0; border: 2px dashed #ff9800; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+      <p style="margin: 0 0 10px 0; color: #e65100; font-weight: bold;">Your Access Code</p>
+      <p style="margin: 0; font-size: 28px; font-family: monospace; color: #333; letter-spacing: 3px;">${passcode}</p>
+      <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">Keep this code safe!</p>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${secretSantaUrl}" style="display: inline-block; background: #c62828; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+        View Surprise Santa
+      </a>
+    </div>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0 0 10px 0;">
+      Questions? Reply to this email.
+    </p>
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      <strong>Family Helper App</strong><br>
+      <a href="${appUrl}" style="color: #c62828;">${appUrl}</a>
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
+/**
+ * Secret Santa match reveal email template
+ * Sent when Secret Santa assignments are revealed
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.recipientName - Participant's name (the giver)
+ * @param {string} data.eventName - Name of the Secret Santa event
+ * @param {string} data.matchName - Name of the person they're buying for
+ * @param {string} data.exchangeDate - Date of gift exchange (optional)
+ * @param {string} data.priceLimit - Price limit (optional)
+ * @param {string} data.wishlistUrl - URL to view recipient's wishlist (optional)
+ * @param {string} data.secretSantaUrl - URL to view the Secret Santa
+ * @param {string} data.appUrl - Main app URL
+ * @returns {Object} Email content {subject, text, html}
+ */
+function secret_santa_match(data) {
+  const { recipientName, eventName, matchName, exchangeDate, priceLimit, wishlistUrl, secretSantaUrl, appUrl } = data;
+
+  const subject = `🎅 Your Surprise Santa match is ready!`;
+
+  const text = `
+Hi ${recipientName},
+
+The Surprise Santa assignments for "${eventName}" are in!
+
+🎁 You are buying a gift for: ${matchName}
+
+${exchangeDate ? `Exchange Date: ${exchangeDate}` : ''}
+${priceLimit ? `Gift Value: ${priceLimit}` : ''}
+
+${wishlistUrl ? `View their wishlist: ${wishlistUrl}` : ''}
+
+View your assignment: ${secretSantaUrl}
+
+Remember - keep it a surprise! 🤫
+
+Best regards,
+The Family Helper Team
+
+---
+Family Helper App
+${appUrl}
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎅 It's Time!</h1>
+    <p style="color: #c8e6c9; margin: 10px 0 0 0; font-size: 16px;">Your Surprise Santa match is ready</p>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 16px; color: #333;">Hi ${recipientName},</p>
+
+    <p style="font-size: 16px; color: #333;">
+      The Surprise Santa assignments for <strong>"${eventName}"</strong> are in!
+    </p>
+
+    <div style="background: linear-gradient(135deg, #c62828 0%, #f44336 100%); border-radius: 12px; padding: 30px; margin: 25px 0; text-align: center;">
+      <p style="color: #ffcdd2; margin: 0 0 10px 0; font-size: 14px;">You are buying a gift for...</p>
+      <p style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">🎁 ${matchName}</p>
+    </div>
+
+    ${exchangeDate || priceLimit ? `
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 15px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        ${exchangeDate ? `<tr>
+          <td style="padding: 5px 0; color: #666;">Exchange Date:</td>
+          <td style="padding: 5px 0; color: #333; font-weight: bold;">${exchangeDate}</td>
+        </tr>` : ''}
+        ${priceLimit ? `<tr>
+          <td style="padding: 5px 0; color: #666;">Gift Value:</td>
+          <td style="padding: 5px 0; color: #2e7d32; font-weight: bold;">${priceLimit}</td>
+        </tr>` : ''}
+      </table>
+    </div>
+    ` : ''}
+
+    ${wishlistUrl ? `
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="${wishlistUrl}" style="display: inline-block; background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+        📝 View Wishlist
+      </a>
+    </div>
+    ` : ''}
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${secretSantaUrl}" style="display: inline-block; background: #2e7d32; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+        View Surprise Santa
+      </a>
+    </div>
+
+    <p style="text-align: center; color: #666; font-size: 18px;">
+      Remember - keep it a surprise! 🤫
+    </p>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      <strong>Family Helper App</strong><br>
+      <a href="${appUrl}" style="color: #2e7d32;">${appUrl}</a>
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
 module.exports = {
   welcome,
   trial_reminder,
   log_export,
+  group_invitation,
+  finance_matter_added,
+  secret_santa_added,
+  secret_santa_match,
 };

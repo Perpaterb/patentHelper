@@ -7,6 +7,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
+const emailService = require('../services/email');
+const emailTemplates = require('../services/email/templates');
 
 /**
  * Get all finance matters for a group
@@ -343,7 +345,7 @@ async function createFinanceMatter(req, res) {
     // Check if group is in read-only mode (all admins unsubscribed)
     const group = await prisma.group.findUnique({
       where: { groupId: groupId },
-      select: { readOnlyUntil: true },
+      select: { name: true, readOnlyUntil: true },
     });
 
     if (isGroupReadOnly(group)) {
@@ -504,6 +506,57 @@ async function createFinanceMatter(req, res) {
         iconColor: completeFinanceMatter.creator.user?.iconColor || completeFinanceMatter.creator.iconColor,
       },
     };
+
+    // Send email notifications to members with user accounts (excluding the creator)
+    // This runs after the response to not block the API
+    try {
+      const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+      const creatorDisplayName = groupMembership.displayName;
+
+      // Get members with their user email addresses (excluding the creator)
+      const membersWithUsers = await prisma.groupMember.findMany({
+        where: {
+          groupMemberId: {
+            in: memberIds.filter(id => id !== groupMembership.groupMemberId),
+          },
+          userId: { not: null }, // Only members with user accounts
+        },
+        include: {
+          user: {
+            select: {
+              email: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+
+      // Format amount with currency
+      const formattedAmount = `${currency.toUpperCase()} ${parseFloat(totalAmount).toFixed(2)}`;
+
+      for (const member of membersWithUsers) {
+        if (member.user?.email) {
+          try {
+            const emailContent = emailTemplates.finance_matter_added({
+              recipientName: member.user.displayName || member.displayName,
+              groupName: group.name,
+              matterTitle: name.trim(),
+              matterType: 'Shared Expense',
+              amount: formattedAmount,
+              createdBy: creatorDisplayName,
+              appUrl: appUrl,
+            });
+            await emailService.send(member.user.email, emailContent.subject, emailContent.text, emailContent.html);
+            console.log(`[Finance] Notification email sent to ${member.user.email}`);
+          } catch (emailError) {
+            // Don't fail the request if email fails
+            console.error(`[Finance] Failed to send email to ${member.user.email}:`, emailError.message);
+          }
+        }
+      }
+    } catch (emailError) {
+      console.error('[Finance] Error sending notification emails:', emailError.message);
+    }
 
     return res.status(201).json({
       success: true,

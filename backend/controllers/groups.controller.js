@@ -5,6 +5,8 @@
  */
 
 const { prisma } = require('../config/database');
+const emailService = require('../services/email');
+const emailTemplates = require('../services/email/templates');
 
 /**
  * Generate icon letters from name or email
@@ -1063,7 +1065,25 @@ async function inviteMember(req, res) {
         },
       });
 
-      // TODO: Send invitation email to the user
+      // Send invitation email to registered users only
+      // (Placeholder members don't have accounts and can't receive emails)
+      if (targetUser) {
+        try {
+          const appUrl = process.env.APP_URL || 'https://familyhelperapp.com';
+          const emailContent = emailTemplates.group_invitation({
+            recipientName: displayName,
+            groupName: group.name,
+            inviterName: requesterMembership.displayName,
+            role: role,
+            appUrl: appUrl,
+          });
+          await emailService.send(email.toLowerCase(), emailContent.subject, emailContent.text, emailContent.html);
+          console.log(`[Groups] Invitation email sent to ${email}`);
+        } catch (emailError) {
+          // Don't fail the request if email fails - just log the error
+          console.error(`[Groups] Failed to send invitation email to ${email}:`, emailError.message);
+        }
+      }
 
       res.status(201).json({
         success: true,
