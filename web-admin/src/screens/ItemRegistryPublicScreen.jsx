@@ -18,6 +18,19 @@ import {
 } from 'react-native-paper';
 import config from '../config/env';
 
+/**
+ * Construct full file URL from fileId
+ * The photoUrl stored in DB is just the fileId, we need to construct the full URL
+ */
+const getFileUrl = (fileId) => {
+  if (!fileId) return null;
+  // If it's already a full URL, return as-is
+  if (fileId.startsWith('http://') || fileId.startsWith('https://')) {
+    return fileId;
+  }
+  return `${config.api.url}/files/${fileId}`;
+};
+
 export default function ItemRegistryPublicScreen({ route }) {
   const { webToken } = route.params || {};
 
@@ -190,7 +203,7 @@ export default function ItemRegistryPublicScreen({ route }) {
                       {/* Photo */}
                       {item.photoUrl && (
                         <Image
-                          source={{ uri: item.photoUrl }}
+                          source={{ uri: getFileUrl(item.photoUrl) }}
                           style={styles.itemPhoto}
                           resizeMode="cover"
                         />
