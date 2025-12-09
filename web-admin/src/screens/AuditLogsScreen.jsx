@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   Text,
   Button,
@@ -53,6 +53,9 @@ export default function AuditLogsScreen({ navigation }) {
 
   // Expanded rows
   const [expandedRows, setExpandedRows] = useState({});
+
+  // Previous exports section collapsed by default
+  const [exportsExpanded, setExportsExpanded] = useState(false);
 
   useEffect(() => {
     fetchGroups();
@@ -401,7 +404,7 @@ export default function AuditLogsScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f5f5f5' }}>
       <View style={styles.header}>
         <Button
           mode="text"
@@ -428,7 +431,7 @@ export default function AuditLogsScreen({ navigation }) {
         </Surface>
       )}
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
         {groups.length === 0 ? (
           <Card style={styles.card}>
             <Card.Content>
@@ -495,6 +498,81 @@ export default function AuditLogsScreen({ navigation }) {
                 </Button>
               </View>
             </View>
+
+            {/* Previous Exports - Collapsible, moved to top */}
+            {selectedGroup && (
+              <Card style={styles.exportsCard}>
+                <View style={styles.exportsHeader}>
+                  <View style={styles.exportsHeaderLeft}>
+                    <IconButton
+                      icon={exportsExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      onPress={() => setExportsExpanded(!exportsExpanded)}
+                    />
+                    <Text style={styles.exportsTitle}>
+                      Previous Exports {previousExports.length > 0 ? `(${previousExports.length})` : ''}
+                    </Text>
+                  </View>
+                  <Button
+                    mode="text"
+                    onPress={() => setExportsExpanded(!exportsExpanded)}
+                    compact
+                  >
+                    {exportsExpanded ? 'Collapse' : 'Expand'}
+                  </Button>
+                </View>
+
+                {exportsExpanded && (
+                  <Card.Content style={styles.exportsContent}>
+                    {loadingExports ? (
+                      <ActivityIndicator style={styles.exportsLoading} />
+                    ) : previousExports.length === 0 ? (
+                      <Text style={styles.noExports}>No previous exports found.</Text>
+                    ) : (
+                      previousExports.map((exp) => (
+                        <View key={exp.exportId} style={styles.exportItem}>
+                          <View style={styles.exportInfo}>
+                            <Text style={styles.exportFileName}>{exp.fileName}</Text>
+                            <Text style={styles.exportDate}>
+                              Created: {formatDate(exp.createdAt)}
+                            </Text>
+                            <Text style={styles.exportSize}>
+                              Size: {formatFileSize(exp.fileSizeBytes)}
+                            </Text>
+                            {exp.filters && Object.keys(exp.filters).length > 0 && (
+                              <View style={styles.filtersSummary}>
+                                <Text style={styles.filtersSummaryText}>
+                                  Filters: {getFilterSummary(exp.filters)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={styles.exportActions}>
+                            <Button
+                              mode="outlined"
+                              onPress={() => handleDownloadExport(exp.exportId, exp.fileName)}
+                              icon="download"
+                              compact
+                            >
+                              Download
+                            </Button>
+                            <Button
+                              mode="outlined"
+                              onPress={() => handleDeleteExport(exp.exportId, exp.fileName)}
+                              icon="delete"
+                              compact
+                              style={styles.deleteButton}
+                            >
+                              Delete
+                            </Button>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </Card.Content>
+                )}
+              </Card>
+            )}
 
             {/* Filters Panel */}
             {filterVisible && selectedGroup && (
@@ -610,147 +688,81 @@ export default function AuditLogsScreen({ navigation }) {
 
             {/* Logs Table */}
             <Card style={styles.tableCard}>
-              <View style={styles.tableScrollContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator>
-                  <DataTable style={styles.dataTable}>
-                    <DataTable.Header>
-                      <DataTable.Title style={styles.columnDate}>Date</DataTable.Title>
-                      <DataTable.Title style={styles.columnAction}>Action</DataTable.Title>
-                      <DataTable.Title style={styles.columnUser}>User</DataTable.Title>
-                      <DataTable.Title style={styles.columnLocation}>Location</DataTable.Title>
-                      <DataTable.Title style={styles.columnContent}>Content</DataTable.Title>
-                    </DataTable.Header>
+              <div style={{ overflowX: 'auto', width: '100%' }}>
+                <DataTable style={styles.dataTable}>
+                  <DataTable.Header>
+                    <DataTable.Title style={styles.columnDate}>Date</DataTable.Title>
+                    <DataTable.Title style={styles.columnAction}>Action</DataTable.Title>
+                    <DataTable.Title style={styles.columnUser}>User</DataTable.Title>
+                    <DataTable.Title style={styles.columnLocation}>Location</DataTable.Title>
+                    <DataTable.Title style={styles.columnContent}>Content</DataTable.Title>
+                  </DataTable.Header>
 
-                    {loading ? (
-                      <View style={styles.tableLoading}>
-                        <ActivityIndicator />
-                      </View>
-                    ) : logs.length === 0 ? (
-                      <View style={styles.emptyTable}>
-                        <Text>No audit logs found for this group.</Text>
-                      </View>
-                    ) : (
-                      logs.map((log, index) => {
-                        const isExpanded = expandedRows[log.logId];
-                        return (
-                          <DataTable.Row key={log.logId || index}>
-                            <DataTable.Cell style={styles.columnDate}>
-                              {formatDate(log.createdAt)}
-                            </DataTable.Cell>
-                            <DataTable.Cell style={styles.columnAction}>
-                              {log.action}
-                            </DataTable.Cell>
-                            <DataTable.Cell style={styles.columnUser}>
-                              {log.performedByEmail}
-                            </DataTable.Cell>
-                            <DataTable.Cell style={styles.columnLocation}>
-                              {log.actionLocation}
-                            </DataTable.Cell>
-                            <DataTable.Cell style={styles.columnContent}>
-                              <View style={styles.contentCell}>
-                                <Text style={styles.contentText} numberOfLines={isExpanded ? undefined : 2}>
-                                  {log.messageContent}
-                                </Text>
-                                {log.messageContent && log.messageContent.length > 100 && (
-                                  <IconButton
-                                    icon={isExpanded ? 'chevron-up' : 'chevron-down'}
-                                    size={16}
-                                    onPress={() => toggleRowExpanded(log.logId)}
-                                    style={styles.expandButton}
-                                  />
-                                )}
-                              </View>
-                            </DataTable.Cell>
-                          </DataTable.Row>
-                        );
-                      })
-                    )}
-
-                    <DataTable.Pagination
-                      page={page}
-                      numberOfPages={totalPages}
-                      onPageChange={(newPage) => setPage(newPage)}
-                      label={`Page ${page + 1} of ${totalPages}`}
-                    />
-                  </DataTable>
-                </ScrollView>
-              </View>
-            </Card>
-
-            {/* Previous Exports */}
-            <Card style={styles.exportsCard}>
-              <Card.Content>
-                <Title style={styles.exportsTitle}>Previous Exports</Title>
-                <Divider style={styles.divider} />
-
-                {loadingExports ? (
-                  <ActivityIndicator style={styles.exportsLoading} />
-                ) : previousExports.length === 0 ? (
-                  <Text style={styles.noExports}>No previous exports found.</Text>
-                ) : (
-                  previousExports.map((exp) => (
-                    <View key={exp.exportId} style={styles.exportItem}>
-                      <View style={styles.exportInfo}>
-                        <Text style={styles.exportFileName}>{exp.fileName}</Text>
-                        <Text style={styles.exportDate}>
-                          Created: {formatDate(exp.createdAt)}
-                        </Text>
-                        <Text style={styles.exportSize}>
-                          Size: {formatFileSize(exp.fileSizeBytes)}
-                        </Text>
-                        {exp.filters && Object.keys(exp.filters).length > 0 && (
-                          <View style={styles.filtersSummary}>
-                            <Text style={styles.filtersSummaryText}>
-                              Filters: {getFilterSummary(exp.filters)}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.exportActions}>
-                        <Button
-                          mode="outlined"
-                          onPress={() => handleDownloadExport(exp.exportId, exp.fileName)}
-                          icon="download"
-                          compact
-                        >
-                          Download
-                        </Button>
-                        <Button
-                          mode="outlined"
-                          onPress={() => handleDeleteExport(exp.exportId, exp.fileName)}
-                          icon="delete"
-                          compact
-                          style={styles.deleteButton}
-                        >
-                          Delete
-                        </Button>
-                      </View>
+                  {loading ? (
+                    <View style={styles.tableLoading}>
+                      <ActivityIndicator />
                     </View>
-                  ))
-                )}
-              </Card.Content>
+                  ) : logs.length === 0 ? (
+                    <View style={styles.emptyTable}>
+                      <Text>No audit logs found for this group.</Text>
+                    </View>
+                  ) : (
+                    logs.map((log, index) => {
+                      const isExpanded = expandedRows[log.logId];
+                      return (
+                        <DataTable.Row key={log.logId || index}>
+                          <DataTable.Cell style={styles.columnDate}>
+                            {formatDate(log.createdAt)}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnAction}>
+                            {log.action}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnUser}>
+                            {log.performedByEmail}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnLocation}>
+                            {log.actionLocation}
+                          </DataTable.Cell>
+                          <DataTable.Cell style={styles.columnContent}>
+                            <View style={styles.contentCell}>
+                              <Text style={styles.contentText} numberOfLines={isExpanded ? undefined : 2}>
+                                {log.messageContent}
+                              </Text>
+                              {log.messageContent && log.messageContent.length > 100 && (
+                                <IconButton
+                                  icon={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                  size={16}
+                                  onPress={() => toggleRowExpanded(log.logId)}
+                                  style={styles.expandButton}
+                                />
+                              )}
+                            </View>
+                          </DataTable.Cell>
+                        </DataTable.Row>
+                      );
+                    })
+                  )}
+
+                  <DataTable.Pagination
+                    page={page}
+                    numberOfPages={totalPages}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    label={`Page ${page + 1} of ${totalPages}`}
+                  />
+                </DataTable>
+              </div>
             </Card>
+
+            {/* Bottom padding */}
+            <View style={{ height: 40 }} />
           </>
         )}
-      </ScrollView>
-    </View>
+      </div>
+    </div>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    height: '100%',
-    overflow: 'hidden',
-  },
-  scrollView: {
-    flex: 1,
-    height: '100%',
-  },
-  scrollViewContent: {
-    paddingBottom: 40,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -849,9 +861,6 @@ const styles = StyleSheet.create({
     margin: 16,
     marginTop: 8,
   },
-  tableScrollContainer: {
-    width: '100%',
-  },
   dataTable: {
     minWidth: 1000,
   },
@@ -887,9 +896,23 @@ const styles = StyleSheet.create({
     margin: 16,
     marginTop: 8,
   },
+  exportsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  exportsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   exportsTitle: {
     fontSize: 16,
-    marginBottom: 8,
+    fontWeight: '600',
+  },
+  exportsContent: {
+    paddingTop: 0,
   },
   divider: {
     marginBottom: 16,
