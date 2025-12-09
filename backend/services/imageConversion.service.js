@@ -4,35 +4,62 @@
  * Converts non-standard image formats (HEIC, WebP, AVIF, etc.) to PNG/JPEG
  * for universal browser compatibility.
  *
- * Note: HEIC/HEIF files require special handling since Sharp doesn't have
- * built-in HEIC support. We use heic-convert for HEIC files.
- *
- * NOTE: This service requires sharp and heic-convert which may not be available
- * in all environments. Functions will throw errors if dependencies are missing.
+ * Routes to:
+ * - Local sharp/heic-convert (if available)
+ * - Media Processor Docker container (development)
+ * - Media Processor Lambda (production)
  *
  * @module services/imageConversion
  */
 
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
+const { v4: uuidv4 } = require('uuid');
+
 // Optional dependencies - may not be available in all Lambda environments
 let sharp = null;
 let heicConvert = null;
-let imageProcessingAvailable = false;
+let localProcessingAvailable = false;
 
 try {
   sharp = require('sharp');
   heicConvert = require('heic-convert');
-  imageProcessingAvailable = true;
+  localProcessingAvailable = true;
+  console.log('[ImageConversion] Local sharp/heic-convert available');
 } catch (err) {
-  console.log('[ImageConversion] sharp/heic-convert not available - image conversion disabled');
+  console.log('[ImageConversion] Local sharp/heic-convert not available - using media processor service');
+}
+
+// Media processor service for remote processing
+let mediaProcessor = null;
+try {
+  mediaProcessor = require('./mediaProcessor.service');
+} catch (err) {
+  console.log('[ImageConversion] Media processor service not available');
 }
 
 /**
- * Check if image processing is available
+ * Check if any form of image processing is available
+ * @returns {boolean} True if processing is available (locally or via service)
+ */
+async function isImageProcessingAvailable() {
+  if (localProcessingAvailable) {
+    return true;
+  }
+  if (mediaProcessor) {
+    return mediaProcessor.isAvailable();
+  }
+  return false;
+}
+
+/**
+ * Check if image processing is available (local only)
  * @throws {Error} If dependencies are not available
  */
-function requireImageProcessing() {
-  if (!imageProcessingAvailable) {
-    throw new Error('Image conversion not available. Sharp module could not be loaded.');
+function requireLocalProcessing() {
+  if (!localProcessingAvailable) {
+    throw new Error('Local image conversion not available. Sharp module could not be loaded.');
   }
 }
 
@@ -102,7 +129,7 @@ function isHeicBuffer(buffer) {
  * @returns {Promise<{format: string, mimeType: string, isImage: boolean}>}
  */
 async function detectImageFormat(buffer) {
-  requireImageProcessing();
+  requireLocalProcessing();
   // First check for HEIC/HEIF manually (Sharp doesn't support it)
   if (isHeicBuffer(buffer)) {
     return {
@@ -156,7 +183,7 @@ async function detectImageFormat(buffer) {
  * @returns {Promise<boolean>}
  */
 async function isImageBuffer(buffer) {
-  requireImageProcessing();
+  requireLocalProcessing();
   const result = await detectImageFormat(buffer);
   return result.isImage;
 }
@@ -173,12 +200,12 @@ function isSupportedImage(mimeType) {
 }
 
 /**
- * Convert HEIC/HEIF buffer to JPEG using heic-convert
+ * Convert HEIC/HEIF buffer to JPEG using heic-convert (local only)
  * @param {Buffer} inputBuffer - HEIC file buffer
  * @returns {Promise<Buffer>} JPEG buffer
  */
-async function convertHeicToJpeg(inputBuffer) {
-  requireImageProcessing();
+async function convertHeicToJpegLocal(inputBuffer) {
+  requireLocalProcessing();
   try {
     const outputBuffer = await heicConvert({
       buffer: inputBuffer,
@@ -193,13 +220,13 @@ async function convertHeicToJpeg(inputBuffer) {
 }
 
 /**
- * Convert an image buffer to a browser-compatible format (PNG or JPEG)
+ * Convert an image buffer to a browser-compatible format (PNG or JPEG) using local processing
  * @param {Buffer} inputBuffer - The original image buffer
  * @param {string} originalMimeType - The original MIME type
  * @returns {Promise<{buffer: Buffer, mimeType: string, converted: boolean}>}
  */
-async function convertToPng(inputBuffer, originalMimeType) {
-  requireImageProcessing();
+async function convertToPngLocal(inputBuffer, originalMimeType) {
+  requireLocalProcessing();
   const normalizedType = originalMimeType.toLowerCase();
 
   // If it's already a supported format, return as-is
@@ -220,7 +247,7 @@ async function convertToPng(inputBuffer, originalMimeType) {
     // HEIC/HEIF requires special handling - Sharp doesn't support it natively
     if (normalizedType === 'image/heic' || normalizedType === 'image/heif') {
       console.log('Converting HEIC/HEIF using heic-convert...');
-      const jpegBuffer = await convertHeicToJpeg(inputBuffer);
+      const jpegBuffer = await convertHeicToJpegLocal(inputBuffer);
 
       // Optionally convert JPEG to PNG for consistency
       // For now, return JPEG since it's smaller and universally supported
@@ -248,6 +275,84 @@ async function convertToPng(inputBuffer, originalMimeType) {
     console.error('Image conversion error:', error);
     throw new Error(`Failed to convert image from ${originalMimeType} to PNG: ${error.message}`);
   }
+}
+
+/**
+ * Convert image via Media Processor service
+ * @param {Buffer} inputBuffer - The original image buffer
+ * @param {string} originalMimeType - The original MIME type
+ * @returns {Promise<{buffer: Buffer, mimeType: string, converted: boolean}>}
+ */
+async function convertViaMediaProcessor(inputBuffer, originalMimeType) {
+  const normalizedType = originalMimeType.toLowerCase();
+
+  // If it's already a supported format, return as-is
+  if (PASSTHROUGH_TYPES.includes(normalizedType)) {
+    return {
+      buffer: inputBuffer,
+      mimeType: originalMimeType,
+      converted: false,
+    };
+  }
+
+  // If it's not a convertible type, throw an error
+  if (!CONVERTIBLE_TYPES.includes(normalizedType)) {
+    throw new Error(`Unsupported image format: ${originalMimeType}`);
+  }
+
+  if (!mediaProcessor) {
+    throw new Error('Media processor service not available');
+  }
+
+  // Write buffer to temp file for media processor
+  const tempDir = os.tmpdir();
+  const tempInputName = `image_input_${uuidv4()}`;
+  const tempInputPath = path.join(tempDir, tempInputName);
+
+  try {
+    await fs.writeFile(tempInputPath, inputBuffer);
+
+    const result = await mediaProcessor.convertImage({
+      filePath: tempInputPath,
+      mimeType: originalMimeType,
+    });
+
+    // Read converted file from result
+    let outputBuffer;
+    if (result.data) {
+      // Base64 data returned
+      outputBuffer = Buffer.from(result.data, 'base64');
+    } else if (result.filePath) {
+      // File path returned
+      outputBuffer = await fs.readFile(result.filePath);
+      await fs.unlink(result.filePath).catch(() => {});
+    } else {
+      throw new Error('Media processor returned no data');
+    }
+
+    return {
+      buffer: outputBuffer,
+      mimeType: result.mimeType || 'image/png',
+      converted: true,
+    };
+  } finally {
+    // Clean up temp input file
+    await fs.unlink(tempInputPath).catch(() => {});
+  }
+}
+
+/**
+ * Convert an image buffer to a browser-compatible format (PNG or JPEG)
+ * Uses local processing if available, otherwise routes to media processor
+ * @param {Buffer} inputBuffer - The original image buffer
+ * @param {string} originalMimeType - The original MIME type
+ * @returns {Promise<{buffer: Buffer, mimeType: string, converted: boolean}>}
+ */
+async function convertToPng(inputBuffer, originalMimeType) {
+  if (localProcessingAvailable) {
+    return convertToPngLocal(inputBuffer, originalMimeType);
+  }
+  return convertViaMediaProcessor(inputBuffer, originalMimeType);
 }
 
 /**
@@ -281,7 +386,8 @@ module.exports = {
   getConvertedFilename,
   detectImageFormat,
   isImageBuffer,
-  isImageProcessingAvailable: () => imageProcessingAvailable,
+  isImageProcessingAvailable,
+  isLocalProcessingAvailable: () => localProcessingAvailable,
   PASSTHROUGH_TYPES,
   ALL_IMAGE_TYPES,
   CONVERTIBLE_TYPES,

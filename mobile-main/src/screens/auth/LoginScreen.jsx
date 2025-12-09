@@ -32,10 +32,28 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Debug: Log config values on mount
+  React.useEffect(() => {
+    console.log('[LoginScreen] ===== CONFIG DEBUG =====');
+    console.log('[LoginScreen] KINDE_DOMAIN:', CONFIG.KINDE_DOMAIN);
+    console.log('[LoginScreen] KINDE_CLIENT_ID:', CONFIG.KINDE_CLIENT_ID);
+    console.log('[LoginScreen] KINDE_REDIRECT_URI:', CONFIG.KINDE_REDIRECT_URI);
+    console.log('[LoginScreen] Discovery URL:', CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null);
+    console.log('[LoginScreen] ============================');
+  }, []);
+
   // OAuth discovery configuration
   const discovery = AuthSession.useAutoDiscovery(
     CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null
   );
+
+  // Debug: Log when discovery changes
+  React.useEffect(() => {
+    console.log('[LoginScreen] Discovery loaded:', !!discovery);
+    if (discovery) {
+      console.log('[LoginScreen] Auth endpoint:', discovery.authorizationEndpoint);
+    }
+  }, [discovery]);
 
   // OAuth request configuration with PKCE
   const [request, , promptAsync] = AuthSession.useAuthRequest(
@@ -47,6 +65,14 @@ export default function LoginScreen({ onLoginSuccess }) {
     },
     discovery
   );
+
+  // Debug: Log when request is ready
+  React.useEffect(() => {
+    console.log('[LoginScreen] Request ready:', !!request);
+    if (request) {
+      console.log('[LoginScreen] Request redirectUri:', request.redirectUri);
+    }
+  }, [request]);
 
   /**
    * Handle OAuth login flow with PKCE
@@ -60,10 +86,15 @@ export default function LoginScreen({ onLoginSuccess }) {
       setLoading(true);
       setError(null);
 
-      console.log('Starting Kinde OAuth flow...');
+      console.log('[LoginScreen] Starting Kinde OAuth flow...');
+      console.log('[LoginScreen] Calling promptAsync...');
 
       // Trigger OAuth flow
       const result = await promptAsync();
+
+      console.log('[LoginScreen] promptAsync returned!');
+      console.log('[LoginScreen] Result type:', result.type);
+      console.log('[LoginScreen] Result:', JSON.stringify(result, null, 2));
 
       if (result.type === 'success') {
         const { code } = result.params;

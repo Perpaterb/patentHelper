@@ -2,20 +2,20 @@
  * Video Converter Service
  *
  * Converts video files to universally compatible formats.
- * Uses ffmpeg to convert webm/mov/etc to mp4.
- *
- * NOTE: This service requires ffmpeg dependencies which are only available
- * in the Media Processor Lambda (container image). The main API Lambda
- * will throw an error if these functions are called directly.
+ * Routes to:
+ * - Local ffmpeg (if available)
+ * - Media Processor Docker container (development)
+ * - Media Processor Lambda (production)
  */
 
 const fs = require('fs').promises;
 const path = require('path');
+const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 
 // Optional dependencies - only available in Media Processor Lambda
 let ffmpeg = null;
-let ffmpegAvailable = false;
+let localFfmpegAvailable = false;
 
 try {
   ffmpeg = require('fluent-ffmpeg');
@@ -23,29 +23,52 @@ try {
   const ffprobePath = require('@ffprobe-installer/ffprobe').path;
   ffmpeg.setFfmpegPath(ffmpegPath);
   ffmpeg.setFfprobePath(ffprobePath);
-  ffmpegAvailable = true;
+  localFfmpegAvailable = true;
+  console.log('[VideoConverter] Local ffmpeg available');
 } catch (err) {
-  console.log('[VideoConverter] ffmpeg not available - media processing disabled');
+  console.log('[VideoConverter] Local ffmpeg not available - using media processor service');
+}
+
+// Media processor service for remote processing
+let mediaProcessor = null;
+try {
+  mediaProcessor = require('./mediaProcessor.service');
+} catch (err) {
+  console.log('[VideoConverter] Media processor service not available');
 }
 
 /**
- * Check if ffmpeg is available
+ * Check if video processing is available (any method)
+ * @returns {Promise<boolean>}
+ */
+async function isAvailable() {
+  if (localFfmpegAvailable) {
+    return true;
+  }
+  if (mediaProcessor) {
+    return mediaProcessor.isAvailable();
+  }
+  return false;
+}
+
+/**
+ * Check if local ffmpeg is available
  * @throws {Error} If ffmpeg is not available
  */
-function requireFfmpeg() {
-  if (!ffmpegAvailable) {
-    throw new Error('Video processing not available. This feature requires the Media Processor Lambda.');
+function requireLocalFfmpeg() {
+  if (!localFfmpegAvailable) {
+    throw new Error('Local video processing not available. FFmpeg could not be loaded.');
   }
 }
 
 /**
- * Convert video file to MP4 format
+ * Convert video file to MP4 format using local ffmpeg
  * @param {string} inputPath - Path to input video file
  * @param {string} outputDir - Directory to save converted file
  * @returns {Promise<{path: string, fileName: string, mimeType: string}>} Converted file info
  */
-async function convertToMp4(inputPath, outputDir) {
-  requireFfmpeg();
+async function convertToMp4Local(inputPath, outputDir) {
+  requireLocalFfmpeg();
   const outputFileName = `${uuidv4()}.mp4`;
   const outputPath = path.join(outputDir, outputFileName);
 
@@ -98,12 +121,12 @@ async function convertToMp4(inputPath, outputDir) {
 }
 
 /**
- * Get video duration in milliseconds
+ * Get video duration in milliseconds using local ffprobe
  * @param {string} filePath - Path to video file
  * @returns {Promise<number>} Duration in milliseconds
  */
-async function getVideoDuration(filePath) {
-  requireFfmpeg();
+async function getVideoDurationLocal(filePath) {
+  requireLocalFfmpeg();
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
       if (err) {
@@ -134,6 +157,73 @@ function needsConversion(mimeType) {
 }
 
 /**
+ * Convert video via Media Processor service
+ * @param {string} inputPath - Path to input video file
+ * @param {string} outputDir - Directory to save converted file
+ * @returns {Promise<{path: string, fileName: string, mimeType: string, durationMs: number}>}
+ */
+async function convertToMp4ViaMediaProcessor(inputPath, outputDir) {
+  if (!mediaProcessor) {
+    throw new Error('Media processor service not available');
+  }
+
+  const result = await mediaProcessor.convertVideo({
+    filePath: inputPath,
+  });
+
+  const outputFileName = `${uuidv4()}.mp4`;
+  const outputPath = path.join(outputDir, outputFileName);
+
+  // Write converted file from result
+  if (result.data) {
+    // Base64 data returned
+    const buffer = Buffer.from(result.data, 'base64');
+    await fs.writeFile(outputPath, buffer);
+  } else if (result.filePath) {
+    // File path returned (shared volume)
+    await fs.copyFile(result.filePath, outputPath);
+  } else {
+    throw new Error('Media processor returned no data');
+  }
+
+  return {
+    path: outputPath,
+    fileName: outputFileName,
+    mimeType: 'video/mp4',
+    durationMs: result.durationMs || 0,
+  };
+}
+
+/**
+ * Convert video file to MP4 format
+ * Uses local ffmpeg if available, otherwise routes to media processor
+ * @param {string} inputPath - Path to input video file
+ * @param {string} outputDir - Directory to save converted file
+ * @returns {Promise<{path: string, fileName: string, mimeType: string}>} Converted file info
+ */
+async function convertToMp4(inputPath, outputDir) {
+  if (localFfmpegAvailable) {
+    return convertToMp4Local(inputPath, outputDir);
+  }
+  return convertToMp4ViaMediaProcessor(inputPath, outputDir);
+}
+
+/**
+ * Get video duration in milliseconds
+ * Uses local ffprobe if available, otherwise returns 0
+ * @param {string} filePath - Path to video file
+ * @returns {Promise<number>} Duration in milliseconds
+ */
+async function getVideoDuration(filePath) {
+  if (localFfmpegAvailable) {
+    return getVideoDurationLocal(filePath);
+  }
+  // Can't get duration without ffmpeg, return 0
+  console.log('[VideoConverter] Cannot get duration - local ffmpeg not available');
+  return 0;
+}
+
+/**
  * Convert video if needed, otherwise return original
  * @param {string} filePath - Path to video file
  * @param {string} mimeType - Original MIME type
@@ -144,6 +234,7 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
   let resultPath = filePath;
   let resultMimeType = mimeType;
   let wasConverted = false;
+  let durationMs = 0;
 
   if (needsConversion(mimeType)) {
     console.log(`Converting ${mimeType} to MP4...`);
@@ -151,6 +242,7 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
     resultPath = result.path;
     resultMimeType = result.mimeType;
     wasConverted = true;
+    durationMs = result.durationMs || 0;
 
     // Delete original file after successful conversion
     try {
@@ -161,8 +253,10 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
     }
   }
 
-  // Get duration
-  const durationMs = await getVideoDuration(resultPath);
+  // Get duration if we haven't already
+  if (!durationMs) {
+    durationMs = await getVideoDuration(resultPath);
+  }
 
   return {
     path: resultPath,
@@ -177,4 +271,5 @@ module.exports = {
   getVideoDuration,
   needsConversion,
   convertIfNeeded,
+  isAvailable,
 };

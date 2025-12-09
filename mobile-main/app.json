@@ -3,6 +3,7 @@
     "name": "mobile-main",
     "slug": "mobile-main",
     "version": "1.0.0",
+    "scheme": "parentinghelper",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
