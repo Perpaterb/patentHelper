@@ -163,8 +163,8 @@ const linking = {
   config: {
     screens: {
       // Public Secret Santa pages (no auth required)
-      SecretSantaPasscode: 'ss/:webToken',
-      SecretSantaView: 'ss/:webToken/view',
+      SecretSantaPasscode: 'secret-santa/:webToken',
+      SecretSantaView: 'secret-santa/:webToken/view',
       // Public/Admin pages
       Landing: '',
       Login: 'login',
