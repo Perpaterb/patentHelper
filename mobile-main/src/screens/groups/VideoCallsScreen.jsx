@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * @typedef {Object} VideoCallsScreenProps
@@ -203,21 +204,17 @@ export default function VideoCallsScreen({ navigation, route }) {
             <View style={styles.cardHeader}>
               {/* Show all participants avatars at the start */}
               <View style={styles.avatarsColumn}>
-                {allParticipants.slice(0, 4).map((participant, index) => {
-                  const bgColor = participant.iconColor || '#6200ee';
-                  return (
-                    <Avatar.Text
-                      key={`${item.callId}-${participant.groupMemberId || index}`}
-                      size={32}
-                      label={participant.iconLetters || '?'}
-                      style={{
-                        backgroundColor: bgColor,
-                        marginTop: index > 0 ? -8 : 0,
-                      }}
-                      color={getContrastTextColor(bgColor)}
-                    />
-                  );
-                })}
+                {allParticipants.slice(0, 4).map((participant, index) => (
+                  <UserAvatar
+                    key={`${item.callId}-${participant.groupMemberId || index}`}
+                    size={32}
+                    profilePhotoUrl={participant.profilePhotoUrl}
+                    memberIcon={participant.iconLetters}
+                    iconColor={participant.iconColor || '#6200ee'}
+                    displayName={participant.displayName}
+                    style={{ marginTop: index > 0 ? -8 : 0 }}
+                  />
+                ))}
                 {allParticipants.length > 4 && (
                   <Text style={styles.moreAvatarsText}>+{allParticipants.length - 4}</Text>
                 )}

@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Modal, Animated, Vibration } from 'react-native';
 import { Text, Avatar, Button, IconButton } from 'react-native-paper';
 import { getContrastTextColor } from '../utils/colorUtils';
+import UserAvatar from './shared/UserAvatar';
 
 /**
  * @typedef {Object} IncomingCallOverlayProps
@@ -80,6 +81,7 @@ export default function IncomingCallOverlay({
   const callerName = call.initiator?.displayName || 'Unknown Caller';
   const callerIcon = call.initiator?.iconLetters || callerName[0] || '?';
   const callerColor = call.initiator?.iconColor || '#6200ee';
+  const callerPhotoUrl = call.initiator?.profilePhotoUrl;
   const groupName = call.groupName || 'Unknown Group';
 
   // Get other participants (excluding initiator)
@@ -113,11 +115,12 @@ export default function IncomingCallOverlay({
           {/* Caller avatar with pulse animation */}
           <Animated.View style={[styles.avatarContainer, { transform: [{ scale: pulseAnim }] }]}>
             <View style={styles.avatarRing}>
-              <Avatar.Text
+              <UserAvatar
                 size={120}
-                label={callerIcon}
-                style={{ backgroundColor: callerColor }}
-                color={getContrastTextColor(callerColor)}
+                profilePhotoUrl={callerPhotoUrl}
+                memberIcon={callerIcon}
+                iconColor={callerColor}
+                displayName={callerName}
               />
             </View>
           </Animated.View>

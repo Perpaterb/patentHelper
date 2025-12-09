@@ -17,6 +17,7 @@ import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import { CustomAlert } from '../../components/CustomAlert';
 import { CONFIG } from '../../constants/config';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * @typedef {Object} PhoneCallDetailsScreenProps
@@ -561,11 +562,12 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                   <Text style={styles.deletedTitle}>Recording Deleted by Admin</Text>
                   {call.recording?.hiddenBy && (
                     <View style={styles.deletedByRow}>
-                      <Avatar.Text
+                      <UserAvatar
                         size={24}
-                        label={call.recording.hiddenBy.iconLetters || '?'}
-                        style={{ backgroundColor: call.recording.hiddenBy.iconColor || '#d32f2f' }}
-                        color={getContrastTextColor(call.recording.hiddenBy.iconColor || '#d32f2f')}
+                        profilePhotoUrl={call.recording.hiddenBy.profilePhotoUrl}
+                        memberIcon={call.recording.hiddenBy.iconLetters}
+                        iconColor={call.recording.hiddenBy.iconColor || '#d32f2f'}
+                        displayName={call.recording.hiddenBy.displayName}
                       />
                       <Text style={styles.deletedByText}>
                         {call.recording.hiddenBy.displayName || 'Admin'}
@@ -596,11 +598,12 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
             {/* Initiator */}
             {call.initiator && (
               <View style={styles.participantRow}>
-                <Avatar.Text
+                <UserAvatar
                   size={40}
-                  label={call.initiator.iconLetters || '?'}
-                  style={{ backgroundColor: call.initiator.iconColor || '#6200ee' }}
-                  color={getContrastTextColor(call.initiator.iconColor || '#6200ee')}
+                  profilePhotoUrl={call.initiator.profilePhotoUrl}
+                  memberIcon={call.initiator.iconLetters}
+                  iconColor={call.initiator.iconColor || '#6200ee'}
+                  displayName={call.initiator.displayName}
                 />
                 <View style={styles.participantInfo}>
                   <Text style={styles.participantName}>
@@ -615,15 +618,15 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
             {call.participants?.map(participant => {
               if (participant.groupMemberId === call.initiatedBy) return null;
               const statusColor = getParticipantStatusColor(participant.status);
-              const bgColor = participant.iconColor || '#6200ee';
 
               return (
                 <View key={participant.groupMemberId} style={styles.participantRow}>
-                  <Avatar.Text
+                  <UserAvatar
                     size={40}
-                    label={participant.iconLetters || '?'}
-                    style={{ backgroundColor: bgColor }}
-                    color={getContrastTextColor(bgColor)}
+                    profilePhotoUrl={participant.profilePhotoUrl}
+                    memberIcon={participant.iconLetters}
+                    iconColor={participant.iconColor || '#6200ee'}
+                    displayName={participant.displayName}
                   />
                   <View style={styles.participantInfo}>
                     <Text style={styles.participantName}>

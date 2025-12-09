@@ -20,6 +20,7 @@ import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useWebRTC } from '../../hooks/useWebRTC';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 // Import RTCView for mobile
 let RTCView = null;
@@ -519,11 +520,12 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           <View style={styles.remoteVideoPlaceholder}>
             {remoteParticipant && (
               <>
-                <Avatar.Text
+                <UserAvatar
                   size={100}
-                  label={remoteParticipant.iconLetters || '?'}
-                  style={{ backgroundColor: remoteParticipant.iconColor || '#6200ee' }}
-                  color={getContrastTextColor(remoteParticipant.iconColor || '#6200ee')}
+                  profilePhotoUrl={remoteParticipant.profilePhotoUrl}
+                  memberIcon={remoteParticipant.iconLetters}
+                  iconColor={remoteParticipant.iconColor || '#6200ee'}
+                  displayName={remoteParticipant.displayName}
                 />
                 <Text style={styles.remoteName}>
                   {remoteParticipant.displayName || 'Participant'}
@@ -574,11 +576,12 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
                 participant.callStatus === 'accepted' && styles.chipConnecting,
                 participant.callStatus === 'invited' && styles.chipRinging,
               ]}>
-                <Avatar.Text
+                <UserAvatar
                   size={32}
-                  label={participant.iconLetters || '?'}
-                  style={{ backgroundColor: participant.iconColor || '#6200ee' }}
-                  color={getContrastTextColor(participant.iconColor || '#6200ee')}
+                  profilePhotoUrl={participant.profilePhotoUrl}
+                  memberIcon={participant.iconLetters}
+                  iconColor={participant.iconColor || '#6200ee'}
+                  displayName={participant.displayName}
                 />
               </View>
               <Text style={styles.chipName} numberOfLines={1}>

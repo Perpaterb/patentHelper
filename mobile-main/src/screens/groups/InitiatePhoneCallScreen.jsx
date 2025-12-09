@@ -12,6 +12,7 @@ import { Card, Text, Avatar, Checkbox, Button, ActivityIndicator } from 'react-n
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * @typedef {Object} InitiatePhoneCallScreenProps
@@ -118,7 +119,6 @@ export default function InitiatePhoneCallScreen({ navigation, route }) {
    */
   const renderMember = ({ item }) => {
     const isSelected = selectedMembers.includes(item.groupMemberId);
-    const bgColor = item.iconColor || '#6200ee';
 
     return (
       <TouchableOpacity
@@ -132,11 +132,13 @@ export default function InitiatePhoneCallScreen({ navigation, route }) {
               onPress={() => toggleMemberSelection(item.groupMemberId)}
               color="#4caf50"
             />
-            <Avatar.Text
+            <UserAvatar
               size={40}
-              label={item.iconLetters || item.displayName?.[0] || '?'}
-              style={{ backgroundColor: bgColor, marginHorizontal: 12 }}
-              color={getContrastTextColor(bgColor)}
+              profilePhotoUrl={item.profilePhotoUrl}
+              memberIcon={item.iconLetters}
+              iconColor={item.iconColor || '#6200ee'}
+              displayName={item.displayName}
+              style={{ marginHorizontal: 12 }}
             />
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{item.displayName || 'Unknown'}</Text>

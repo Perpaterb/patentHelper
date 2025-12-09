@@ -18,6 +18,7 @@ import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useWebRTC } from '../../hooks/useWebRTC';
+import UserAvatar from '../../components/shared/UserAvatar';
 
 /**
  * Get color for participant status
@@ -478,11 +479,12 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
                 participant.callStatus === 'accepted' && styles.avatarConnecting,
                 participant.callStatus === 'invited' && styles.avatarRinging,
               ]}>
-                <Avatar.Text
+                <UserAvatar
                   size={allParticipants.length > 2 ? 80 : 100}
-                  label={participant.iconLetters || '?'}
-                  style={{ backgroundColor: participant.iconColor || '#6200ee' }}
-                  color={getContrastTextColor(participant.iconColor || '#6200ee')}
+                  profilePhotoUrl={participant.profilePhotoUrl}
+                  memberIcon={participant.iconLetters}
+                  iconColor={participant.iconColor || '#6200ee'}
+                  displayName={participant.displayName}
                 />
               </View>
               <Text style={styles.participantName} numberOfLines={1}>
