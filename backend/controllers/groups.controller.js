@@ -1077,7 +1077,12 @@ async function inviteMember(req, res) {
             role: role,
             appUrl: appUrl,
           });
-          await emailService.send(email.toLowerCase(), emailContent.subject, emailContent.text, emailContent.html);
+          await emailService.emailService.sendEmail({
+            to: email.toLowerCase(),
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+          });
           console.log(`[Groups] Invitation email sent to ${email}`);
         } catch (emailError) {
           // Don't fail the request if email fails - just log the error

@@ -546,7 +546,12 @@ async function createFinanceMatter(req, res) {
               createdBy: creatorDisplayName,
               appUrl: appUrl,
             });
-            await emailService.send(member.user.email, emailContent.subject, emailContent.text, emailContent.html);
+            await emailService.emailService.sendEmail({
+              to: member.user.email,
+              subject: emailContent.subject,
+              text: emailContent.text,
+              html: emailContent.html,
+            });
             console.log(`[Finance] Notification email sent to ${member.user.email}`);
           } catch (emailError) {
             // Don't fail the request if email fails
