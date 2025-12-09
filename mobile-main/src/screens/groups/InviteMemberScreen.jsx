@@ -145,6 +145,8 @@ export default function InviteMemberScreen({ navigation, route }) {
         return 'Full control - can manage group settings, members, and all features';
       case 'parent':
         return 'Standard access - can use all features and communicate';
+      case 'adult':
+        return 'Adult family member - same as parent but distinct role for non-parents';
       case 'child':
         return 'Limited access - can view and participate in age-appropriate features';
       case 'caregiver':
@@ -248,6 +250,18 @@ export default function InviteMemberScreen({ navigation, route }) {
                 />
                 <Text style={styles.roleDescription}>
                   {getRoleDescription('parent')}
+                </Text>
+              </View>
+
+              <View style={styles.roleOption}>
+                <RadioButton.Item
+                  label="Adult"
+                  value="adult"
+                  disabled={loading}
+                  style={styles.radioItem}
+                />
+                <Text style={styles.roleDescription}>
+                  {getRoleDescription('adult')}
                 </Text>
               </View>
 
