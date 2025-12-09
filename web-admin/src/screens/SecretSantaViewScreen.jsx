@@ -215,7 +215,7 @@ export default function SecretSantaViewScreen({ route, navigation }) {
   );
 
   return (
-    <div style={{ height: '100vh', overflowY: 'auto', backgroundColor: '#f5f5f5' }}>
+    <div style={{ height: '100vh', overflowY: 'auto', backgroundColor: '#f5f5f5', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
