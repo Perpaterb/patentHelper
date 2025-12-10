@@ -632,6 +632,8 @@ resource "aws_lambda_function" "api" {
       AWS_S3_REGION              = var.aws_region
       CORS_ORIGINS               = join(",", concat(var.cors_allowed_origins, ["https://${aws_cloudfront_distribution.web_app.domain_name}"]))
       MEDIA_PROCESSOR_LAMBDA     = "${var.project_name}-media-processor-${var.environment}"
+      # API_BASE_URL constructed manually to avoid circular dependency with API Gateway stage
+      API_BASE_URL               = "https://${aws_apigatewayv2_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}"
     }
   }
 
