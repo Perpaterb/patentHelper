@@ -167,6 +167,11 @@ function withAppLayoutAndPhoneFrame(ScreenComponent, routeName) {
 }
 
 // Linking configuration for web URLs
+// NOTE: This linking config is used by BOTH authenticated and unauthenticated navigators.
+// The navigator will only resolve routes that exist in its current stack.
+// If a user lands on '/web-app' while unauthenticated, React Navigation will
+// NOT find the 'Groups' screen (it's only in authenticated stack) and will
+// fall back to the initial route ('Landing').
 const linking = {
   prefixes: [
     'http://localhost:8081',
@@ -245,11 +250,19 @@ const linking = {
 function AppNavigator() {
   const { isAuthenticated, isLoading, getToken, user } = useKindeAuth();
   const [tokenExchanged, setTokenExchanged] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Handle token exchange when Kinde authentication completes
   useEffect(() => {
     async function exchangeToken() {
-      if (isLoading || !isAuthenticated || tokenExchanged) {
+      if (isLoading) {
+        return;
+      }
+
+      // Mark auth as checked once loading is done (regardless of auth state)
+      setAuthChecked(true);
+
+      if (!isAuthenticated || tokenExchanged) {
         return;
       }
 
@@ -297,7 +310,9 @@ function AppNavigator() {
     exchangeToken();
   }, [isAuthenticated, isLoading, getToken, user, tokenExchanged]);
 
-  if (isLoading) {
+  // Show loading until Kinde has finished checking auth state
+  // This prevents the brief flash of unauthenticated state that causes redirect loops
+  if (isLoading || !authChecked) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading...</Text>

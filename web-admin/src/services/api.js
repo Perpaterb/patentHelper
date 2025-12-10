@@ -83,9 +83,11 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear tokens and redirect to login
+        // Refresh failed - clear tokens
+        // DO NOT redirect here! Let Kinde's isAuthenticated state handle navigation.
+        // Redirecting here causes infinite loops when combined with React Navigation.
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        console.warn('[API] Token refresh failed - user will be redirected by auth state change');
         return Promise.reject(refreshError);
       }
     }

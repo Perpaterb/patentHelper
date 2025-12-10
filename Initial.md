@@ -557,6 +557,25 @@ const handleSubscribe = () => {
 - **Note**: Web already uses native HTML `<video>` so only native needs migration
 - **Docs**: https://docs.expo.dev/versions/latest/sdk/video/
 
+#### 31. **Web-Admin Login/Web-App Redirect Loop - DO NOT Use window.location.href**
+- ❌ **WRONG**: API interceptor doing `window.location.href = '/login'` on 401 error
+- ✅ **CORRECT**: Let Kinde's `isAuthenticated` state handle navigation naturally
+- **Root Causes of the loop:**
+  1. API interceptor redirects to `/login` when token refresh fails
+  2. But React Navigation already handles this via `!isAuthenticated` conditional routing
+  3. User lands on `/web-app` → not authenticated → shown Landing (unauth stack)
+  4. API call fails → redirect to `/login` → Kinde checks auth → still not authenticated
+  5. Repeat infinitely
+- **The Fix:**
+  - Remove `window.location.href = '/login'` from `api.js` interceptor
+  - Let `localStorage.removeItem('accessToken')` happen, then Kinde state updates
+  - Navigation automatically shows unauthenticated stack
+- **Additional Protection:**
+  - Add `authChecked` state to ensure we wait for Kinde to finish before rendering routes
+  - Prevents "flash" of unauthenticated state while Kinde SDK initializes
+- **Files**: `web-admin/src/services/api.js`, `web-admin/App.js`
+- **CRITICAL**: Never mix imperative redirects (`window.location.href`) with declarative routing (React Navigation conditional stacks)
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

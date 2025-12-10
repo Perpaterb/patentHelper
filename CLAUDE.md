@@ -504,6 +504,45 @@ Claude: "Calendar date picker fixed. Changes committed and pushed to main. What 
 
 ## 🔒 Security Best Practices
 
+### 🚨 CRITICAL: Web-Admin Authentication - DO NOT Redirect Imperatively
+
+**This has caused infinite redirect loops multiple times. DO NOT repeat this mistake.**
+
+The web-admin uses TWO auth systems that must work together:
+1. **Kinde SDK** - Manages `isAuthenticated` state
+2. **React Navigation** - Conditionally renders authenticated/unauthenticated stacks
+
+**NEVER do this in API interceptors:**
+```javascript
+// ❌ WRONG - Causes infinite redirect loop!
+window.location.href = '/login';
+```
+
+**ALWAYS let Kinde state drive navigation:**
+```javascript
+// ✅ CORRECT - Clear token, let React Navigation handle it
+localStorage.removeItem('accessToken');
+console.warn('[API] Token refresh failed - user will be redirected by auth state change');
+```
+
+**Why this causes loops:**
+1. User on `/web-app` → API call fails with 401
+2. Interceptor redirects to `/login`
+3. Kinde SDK checks auth → not authenticated
+4. Shows unauthenticated stack (Landing page)
+5. But URL is `/login` → redirect again
+6. Loop infinitely
+
+**The architecture:**
+- `App.js` has `{!isAuthenticated ? <UnauthedStack /> : <AuthedStack />}`
+- When `isAuthenticated` becomes false, navigation AUTOMATICALLY shows login
+- No imperative redirect needed!
+
+**Files**: `web-admin/src/services/api.js`, `web-admin/App.js`
+**Gotcha Reference**: See Initial.md Gotcha #31
+
+---
+
 * **Never** commit secrets, API keys, or credentials to git
 * **Always** validate and sanitize user input (use Joi or Zod schemas)
 * **Always** check user permissions before allowing actions
