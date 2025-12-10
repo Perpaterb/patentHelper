@@ -95,8 +95,8 @@ jobs:
           CI: true
 
   # Build check (ensure it compiles without errors)
-  build-check:
-    name: Build Check
+  build-check-web:
+    name: Build Check - Web Admin
     runs-on: ubuntu-latest
 
     steps:
@@ -122,3 +122,89 @@ jobs:
           EXPO_PUBLIC_KINDE_CLIENT_ID: "test-client-id"
           EXPO_PUBLIC_KINDE_REDIRECT_URI: "https://test.example.com/auth/callback"
           EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI: "https://test.example.com"
+
+  # Build check for Lambda package size
+  build-check-lambda:
+    name: Build Check - Lambda Size
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Build Lambda package
+        working-directory: backend
+        run: |
+          echo "🏗️  Building Lambda package to verify size..."
+
+          # Create build directory
+          mkdir -p lambda-build
+
+          # Copy necessary files
+          cp -r controllers lambda-build/
+          cp -r routes lambda-build/
+          cp -r services lambda-build/
+          cp -r middleware lambda-build/
+          cp -r config lambda-build/
+          cp -r prisma lambda-build/
+          cp -r utils lambda-build/ 2>/dev/null || true
+          cp server.js lambda-build/
+          cp lambda.js lambda-build/
+          cp package.json lambda-build/
+          cp package-lock.json lambda-build/
+
+          # Install production dependencies only
+          cd lambda-build
+          npm ci --omit=dev
+
+          # Generate Prisma client
+          npx prisma generate
+
+          # Remove packages handled by Worker Service
+          rm -rf node_modules/fluent-ffmpeg 2>/dev/null || true
+          rm -rf node_modules/@ffmpeg-installer 2>/dev/null || true
+          rm -rf node_modules/@ffprobe-installer 2>/dev/null || true
+          rm -rf node_modules/sharp 2>/dev/null || true
+          rm -rf node_modules/@img 2>/dev/null || true
+          rm -rf node_modules/heic-convert 2>/dev/null || true
+          rm -rf node_modules/libheif-js 2>/dev/null || true
+
+          # Remove non-Lambda Prisma engines
+          find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
+          find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
+          find node_modules/@prisma -name "*linux-musl*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+          # Remove dev packages
+          rm -rf node_modules/typescript 2>/dev/null || true
+          rm -rf node_modules/eslint 2>/dev/null || true
+          rm -rf node_modules/@types 2>/dev/null || true
+
+          # Create zip
+          zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js"
+
+          cd ..
+
+          # Check size
+          UNZIP_SIZE=$(unzip -l lambda.zip | tail -1 | awk '{print $1}')
+          UNZIP_MB=$(echo "scale=2; $UNZIP_SIZE / 1048576" | bc)
+          echo "📦 Lambda package size: ${UNZIP_MB} MB uncompressed"
+
+          # Fail if over 250MB limit
+          if [ "$UNZIP_SIZE" -gt 262144000 ]; then
+            echo "❌ ERROR: Package exceeds 250MB Lambda limit!"
+            exit 1
+          else
+            echo "✅ Package size is within Lambda limits"
+          fi
+
+          # Cleanup
+          rm -rf lambda-build lambda.zip
