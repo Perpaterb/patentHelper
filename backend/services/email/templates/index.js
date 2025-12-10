@@ -831,6 +831,148 @@ The Family Helper Team
   return { subject, text, html };
 }
 
+/**
+ * Support ticket email template
+ * Sent when a user submits feedback or support request
+ *
+ * @param {Object} data - Template data
+ * @param {string} data.userName - User's display name
+ * @param {string} data.userEmail - User's email address
+ * @param {string} data.userId - User's unique ID
+ * @param {string} data.message - Feedback/support message
+ * @param {string} data.subscriptionStatus - User's subscription status
+ * @param {string} data.trialEndsAt - Trial end date (if applicable)
+ * @param {number} data.groupCount - Number of groups user belongs to
+ * @param {number} data.adminGroupCount - Number of groups where user is admin
+ * @param {string} data.submittedAt - Timestamp of submission
+ * @returns {Object} Email content {subject, text, html}
+ */
+function support_ticket(data) {
+  const {
+    userName,
+    userEmail,
+    userId,
+    message,
+    subscriptionStatus,
+    trialEndsAt,
+    groupCount,
+    adminGroupCount,
+    submittedAt,
+  } = data;
+
+  const subject = `Support Ticket from Family Helper App - ${userName}`;
+
+  const text = `
+SUPPORT TICKET FROM FAMILY HELPER APP
+=====================================
+
+Submitted: ${submittedAt}
+
+USER DETAILS:
+- Name: ${userName}
+- Email: ${userEmail}
+- User ID: ${userId}
+- Subscription: ${subscriptionStatus}
+${trialEndsAt ? `- Trial Ends: ${trialEndsAt}` : ''}
+- Total Groups: ${groupCount}
+- Admin of Groups: ${adminGroupCount}
+
+MESSAGE:
+--------
+${message}
+
+---
+This ticket was submitted via the Family Helper App.
+Reply to: ${userEmail}
+`.trim();
+
+  const html = `
+<div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background-color: #ffffff;">
+  <div style="background: linear-gradient(135deg, #6200ee 0%, #9c4dcc 100%); padding: 30px; text-align: center;">
+    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Support Ticket</h1>
+    <p style="color: #e1bee7; margin: 10px 0 0 0; font-size: 14px;">Family Helper App</p>
+  </div>
+
+  <div style="padding: 30px;">
+    <p style="font-size: 12px; color: #999; margin: 0 0 20px 0;">
+      Submitted: ${submittedAt}
+    </p>
+
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+      <h2 style="margin: 0 0 15px 0; color: #333; font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+        User Details
+      </h2>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; width: 140px;">Name:</td>
+          <td style="padding: 8px 0; color: #333; font-weight: bold;">${userName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Email:</td>
+          <td style="padding: 8px 0; color: #333;">
+            <a href="mailto:${userEmail}" style="color: #6200ee;">${userEmail}</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">User ID:</td>
+          <td style="padding: 8px 0; color: #333; font-family: monospace; font-size: 12px;">${userId}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Subscription:</td>
+          <td style="padding: 8px 0;">
+            <span style="display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; ${
+              subscriptionStatus === 'active' || subscriptionStatus === 'permanent'
+                ? 'background: #e8f5e9; color: #2e7d32;'
+                : subscriptionStatus === 'trial'
+                ? 'background: #fff3e0; color: #e65100;'
+                : 'background: #ffebee; color: #c62828;'
+            }">
+              ${subscriptionStatus.toUpperCase()}
+            </span>
+          </td>
+        </tr>
+        ${trialEndsAt ? `
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Trial Ends:</td>
+          <td style="padding: 8px 0; color: #e65100; font-weight: bold;">${trialEndsAt}</td>
+        </tr>
+        ` : ''}
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Total Groups:</td>
+          <td style="padding: 8px 0; color: #333;">${groupCount}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666;">Admin of Groups:</td>
+          <td style="padding: 8px 0; color: #333;">${adminGroupCount}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background: #fff; border: 2px solid #6200ee; border-radius: 8px; padding: 20px;">
+      <h2 style="margin: 0 0 15px 0; color: #6200ee; font-size: 16px;">
+        Message
+      </h2>
+      <div style="color: #333; line-height: 1.6; white-space: pre-wrap;">${message}</div>
+    </div>
+
+    <div style="margin-top: 25px; text-align: center;">
+      <a href="mailto:${userEmail}" style="display: inline-block; background: #6200ee; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+        Reply to User
+      </a>
+    </div>
+  </div>
+
+  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      This support ticket was submitted via the Family Helper App.
+    </p>
+  </div>
+</div>
+`.trim();
+
+  return { subject, text, html };
+}
+
 module.exports = {
   welcome,
   trial_reminder,
@@ -840,4 +982,5 @@ module.exports = {
   secret_santa_added,
   secret_santa_match,
   billing_reminder,
+  support_ticket,
 };

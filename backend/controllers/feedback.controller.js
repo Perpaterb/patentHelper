@@ -6,6 +6,10 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { emailService } = require('../services/email');
+
+// Support email - in dev goes to MailHog, in prod to this address
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'zcarss@gmail.com';
 
 /**
  * Send feedback email
@@ -26,12 +30,20 @@ const sendFeedback = async (req, res) => {
       });
     }
 
-    // Get user details
+    // Get user details with subscription info and group counts
     const user = await prisma.user.findUnique({
       where: { userId },
       select: {
+        userId: true,
         email: true,
         displayName: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        groupMembers: {
+          select: {
+            role: true,
+          },
+        },
       },
     });
 
@@ -42,26 +54,49 @@ const sendFeedback = async (req, res) => {
       });
     }
 
-    // For MVP, we'll log the feedback and simulate sending email
-    // In production, this would use AWS SES or similar service
-    console.log('=== FEEDBACK RECEIVED ===');
-    console.log('From:', user.displayName, `<${user.email}>`);
-    console.log('Message:', message.trim());
-    console.log('Timestamp:', new Date().toISOString());
-    console.log('========================');
+    // Calculate group counts
+    const groupCount = user.groupMembers.length;
+    const adminGroupCount = user.groupMembers.filter(gm => gm.role === 'admin').length;
 
-    // TODO: In production, send email via AWS SES
-    // await sendEmail({
-    //   to: 'support@parentinghelperapp.com',
-    //   subject: `Feedback from ${user.displayName}`,
-    //   body: `
-    //     User: ${user.displayName}
-    //     Email: ${user.email}
-    //
-    //     Message:
-    //     ${message.trim()}
-    //   `,
-    // });
+    // Format trial end date if applicable
+    const trialEndsAt = user.trialEndsAt
+      ? new Date(user.trialEndsAt).toLocaleDateString('en-AU', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : null;
+
+    // Format submission timestamp
+    const submittedAt = new Date().toLocaleString('en-AU', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Australia/Sydney',
+    });
+
+    // Log for debugging
+    console.log('=== SUPPORT TICKET RECEIVED ===');
+    console.log('From:', user.displayName, `<${user.email}>`);
+    console.log('Subscription:', user.subscriptionStatus);
+    console.log('Message:', message.trim());
+    console.log('Sending to:', SUPPORT_EMAIL);
+    console.log('===============================');
+
+    // Send email via email service (MailHog in dev, SES in prod)
+    await emailService.sendTemplate('support_ticket', SUPPORT_EMAIL, {
+      userName: user.displayName || 'Unknown User',
+      userEmail: user.email,
+      userId: user.userId,
+      message: message.trim(),
+      subscriptionStatus: user.subscriptionStatus || 'unknown',
+      trialEndsAt: trialEndsAt,
+      groupCount: groupCount,
+      adminGroupCount: adminGroupCount,
+      submittedAt: submittedAt,
+    });
 
     res.json({
       success: true,
