@@ -231,6 +231,10 @@ async function handleWebhook(req, res) {
 
     // Handle different event types
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event.data.object);
         break;
@@ -258,6 +262,123 @@ async function handleWebhook(req, res) {
       error: 'Webhook handler failed',
       message: error.message,
     });
+  }
+}
+
+/**
+ * Handle successful checkout session
+ * This is triggered when a user completes payment via Stripe Checkout
+ * @param {Object} session - Stripe Checkout Session object
+ */
+async function handleCheckoutSessionCompleted(session) {
+  const { prisma } = require('../config/database');
+
+  console.log(`[Webhook] Checkout session completed: ${session.id}`);
+  console.log(`[Webhook] Payment status: ${session.payment_status}`);
+
+  // Only process if payment was successful
+  if (session.payment_status !== 'paid') {
+    console.log(`[Webhook] Skipping - payment status is ${session.payment_status}`);
+    return;
+  }
+
+  // Get user ID from metadata
+  const userId = session.metadata?.userId;
+  if (!userId) {
+    console.error('[Webhook] No userId in session metadata');
+    return;
+  }
+
+  // Check if this is a subscription payment (vs other checkout types)
+  const billingType = session.metadata?.billingType;
+  if (billingType !== 'subscription_payment') {
+    console.log(`[Webhook] Not a subscription payment (type: ${billingType})`);
+    return;
+  }
+
+  try {
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { userId: userId },
+    });
+
+    if (!user) {
+      console.error(`[Webhook] User not found: ${userId}`);
+      return;
+    }
+
+    // Calculate renewal date (1 month from now)
+    const now = new Date();
+    const renewalDate = new Date(now);
+    renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+    // Get storage packs from metadata
+    const storagePacksNeeded = parseInt(session.metadata?.storagePacksNeeded || '0', 10);
+    const storageLimitGb = 10 + storagePacksNeeded * 10;
+    const totalAmountCents = parseInt(session.metadata?.totalAmountCents || session.amount_total, 10);
+
+    // Save payment method for future billing (from the PaymentIntent)
+    let defaultPaymentMethodId = user.defaultPaymentMethodId;
+    if (session.payment_intent) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+        if (paymentIntent.payment_method) {
+          defaultPaymentMethodId = paymentIntent.payment_method;
+
+          // Set as default on Stripe customer
+          if (session.customer) {
+            await stripe.customers.update(session.customer, {
+              invoice_settings: {
+                default_payment_method: defaultPaymentMethodId,
+              },
+            });
+          }
+        }
+      } catch (piError) {
+        console.error('[Webhook] Error getting payment method:', piError.message);
+      }
+    }
+
+    // Update user to activate subscription
+    await prisma.user.update({
+      where: { userId: userId },
+      data: {
+        isSubscribed: true,
+        subscriptionStartDate: user.subscriptionStartDate || now,
+        subscriptionEndDate: null, // Clear any cancellation
+        renewalDate: renewalDate,
+        additionalStoragePacks: storagePacksNeeded,
+        storageLimitGb: storageLimitGb,
+        billingFailureCount: 0,
+        lastBillingAttempt: now,
+        defaultPaymentMethodId: defaultPaymentMethodId,
+        stripeCustomerId: session.customer || user.stripeCustomerId,
+      },
+    });
+
+    // Create billing history record
+    await prisma.billingHistory.create({
+      data: {
+        userId: userId,
+        amount: totalAmountCents,
+        currency: 'usd',
+        status: 'succeeded',
+        description: `Family Helper - Subscription${storagePacksNeeded > 0 ? ` + ${storagePacksNeeded} storage packs` : ''}`,
+        baseSubscriptionAmount: 300, // $3.00 in cents
+        storagePacks: storagePacksNeeded,
+        storagePackAmount: 100, // $1.00 per pack in cents
+        periodStart: now,
+        periodEnd: renewalDate,
+        stripePaymentIntentId: session.payment_intent,
+      },
+    });
+
+    console.log(`[Webhook] Successfully activated subscription for user ${user.email}`);
+    console.log(`[Webhook] Renewal date: ${renewalDate.toISOString()}`);
+    console.log(`[Webhook] Storage packs: ${storagePacksNeeded}, Limit: ${storageLimitGb}GB`);
+  } catch (error) {
+    console.error('[Webhook] Error processing checkout session:', error);
+    throw error; // Re-throw to trigger webhook retry
   }
 }
 

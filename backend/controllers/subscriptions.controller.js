@@ -20,6 +20,111 @@ const BASE_SUBSCRIPTION_CENTS = 300; // $3.00 USD
 const STORAGE_PACK_CENTS = 100; // $1.00 USD per 10GB
 
 /**
+ * Create a Stripe Checkout session for a user's billing
+ * Returns the checkout URL that goes directly to Stripe's payment page
+ *
+ * @param {Object} user - User object with userId, email, displayName, stripeCustomerId
+ * @param {Object} storageInfo - Storage info from calculateStorageInfo
+ * @returns {Promise<string>} Stripe checkout URL
+ */
+async function createBillingCheckoutSession(user, storageInfo) {
+  const { stripe } = require('../config/stripe');
+
+  if (!stripe) {
+    throw new Error('Stripe is not configured');
+  }
+
+  // Calculate totals
+  const baseAmount = BASE_SUBSCRIPTION_CENTS;
+  const storageChargesCents = storageInfo.storagePacksNeeded * STORAGE_PACK_CENTS;
+  const totalAmountCents = baseAmount + storageChargesCents;
+
+  // Build line items
+  const lineItems = [
+    {
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Family Helper Admin Subscription',
+          description: 'Monthly admin subscription with 10GB storage included',
+        },
+        unit_amount: baseAmount,
+      },
+      quantity: 1,
+    },
+  ];
+
+  // Add storage packs if needed
+  if (storageInfo.storagePacksNeeded > 0) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Additional Storage Pack',
+          description: '10GB additional storage per month',
+        },
+        unit_amount: STORAGE_PACK_CENTS,
+      },
+      quantity: storageInfo.storagePacksNeeded,
+    });
+  }
+
+  // Get or create Stripe customer
+  let customerId = user.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: user.email,
+      name: user.displayName || undefined,
+      metadata: {
+        userId: user.userId,
+      },
+    });
+    customerId = customer.id;
+
+    // Save customer ID
+    await prisma.user.update({
+      where: { userId: user.userId },
+      data: { stripeCustomerId: customerId },
+    });
+  }
+
+  // Success/cancel URLs
+  const baseUrl = process.env.WEB_APP_URL || 'https://familyhelperapp.com';
+  const successUrl = `${baseUrl}/subscription?success=true`;
+  const cancelUrl = `${baseUrl}/subscription?canceled=true`;
+
+  // Create Checkout Session
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    payment_method_types: ['card'],
+    line_items: lineItems,
+    mode: 'payment',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      userId: user.userId,
+      storagePacksNeeded: storageInfo.storagePacksNeeded.toString(),
+      totalAmountCents: totalAmountCents.toString(),
+      billingType: 'subscription_payment',
+    },
+    // Save card for future billing
+    payment_intent_data: {
+      setup_future_usage: 'off_session',
+      metadata: {
+        userId: user.userId,
+        billingType: 'subscription_payment',
+      },
+    },
+    // Session expires in 7 days (to match billing window)
+    expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
+  });
+
+  console.log(`[Billing] Created Checkout session ${session.id} for user ${user.email}, amount: $${(totalAmountCents / 100).toFixed(2)}`);
+
+  return session.url;
+}
+
+/**
  * Get current user's subscription status
  * GET /subscriptions/status
  *
@@ -771,6 +876,27 @@ async function regenerateBill(req, res) {
     const storageCharges = parseFloat(storageInfo.storageCharges);
     const totalAmount = (baseAmount + storageCharges).toFixed(2);
 
+    // Get full user for Stripe checkout (need stripeCustomerId)
+    const fullUser = await prisma.user.findUnique({
+      where: { userId: req.user.userId },
+      select: {
+        userId: true,
+        email: true,
+        displayName: true,
+        stripeCustomerId: true,
+      },
+    });
+
+    // Create Stripe Checkout session for the Pay Now link
+    let payNowUrl;
+    try {
+      payNowUrl = await createBillingCheckoutSession(fullUser, storageInfo);
+    } catch (stripeError) {
+      console.error(`[Billing] Failed to create Stripe checkout for ${user.email}:`, stripeError.message);
+      // Fallback to subscription page if Stripe fails
+      payNowUrl = `${process.env.WEB_APP_URL || 'https://familyhelperapp.com'}/subscription`;
+    }
+
     // Prepare email data
     const emailData = {
       userName: user.displayName || user.email,
@@ -780,7 +906,7 @@ async function regenerateBill(req, res) {
       storagePacks: storageInfo.storagePacksNeeded,
       storageCharges: storageInfo.storageCharges,
       totalAmount: totalAmount,
-      payNowUrl: process.env.WEB_APP_URL || 'https://familyhelperapp.com/subscription',
+      payNowUrl: payNowUrl,
     };
 
     // Send billing reminder email
@@ -939,6 +1065,17 @@ async function sendBillingReminders(req, res) {
         const storageCharges = parseFloat(storageInfo.storageCharges);
         const totalAmount = (baseAmount + storageCharges).toFixed(2);
 
+        // Create Stripe Checkout session for this user
+        // The URL goes directly to Stripe's payment page
+        let payNowUrl;
+        try {
+          payNowUrl = await createBillingCheckoutSession(user, storageInfo);
+        } catch (stripeError) {
+          console.error(`[Billing] Failed to create Stripe checkout for ${user.email}:`, stripeError.message);
+          // Fallback to subscription page if Stripe fails
+          payNowUrl = `${process.env.WEB_APP_URL || 'https://familyhelperapp.com'}/subscription`;
+        }
+
         // Prepare email data
         const emailData = {
           userName: user.displayName || user.email,
@@ -948,7 +1085,7 @@ async function sendBillingReminders(req, res) {
           storagePacks: storageInfo.storagePacksNeeded,
           storageCharges: storageInfo.storageCharges,
           totalAmount: totalAmount,
-          payNowUrl: process.env.WEB_APP_URL || 'https://familyhelperapp.com/subscription',
+          payNowUrl: payNowUrl,
         };
 
         // Send email
