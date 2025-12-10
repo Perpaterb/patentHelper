@@ -24,8 +24,9 @@ const path = require('path');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 
-// Check if running in production (Lambda)
-const isProduction = process.env.NODE_ENV === 'production';
+// Check if running in production (Lambda environment or NODE_ENV=production)
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const isProduction = isLambda || process.env.NODE_ENV === 'production';
 
 /**
  * Upload a single file
