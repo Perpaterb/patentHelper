@@ -610,6 +610,25 @@ const handleSubscribe = () => {
 - **S3 Bucket**: `family-helper-files-prod`
 - **Logs Show**: `[Storage] Using S3StorageService` when running in Lambda
 
+#### 34. **Lambda Binary Responses - Use Presigned URL Redirects**
+- ❌ **WRONG**: Streaming binary file data through Lambda + API Gateway (`res.send(fileBuffer)`)
+- ✅ **CORRECT**: Redirect to presigned S3 URL (`res.redirect(302, presignedUrl)`)
+- **Symptom**: Files return HTTP 200 but `content-length: 0` (empty body)
+- **Root Cause**: API Gateway has issues with binary response bodies from Lambda
+- **Solution**: In Lambda, `GET /files/:fileId` returns 302 redirect to a presigned S3 URL
+- **Benefits**:
+  - Bypasses API Gateway binary encoding issues
+  - Reduces Lambda execution time (no need to download/upload file through Lambda)
+  - Better for large files (S3 handles streaming directly to client)
+- **Implementation** (`files.controller.js:getFile`):
+  ```javascript
+  if (isLambda && storageService.getFileUrl) {
+    const presignedUrl = await storageService.getFileUrl(fileId, 3600);
+    return res.redirect(302, presignedUrl);
+  }
+  ```
+- **Local Dev**: Still serves files directly (no redirect needed for Express)
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:
