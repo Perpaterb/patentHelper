@@ -122,3 +122,26 @@ output "database_tunnel_command" {
   description = "SSH tunnel command for database access"
   value       = "ssh -i ~/.ssh/${var.bastion_key_name}.pem -L 5433:${aws_db_instance.main.endpoint} ec2-user@${aws_instance.bastion.public_ip} -N"
 }
+
+# ============================================
+# Recorder Service Outputs
+# ============================================
+output "recorder_ecr_repository_url" {
+  description = "ECR repository URL for Recorder Service"
+  value       = aws_ecr_repository.recorder.repository_url
+}
+
+output "recorder_cluster_name" {
+  description = "ECS Cluster name for Recorder"
+  value       = aws_ecs_cluster.recorder.name
+}
+
+output "recorder_service_name" {
+  description = "ECS Service name for Recorder"
+  value       = aws_ecs_service.recorder.name
+}
+
+output "recorder_internal_url" {
+  description = "Internal URL for Recorder service (via Service Discovery)"
+  value       = "http://recorder.recorder.${var.project_name}.local:3001"
+}

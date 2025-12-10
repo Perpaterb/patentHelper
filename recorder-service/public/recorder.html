@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Call Recorder</title>
+  <style>
+    body { background: #000; color: #fff; font-family: sans-serif; padding: 20px; }
+    #status { margin: 20px 0; }
+    .recording { color: #f44336; }
+    .connected { color: #4caf50; }
+  </style>
+</head>
+<body>
+  <h1>Ghost Recorder</h1>
+  <div id="status">Initializing...</div>
+  <div id="participants"></div>
+
+  <!-- Hidden video/audio elements for streams -->
+  <video id="localVideo" autoplay muted playsinline style="display:none;"></video>
+  <div id="remoteVideos" style="display:none;"></div>
+  <!-- Hidden audio elements for remote streams - required for Chrome to process WebRTC audio -->
+  <div id="remoteAudios" style="display:none;"></div>
+
+  <script>
+    // Configuration passed via URL params
+    const params = new URLSearchParams(window.location.search);
+    const API_URL = params.get('apiUrl') || 'http://localhost:3001';
+    const GROUP_ID = params.get('groupId');
+    const CALL_ID = params.get('callId');
+    const CALL_TYPE = params.get('callType') || 'phone'; // 'phone' or 'video'
+    const AUTH_TOKEN = params.get('token');
+
+    // State
+    let peerConnections = {};
+    let pendingIceCandidates = {}; // Queue ICE candidates until offer is processed
+    let localStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let audioContext = null;
+    let mixedDestination = null;
+
+    const statusEl = document.getElementById('status');
+
+    function updateStatus(msg, className = '') {
+      statusEl.textContent = msg;
+      statusEl.className = className;
+      console.log('[Recorder]', msg);
+    }
+
+    async function init() {
+      try {
+        updateStatus('Getting media access...');
+
+        // Create a silent audio stream using Web Audio API
+        // This avoids the click track from Puppeteer's fake audio device
+        const silentAudioContext = new AudioContext();
+        const oscillator = silentAudioContext.createOscillator();
+        const gainNode = silentAudioContext.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        const silentDestination = silentAudioContext.createMediaStreamDestination();
+        gainNode.connect(silentDestination);
+        oscillator.start();
+
+        localStream = silentDestination.stream;
+        console.log('[Recorder] Created silent local stream for WebRTC negotiation');
+
+        updateStatus('Connecting to signaling server...');
+        await connectToCall();
+
+      } catch (err) {
+        updateStatus('Error: ' + err.message);
+        console.error('[Recorder] Init error:', err);
+      }
+    }
+
+    async function connectToCall() {
+      const maxRetries = 60; // Wait up to 60 seconds for call to become active
+      const retryDelay = 1000; // 1 second between retries
+      let retries = 0;
+
+      while (retries < maxRetries) {
+        try {
+          // Get call participants via API
+          const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+          const response = await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}`, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
+
+          if (!response.ok) throw new Error('Failed to fetch call info');
+
+          const data = await response.json();
+          const calls = CALL_TYPE === 'video' ? data.videoCalls : data.phoneCalls;
+          const call = calls?.find(c => c.callId === CALL_ID);
+
+          if (!call) throw new Error('Call not found');
+
+          if (call.status === 'ended') {
+            updateStatus('Call ended before recording could start');
+            console.log('[Recorder] Call ended, stopping');
+            return;
+          }
+
+          if (call.status === 'active') {
+            updateStatus('Connected. Starting recording...', 'connected');
+
+            // Set up audio context for mixing streams
+            await setupAudioMixer();
+
+            // Poll for WebRTC offers via signaling
+            pollForSignals();
+
+            // Recording will start automatically when first track is received
+            console.log('[Recorder] Waiting for audio tracks...');
+            return;
+          }
+
+          // Call not active yet, wait and retry
+          if (retries === 0) {
+            updateStatus('Waiting for call to start...');
+            console.log('[Recorder] Call status:', call.status, '- waiting for active...');
+          }
+
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+        } catch (err) {
+          updateStatus('Connection error: ' + err.message);
+          console.error('[Recorder] Connect error:', err);
+          return;
+        }
+      }
+
+      updateStatus('Timeout waiting for call to become active');
+      console.error('[Recorder] Timeout: call never became active');
+    }
+
+    let tracksReceived = 0;
+    let recordingStarted = false;
+    let audioElements = {}; // Store audio elements for each peer
+    let gainNodes = {}; // Store gain nodes for volume control
+
+    async function setupAudioMixer() {
+      audioContext = new AudioContext({ sampleRate: 48000 });
+      // Resume AudioContext (required in headless browsers)
+      if (audioContext.state === 'suspended') {
+        console.log('[Recorder] Resuming suspended AudioContext...');
+        await audioContext.resume();
+        console.log('[Recorder] AudioContext state:', audioContext.state);
+      }
+      mixedDestination = audioContext.createMediaStreamDestination();
+
+      // Also connect to the main destination to keep audio graph active
+      // Create a silent gain node connected to speakers (won't make sound)
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0; // Silent
+      silentGain.connect(audioContext.destination);
+
+      console.log('[Recorder] Audio mixer ready, sample rate:', audioContext.sampleRate);
+    }
+
+    function addStreamToMixer(stream, label) {
+      if (!audioContext || !mixedDestination) {
+        console.error('[Recorder] Audio mixer not ready!');
+        return;
+      }
+
+      try {
+        const audioTracks = stream.getAudioTracks();
+        console.log('[Recorder] Stream', label, 'has', audioTracks.length, 'audio tracks');
+
+        if (audioTracks.length > 0) {
+          const track = audioTracks[0];
+          console.log('[Recorder] Track details:', {
+            id: track.id,
+            kind: track.kind,
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+
+          // CRITICAL: Create an audio element to play the stream
+          // This forces Chrome to actually decode and process the WebRTC audio
+          const audioEl = document.createElement('audio');
+          audioEl.srcObject = stream;
+          audioEl.autoplay = true;
+          audioEl.muted = false; // Must NOT be muted for audio to flow
+          audioEl.volume = 0.001; // Very low but not zero (zero might stop processing)
+          document.getElementById('remoteAudios').appendChild(audioEl);
+          audioElements[label] = audioEl;
+
+          // Play the audio element (required for autoplay policy)
+          audioEl.play().then(() => {
+            console.log('[Recorder] Audio element playing for', label);
+          }).catch(err => {
+            console.error('[Recorder] Audio element play failed:', err);
+          });
+
+          // Create the Web Audio graph
+          const source = audioContext.createMediaStreamSource(stream);
+
+          // Add a gain node for volume control and to ensure audio flows
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = 1.0; // Full volume to mixer
+          gainNodes[label] = gainNode;
+
+          source.connect(gainNode);
+          gainNode.connect(mixedDestination);
+
+          // Also connect to destination via silent gain to keep graph active
+          const monitorGain = audioContext.createGain();
+          monitorGain.gain.value = 0; // Silent monitoring
+          gainNode.connect(monitorGain);
+          monitorGain.connect(audioContext.destination);
+
+          tracksReceived++;
+          console.log('[Recorder] Added stream to mixer:', label, '- Total tracks:', tracksReceived);
+
+          // Monitor track for mute/unmute
+          track.onmute = () => console.log('[Recorder] Track muted:', label);
+          track.onunmute = () => console.log('[Recorder] Track unmuted:', label);
+          track.onended = () => console.log('[Recorder] Track ended:', label);
+
+          // Start recording after first track is received
+          if (!recordingStarted && tracksReceived >= 1) {
+            console.log('[Recorder] First track received, starting recording...');
+            startRecording();
+          }
+        }
+      } catch (err) {
+        console.error('[Recorder] Failed to add stream to mixer:', err);
+      }
+    }
+
+    async function pollForSignals() {
+      // Poll the signaling endpoint for WebRTC signals (using recorder-specific endpoint)
+      const signalUrl = `${API_URL}/groups/${GROUP_ID}/${CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls'}/${CALL_ID}/recorder-signal`;
+      console.log('[Recorder] Signal polling URL:', signalUrl);
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(signalUrl, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
+
+          if (!response.ok) {
+            console.error('[Recorder] Signal poll failed:', response.status, response.statusText);
+            return;
+          }
+
+          const data = await response.json();
+          if (data.signals && data.signals.length > 0) {
+            console.log('[Recorder] Received', data.signals.length, 'signals');
+            for (const signal of data.signals) {
+              console.log('[Recorder] Processing signal:', signal.type, 'from', signal.from);
+              await handleSignal(signal);
+            }
+          }
+        } catch (err) {
+          console.error('[Recorder] Signal poll error:', err.message || err);
+        }
+      }, 2000);
+
+      // Store for cleanup
+      window.signalPollInterval = pollInterval;
+    }
+
+    async function handleSignal(signal) {
+      const { from: fromId, type, data } = signal;
+      console.log('[Recorder] Handling signal:', type, 'from peer:', fromId);
+
+      // For ICE candidates, check if we have a peer connection with remote description
+      if (type === 'ice-candidate') {
+        const pc = peerConnections[fromId];
+        if (!pc || !pc.remoteDescription) {
+          // Queue the ICE candidate until we have the offer
+          if (!pendingIceCandidates[fromId]) {
+            pendingIceCandidates[fromId] = [];
+          }
+          console.log('[Recorder] Queuing ICE candidate for', fromId, '(waiting for offer)');
+          pendingIceCandidates[fromId].push(data);
+          return;
+        }
+        // We have remote description, add ICE candidate
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data));
+        } catch (err) {
+          console.error('[Recorder] Failed to add ICE candidate:', err.message);
+        }
+        return;
+      }
+
+      // Create peer connection if needed (for offer/answer)
+      if (!peerConnections[fromId]) {
+        console.log('[Recorder] Creating peer connection for', fromId);
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        });
+
+        // Add local tracks to peer connection (required for proper WebRTC negotiation)
+        // Even though we're not sending real audio, we need to add tracks
+        if (localStream) {
+          localStream.getTracks().forEach(track => {
+            console.log('[Recorder] Adding local track to peer connection:', track.kind);
+            pc.addTrack(track, localStream);
+          });
+        }
+
+        pc.ontrack = (event) => {
+          console.log('[Recorder] Received track from', fromId, '- kind:', event.track.kind);
+          console.log('[Recorder] Track state:', {
+            enabled: event.track.enabled,
+            muted: event.track.muted,
+            readyState: event.track.readyState
+          });
+          console.log('[Recorder] Stream has', event.streams[0].getAudioTracks().length, 'audio tracks');
+          addStreamToMixer(event.streams[0], fromId);
+        };
+
+        pc.onicecandidate = async (event) => {
+          if (event.candidate) {
+            await sendSignal(fromId, 'ice-candidate', event.candidate);
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          console.log('[Recorder] Connection state for', fromId, ':', pc.connectionState);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          console.log('[Recorder] ICE connection state for', fromId, ':', pc.iceConnectionState);
+        };
+
+        pc.onicegatheringstatechange = () => {
+          console.log('[Recorder] ICE gathering state for', fromId, ':', pc.iceGatheringState);
+        };
+
+        peerConnections[fromId] = pc;
+      }
+
+      const pc = peerConnections[fromId];
+
+      if (type === 'offer') {
+        console.log('[Recorder] Processing offer from', fromId);
+        await pc.setRemoteDescription(new RTCSessionDescription(data));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await sendSignal(fromId, 'answer', answer);
+        console.log('[Recorder] Sent answer to', fromId);
+
+        // Process any queued ICE candidates
+        if (pendingIceCandidates[fromId] && pendingIceCandidates[fromId].length > 0) {
+          console.log('[Recorder] Processing', pendingIceCandidates[fromId].length, 'queued ICE candidates for', fromId);
+          for (const candidate of pendingIceCandidates[fromId]) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error('[Recorder] Failed to add queued ICE candidate:', err.message);
+            }
+          }
+          delete pendingIceCandidates[fromId];
+        }
+      } else if (type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data));
+      }
+    }
+
+    async function sendSignal(toId, type, data) {
+      try {
+        const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+        await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recorder-signal`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AUTH_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            targetPeerId: toId,
+            type,
+            data
+          })
+        });
+      } catch (err) {
+        console.error('[Recorder] Send signal error:', err);
+      }
+    }
+
+    function startRecording() {
+      if (isRecording || recordingStarted || !mixedDestination) return;
+      recordingStarted = true;
+
+      try {
+        const stream = mixedDestination.stream;
+        const tracks = stream.getAudioTracks();
+        console.log('[Recorder] Mixed stream tracks:', tracks.length);
+
+        if (tracks.length > 0) {
+          const mixedTrack = tracks[0];
+          console.log('[Recorder] Mixed track details:', {
+            id: mixedTrack.id,
+            enabled: mixedTrack.enabled,
+            muted: mixedTrack.muted,
+            readyState: mixedTrack.readyState
+          });
+        }
+
+        // Use webm/opus codec for better compatibility
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        console.log('[Recorder] Using MIME type:', mimeType);
+
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType,
+          audioBitsPerSecond: 128000 // 128kbps for good quality
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+            console.log('[Recorder] Chunk received, size:', event.data.size, 'bytes, total chunks:', recordedChunks.length);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          console.log('[Recorder] MediaRecorder stopped, total chunks:', recordedChunks.length);
+          uploadRecording();
+        };
+
+        mediaRecorder.onerror = (event) => {
+          console.error('[Recorder] MediaRecorder error:', event.error);
+        };
+
+        mediaRecorder.start(1000); // Collect data every second
+        isRecording = true;
+        updateStatus('Recording in progress...', 'recording');
+        console.log('[Recorder] MediaRecorder started, state:', mediaRecorder.state);
+
+        // Expose stop function for Puppeteer
+        window.stopRecording = stopRecording;
+        window.isRecording = true;
+
+        // Log recording stats periodically
+        const statsInterval = setInterval(() => {
+          if (!isRecording) {
+            clearInterval(statsInterval);
+            return;
+          }
+          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+          console.log('[Recorder] Recording stats - chunks:', recordedChunks.length, 'total size:', totalSize, 'bytes');
+        }, 5000);
+        window.statsInterval = statsInterval;
+
+      } catch (err) {
+        console.error('[Recorder] Start recording error:', err);
+        updateStatus('Recording failed: ' + err.message);
+      }
+    }
+
+    function stopRecording() {
+      return new Promise((resolve) => {
+        if (!isRecording || !mediaRecorder) {
+          resolve();
+          return;
+        }
+
+        mediaRecorder.onstop = async () => {
+          await uploadRecording();
+          resolve();
+        };
+
+        mediaRecorder.stop();
+        isRecording = false;
+        window.isRecording = false;
+        updateStatus('Recording stopped, uploading...');
+      });
+    }
+
+    async function uploadRecording() {
+      try {
+        if (recordedChunks.length === 0) {
+          console.log('[Recorder] No data to upload');
+          return;
+        }
+
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        recordedChunks = [];
+
+        const formData = new FormData();
+        formData.append('recording', blob, `${CALL_TYPE}-call-${CALL_ID}.webm`);
+
+        const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+        const response = await fetch(
+          `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recording`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+            body: formData
+          }
+        );
+
+        if (response.ok) {
+          updateStatus('Recording uploaded successfully!', 'connected');
+        } else {
+          updateStatus('Upload failed: ' + response.statusText);
+        }
+      } catch (err) {
+        console.error('[Recorder] Upload error:', err);
+        updateStatus('Upload error: ' + err.message);
+      }
+    }
+
+    function cleanup() {
+      console.log('[Recorder] Cleaning up...');
+
+      if (window.signalPollInterval) {
+        clearInterval(window.signalPollInterval);
+      }
+
+      if (window.statsInterval) {
+        clearInterval(window.statsInterval);
+      }
+
+      // Stop and remove audio elements
+      Object.entries(audioElements).forEach(([label, el]) => {
+        console.log('[Recorder] Stopping audio element for', label);
+        el.pause();
+        el.srcObject = null;
+        el.remove();
+      });
+      audioElements = {};
+
+      Object.values(peerConnections).forEach(pc => pc.close());
+      peerConnections = {};
+
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+
+      console.log('[Recorder] Cleanup complete');
+    }
+
+    // Expose for Puppeteer control
+    window.recorderReady = false;
+    window.cleanup = cleanup;
+
+    // Initialize
+    init().then(() => {
+      window.recorderReady = true;
+    });
+  </script>
+</body>
+</html>

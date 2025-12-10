@@ -634,6 +634,8 @@ resource "aws_lambda_function" "api" {
       MEDIA_PROCESSOR_LAMBDA     = "${var.project_name}-media-processor-${var.environment}"
       # API_BASE_URL constructed manually to avoid circular dependency with API Gateway stage
       API_BASE_URL               = "https://${aws_apigatewayv2_api.main.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}"
+      # Recorder Fargate service URL (via Service Discovery)
+      RECORDER_FARGATE_URL       = "http://recorder.recorder.${var.project_name}.local:3001"
     }
   }
 
