@@ -1710,11 +1710,26 @@ async function getIceServers(req, res) {
 /**
  * Start server-side recording for a call
  * POST /groups/:groupId/phone-calls/:callId/start-recording
+ *
+ * Note: Server-side recording requires a Media Processor service with recording capability.
+ * This feature is not available in production Lambda environment - it requires a continuously
+ * running service (Docker/EC2) with Puppeteer to join calls as a participant.
  */
 async function startServerRecording(req, res) {
   try {
     const { groupId, callId } = req.params;
     const userId = req.user?.userId;
+
+    // Check if recording service is available
+    const recordingAvailable = await recorderService.isAvailable();
+    if (!recordingAvailable) {
+      console.log('[PhoneCall] Recording service not available');
+      return res.status(503).json({
+        success: false,
+        message: 'Server-side recording is not available. This feature requires a Media Processor service with recording capability.',
+        isRecording: false,
+      });
+    }
 
     // Verify user is in the call
     const call = await prisma.phoneCall.findFirst({
@@ -1731,7 +1746,7 @@ async function startServerRecording(req, res) {
     }
 
     // Check if already recording
-    if (recorderService.isRecording(callId, 'phone')) {
+    if (await recorderService.isRecording(callId, 'phone')) {
       return res.json({ success: true, message: 'Recording already in progress', isRecording: true });
     }
 
