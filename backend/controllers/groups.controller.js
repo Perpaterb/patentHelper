@@ -837,7 +837,8 @@ async function inviteMember(req, res) {
       where: { email: email.toLowerCase() },
     });
 
-    // VALIDATION: Cannot add admin role unless user is registered with active subscription/trial
+    // VALIDATION: Cannot add admin role unless user is registered with ACTIVE SUBSCRIPTION (not trial)
+    // Trial users can only be the FIRST admin (when creating a group), not added as additional admins
     if (role === 'admin') {
       if (!targetUser) {
         return res.status(400).json({
@@ -846,15 +847,24 @@ async function inviteMember(req, res) {
         });
       }
 
-      // Check if user has active subscription or trial
+      // Check if user is on trial
       const daysSinceCreation = (Date.now() - new Date(targetUser.createdAt).getTime()) / (1000 * 60 * 60 * 24);
       const isOnTrial = !targetUser.isSubscribed && daysSinceCreation <= 20;
-      const hasActiveSubscription = targetUser.isSubscribed || isOnTrial;
 
-      if (!hasActiveSubscription) {
+      // Trial users cannot be added as additional admins
+      // They can only be the first admin (when creating a group)
+      if (isOnTrial) {
         return res.status(400).json({
           error: 'Subscription Required',
-          message: 'User must have an active subscription or trial to be added as admin.',
+          message: 'Trial users cannot be added as additional admins. The user must subscribe before they can be invited as an admin.',
+        });
+      }
+
+      // User must be subscribed
+      if (!targetUser.isSubscribed) {
+        return res.status(400).json({
+          error: 'Subscription Required',
+          message: 'User must have an active subscription to be added as admin.',
         });
       }
     }
@@ -1845,11 +1855,11 @@ async function changeMemberRole(req, res) {
       });
     }
 
-    // Validate targetUserId is not null (member must have accepted invite)
+    // Validate targetUserId is provided
     if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
       return res.status(400).json({
         error: 'Invalid member',
-        message: 'Cannot change role for members who have not accepted their invite',
+        message: 'User ID is required to change member role',
       });
     }
 
@@ -1891,6 +1901,8 @@ async function changeMemberRole(req, res) {
           select: {
             email: true,
             displayName: true,
+            isSubscribed: true,
+            createdAt: true,
           },
         },
       },
@@ -1912,7 +1924,90 @@ async function changeMemberRole(req, res) {
       email: targetMembership.email,
       userEmail: targetMembership.user?.email,
       userDisplayName: targetMembership.user?.displayName,
+      isRegistered: targetMembership.isRegistered,
     });
+
+    // VALIDATION: If changing role TO admin, validate strict requirements
+    if (role === 'admin' && oldRole !== 'admin') {
+      // 1. Member must have accepted their invite (isRegistered=true)
+      if (!targetMembership.isRegistered) {
+        return res.status(400).json({
+          error: 'Cannot make admin',
+          message: 'User must accept their group invitation before they can be made an admin.',
+        });
+      }
+
+      // 2. Must be a registered user (userId not null)
+      if (!targetMembership.userId) {
+        return res.status(400).json({
+          error: 'Cannot make admin',
+          message: 'Placeholder members cannot be made admins. Only registered users can be admins.',
+        });
+      }
+
+      // 3. Must have active subscription (NOT trial) - trial users can only be the sole/first admin
+      const targetUser = targetMembership.user;
+      if (!targetUser) {
+        return res.status(400).json({
+          error: 'Cannot make admin',
+          message: 'User data not found. Cannot verify subscription status.',
+        });
+      }
+
+      const daysSinceCreation = (Date.now() - new Date(targetUser.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+      const isOnTrial = !targetUser.isSubscribed && daysSinceCreation <= 20;
+
+      // If user is on trial, they cannot be added as an additional admin
+      // Trial users can only be the FIRST admin (group creator)
+      if (isOnTrial) {
+        return res.status(400).json({
+          error: 'Subscription required',
+          message: 'Trial users cannot be added as additional admins. The user must subscribe before they can be made an admin in this group.',
+        });
+      }
+
+      // 4. User must be subscribed
+      if (!targetUser.isSubscribed) {
+        return res.status(400).json({
+          error: 'Subscription required',
+          message: 'User must have an active subscription to be made an admin.',
+        });
+      }
+    }
+
+    // SPECIAL CASE: If member hasn't accepted invite yet (isRegistered=false for registered users),
+    // we can change their role directly without approval - they haven't actually joined the group
+    // NOTE: This is only for non-admin roles (admin roles are blocked above)
+    if (!targetMembership.isRegistered && targetMembership.userId) {
+      // Update the pending invitation's role
+      await prisma.groupMember.update({
+        where: {
+          groupMemberId: targetMembership.groupMemberId,
+        },
+        data: {
+          role: role,
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: currentUserMembership.groupMemberId,
+          performedByName: currentUserMembership.displayName,
+          performedByEmail: currentUserMembership.email || req.user?.email,
+          action: 'change_invitation_role',
+          actionLocation: 'group_settings',
+          messageContent: `Changed pending invitation role for ${targetMembership.user?.displayName || targetMembership.displayName || targetMembership.email} from ${oldRole} to ${role}`,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        requiresApproval: false,
+        message: `Pending invitation role changed from ${oldRole} to ${role}. The user will join with the new role when they accept.`,
+      });
+    }
 
     // If changing role TO admin, ALWAYS create an approval card (for audit trail)
     if (role === 'admin' && oldRole !== 'admin') {
@@ -2325,11 +2420,11 @@ async function removeMember(req, res) {
       });
     }
 
-    // Validate targetUserId is not null (member must have accepted invite)
+    // Validate targetUserId is provided
     if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
       return res.status(400).json({
         error: 'Invalid member',
-        message: 'Cannot remove members who have not accepted their invite',
+        message: 'User ID is required to remove a member',
       });
     }
 
@@ -2384,7 +2479,37 @@ async function removeMember(req, res) {
     }
 
     const targetRole = targetMembership.role;
-    const targetDisplayName = targetMembership.user?.displayName || targetMembership.email;
+    const targetDisplayName = targetMembership.user?.displayName || targetMembership.displayName || targetMembership.email;
+
+    // SPECIAL CASE: If member hasn't accepted invite yet (isRegistered=false for registered users),
+    // we can remove them directly without approval - they haven't actually joined the group
+    if (!targetMembership.isRegistered && targetMembership.userId) {
+      // Delete the pending invitation (GroupMember record)
+      await prisma.groupMember.delete({
+        where: {
+          groupMemberId: targetMembership.groupMemberId,
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: currentUserMembership.groupMemberId,
+          performedByName: currentUserMembership.displayName,
+          performedByEmail: currentUserMembership.email || req.user?.email,
+          action: 'cancel_invitation',
+          actionLocation: 'group_settings',
+          messageContent: `Cancelled pending invitation for ${targetDisplayName} (${targetRole})`,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        requiresApproval: false,
+        message: `Pending invitation for ${targetDisplayName} has been cancelled.`,
+      });
+    }
 
     // If removing an ADMIN, create approval workflow (appplan.md line 297: >50% approval required)
     if (targetRole === 'admin') {
