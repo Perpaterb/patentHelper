@@ -1994,8 +1994,8 @@ async function changeMemberRole(req, res) {
       }
     }
 
-    // SPECIAL CASE: If member hasn't accepted invite yet (isRegistered=false for registered users),
-    // we can change their role directly without approval - they haven't actually joined the group
+    // SPECIAL CASE 1: Pending invitations (registered user who hasn't accepted yet)
+    // isRegistered=false AND userId exists - they haven't actually joined the group
     // NOTE: This is only for non-admin roles (admin roles are blocked above)
     if (!targetMembership.isRegistered && targetMembership.userId) {
       // Update the pending invitation's role
@@ -2025,6 +2025,40 @@ async function changeMemberRole(req, res) {
         success: true,
         requiresApproval: false,
         message: `Pending invitation role changed from ${oldRole} to ${role}. The user will join with the new role when they accept.`,
+      });
+    }
+
+    // SPECIAL CASE 2: Placeholder members (no user account, added for calendar/finance tracking)
+    // isRegistered=true AND userId=null - these members can never log in, so admin can manage them directly
+    // NOTE: Admin role is already blocked above for placeholder members (userId check)
+    if (targetMembership.isRegistered && !targetMembership.userId) {
+      // Update the placeholder member's role directly
+      await prisma.groupMember.update({
+        where: {
+          groupMemberId: targetMembership.groupMemberId,
+        },
+        data: {
+          role: role,
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: currentUserMembership.groupMemberId,
+          performedByName: currentUserMembership.displayName,
+          performedByEmail: currentUserMembership.email || req.user?.email,
+          action: 'change_member_role',
+          actionLocation: 'group_settings',
+          messageContent: `Changed placeholder member ${targetMembership.displayName || targetMembership.email} role from ${oldRole} to ${role}`,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        requiresApproval: false,
+        message: `Placeholder member role changed from ${oldRole} to ${role}.`,
       });
     }
 
@@ -2508,8 +2542,8 @@ async function removeMember(req, res) {
     const targetRole = targetMembership.role;
     const targetDisplayName = targetMembership.user?.displayName || targetMembership.displayName || targetMembership.email;
 
-    // SPECIAL CASE: If member hasn't accepted invite yet (isRegistered=false for registered users),
-    // we can remove them directly without approval - they haven't actually joined the group
+    // SPECIAL CASE 1: Pending invitations (registered user who hasn't accepted yet)
+    // isRegistered=false AND userId exists - they haven't actually joined the group
     if (!targetMembership.isRegistered && targetMembership.userId) {
       // Delete the pending invitation (GroupMember record)
       await prisma.groupMember.delete({
@@ -2535,6 +2569,37 @@ async function removeMember(req, res) {
         success: true,
         requiresApproval: false,
         message: `Pending invitation for ${targetDisplayName} has been cancelled.`,
+      });
+    }
+
+    // SPECIAL CASE 2: Placeholder members (no user account, added for calendar/finance tracking)
+    // isRegistered=true AND userId=null - these members can never log in, so admin can remove them directly
+    // NOTE: Placeholder members can never be admins, so no approval workflow needed
+    if (targetMembership.isRegistered && !targetMembership.userId) {
+      // Delete the placeholder member
+      await prisma.groupMember.delete({
+        where: {
+          groupMemberId: targetMembership.groupMemberId,
+        },
+      });
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          performedBy: currentUserMembership.groupMemberId,
+          performedByName: currentUserMembership.displayName,
+          performedByEmail: currentUserMembership.email || req.user?.email,
+          action: 'remove_member',
+          actionLocation: 'group_settings',
+          messageContent: `Removed placeholder member ${targetDisplayName} (${targetRole}) from group`,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        requiresApproval: false,
+        message: `Placeholder member ${targetDisplayName} has been removed from the group.`,
       });
     }
 

@@ -12,7 +12,7 @@
  */
 
 const nodemailer = require('nodemailer');
-const { SESv2Client } = require('@aws-sdk/client-sesv2');
+const { SESv2Client, SendEmailCommand } = require('@aws-sdk/client-sesv2');
 const EmailInterface = require('./emailInterface');
 const emailTemplates = require('./templates');
 
@@ -26,13 +26,13 @@ class SESEmailService extends EmailInterface {
 
     const region = process.env.AWS_REGION || process.env.AWS_S3_REGION || 'ap-southeast-2';
 
-    // Create SES v2 client
+    // Create SES v2 client (nodemailer v7+ requires sesv2)
     this.sesClient = new SESv2Client({ region });
 
-    // Create nodemailer transporter using SES v2
-    // Pass the client directly without the legacy format
+    // Create nodemailer transporter using SES v2 with AWS SDK v3
+    // nodemailer v7 requires: { ses: client, aws: { SendEmailCommand } }
     this.transporter = nodemailer.createTransport({
-      SES: this.sesClient,
+      SES: { ses: this.sesClient, aws: { SendEmailCommand } },
     });
 
     this.fromAddress = process.env.EMAIL_FROM || 'noreply@familyhelperapp.com';
