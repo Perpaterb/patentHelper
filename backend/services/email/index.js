@@ -9,7 +9,7 @@
  */
 
 const MailHogEmailService = require('./mailhogEmailService');
-// const SESEmailService = require('./sesEmailService'); // Phase 6
+const SESEmailService = require('./sesEmailService');
 
 /**
  * Get the active email service based on environment
@@ -22,9 +22,8 @@ function getEmailService() {
     case 'mailhog':
       return new MailHogEmailService();
 
-    // Phase 6: Uncomment when SES service is implemented
-    // case 'ses':
-    //   return new SESEmailService();
+    case 'ses':
+      return new SESEmailService();
 
     default:
       console.warn(`Unknown email type: ${emailType}, defaulting to MailHog`);

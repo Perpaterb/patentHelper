@@ -98,7 +98,10 @@
       "Bash(~/.local/bin/aws logs tail:*)",
       "Bash(DOCKER_BUILDKIT=0 docker build:*)",
       "Bash(docker tag:*)",
-      "Bash(docker push:*)"
+      "Bash(docker push:*)",
+      "Bash(DATABASE_URL=\"postgresql://familyhelper_admin:Zh3Z4VK5X2mP9xMJTDOW27xjh1cZ6Pk@localhost:5433/familyhelper\" node scripts/seed-support-user.js:*)",
+      "Bash(nc:*)",
+      "Bash(~/.local/bin/aws ec2:*)"
     ],
     "deny": [],
     "ask": []
