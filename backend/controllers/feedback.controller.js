@@ -99,7 +99,7 @@ const sendFeedback = async (req, res) => {
     // Log for debugging
     console.log('=== SUPPORT TICKET RECEIVED ===');
     console.log('From:', user.displayName, `<${user.email}>`);
-    console.log('Subscription:', user.subscriptionStatus);
+    console.log('Subscription:', subscriptionStatus);
     console.log('Message:', message.trim());
     console.log('Sending to:', SUPPORT_EMAIL);
     console.log('===============================');
