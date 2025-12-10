@@ -440,6 +440,103 @@ const getAuditLogs = async (req, res) => {
 };
 
 /**
+ * PUT /support/users/:userId/subscription-end-date
+ * Set a specific subscription end date for a user
+ * Date must be in the future to activate subscription
+ */
+const updateSubscriptionEndDate = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { subscriptionEndDate } = req.body;
+    const supportUser = req.user;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    if (!subscriptionEndDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription end date is required',
+      });
+    }
+
+    const newEndDate = new Date(subscriptionEndDate);
+
+    // Validate date is in the future
+    if (newEndDate <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subscription end date must be in the future',
+      });
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { userId },
+      select: {
+        userId: true,
+        email: true,
+        isSubscribed: true,
+        subscriptionId: true,
+        subscriptionStartDate: true,
+        subscriptionEndDate: true,
+        storageLimitGb: true,
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const previousValue = JSON.stringify({
+      isSubscribed: targetUser.isSubscribed,
+      subscriptionId: targetUser.subscriptionId,
+      subscriptionStartDate: targetUser.subscriptionStartDate,
+      subscriptionEndDate: targetUser.subscriptionEndDate,
+      storageLimitGb: targetUser.storageLimitGb,
+    });
+
+    // Setting a future date activates subscription
+    const updateData = {
+      isSubscribed: true,
+      subscriptionId: targetUser.subscriptionId || 'SUPPORT_GRANTED',
+      subscriptionStartDate: targetUser.subscriptionStartDate || new Date(),
+      subscriptionEndDate: newEndDate,
+      storageLimitGb: targetUser.storageLimitGb || 10, // Default 10GB if not set
+    };
+
+    await prisma.user.update({
+      where: { userId },
+      data: updateData,
+    });
+
+    // Create audit log
+    await createSupportAuditLog({
+      performedById: supportUser.userId,
+      performedByEmail: supportUser.email,
+      targetUserId: targetUser.userId,
+      targetUserEmail: targetUser.email,
+      action: 'update_subscription_end_date',
+      details: `Set subscription end date to ${newEndDate.toISOString()}`,
+      previousValue,
+      newValue: JSON.stringify(updateData),
+      ipAddress,
+      userAgent,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Subscription end date updated',
+      subscriptionEndDate: newEndDate,
+    });
+  } catch (error) {
+    console.error('Error updating subscription end date:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update subscription end date',
+    });
+  }
+};
+
+/**
  * GET /support/check-access
  * Check if current user has support access
  */
@@ -469,6 +566,7 @@ module.exports = {
   requireSupportUser,
   listUsers,
   updateSubscription,
+  updateSubscriptionEndDate,
   updateSupportAccess,
   updateLockStatus,
   getAuditLogs,

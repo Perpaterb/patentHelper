@@ -68,6 +68,10 @@ export default function SupportScreen({ navigation }) {
   const [userToLock, setUserToLock] = useState(null);
   const [lockReason, setLockReason] = useState('');
 
+  // Subscription end date editing state
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingEndDate, setEditingEndDate] = useState('');
+
   useEffect(() => {
     fetchUsers();
   }, [searchQuery, userPage]);
@@ -122,24 +126,83 @@ export default function SupportScreen({ navigation }) {
     }
   }
 
-  async function handleToggleSubscription(user) {
+  async function handleUpdateSubscriptionEndDate(user) {
+    if (!editingEndDate) {
+      setUsersError('Please enter a valid date');
+      return;
+    }
+
+    const newDate = new Date(editingEndDate);
+    if (newDate <= new Date()) {
+      setUsersError('Subscription end date must be in the future');
+      return;
+    }
+
     try {
       setActionLoading(user.userId);
-      await api.put(`/support/users/${user.userId}/subscription`, {
-        grant: !user.isSubscribed,
+      await api.put(`/support/users/${user.userId}/subscription-end-date`, {
+        subscriptionEndDate: newDate.toISOString(),
       });
-      setSuccessMessage(
-        user.isSubscribed
-          ? `Subscription revoked from ${user.email}`
-          : `Subscription granted to ${user.email}`
-      );
+      setSuccessMessage(`Subscription end date updated for ${user.email}`);
+      setEditingUserId(null);
+      setEditingEndDate('');
       fetchUsers();
     } catch (err) {
-      console.error('Failed to toggle subscription:', err);
-      setUsersError(err.response?.data?.error || 'Failed to update subscription');
+      console.error('Failed to update subscription end date:', err);
+      setUsersError(err.response?.data?.error || 'Failed to update subscription end date');
     } finally {
       setActionLoading(null);
     }
+  }
+
+  function startEditingEndDate(user) {
+    setEditingUserId(user.userId);
+    // Format existing date or default to empty
+    if (user.subscriptionEndDate) {
+      const date = new Date(user.subscriptionEndDate);
+      setEditingEndDate(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+    } else {
+      setEditingEndDate('');
+    }
+  }
+
+  function cancelEditingEndDate() {
+    setEditingUserId(null);
+    setEditingEndDate('');
+  }
+
+  function getSubscriptionStatus(user) {
+    // Calculate trial end date (20 days from account creation)
+    const trialEndDate = new Date(user.createdAt);
+    trialEndDate.setDate(trialEndDate.getDate() + 20);
+    const isOnTrial = !user.isSubscribed && trialEndDate > new Date();
+
+    if (user.isSubscribed && user.subscriptionEndDate) {
+      const endDate = new Date(user.subscriptionEndDate);
+      const now = new Date();
+      const isPermanent = endDate.getFullYear() - now.getFullYear() > 5;
+      if (isPermanent) {
+        return { status: 'Permanent', color: '#4caf50', date: null };
+      }
+      return {
+        status: 'Subscribed',
+        color: '#2196f3',
+        date: user.subscriptionEndDate,
+      };
+    } else if (isOnTrial) {
+      return { status: 'Trial', color: '#ff9800', date: trialEndDate.toISOString() };
+    } else {
+      return { status: 'Expired', color: '#d32f2f', date: null };
+    }
+  }
+
+  function formatDateShort(dateString) {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-AU', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   }
 
   async function handleToggleSupportAccess(user) {
@@ -223,6 +286,7 @@ export default function SupportScreen({ navigation }) {
     const labels = {
       grant_subscription: 'Granted Subscription',
       revoke_subscription: 'Revoked Subscription',
+      update_subscription_end_date: 'Updated Sub End Date',
       grant_support: 'Granted Support Access',
       revoke_support: 'Revoked Support Access',
       lock_user: 'Locked Account',
@@ -234,6 +298,7 @@ export default function SupportScreen({ navigation }) {
   function getActionColor(action) {
     if (action.includes('grant')) return '#4caf50';
     if (action.includes('revoke')) return '#ff9800';
+    if (action === 'update_subscription_end_date') return '#9c27b0';
     if (action === 'lock_user') return '#d32f2f';
     if (action === 'unlock_user') return '#2196f3';
     return '#666';
@@ -330,91 +395,133 @@ export default function SupportScreen({ navigation }) {
                     <DataTable.Header>
                       <DataTable.Title style={styles.userColumn}>User</DataTable.Title>
                       <DataTable.Title style={styles.statusColumn}>Status</DataTable.Title>
-                      <DataTable.Title style={styles.subscriptionColumn}>Subscription</DataTable.Title>
+                      <DataTable.Title style={styles.subscriptionColumn}>Subscription End Date</DataTable.Title>
                       <DataTable.Title style={styles.supportColumn}>Support</DataTable.Title>
                       <DataTable.Title style={styles.lockColumn}>Lock</DataTable.Title>
                     </DataTable.Header>
 
-                    {users.map((user) => (
-                      <DataTable.Row key={user.userId}>
-                        <DataTable.Cell style={styles.userColumn}>
-                          <View style={styles.userCell}>
-                            <Avatar.Text
-                              size={32}
-                              label={user.memberIcon || user.displayName?.substring(0, 2) || '?'}
-                              style={{
-                                backgroundColor: user.iconColor || '#6200ee',
-                              }}
-                              color={getContrastTextColor(user.iconColor || '#6200ee')}
-                            />
-                            <View style={styles.userInfo}>
-                              <Text style={styles.userName} numberOfLines={1}>
-                                {user.displayName || 'No name'}
-                              </Text>
-                              <Text style={styles.userEmail} numberOfLines={1}>
-                                {user.email}
-                              </Text>
+                    {users.map((user) => {
+                      const subStatus = getSubscriptionStatus(user);
+                      const isEditing = editingUserId === user.userId;
+
+                      return (
+                        <DataTable.Row key={user.userId}>
+                          <DataTable.Cell style={styles.userColumn}>
+                            <View style={styles.userCell}>
+                              <Avatar.Text
+                                size={32}
+                                label={user.memberIcon || user.displayName?.substring(0, 2) || '?'}
+                                style={{
+                                  backgroundColor: user.iconColor || '#6200ee',
+                                }}
+                                color={getContrastTextColor(user.iconColor || '#6200ee')}
+                              />
+                              <View style={styles.userInfo}>
+                                <Text style={styles.userName} numberOfLines={1}>
+                                  {user.displayName || 'No name'}
+                                </Text>
+                                <Text style={styles.userEmail} numberOfLines={1}>
+                                  {user.email}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                        </DataTable.Cell>
+                          </DataTable.Cell>
 
-                        <DataTable.Cell style={styles.statusColumn}>
-                          <View style={styles.statusBadges}>
-                            {user.isLocked && (
+                          <DataTable.Cell style={styles.statusColumn}>
+                            <View style={styles.statusBadges}>
                               <Chip
-                                style={styles.lockedChip}
-                                textStyle={styles.lockedChipText}
-                                icon="lock"
+                                style={[styles.statusChip, { backgroundColor: subStatus.color + '20' }]}
+                                textStyle={[styles.statusChipText, { color: subStatus.color }]}
                               >
-                                Locked
+                                {subStatus.status}
                               </Chip>
-                            )}
-                            {user.isSupportUser && (
-                              <Chip
-                                style={styles.supportChip}
-                                textStyle={styles.supportChipText}
-                                icon="shield-account"
-                              >
-                                Support
-                              </Chip>
-                            )}
-                          </View>
-                        </DataTable.Cell>
+                              {user.isLocked && (
+                                <Chip
+                                  style={styles.lockedChip}
+                                  textStyle={styles.lockedChipText}
+                                  icon="lock"
+                                >
+                                  Locked
+                                </Chip>
+                              )}
+                              {user.isSupportUser && (
+                                <Chip
+                                  style={styles.supportChip}
+                                  textStyle={styles.supportChipText}
+                                  icon="shield-account"
+                                >
+                                  Support
+                                </Chip>
+                              )}
+                            </View>
+                          </DataTable.Cell>
 
-                        <DataTable.Cell style={styles.subscriptionColumn}>
-                          <View style={styles.switchContainer}>
-                            <Switch
-                              value={user.isSubscribed}
-                              onValueChange={() => handleToggleSubscription(user)}
+                          <DataTable.Cell style={styles.subscriptionColumn}>
+                            {isEditing ? (
+                              <View style={styles.editDateContainer}>
+                                <TextInput
+                                  value={editingEndDate}
+                                  onChangeText={setEditingEndDate}
+                                  mode="outlined"
+                                  dense
+                                  placeholder="YYYY-MM-DD"
+                                  style={styles.dateInput}
+                                />
+                                <IconButton
+                                  icon="check"
+                                  iconColor="#4caf50"
+                                  size={18}
+                                  onPress={() => handleUpdateSubscriptionEndDate(user)}
+                                  disabled={actionLoading === user.userId}
+                                />
+                                <IconButton
+                                  icon="close"
+                                  iconColor="#d32f2f"
+                                  size={18}
+                                  onPress={cancelEditingEndDate}
+                                />
+                                {actionLoading === user.userId && (
+                                  <ActivityIndicator size="small" />
+                                )}
+                              </View>
+                            ) : (
+                              <View style={styles.dateDisplayContainer}>
+                                <Text style={styles.dateText}>
+                                  {subStatus.date ? formatDateShort(subStatus.date) : '—'}
+                                </Text>
+                                <IconButton
+                                  icon="pencil"
+                                  iconColor="#666"
+                                  size={16}
+                                  onPress={() => startEditingEndDate(user)}
+                                  style={styles.editButton}
+                                />
+                              </View>
+                            )}
+                          </DataTable.Cell>
+
+                          <DataTable.Cell style={styles.supportColumn}>
+                            <View style={styles.switchContainer}>
+                              <Switch
+                                value={user.isSupportUser}
+                                onValueChange={() => handleToggleSupportAccess(user)}
+                                disabled={actionLoading === user.userId}
+                              />
+                            </View>
+                          </DataTable.Cell>
+
+                          <DataTable.Cell style={styles.lockColumn}>
+                            <IconButton
+                              icon={user.isLocked ? 'lock-open' : 'lock'}
+                              iconColor={user.isLocked ? '#4caf50' : '#d32f2f'}
+                              size={20}
+                              onPress={() => handleToggleLock(user)}
                               disabled={actionLoading === user.userId}
                             />
-                            {actionLoading === user.userId && (
-                              <ActivityIndicator size="small" style={styles.actionLoader} />
-                            )}
-                          </View>
-                        </DataTable.Cell>
-
-                        <DataTable.Cell style={styles.supportColumn}>
-                          <View style={styles.switchContainer}>
-                            <Switch
-                              value={user.isSupportUser}
-                              onValueChange={() => handleToggleSupportAccess(user)}
-                              disabled={actionLoading === user.userId}
-                            />
-                          </View>
-                        </DataTable.Cell>
-
-                        <DataTable.Cell style={styles.lockColumn}>
-                          <IconButton
-                            icon={user.isLocked ? 'lock-open' : 'lock'}
-                            iconColor={user.isLocked ? '#4caf50' : '#d32f2f'}
-                            size={20}
-                            onPress={() => handleToggleLock(user)}
-                            disabled={actionLoading === user.userId}
-                          />
-                        </DataTable.Cell>
-                      </DataTable.Row>
-                    ))}
+                          </DataTable.Cell>
+                        </DataTable.Row>
+                      );
+                    })}
                   </DataTable>
                 )}
 
@@ -696,7 +803,7 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   subscriptionColumn: {
-    flex: 1,
+    flex: 2,
     justifyContent: 'center',
   },
   supportColumn: {
@@ -847,5 +954,35 @@ const styles = StyleSheet.create({
   },
   lockReasonInput: {
     marginTop: 16,
+  },
+  // Subscription status chip
+  statusChip: {
+    height: 24,
+  },
+  statusChipText: {
+    fontSize: 10,
+  },
+  // Date editing
+  editDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateInput: {
+    width: 110,
+    height: 36,
+    fontSize: 12,
+  },
+  dateDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 13,
+    color: '#333',
+  },
+  editButton: {
+    margin: 0,
+    marginLeft: 4,
   },
 });

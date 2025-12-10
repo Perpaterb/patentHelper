@@ -102,6 +102,26 @@ router.put(
 );
 
 /**
+ * PUT /support/users/:userId/subscription-end-date
+ * Set a specific subscription end date for a user
+ *
+ * Request Body:
+ * - subscriptionEndDate: ISO date string (must be in the future)
+ *
+ * Response:
+ * - 200: { success: true, message: string, subscriptionEndDate: date }
+ * - 400: Date must be in the future
+ * - 403: Support access required
+ * - 404: User not found
+ */
+router.put(
+  '/users/:userId/subscription-end-date',
+  requireAuth,
+  supportController.requireSupportUser,
+  supportController.updateSubscriptionEndDate
+);
+
+/**
  * GET /support/audit-logs
  * Get support audit logs with pagination and filtering
  *

@@ -44,26 +44,6 @@ async function main() {
       console.log(`✅ Granted support access to: ${DEFAULT_SUPPORT_USER}`);
     }
 
-    // Also grant subscription if not already subscribed
-    if (!user.isSubscribed) {
-      const INDEFINITE_DATE = new Date();
-      INDEFINITE_DATE.setFullYear(INDEFINITE_DATE.getFullYear() + 100);
-
-      await prisma.user.update({
-        where: { email: DEFAULT_SUPPORT_USER.toLowerCase() },
-        data: {
-          isSubscribed: true,
-          subscriptionId: 'SUPPORT_GRANTED',
-          subscriptionStartDate: new Date(),
-          subscriptionEndDate: INDEFINITE_DATE,
-          storageLimitGb: 100,
-        },
-      });
-      console.log(`✅ Granted subscription access to: ${DEFAULT_SUPPORT_USER}`);
-    } else {
-      console.log(`✅ ${DEFAULT_SUPPORT_USER} already has subscription access.`);
-    }
-
     console.log('\n✅ Support user setup complete!\n');
   } catch (error) {
     console.error('❌ Error seeding support user:', error.message);
