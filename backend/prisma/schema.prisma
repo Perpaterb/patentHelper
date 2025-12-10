@@ -33,12 +33,12 @@ model User {
   lockedReason  String?   @map("locked_reason") @db.VarChar(500)
 
   // Stripe billing fields (Option B - manual billing)
-  stripeCustomerId       String?   @unique @map("stripe_customer_id") @db.VarChar(255)
-  defaultPaymentMethodId String?   @map("default_payment_method_id") @db.VarChar(255)
-  renewalDate            DateTime? @map("renewal_date") @db.Timestamp(6)
-  additionalStoragePacks Int       @default(0) @map("additional_storage_packs")
-  lastBillingAttempt     DateTime? @map("last_billing_attempt") @db.Timestamp(6)
-  billingFailureCount    Int       @default(0) @map("billing_failure_count")
+  stripeCustomerId        String?   @unique @map("stripe_customer_id") @db.VarChar(255)
+  defaultPaymentMethodId  String?   @map("default_payment_method_id") @db.VarChar(255)
+  renewalDate             DateTime? @map("renewal_date") @db.Timestamp(6)
+  additionalStoragePacks  Int       @default(0) @map("additional_storage_packs")
+  lastBillingAttempt      DateTime? @map("last_billing_attempt") @db.Timestamp(6)
+  billingFailureCount     Int       @default(0) @map("billing_failure_count")
   lastBillingReminderSent DateTime? @map("last_billing_reminder_sent") @db.Timestamp(6)
 
   groupMemberships        GroupMember[]
@@ -1361,4 +1361,27 @@ model SupportAuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("support_audit_logs")
+}
+
+// ============================================
+// WEBRTC SIGNALING
+// Ephemeral storage for WebRTC signals between Lambda invocations
+// Signals are auto-cleaned after 5 minutes
+// ============================================
+
+model WebRTCSignal {
+  signalId   String    @id @default(uuid()) @map("signal_id") @db.Uuid
+  callId     String    @map("call_id") @db.Uuid
+  callType   String    @map("call_type") @db.VarChar(10) // 'video' or 'phone'
+  fromPeerId String    @map("from_peer_id") @db.VarChar(100) // groupMemberId or 'recorder'
+  toPeerId   String    @map("to_peer_id") @db.VarChar(100) // groupMemberId or 'recorder'
+  signalType String    @map("signal_type") @db.VarChar(20) // 'offer', 'answer', 'ice-candidate'
+  signalData Json      @map("signal_data") // The actual SDP or ICE candidate data
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  isConsumed Boolean   @default(false) @map("is_consumed")
+  consumedAt DateTime? @map("consumed_at") @db.Timestamp(6)
+
+  @@index([callId, toPeerId, isConsumed])
+  @@index([createdAt])
+  @@map("webrtc_signals")
 }

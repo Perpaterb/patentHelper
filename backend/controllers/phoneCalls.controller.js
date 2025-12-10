@@ -20,32 +20,34 @@ const path = require('path');
 const os = require('os');
 
 /**
- * In-memory signaling store for WebRTC phone calls
- * Structure: { callId: { peerId: [signals] } }
- * Each signal: { type: 'offer'|'answer'|'ice-candidate', data: {...}, from: peerId, timestamp }
+ * Database-backed signaling store for WebRTC phone calls
+ *
+ * Signals are stored in the webrtc_signals table and consumed by peers.
+ * This allows signaling to work across Lambda instances (stateless).
+ * Old signals are cleaned up periodically.
  */
-const signalingStore = new Map();
 
-// Clean up old signals after 5 minutes
-const SIGNAL_TTL_MS = 5 * 60 * 1000;
+// Clean up old signals (older than 5 minutes) - runs on each Lambda cold start
+const SIGNAL_TTL_MINUTES = 5;
 
-function cleanupOldSignals() {
-  const now = Date.now();
-  for (const [callId, peers] of signalingStore.entries()) {
-    for (const [peerId, signals] of Object.entries(peers)) {
-      peers[peerId] = signals.filter(s => now - s.timestamp < SIGNAL_TTL_MS);
-      if (peers[peerId].length === 0) {
-        delete peers[peerId];
-      }
-    }
-    if (Object.keys(peers).length === 0) {
-      signalingStore.delete(callId);
-    }
+async function cleanupOldSignals() {
+  try {
+    const cutoffTime = new Date(Date.now() - SIGNAL_TTL_MINUTES * 60 * 1000);
+    await prisma.webRTCSignal.deleteMany({
+      where: {
+        callType: 'phone',
+        createdAt: {
+          lt: cutoffTime,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[WebRTC Phone] Failed to clean up old signals:', error);
   }
 }
 
-// Run cleanup every minute
-setInterval(cleanupOldSignals, 60 * 1000);
+// Run cleanup on first invocation
+cleanupOldSignals();
 
 /**
  * Check if user has permission to use phone calls
@@ -1530,33 +1532,36 @@ async function sendSignal(req, res) {
       return res.status(403).json({ success: false, message: 'You are not part of this call' });
     }
 
-    const signal = {
-      type,
-      data,
-      from: membership.groupMemberId,
-      timestamp: Date.now(),
-    };
-
-    if (!signalingStore.has(callId)) {
-      signalingStore.set(callId, {});
-    }
-
-    const callSignals = signalingStore.get(callId);
+    // Store the signal in database
+    // If targetPeerId is specified, send only to that peer
+    // Otherwise, broadcast to all other participants
+    const targetPeers = [];
 
     if (targetPeerId) {
-      if (!callSignals[targetPeerId]) callSignals[targetPeerId] = [];
-      callSignals[targetPeerId].push(signal);
+      targetPeers.push(targetPeerId);
     } else {
+      // Broadcast to all participants except sender
       const allPeers = [call.initiatedBy, ...call.participants.map(p => p.groupMemberId)];
       for (const peerId of allPeers) {
         if (peerId !== membership.groupMemberId) {
-          if (!callSignals[peerId]) callSignals[peerId] = [];
-          callSignals[peerId].push(signal);
+          targetPeers.push(peerId);
         }
       }
     }
 
-    console.log(`[WebRTC Phone Signal] ${type} from ${membership.groupMemberId} to ${targetPeerId || 'all'} in call ${callId}`);
+    // Create signal records for each target peer
+    await prisma.webRTCSignal.createMany({
+      data: targetPeers.map(toPeerId => ({
+        callId: callId,
+        callType: 'phone',
+        fromPeerId: membership.groupMemberId,
+        toPeerId: toPeerId,
+        signalType: type,
+        signalData: data,
+      })),
+    });
+
+    console.log(`[WebRTC Phone Signal] ${type} from ${membership.groupMemberId} to ${targetPeers.join(', ')} in call ${callId}`);
 
     return res.json({ success: true, message: 'Signal sent' });
   } catch (error) {
@@ -1602,12 +1607,41 @@ async function getSignals(req, res) {
       return res.status(403).json({ success: false, message: 'You are not part of this call' });
     }
 
-    const callSignals = signalingStore.get(callId) || {};
-    const mySignals = callSignals[membership.groupMemberId] || [];
+    // Get unconsumed signals for this peer from database
+    const pendingSignals = await prisma.webRTCSignal.findMany({
+      where: {
+        callId: callId,
+        callType: 'phone',
+        toPeerId: membership.groupMemberId,
+        isConsumed: false,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
 
-    if (callSignals[membership.groupMemberId]) {
-      delete callSignals[membership.groupMemberId];
+    // Mark signals as consumed
+    if (pendingSignals.length > 0) {
+      await prisma.webRTCSignal.updateMany({
+        where: {
+          signalId: {
+            in: pendingSignals.map(s => s.signalId),
+          },
+        },
+        data: {
+          isConsumed: true,
+          consumedAt: new Date(),
+        },
+      });
     }
+
+    // Convert to the format expected by frontend
+    const mySignals = pendingSignals.map(s => ({
+      type: s.signalType,
+      data: s.signalData,
+      from: s.fromPeerId,
+      timestamp: s.createdAt.getTime(),
+    }));
 
     const peers = [];
     if (isInitiator) {
@@ -1788,18 +1822,42 @@ async function getRecorderSignals(req, res) {
       return res.status(404).json({ success: false, message: 'Call not found' });
     }
 
-    // Get signals meant for the recorder
-    const callSignals = signalingStore.get(callId) || {};
-    const recorderSignals = callSignals['recorder'] || [];
+    // Get unconsumed signals for the recorder from database
+    const pendingSignals = await prisma.webRTCSignal.findMany({
+      where: {
+        callId: callId,
+        callType: 'phone',
+        toPeerId: 'recorder',
+        isConsumed: false,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
 
-    if (recorderSignals.length > 0) {
-      console.log(`[Recorder Signal] Returning ${recorderSignals.length} signals to recorder for call ${callId}`);
+    if (pendingSignals.length > 0) {
+      console.log(`[Recorder Signal] Returning ${pendingSignals.length} signals to recorder for call ${callId}`);
+
+      // Mark signals as consumed
+      await prisma.webRTCSignal.updateMany({
+        where: {
+          signalId: {
+            in: pendingSignals.map(s => s.signalId),
+          },
+        },
+        data: {
+          isConsumed: true,
+          consumedAt: new Date(),
+        },
+      });
     }
 
-    // Clear the signals after retrieving
-    if (callSignals['recorder']) {
-      delete callSignals['recorder'];
-    }
+    // Convert to the format expected
+    const recorderSignals = pendingSignals.map(s => ({
+      type: s.signalType,
+      data: s.signalData,
+      from: s.fromPeerId,
+    }));
 
     return res.json({
       success: true,
@@ -1832,20 +1890,16 @@ async function sendRecorderSignal(req, res) {
       return res.status(404).json({ success: false, message: 'Call not found' });
     }
 
-    // Store signal for target participant
-    if (!signalingStore.has(callId)) {
-      signalingStore.set(callId, {});
-    }
-    const callSignals = signalingStore.get(callId);
-
-    if (!callSignals[targetPeerId]) {
-      callSignals[targetPeerId] = [];
-    }
-
-    callSignals[targetPeerId].push({
-      from: 'recorder',
-      type,
-      data,
+    // Store signal in database for target participant
+    await prisma.webRTCSignal.create({
+      data: {
+        callId: callId,
+        callType: 'phone',
+        fromPeerId: 'recorder',
+        toPeerId: targetPeerId,
+        signalType: type,
+        signalData: data,
+      },
     });
 
     console.log(`[WebRTC Phone Signal] ${type} from recorder to ${targetPeerId} in call ${callId}`);
