@@ -28,5 +28,8 @@ RUN npm install --omit=dev
 COPY lambda.js ${LAMBDA_TASK_ROOT}/
 COPY services/ ${LAMBDA_TASK_ROOT}/services/
 
+# Set proper permissions for Lambda runtime user
+RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
+
 # Set the Lambda handler
 CMD [ "lambda.handler" ]
