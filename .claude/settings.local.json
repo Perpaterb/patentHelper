@@ -92,7 +92,9 @@
       "Bash(docker-compose down:*)",
       "Bash(docker exec:*)",
       "Bash(/home/andrew/.nvm/versions/node/v20.19.0/bin/npx prisma migrate dev --name add_support_user_fields)",
-      "Bash(npx expo export:*)"
+      "Bash(npx expo export:*)",
+      "Bash(~/.local/bin/aws lambda update-function-code:*)",
+      "Bash(~/.local/bin/aws lambda get-function-configuration:*)"
     ],
     "deny": [],
     "ask": []

@@ -18,11 +18,11 @@ RUN dnf install -y tar xz && \
     dnf clean all
 
 # Copy package files
-COPY package.json package-lock.json* ${LAMBDA_TASK_ROOT}/
+COPY package.json ${LAMBDA_TASK_ROOT}/
 
 # Install dependencies
 WORKDIR ${LAMBDA_TASK_ROOT}
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy application code
 COPY lambda.js ${LAMBDA_TASK_ROOT}/
