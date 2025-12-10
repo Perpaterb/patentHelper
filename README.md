@@ -1720,12 +1720,15 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
 - **Note**: Storage usage is calculated by scanning all non-hidden files for the user across all categories.
 
 **Storage Implementation Notes:**
-- **Local Development**: Files stored in `backend/uploads/` directory organized by category
-- **Production (Phase 6)**: Files stored in AWS S3 with same abstraction layer
-- **Metadata Storage**:
-  - Local: JSON files stored alongside actual files
-  - Production: Will use database tables (`message_media`, etc.) when attached to messages/events
+- **Local Development**: `LocalStorageService` - Files stored in `backend/uploads/` directory organized by category
+- **Production (Lambda)**: `S3StorageService` - Files stored in AWS S3 bucket `family-helper-files-prod`
+- **Environment Auto-Detection**: Storage factory (`backend/services/storage/index.js`) automatically selects:
+  - S3 if `AWS_LAMBDA_FUNCTION_NAME` env var exists (Lambda) OR `NODE_ENV=production`
+  - Local filesystem otherwise
+- **Metadata Storage**: JSON files stored alongside actual files (both local and S3)
+- **S3 Structure**: `uploads/{category}/{fileId}{extension}` with metadata at `uploads/{category}/{fileId}.json`
 - **Architecture Pattern**: Storage service abstraction allows seamless switching between local filesystem and S3 without changing application code
+- **Why Lambda Can't Use Local Storage**: Lambda's `/var/task/` is read-only. Only `/tmp/` is writable but ephemeral (cleared between invocations)
 
 ---
 
