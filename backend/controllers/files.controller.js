@@ -554,7 +554,17 @@ async function getFile(req, res) {
     // Get file metadata
     const metadata = await storageService.getFileMetadata(fileId);
 
-    // Get file data
+    // Check if we're in Lambda/S3 mode - use presigned URL redirect
+    // This avoids API Gateway binary response issues
+    const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (isLambda && storageService.getFileUrl) {
+      // Redirect to presigned S3 URL (works better for binary files through API Gateway)
+      const presignedUrl = await storageService.getFileUrl(fileId, 3600); // 1 hour expiry
+      return res.redirect(302, presignedUrl);
+    }
+
+    // Local development - serve file directly
     const fileBuffer = await storageService.getFile(fileId);
     const fileSize = fileBuffer.length;
 
