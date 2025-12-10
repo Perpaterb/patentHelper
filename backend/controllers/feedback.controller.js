@@ -37,9 +37,12 @@ const sendFeedback = async (req, res) => {
         userId: true,
         email: true,
         displayName: true,
-        subscriptionStatus: true,
-        trialEndsAt: true,
-        groupMembers: {
+        isSubscribed: true,
+        subscriptionStartDate: true,
+        subscriptionEndDate: true,
+        renewalDate: true,
+        isSupportUser: true,
+        groupMemberships: {
           select: {
             role: true,
           },
@@ -55,17 +58,33 @@ const sendFeedback = async (req, res) => {
     }
 
     // Calculate group counts
-    const groupCount = user.groupMembers.length;
-    const adminGroupCount = user.groupMembers.filter(gm => gm.role === 'admin').length;
+    const groupCount = user.groupMemberships.length;
+    const adminGroupCount = user.groupMemberships.filter(gm => gm.role === 'admin').length;
 
-    // Format trial end date if applicable
-    const trialEndsAt = user.trialEndsAt
-      ? new Date(user.trialEndsAt).toLocaleDateString('en-AU', {
+    // Determine subscription status
+    let subscriptionStatus = 'none';
+    let trialEndsAt = null;
+
+    if (user.isSupportUser) {
+      subscriptionStatus = 'permanent';
+    } else if (user.isSubscribed) {
+      subscriptionStatus = 'active';
+    } else if (user.subscriptionStartDate && !user.isSubscribed) {
+      // User had a subscription that ended or is in trial
+      const now = new Date();
+      const trialEndDate = user.subscriptionEndDate || user.renewalDate;
+
+      if (trialEndDate && new Date(trialEndDate) > now) {
+        subscriptionStatus = 'trial';
+        trialEndsAt = new Date(trialEndDate).toLocaleDateString('en-AU', {
           day: '2-digit',
           month: 'short',
           year: 'numeric',
-        })
-      : null;
+        });
+      } else {
+        subscriptionStatus = 'expired';
+      }
+    }
 
     // Format submission timestamp
     const submittedAt = new Date().toLocaleString('en-AU', {
@@ -91,7 +110,7 @@ const sendFeedback = async (req, res) => {
       userEmail: user.email,
       userId: user.userId,
       message: message.trim(),
-      subscriptionStatus: user.subscriptionStatus || 'unknown',
+      subscriptionStatus: subscriptionStatus,
       trialEndsAt: trialEndsAt,
       groupCount: groupCount,
       adminGroupCount: adminGroupCount,

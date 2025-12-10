@@ -157,10 +157,15 @@ export default function SupportScreen({ navigation }) {
 
   function startEditingEndDate(user) {
     setEditingUserId(user.userId);
-    // Format existing date or default to empty
-    if (user.subscriptionEndDate) {
-      const date = new Date(user.subscriptionEndDate);
+    // Use the displayed date (from subscription status) as default
+    const subStatus = getSubscriptionStatus(user);
+    if (subStatus.date) {
+      const date = new Date(subStatus.date);
       setEditingEndDate(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+    } else if (user.subscriptionEndDate) {
+      // Fallback to raw subscription end date
+      const date = new Date(user.subscriptionEndDate);
+      setEditingEndDate(date.toISOString().split('T')[0]);
     } else {
       setEditingEndDate('');
     }
