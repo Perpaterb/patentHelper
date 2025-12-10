@@ -557,7 +557,24 @@ const handleSubscribe = () => {
 - **Note**: Web already uses native HTML `<video>` so only native needs migration
 - **Docs**: https://docs.expo.dev/versions/latest/sdk/video/
 
-#### 31. **Web-Admin Login/Web-App Redirect Loop - DO NOT Use window.location.href**
+#### 31. **Production Database Schema Sync - Always Run Migrations After Schema Changes**
+- **Problem**: Production database can get out of sync with Prisma schema if migrations aren't applied
+- **Symptoms**: Prisma errors like `The column 'users.is_support_user' does not exist`
+- **Root Cause**: Schema changes were made locally but `prisma migrate deploy` was never run on production
+- **How to Fix**:
+  1. SSH key is at `~/.ssh/family-helper-bastion.pem` (must be created on each machine)
+  2. Bastion host IP: Check AWS Console or `aws ec2 describe-instances --filters "Name=tag:Name,Values=family-helper-bastion"`
+  3. Start tunnel: `ssh -i ~/.ssh/family-helper-bastion.pem -L 5433:family-helper-db-prod.c3uu4gkmcwnq.ap-southeast-2.rds.amazonaws.com:5432 ec2-user@<BASTION_IP> -N &`
+  4. Run migrations: `DATABASE_URL="postgresql://familyhelper_admin:<PASSWORD>@localhost:5433/familyhelper" npx prisma migrate deploy`
+  5. Or full reset (DATA LOSS): `npx prisma db push --force-reset --accept-data-loss`
+- **CRITICAL**: The bastion SSH key is machine-specific. If you're on a new machine:
+  1. Delete old key pair: `aws ec2 delete-key-pair --key-name family-helper-bastion --region ap-southeast-2`
+  2. Create new key: `aws ec2 create-key-pair --key-name family-helper-bastion --region ap-southeast-2 --query 'KeyMaterial' --output text > ~/.ssh/family-helper-bastion.pem && chmod 400 ~/.ssh/family-helper-bastion.pem`
+  3. Terminate old bastion: Find instance ID and terminate
+  4. Launch new bastion with new key (use same security group, subnet)
+- **Security**: Keep bastion instance STOPPED when not in use (saves cost, reduces attack surface)
+
+#### 32. **Web-Admin Login/Web-App Redirect Loop - DO NOT Use window.location.href**
 - ❌ **WRONG**: API interceptor doing `window.location.href = '/login'` on 401 error
 - ✅ **CORRECT**: Let Kinde's `isAuthenticated` state handle navigation naturally
 - **Root Causes of the loop:**
