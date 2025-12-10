@@ -7,8 +7,7 @@
  * @module controllers/subscriptions
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 const billingService = require('../services/billing.service');
 const MailHogEmailService = require('../services/email/mailhogEmailService');
 

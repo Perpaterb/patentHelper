@@ -10,8 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const encryptionService = require('../services/encryption.service');
 const pdfService = require('../services/pdf.service');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 
 /**
  * Get audit logs for a group

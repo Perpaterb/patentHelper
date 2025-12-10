@@ -5,8 +5,7 @@
  * Allows admins to pre-approve specific actions from other admins.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 
 /**
  * Get auto-approve permissions for current admin

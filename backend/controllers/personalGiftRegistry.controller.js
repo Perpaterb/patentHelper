@@ -5,8 +5,7 @@
  * Users create and manage these in My Account screen.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 const crypto = require('crypto');
 
 /**

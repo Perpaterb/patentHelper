@@ -4,8 +4,7 @@
  * Handles approval workflow logic for admin actions that require multi-admin approval.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
 

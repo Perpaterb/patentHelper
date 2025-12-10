@@ -5,8 +5,7 @@
  * All actions are logged to SupportAuditLog for compliance.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 
 // Set subscription end date to 100 years from now (effectively indefinite)
 const getIndefiniteDate = () => {

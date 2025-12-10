@@ -9,12 +9,31 @@
 const { PrismaClient } = require('@prisma/client');
 
 /**
- * Prisma Client instance
+ * Prisma Client singleton instance
+ *
+ * For Lambda, we limit connections to prevent exhausting RDS connection pool.
+ * RDS db.t3.micro has ~85 max connections. With Lambda concurrency, we need
+ * to limit each Lambda instance's pool size.
+ *
  * @type {PrismaClient}
  */
-const prisma = new PrismaClient({
+
+// Reuse existing Prisma client if available (Lambda warm starts)
+const globalForPrisma = globalThis;
+
+const prisma = globalForPrisma.prisma || new PrismaClient({
   log: ['error'], // Only log errors (removed verbose query logging)
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL + '?connection_limit=1&pool_timeout=10',
+    },
+  },
 });
+
+// Prevent creating new clients in development hot-reload
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 /**
  * Test database connection

@@ -6,8 +6,7 @@
  * Different from gift registries - tracks storage, category, borrowed status, replacement value.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 const crypto = require('crypto');
 
 /**

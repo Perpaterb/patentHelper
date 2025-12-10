@@ -4,8 +4,7 @@
  * Handles finance matter operations including creation, retrieval, and payments.
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
