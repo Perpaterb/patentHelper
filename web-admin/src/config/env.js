@@ -7,8 +7,9 @@
 
 const config = {
   // API Configuration
+  // Default to production URL - only localhost in dev with explicit .env override
   api: {
-    url: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
+    url: process.env.EXPO_PUBLIC_API_URL || 'https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod',
     timeout: parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT) || 30000,
   },
 
