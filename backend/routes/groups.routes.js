@@ -111,16 +111,18 @@ router.get('/:groupId/messages', requireAuth, messagesController.getMessages);
 router.post('/:groupId/messages', requireAuth, messagesController.sendMessage);
 
 /**
- * PUT /groups/:groupId/members/:userId/role
+ * PUT /groups/:groupId/members/:memberId/role
  * Change a member's role (admin only)
+ * memberId is the groupMemberId
  */
-router.put('/:groupId/members/:userId/role', requireAuth, groupsController.changeMemberRole);
+router.put('/:groupId/members/:memberId/role', requireAuth, groupsController.changeMemberRole);
 
 /**
- * DELETE /groups/:groupId/members/:userId
+ * DELETE /groups/:groupId/members/:memberId
  * Remove a member from the group (admin only)
+ * memberId is the groupMemberId
  */
-router.delete('/:groupId/members/:userId', requireAuth, groupsController.removeMember);
+router.delete('/:groupId/members/:memberId', requireAuth, groupsController.removeMember);
 
 /**
  * POST /groups/:groupId/leave

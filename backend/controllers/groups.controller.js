@@ -1828,7 +1828,8 @@ async function unmuteGroup(req, res) {
 
 /**
  * Change a member's role in a group
- * PUT /groups/:groupId/members/:userId/role
+ * PUT /groups/:groupId/members/:memberId/role
+ * memberId is the groupMemberId (works for both registered users and placeholder members)
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -1836,7 +1837,7 @@ async function unmuteGroup(req, res) {
 async function changeMemberRole(req, res) {
   try {
     const currentUserId = req.user?.userId;
-    const { groupId, userId: targetUserId } = req.params;
+    const { groupId, memberId } = req.params;
     const { role } = req.body;
 
     if (!currentUserId) {
@@ -1855,11 +1856,11 @@ async function changeMemberRole(req, res) {
       });
     }
 
-    // Validate targetUserId is provided
-    if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
+    // Validate memberId is provided
+    if (!memberId || memberId === 'null' || memberId === 'undefined') {
       return res.status(400).json({
         error: 'Invalid member',
-        message: 'User ID is required to change member role',
+        message: 'Member ID is required to change member role',
       });
     }
 
@@ -1880,21 +1881,19 @@ async function changeMemberRole(req, res) {
       });
     }
 
-    // Can't change your own role
-    if (currentUserId === targetUserId) {
+    // Can't change your own role (compare groupMemberIds)
+    if (currentUserMembership.groupMemberId === memberId) {
       return res.status(400).json({
         error: 'Invalid operation',
         message: 'You cannot change your own role',
       });
     }
 
-    // Get target user membership
-    const targetMembership = await prisma.groupMember.findUnique({
+    // Get target member by groupMemberId (works for placeholder members too)
+    const targetMembership = await prisma.groupMember.findFirst({
       where: {
-        groupId_userId: {
-          groupId: groupId,
-          userId: targetUserId,
-        },
+        groupMemberId: memberId,
+        groupId: groupId,
       },
       include: {
         user: {
@@ -2126,13 +2125,10 @@ async function changeMemberRole(req, res) {
           });
         }
 
-        // Execute the role change immediately
+        // Execute the role change immediately (use groupMemberId for lookup)
         await prisma.groupMember.update({
           where: {
-            groupId_userId: {
-              groupId: groupId,
-              userId: targetUserId,
-            },
+            groupMemberId: targetMembership.groupMemberId,
           },
           data: {
             role: role,
@@ -2303,13 +2299,10 @@ async function changeMemberRole(req, res) {
           });
         }
 
-        // Execute the role change immediately
+        // Execute the role change immediately (use groupMemberId for lookup)
         await prisma.groupMember.update({
           where: {
-            groupId_userId: {
-              groupId: groupId,
-              userId: targetUserId,
-            },
+            groupMemberId: targetMembership.groupMemberId,
           },
           data: {
             role: role,
@@ -2362,13 +2355,10 @@ async function changeMemberRole(req, res) {
       }
     }
 
-    // For non-admin role changes, execute directly without approval
+    // For non-admin role changes, execute directly without approval (use groupMemberId for lookup)
     await prisma.groupMember.update({
       where: {
-        groupId_userId: {
-          groupId: groupId,
-          userId: targetUserId,
-        },
+        groupMemberId: targetMembership.groupMemberId,
       },
       data: {
         role: role,
@@ -2403,7 +2393,8 @@ async function changeMemberRole(req, res) {
 
 /**
  * Remove a member from a group
- * DELETE /groups/:groupId/members/:userId
+ * DELETE /groups/:groupId/members/:memberId
+ * memberId is the groupMemberId (works for both registered users and placeholder members)
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -2411,7 +2402,7 @@ async function changeMemberRole(req, res) {
 async function removeMember(req, res) {
   try {
     const currentUserId = req.user?.userId;
-    const { groupId, userId: targetUserId } = req.params;
+    const { groupId, memberId } = req.params;
 
     if (!currentUserId) {
       return res.status(401).json({
@@ -2420,11 +2411,11 @@ async function removeMember(req, res) {
       });
     }
 
-    // Validate targetUserId is provided
-    if (!targetUserId || targetUserId === 'null' || targetUserId === 'undefined') {
+    // Validate memberId is provided
+    if (!memberId || memberId === 'null' || memberId === 'undefined') {
       return res.status(400).json({
         error: 'Invalid member',
-        message: 'User ID is required to remove a member',
+        message: 'Member ID is required to remove a member',
       });
     }
 
@@ -2445,21 +2436,19 @@ async function removeMember(req, res) {
       });
     }
 
-    // Can't remove yourself
-    if (currentUserId === targetUserId) {
+    // Can't remove yourself (compare groupMemberIds)
+    if (currentUserMembership.groupMemberId === memberId) {
       return res.status(400).json({
         error: 'Invalid operation',
         message: 'You cannot remove yourself from the group. Admins must use delete group instead.',
       });
     }
 
-    // Get target user membership
-    const targetMembership = await prisma.groupMember.findUnique({
+    // Get target member by groupMemberId (works for placeholder members too)
+    const targetMembership = await prisma.groupMember.findFirst({
       where: {
-        groupId_userId: {
-          groupId: groupId,
-          userId: targetUserId,
-        },
+        groupMemberId: memberId,
+        groupId: groupId,
       },
       include: {
         user: {
@@ -2628,12 +2617,10 @@ async function removeMember(req, res) {
         }
 
         // Delete the membership (hard delete as per original implementation)
+        // Delete using groupMemberId (works for placeholder members too)
         await prisma.groupMember.delete({
           where: {
-            groupId_userId: {
-              groupId: groupId,
-              userId: targetUserId,
-            },
+            groupMemberId: targetMembership.groupMemberId,
           },
         });
 
@@ -2683,13 +2670,10 @@ async function removeMember(req, res) {
       }
     }
 
-    // For non-admin members, delete directly (no approval needed)
+    // For non-admin members, delete directly using groupMemberId (works for placeholder members too)
     await prisma.groupMember.delete({
       where: {
-        groupId_userId: {
-          groupId: groupId,
-          userId: targetUserId,
-        },
+        groupMemberId: targetMembership.groupMemberId,
       },
     });
 

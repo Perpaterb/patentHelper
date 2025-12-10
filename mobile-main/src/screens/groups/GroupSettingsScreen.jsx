@@ -825,7 +825,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const confirmChangeRole = async (member, newRole) => {
     try {
-      const response = await api.put(`/groups/${groupId}/members/${member.userId}/role`, {
+      const response = await api.put(`/groups/${groupId}/members/${member.groupMemberId}/role`, {
         role: newRole,
       });
 
@@ -880,7 +880,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const confirmRemoveMember = async (member) => {
     try {
-      const response = await api.delete(`/groups/${groupId}/members/${member.userId}`);
+      const response = await api.delete(`/groups/${groupId}/members/${member.groupMemberId}`);
 
       // Check if approval is required
       if (response.data.requiresApproval) {
