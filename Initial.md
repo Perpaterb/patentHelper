@@ -593,6 +593,23 @@ const handleSubscribe = () => {
 - **Files**: `web-admin/src/services/api.js`, `web-admin/App.js`
 - **CRITICAL**: Never mix imperative redirects (`window.location.href`) with declarative routing (React Navigation conditional stacks)
 
+#### 33. **Lambda File Uploads - Use S3, Not Local Filesystem**
+- ❌ **WRONG**: Using LocalStorageService in Lambda (tries to write to read-only `/var/task/uploads`)
+- ✅ **CORRECT**: Use S3StorageService in Lambda environment
+- **Error**: `ENOENT: no such file or directory, mkdir '/var/task/uploads'`
+- **Root Cause**: Lambda's `/var/task/` directory is read-only. Only `/tmp/` is writable (but ephemeral)
+- **Solution**: Created `s3StorageService.js` and storage factory auto-detects Lambda environment
+- **Detection Logic**:
+  ```javascript
+  const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const storageType = isLambda ? 's3' : 'local';
+  ```
+- **Files**:
+  - `backend/services/storage/s3StorageService.js` - S3 implementation
+  - `backend/services/storage/index.js` - Factory with environment detection
+- **S3 Bucket**: `family-helper-files-prod`
+- **Logs Show**: `[Storage] Using S3StorageService` when running in Lambda
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:
