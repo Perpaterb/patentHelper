@@ -18,9 +18,14 @@ const {
   ALL_IMAGE_TYPES,
 } = require('../services/imageConversion.service');
 const audioConverter = require('../services/audioConverter');
+const mediaProcessor = require('../services/mediaProcessor.service');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
+const { v4: uuidv4 } = require('uuid');
+
+// Check if running in production (Lambda)
+const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * Upload a single file
@@ -184,40 +189,82 @@ async function uploadFile(req, res) {
 
     // Convert incompatible audio formats (webm, ogg) to MP3 for universal playback
     if (audioConverter.needsConversion(fileMimeType)) {
-      let tempInputPath = null;
-      try {
-        const originalMimeType = fileMimeType;
-        const tempDir = os.tmpdir();
+      const originalMimeType = fileMimeType;
 
-        // Write buffer to temp file for ffmpeg processing
-        const tempInputName = `audio_input_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        tempInputPath = path.join(tempDir, tempInputName);
-        await fs.writeFile(tempInputPath, req.file.buffer);
+      if (isProduction) {
+        // PRODUCTION: Use Lambda-based media processor via S3
+        try {
+          // Generate S3 keys for original and converted files
+          const tempFileId = uuidv4();
+          const originalExt = req.file.originalname.split('.').pop() || 'webm';
+          const inputS3Key = `temp-audio/${tempFileId}.${originalExt}`;
+          const outputS3Key = `temp-audio/${tempFileId}.mp3`;
 
-        // Convert to MP3
-        const converted = await audioConverter.convertToMp3(tempInputPath, tempDir);
+          // Upload original audio to S3 (temporary location)
+          await storageService.uploadRawToS3(req.file.buffer, inputS3Key, fileMimeType);
 
-        // Read converted file
-        fileBuffer = await fs.readFile(converted.path);
-        fileMimeType = converted.mimeType;
-        fileName = req.file.originalname.replace(/\.[^.]+$/, '.mp3');
-        fileSize = fileBuffer.length;
-        wasConverted = true;
+          // Invoke Lambda to convert audio
+          console.log(`[Production] Invoking Lambda for audio conversion: ${inputS3Key} -> ${outputS3Key}`);
+          const result = await mediaProcessor.convertAudio({
+            inputS3Key,
+            outputS3Key,
+            deleteOriginal: true,
+          });
 
-        // Clean up converted file
-        await fs.unlink(converted.path).catch(() => {});
+          // Download converted file from S3
+          fileBuffer = await storageService.downloadFromS3(outputS3Key);
+          fileMimeType = 'audio/mpeg';
+          fileName = req.file.originalname.replace(/\.[^.]+$/, '.mp3');
+          fileSize = fileBuffer.length;
+          wasConverted = true;
 
-        console.log(`Converted audio ${req.file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
-      } catch (conversionError) {
-        console.error('Audio conversion failed:', conversionError);
-        return res.status(400).json({
-          error: 'Audio conversion failed',
-          message: `Could not convert ${req.file.mimetype} to MP3: ${conversionError.message}`
-        });
-      } finally {
-        // Clean up temp input file
-        if (tempInputPath) {
-          await fs.unlink(tempInputPath).catch(() => {});
+          // Clean up temporary converted file from S3
+          await storageService.deleteFromS3(outputS3Key).catch(() => {});
+
+          console.log(`[Production] Converted audio ${req.file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
+        } catch (conversionError) {
+          console.error('Audio conversion failed (production):', conversionError);
+          return res.status(400).json({
+            error: 'Audio conversion failed',
+            message: `Could not convert ${req.file.mimetype} to MP3: ${conversionError.message}`
+          });
+        }
+      } else {
+        // LOCAL DEV: Use local ffmpeg or Docker container
+        let tempInputPath = null;
+        try {
+          const tempDir = os.tmpdir();
+
+          // Write buffer to temp file for ffmpeg processing
+          const tempInputName = `audio_input_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          tempInputPath = path.join(tempDir, tempInputName);
+          await fs.writeFile(tempInputPath, req.file.buffer);
+
+          // Convert to MP3
+          const converted = await audioConverter.convertToMp3(tempInputPath, tempDir);
+
+          // Read converted file
+          fileBuffer = await fs.readFile(converted.path);
+          fileMimeType = converted.mimeType;
+          fileName = req.file.originalname.replace(/\.[^.]+$/, '.mp3');
+          fileSize = fileBuffer.length;
+          wasConverted = true;
+
+          // Clean up converted file
+          await fs.unlink(converted.path).catch(() => {});
+
+          console.log(`Converted audio ${req.file.originalname} from ${originalMimeType} to ${fileMimeType} (${(fileSize / 1024).toFixed(1)}KB)`);
+        } catch (conversionError) {
+          console.error('Audio conversion failed:', conversionError);
+          return res.status(400).json({
+            error: 'Audio conversion failed',
+            message: `Could not convert ${req.file.mimetype} to MP3: ${conversionError.message}`
+          });
+        } finally {
+          // Clean up temp input file
+          if (tempInputPath) {
+            await fs.unlink(tempInputPath).catch(() => {});
+          }
         }
       }
     }

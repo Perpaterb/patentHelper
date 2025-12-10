@@ -408,6 +408,63 @@ class S3StorageService extends StorageInterface {
 
     return 'document';
   }
+
+  // ============================================
+  // Raw S3 Operations (for media conversion)
+  // ============================================
+
+  /**
+   * Upload raw data directly to S3 at a specific key
+   * Used for temporary files during media conversion
+   * @param {Buffer} buffer - Data to upload
+   * @param {string} s3Key - Full S3 key
+   * @param {string} contentType - MIME type
+   * @returns {Promise<void>}
+   */
+  async uploadRawToS3(buffer, s3Key, contentType) {
+    await this.s3Client.send(new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+      Body: buffer,
+      ContentType: contentType,
+    }));
+    console.log(`[S3] Uploaded raw file: ${s3Key}`);
+  }
+
+  /**
+   * Download raw data directly from S3 by key
+   * Used for temporary files during media conversion
+   * @param {string} s3Key - Full S3 key
+   * @returns {Promise<Buffer>} File data
+   */
+  async downloadFromS3(s3Key) {
+    const response = await this.s3Client.send(new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+    }));
+
+    // Convert stream to buffer
+    const chunks = [];
+    for await (const chunk of response.Body) {
+      chunks.push(chunk);
+    }
+    console.log(`[S3] Downloaded file: ${s3Key}`);
+    return Buffer.concat(chunks);
+  }
+
+  /**
+   * Delete a file directly from S3 by key
+   * Used to clean up temporary files after conversion
+   * @param {string} s3Key - Full S3 key
+   * @returns {Promise<void>}
+   */
+  async deleteFromS3(s3Key) {
+    await this.s3Client.send(new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+    }));
+    console.log(`[S3] Deleted file: ${s3Key}`);
+  }
 }
 
 module.exports = S3StorageService;

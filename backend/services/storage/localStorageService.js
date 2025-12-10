@@ -423,6 +423,37 @@ class LocalStorageService extends StorageInterface {
 
     return 'document';
   }
+
+  // ============================================
+  // Raw S3 Operations (stub methods for local storage)
+  // These are only used in production but need stubs for interface consistency
+  // ============================================
+
+  /**
+   * Stub for S3 upload - not used in local storage
+   * @param {Buffer} buffer - Data to upload
+   * @param {string} s3Key - S3 key (ignored in local)
+   * @param {string} contentType - MIME type
+   */
+  async uploadRawToS3(buffer, s3Key, contentType) {
+    throw new Error('uploadRawToS3 is only available in S3 storage mode (production)');
+  }
+
+  /**
+   * Stub for S3 download - not used in local storage
+   * @param {string} s3Key - S3 key
+   */
+  async downloadFromS3(s3Key) {
+    throw new Error('downloadFromS3 is only available in S3 storage mode (production)');
+  }
+
+  /**
+   * Stub for S3 delete - not used in local storage
+   * @param {string} s3Key - S3 key
+   */
+  async deleteFromS3(s3Key) {
+    throw new Error('deleteFromS3 is only available in S3 storage mode (production)');
+  }
 }
 
 module.exports = LocalStorageService;
