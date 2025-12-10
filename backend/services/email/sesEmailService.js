@@ -30,9 +30,9 @@ class SESEmailService extends EmailInterface {
     this.sesClient = new SESv2Client({ region });
 
     // Create nodemailer transporter using SES v2 with AWS SDK v3
-    // nodemailer v7 requires: { ses: client, aws: { SendEmailCommand } }
+    // nodemailer v7 requires: { sesClient, SendEmailCommand }
     this.transporter = nodemailer.createTransport({
-      SES: { ses: this.sesClient, aws: { SendEmailCommand } },
+      SES: { sesClient: this.sesClient, SendEmailCommand },
     });
 
     this.fromAddress = process.env.EMAIL_FROM || 'noreply@familyhelperapp.com';
