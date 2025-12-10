@@ -1422,7 +1422,8 @@ async function getPublicGiftRegistry(req, res) {
     }
 
     // If passcode protected, require passcode verification
-    if (registry.sharingType === 'passcode') {
+    // Note: Group registries use 'passcode', personal registries use 'external_link_passcode'
+    if (registry.sharingType === 'passcode' || registry.sharingType === 'external_link_passcode') {
       return res.status(401).json({
         requiresPasscode: true,
         name: registry.name,
@@ -1533,7 +1534,9 @@ async function verifyGiftRegistryPasscode(req, res) {
     }
 
     // If not passcode protected, just return the data
-    if (registry.sharingType !== 'passcode') {
+    // Note: Group registries use 'passcode', personal registries use 'external_link_passcode'
+    const requiresPasscode = registry.sharingType === 'passcode' || registry.sharingType === 'external_link_passcode';
+    if (!requiresPasscode) {
       return res.status(200).json({
         success: true,
         registry: {

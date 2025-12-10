@@ -10,7 +10,8 @@ export const CONFIG = {
   API_TIMEOUT: 15000,
 
   // Web App URL (for subscription management and share links)
-  WEB_APP_URL: process.env.EXPO_PUBLIC_WEB_APP_URL || 'http://localhost:8081',
+  // Default to production URL - only localhost in dev with explicit .env override
+  WEB_APP_URL: process.env.EXPO_PUBLIC_WEB_APP_URL || process.env.EXPO_PUBLIC_WEB_URL || 'https://familyhelperapp.com',
 
   // Kinde Configuration (from .env)
   KINDE_DOMAIN: process.env.EXPO_PUBLIC_KINDE_DOMAIN || '',
