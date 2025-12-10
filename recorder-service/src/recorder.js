@@ -135,11 +135,13 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl, pr
 }
 
 /**
- * Build the recorder.html URL with parameters
+ * Build the recorder URL with parameters
+ * Uses recorder.html for phone calls, videoRecorder.html for video calls
  */
 function buildRecorderUrl({ apiUrl, groupId, callId, callType, authToken }) {
-  // Use local file path for the recorder HTML
-  const htmlPath = path.join(__dirname, '../public/recorder.html');
+  // Use correct HTML based on call type
+  const htmlFile = callType === 'video' ? 'videoRecorder.html' : 'recorder.html';
+  const htmlPath = path.join(__dirname, '../public', htmlFile);
   const params = new URLSearchParams({
     apiUrl,
     groupId,

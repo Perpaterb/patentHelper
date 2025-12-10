@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video Call Recorder</title>
+  <style>
+    body {
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+    #status { margin: 20px 0; }
+    .recording { color: #f44336; }
+    .connected { color: #4caf50; }
+    #recordingCanvas {
+      background: #1a1a1a;
+      display: block;
+    }
+    #videoGrid {
+      display: none; /* Hidden - we render to canvas instead */
+    }
+    .participant-video {
+      background: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Ghost Recorder</h1>
+  <div id="status">Initializing...</div>
+
+  <!-- Canvas for compositing all video streams -->
+  <canvas id="recordingCanvas" width="1280" height="720"></canvas>
+
+  <!-- Hidden container for participant videos -->
+  <div id="videoGrid"></div>
+
+  <!-- Hidden audio elements for remote streams -->
+  <div id="remoteAudios" style="display:none;"></div>
+
+  <script>
+    // Configuration passed via URL params
+    const params = new URLSearchParams(window.location.search);
+    const API_URL = params.get('apiUrl') || 'http://localhost:3001';
+    const GROUP_ID = params.get('groupId');
+    const CALL_ID = params.get('callId');
+    const AUTH_TOKEN = params.get('token');
+
+    // Canvas settings
+    const CANVAS_WIDTH = 1280;
+    const CANVAS_HEIGHT = 720;
+    const FRAME_RATE = 30;
+
+    // State
+    let peerConnections = {};
+    let pendingIceCandidates = {};
+    let localStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let audioContext = null;
+    let mixedAudioDestination = null;
+
+    // Video state
+    let participantVideos = {}; // { peerId: { video: HTMLVideoElement, stream: MediaStream } }
+    let canvasContext = null;
+    let animationFrameId = null;
+
+    const statusEl = document.getElementById('status');
+    const canvas = document.getElementById('recordingCanvas');
+    canvasContext = canvas.getContext('2d');
+
+    function updateStatus(msg, className = '') {
+      statusEl.textContent = msg;
+      statusEl.className = className;
+      console.log('[VideoRecorder]', msg);
+    }
+
+    async function init() {
+      try {
+        updateStatus('Initializing video recorder...');
+
+        // Create a silent audio stream using Web Audio API
+        // This avoids the click track from Puppeteer's fake audio device
+        const silentAudioContext = new AudioContext();
+        const oscillator = silentAudioContext.createOscillator();
+        const gainNode = silentAudioContext.createGain();
+        gainNode.gain.value = 0; // Silent
+        oscillator.connect(gainNode);
+        const silentDestination = silentAudioContext.createMediaStreamDestination();
+        gainNode.connect(silentDestination);
+        oscillator.start();
+
+        // Create a black video track for our local stream
+        const blackCanvas = document.createElement('canvas');
+        blackCanvas.width = 640;
+        blackCanvas.height = 480;
+        const blackCtx = blackCanvas.getContext('2d');
+        blackCtx.fillStyle = '#000';
+        blackCtx.fillRect(0, 0, 640, 480);
+        const blackVideoStream = blackCanvas.captureStream(1);
+        const blackVideoTrack = blackVideoStream.getVideoTracks()[0];
+
+        // Combine silent audio + black video for local stream
+        localStream = new MediaStream([
+          silentDestination.stream.getAudioTracks()[0],
+          blackVideoTrack
+        ]);
+        console.log('[VideoRecorder] Created silent local stream with black video');
+
+        // Set up audio mixer for recording
+        await setupAudioMixer();
+
+        // Start canvas rendering loop
+        startCanvasRendering();
+
+        updateStatus('Connecting to call...');
+        await connectToCall();
+
+      } catch (err) {
+        updateStatus('Error: ' + err.message);
+        console.error('[VideoRecorder] Init error:', err);
+      }
+    }
+
+    async function setupAudioMixer() {
+      audioContext = new AudioContext({ sampleRate: 48000 });
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      mixedAudioDestination = audioContext.createMediaStreamDestination();
+
+      // Silent connection to destination to keep audio graph active
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      silentGain.connect(audioContext.destination);
+
+      console.log('[VideoRecorder] Audio mixer ready');
+    }
+
+    async function connectToCall() {
+      const maxRetries = 60; // Wait up to 60 seconds for call to become active
+      const retryDelay = 1000; // 1 second between retries
+      let retries = 0;
+
+      while (retries < maxRetries) {
+        try {
+          const response = await fetch(`${API_URL}/groups/${GROUP_ID}/video-calls`, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
+
+          if (!response.ok) throw new Error('Failed to fetch call info');
+
+          const data = await response.json();
+          const call = data.videoCalls?.find(c => c.callId === CALL_ID);
+
+          if (!call) throw new Error('Call not found');
+
+          if (call.status === 'ended') {
+            updateStatus('Call ended before recording could start');
+            console.log('[VideoRecorder] Call ended, stopping');
+            return;
+          }
+
+          if (call.status === 'active') {
+            updateStatus('Connected. Waiting for participants...', 'connected');
+            // Poll for WebRTC signals
+            pollForSignals();
+            return;
+          }
+
+          // Call not active yet, wait and retry
+          if (retries === 0) {
+            updateStatus('Waiting for call to start...');
+            console.log('[VideoRecorder] Call status:', call.status, '- waiting for active...');
+          }
+
+          retries++;
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+        } catch (err) {
+          updateStatus('Connection error: ' + err.message);
+          console.error('[VideoRecorder] Connect error:', err);
+          return;
+        }
+      }
+
+      updateStatus('Timeout waiting for call to become active');
+      console.error('[VideoRecorder] Timeout: call never became active');
+    }
+
+    function startCanvasRendering() {
+      function render() {
+        // Clear canvas with dark background
+        canvasContext.fillStyle = '#1a1a1a';
+        canvasContext.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const participants = Object.entries(participantVideos);
+        const count = participants.length;
+
+        if (count === 0) {
+          // Show "waiting" message
+          canvasContext.fillStyle = '#666';
+          canvasContext.font = '24px sans-serif';
+          canvasContext.textAlign = 'center';
+          canvasContext.fillText('Waiting for participants...', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        } else {
+          // Calculate grid layout - equal space for all participants
+          const { cols, rows } = calculateGrid(count);
+          const cellWidth = CANVAS_WIDTH / cols;
+          const cellHeight = CANVAS_HEIGHT / rows;
+
+          participants.forEach(([peerId, { video }], index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+
+            // Draw video frame (or placeholder if no video)
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              // Calculate aspect-ratio-preserving dimensions
+              const videoAspect = video.videoWidth / video.videoHeight;
+              const cellAspect = cellWidth / cellHeight;
+
+              let drawWidth, drawHeight, drawX, drawY;
+
+              if (videoAspect > cellAspect) {
+                // Video is wider - fit to width
+                drawWidth = cellWidth;
+                drawHeight = cellWidth / videoAspect;
+                drawX = x;
+                drawY = y + (cellHeight - drawHeight) / 2;
+              } else {
+                // Video is taller - fit to height
+                drawHeight = cellHeight;
+                drawWidth = cellHeight * videoAspect;
+                drawX = x + (cellWidth - drawWidth) / 2;
+                drawY = y;
+              }
+
+              // Fill background for letterboxing
+              canvasContext.fillStyle = '#000';
+              canvasContext.fillRect(x, y, cellWidth, cellHeight);
+
+              // Draw video
+              canvasContext.drawImage(video, drawX, drawY, drawWidth, drawHeight);
+            } else {
+              // Placeholder for participant without video
+              canvasContext.fillStyle = '#333';
+              canvasContext.fillRect(x, y, cellWidth - 2, cellHeight - 2);
+
+              canvasContext.fillStyle = '#666';
+              canvasContext.font = '16px sans-serif';
+              canvasContext.textAlign = 'center';
+              canvasContext.fillText(
+                `Participant ${index + 1}`,
+                x + cellWidth / 2,
+                y + cellHeight / 2
+              );
+            }
+
+            // Draw cell border
+            canvasContext.strokeStyle = '#444';
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeRect(x, y, cellWidth, cellHeight);
+          });
+        }
+
+        animationFrameId = requestAnimationFrame(render);
+      }
+
+      render();
+    }
+
+    function calculateGrid(count) {
+      // Calculate optimal grid layout for equal-sized cells
+      if (count <= 1) return { cols: 1, rows: 1 };
+      if (count <= 2) return { cols: 2, rows: 1 };
+      if (count <= 4) return { cols: 2, rows: 2 };
+      if (count <= 6) return { cols: 3, rows: 2 };
+      if (count <= 9) return { cols: 3, rows: 3 };
+      if (count <= 12) return { cols: 4, rows: 3 };
+      return { cols: 4, rows: 4 }; // Max 16 participants
+    }
+
+    function addParticipantStream(peerId, stream) {
+      console.log('[VideoRecorder] Adding participant stream:', peerId);
+
+      // Create video element for this participant
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.muted = true; // Mute video element (we handle audio separately)
+      video.playsInline = true;
+      document.getElementById('videoGrid').appendChild(video);
+
+      video.play().catch(err => {
+        console.error('[VideoRecorder] Video play failed:', err);
+      });
+
+      participantVideos[peerId] = { video, stream };
+
+      // Add audio to mixer
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        console.log('[VideoRecorder] Adding audio track for', peerId);
+
+        // Create audio element to force Chrome to process the audio
+        const audioEl = document.createElement('audio');
+        audioEl.srcObject = stream;
+        audioEl.autoplay = true;
+        audioEl.muted = false;
+        audioEl.volume = 0.001; // Very low but not zero
+        document.getElementById('remoteAudios').appendChild(audioEl);
+        audioEl.play().catch(err => console.error('[VideoRecorder] Audio play failed:', err));
+
+        // Add to audio mixer
+        const source = audioContext.createMediaStreamSource(stream);
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 1.0;
+        source.connect(gainNode);
+        gainNode.connect(mixedAudioDestination);
+
+        participantVideos[peerId].audioEl = audioEl;
+        participantVideos[peerId].gainNode = gainNode;
+      }
+
+      // Start recording after first participant joins
+      if (!isRecording && Object.keys(participantVideos).length >= 1) {
+        console.log('[VideoRecorder] First participant joined, starting recording...');
+        startRecording();
+      }
+    }
+
+    function removeParticipantStream(peerId) {
+      const participant = participantVideos[peerId];
+      if (participant) {
+        participant.video.pause();
+        participant.video.srcObject = null;
+        participant.video.remove();
+        if (participant.audioEl) {
+          participant.audioEl.pause();
+          participant.audioEl.srcObject = null;
+          participant.audioEl.remove();
+        }
+        delete participantVideos[peerId];
+        console.log('[VideoRecorder] Removed participant:', peerId);
+      }
+    }
+
+    async function pollForSignals() {
+      const signalUrl = `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recorder-signal`;
+      console.log('[VideoRecorder] Signal polling URL:', signalUrl);
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(signalUrl, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+          });
+
+          if (!response.ok) {
+            console.error('[VideoRecorder] Signal poll failed:', response.status);
+            return;
+          }
+
+          const data = await response.json();
+          if (data.signals && data.signals.length > 0) {
+            for (const signal of data.signals) {
+              await handleSignal(signal);
+            }
+          }
+        } catch (err) {
+          console.error('[VideoRecorder] Signal poll error:', err.message);
+        }
+      }, 2000);
+
+      window.signalPollInterval = pollInterval;
+    }
+
+    async function handleSignal(signal) {
+      const { from: fromId, type, data } = signal;
+      console.log('[VideoRecorder] Handling signal:', type, 'from:', fromId);
+
+      if (type === 'ice-candidate') {
+        const pc = peerConnections[fromId];
+        if (!pc || !pc.remoteDescription) {
+          if (!pendingIceCandidates[fromId]) {
+            pendingIceCandidates[fromId] = [];
+          }
+          pendingIceCandidates[fromId].push(data);
+          return;
+        }
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(data));
+        } catch (err) {
+          console.error('[VideoRecorder] Failed to add ICE candidate:', err.message);
+        }
+        return;
+      }
+
+      if (!peerConnections[fromId]) {
+        console.log('[VideoRecorder] Creating peer connection for', fromId);
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        });
+
+        // Add local tracks
+        if (localStream) {
+          localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+          });
+        }
+
+        pc.ontrack = (event) => {
+          console.log('[VideoRecorder] Received track:', event.track.kind, 'from', fromId);
+          addParticipantStream(fromId, event.streams[0]);
+        };
+
+        pc.onicecandidate = async (event) => {
+          if (event.candidate) {
+            await sendSignal(fromId, 'ice-candidate', event.candidate);
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          console.log('[VideoRecorder] Connection state for', fromId, ':', pc.connectionState);
+          if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+            removeParticipantStream(fromId);
+          }
+        };
+
+        peerConnections[fromId] = pc;
+      }
+
+      const pc = peerConnections[fromId];
+
+      if (type === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await sendSignal(fromId, 'answer', answer);
+
+        // Process queued ICE candidates
+        if (pendingIceCandidates[fromId]) {
+          for (const candidate of pendingIceCandidates[fromId]) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error('[VideoRecorder] Failed to add queued ICE:', err.message);
+            }
+          }
+          delete pendingIceCandidates[fromId];
+        }
+      } else if (type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data));
+      }
+    }
+
+    async function sendSignal(toId, type, data) {
+      try {
+        await fetch(`${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recorder-signal`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AUTH_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ targetPeerId: toId, type, data })
+        });
+      } catch (err) {
+        console.error('[VideoRecorder] Send signal error:', err);
+      }
+    }
+
+    function startRecording() {
+      if (isRecording) return;
+
+      try {
+        // Capture canvas stream
+        const canvasStream = canvas.captureStream(FRAME_RATE);
+        const videoTrack = canvasStream.getVideoTracks()[0];
+
+        // Combine canvas video + mixed audio
+        const combinedStream = new MediaStream([
+          videoTrack,
+          ...mixedAudioDestination.stream.getAudioTracks()
+        ]);
+
+        // Use webm with VP8 video and Opus audio
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+          ? 'video/webm;codecs=vp8,opus'
+          : 'video/webm';
+        console.log('[VideoRecorder] Using MIME type:', mimeType);
+
+        mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: mimeType,
+          videoBitsPerSecond: 2500000, // 2.5 Mbps
+          audioBitsPerSecond: 128000   // 128 kbps
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+            console.log('[VideoRecorder] Chunk:', event.data.size, 'bytes, total:', recordedChunks.length);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          console.log('[VideoRecorder] MediaRecorder stopped');
+          uploadRecording();
+        };
+
+        mediaRecorder.onerror = (event) => {
+          console.error('[VideoRecorder] MediaRecorder error:', event.error);
+        };
+
+        mediaRecorder.start(1000); // Collect data every second
+        isRecording = true;
+        window.isRecording = true;
+        updateStatus('Recording video...', 'recording');
+        console.log('[VideoRecorder] Recording started');
+
+        // Log stats periodically
+        const statsInterval = setInterval(() => {
+          if (!isRecording) {
+            clearInterval(statsInterval);
+            return;
+          }
+          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+          console.log('[VideoRecorder] Stats - chunks:', recordedChunks.length,
+                      'size:', (totalSize / 1024 / 1024).toFixed(2), 'MB',
+                      'participants:', Object.keys(participantVideos).length);
+        }, 5000);
+        window.statsInterval = statsInterval;
+
+      } catch (err) {
+        console.error('[VideoRecorder] Start recording error:', err);
+        updateStatus('Recording failed: ' + err.message);
+      }
+    }
+
+    function stopRecording() {
+      return new Promise((resolve) => {
+        if (!isRecording || !mediaRecorder) {
+          resolve();
+          return;
+        }
+
+        mediaRecorder.onstop = async () => {
+          await uploadRecording();
+          resolve();
+        };
+
+        mediaRecorder.stop();
+        isRecording = false;
+        window.isRecording = false;
+        updateStatus('Recording stopped, uploading...');
+      });
+    }
+
+    async function uploadRecording() {
+      try {
+        if (recordedChunks.length === 0) {
+          console.log('[VideoRecorder] No data to upload');
+          return;
+        }
+
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+        console.log('[VideoRecorder] Uploading recording:', sizeMB, 'MB');
+        recordedChunks = [];
+
+        const formData = new FormData();
+        formData.append('recording', blob, `video-call-${CALL_ID}.webm`);
+
+        const response = await fetch(
+          `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recording`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+            body: formData
+          }
+        );
+
+        if (response.ok) {
+          updateStatus('Recording uploaded successfully!', 'connected');
+          console.log('[VideoRecorder] Upload successful');
+        } else {
+          const errText = await response.text();
+          updateStatus('Upload failed: ' + response.statusText);
+          console.error('[VideoRecorder] Upload failed:', errText);
+        }
+      } catch (err) {
+        console.error('[VideoRecorder] Upload error:', err);
+        updateStatus('Upload error: ' + err.message);
+      }
+    }
+
+    function cleanup() {
+      console.log('[VideoRecorder] Cleaning up...');
+
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      if (window.signalPollInterval) {
+        clearInterval(window.signalPollInterval);
+      }
+
+      if (window.statsInterval) {
+        clearInterval(window.statsInterval);
+      }
+
+      // Clean up participant videos
+      Object.keys(participantVideos).forEach(peerId => {
+        removeParticipantStream(peerId);
+      });
+
+      Object.values(peerConnections).forEach(pc => pc.close());
+      peerConnections = {};
+
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+
+      console.log('[VideoRecorder] Cleanup complete');
+    }
+
+    // Expose for Puppeteer control
+    window.recorderReady = false;
+    window.stopRecording = stopRecording;
+    window.cleanup = cleanup;
+
+    // Initialize
+    init().then(() => {
+      window.recorderReady = true;
+      console.log('[VideoRecorder] Ready');
+    });
+  </script>
+</body>
+</html>
