@@ -1881,16 +1881,8 @@ async function changeMemberRole(req, res) {
       });
     }
 
-    // Can't change your own role (compare groupMemberIds)
-    if (currentUserMembership.groupMemberId === memberId) {
-      return res.status(400).json({
-        error: 'Invalid operation',
-        message: 'You cannot change your own role',
-      });
-    }
-
-    // Get target member by groupMemberId (works for placeholder members too)
-    const targetMembership = await prisma.groupMember.findFirst({
+    // Get target member - try by groupMemberId first, then fall back to userId for backwards compatibility
+    let targetMembership = await prisma.groupMember.findFirst({
       where: {
         groupMemberId: memberId,
         groupId: groupId,
@@ -1907,10 +1899,38 @@ async function changeMemberRole(req, res) {
       },
     });
 
+    // Fallback: try finding by userId (for backwards compatibility with old mobile app)
+    if (!targetMembership) {
+      targetMembership = await prisma.groupMember.findFirst({
+        where: {
+          userId: memberId,
+          groupId: groupId,
+        },
+        include: {
+          user: {
+            select: {
+              email: true,
+              displayName: true,
+              isSubscribed: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+    }
+
     if (!targetMembership) {
       return res.status(404).json({
         error: 'Not found',
         message: 'Member not found in this group',
+      });
+    }
+
+    // Can't change your own role
+    if (currentUserMembership.groupMemberId === targetMembership.groupMemberId) {
+      return res.status(400).json({
+        error: 'Invalid operation',
+        message: 'You cannot change your own role',
       });
     }
 
@@ -2436,16 +2456,8 @@ async function removeMember(req, res) {
       });
     }
 
-    // Can't remove yourself (compare groupMemberIds)
-    if (currentUserMembership.groupMemberId === memberId) {
-      return res.status(400).json({
-        error: 'Invalid operation',
-        message: 'You cannot remove yourself from the group. Admins must use delete group instead.',
-      });
-    }
-
-    // Get target member by groupMemberId (works for placeholder members too)
-    const targetMembership = await prisma.groupMember.findFirst({
+    // Get target member - try by groupMemberId first, then fall back to userId for backwards compatibility
+    let targetMembership = await prisma.groupMember.findFirst({
       where: {
         groupMemberId: memberId,
         groupId: groupId,
@@ -2460,10 +2472,36 @@ async function removeMember(req, res) {
       },
     });
 
+    // Fallback: try finding by userId (for backwards compatibility with old mobile app)
+    if (!targetMembership) {
+      targetMembership = await prisma.groupMember.findFirst({
+        where: {
+          userId: memberId,
+          groupId: groupId,
+        },
+        include: {
+          user: {
+            select: {
+              email: true,
+              displayName: true,
+            },
+          },
+        },
+      });
+    }
+
     if (!targetMembership) {
       return res.status(404).json({
         error: 'Not found',
         message: 'Member not found in this group',
+      });
+    }
+
+    // Can't remove yourself
+    if (currentUserMembership.groupMemberId === targetMembership.groupMemberId) {
+      return res.status(400).json({
+        error: 'Invalid operation',
+        message: 'You cannot remove yourself from the group. Admins must use delete group instead.',
       });
     }
 
