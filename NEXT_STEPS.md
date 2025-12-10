@@ -1,8 +1,57 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-12-09)
+## Current Status (Updated: 2025-12-10)
 
-Currently working on: **Production Deployment Preparation**
+Currently working on: **Production Deployment**
+
+---
+
+## Recent Updates (2025-12-10)
+
+### Billing Reminder System - COMPLETE
+Implemented billing reminder emails and "Pay Now" functionality for subscription management.
+
+**Features:**
+- Billing reminder emails sent 5 days and 1 day before subscription/trial end
+- Direct Stripe Checkout link in emails for immediate payment
+- "Pay Bill Now" button on Subscription page (active in last 7 days of billing cycle)
+- "Regenerate Bill" button to recalculate costs based on current storage usage
+- Current bill breakdown showing base subscription + storage charges
+
+**API Endpoints:**
+- `GET /subscriptions/invoice` - Get current billing breakdown and due date
+- `POST /subscriptions/pay-now` - Pay bill early (redirects to Stripe Checkout)
+- `POST /subscriptions/regenerate-bill` - Recalculate and send new billing email
+- `POST /subscriptions/send-billing-reminders` - Scheduled job for billing reminders
+
+**Email Template:**
+- `billing_reminder` template with cost breakdown, due date, and pay now link
+
+### Support Page Improvements - COMPLETE
+Enhanced Support page with subscription end date management.
+
+**Changes:**
+- Removed subscription toggle switch (was confusing)
+- Added subscription status column: Trial (orange), Subscribed (blue), Permanent (green), Expired (red)
+- Added editable subscription end date with inline editing
+- Support users can set any future date to activate subscription
+- All changes logged to support audit log
+
+**New API Endpoint:**
+- `PUT /support/users/:userId/subscription-end-date` - Set specific subscription end date
+
+### Worker Service Rename - COMPLETE
+Renamed "media-processor" to "worker-service" to better reflect all the tasks it handles:
+- Video/audio conversion (ffmpeg)
+- Image conversion (sharp)
+- PDF generation
+- Call recording (puppeteer/headless Chrome)
+
+**Changes:**
+- Renamed `backend/media-processor/` → `backend/worker-service/`
+- Updated docker-compose.yml service and container name
+- Updated all documentation references
+- Environment variables support both `WORKER_SERVICE_*` and legacy `MEDIA_PROCESSOR_*`
 
 ---
 

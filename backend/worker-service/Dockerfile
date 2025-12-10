@@ -1,6 +1,9 @@
-# Media Processor Docker Container
-# Provides video/audio conversion (ffmpeg), image conversion (sharp), PDF generation,
-# and call recording (puppeteer with headless Chrome)
+# Worker Service Docker Container
+# Handles heavy processing tasks that don't fit in the main Lambda:
+# - Video/audio conversion (ffmpeg)
+# - Image conversion (sharp)
+# - PDF generation (jspdf)
+# - Call recording (puppeteer with headless Chrome)
 # Runs as HTTP server locally, mirrors Lambda ECR deployment in production
 
 FROM node:20-slim

@@ -1,18 +1,24 @@
 /**
- * Media Processor HTTP Server
+ * Worker Service HTTP Server
  *
  * Local development server that mirrors the Lambda ECR container functionality.
- * Handles video/audio conversion, image conversion, and PDF generation.
+ * Handles heavy processing tasks that don't fit in the main Lambda:
+ * - Video/audio conversion (ffmpeg)
+ * - Image conversion (sharp)
+ * - PDF generation
+ * - Call recording (puppeteer/headless Chrome)
  *
- * In production, the main API Lambda invokes the Media Processor Lambda directly.
+ * In production, the main API Lambda invokes the Worker Service Lambda directly.
  * Locally, the backend calls this HTTP server instead.
  *
  * Endpoints:
- * - POST /convert/video - Convert video to MP4
- * - POST /convert/audio - Convert audio to MP3
- * - POST /convert/image - Convert image to PNG/JPEG
- * - POST /generate/pdf  - Generate PDF from data
- * - GET  /health        - Health check
+ * - POST /convert/video   - Convert video to MP4
+ * - POST /convert/audio   - Convert audio to MP3
+ * - POST /convert/image   - Convert image to PNG/JPEG
+ * - POST /generate/pdf    - Generate PDF from data
+ * - POST /recording/start - Start call recording
+ * - POST /recording/stop  - Stop call recording
+ * - GET  /health          - Health check
  */
 
 const express = require('express');
@@ -63,7 +69,7 @@ const upload = multer({
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    service: 'media-processor',
+    service: 'worker-service',
     version: '1.0.0',
     capabilities: ['video', 'audio', 'image', 'pdf', 'recording'],
     timestamp: new Date().toISOString(),
@@ -372,7 +378,7 @@ app.get('/recording/status/:callType/:callId', (req, res) => {
 // Error Handler
 // ============================================
 app.use((err, req, res, next) => {
-  console.error('[MediaProcessor] Unhandled error:', err);
+  console.error('[WorkerService] Unhandled error:', err);
   res.status(500).json({
     success: false,
     error: err.message || 'Internal server error',
@@ -385,18 +391,20 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log('');
   console.log('============================================');
-  console.log('  Media Processor Service');
+  console.log('  Worker Service (Heavy Processing)');
   console.log('============================================');
   console.log(`  Status:  Running`);
   console.log(`  Port:    ${PORT}`);
   console.log(`  Uploads: ${UPLOADS_DIR}`);
   console.log('');
   console.log('  Endpoints:');
-  console.log('    POST /convert/video  - Convert video to MP4');
-  console.log('    POST /convert/audio  - Convert audio to MP3');
-  console.log('    POST /convert/image  - Convert image to PNG/JPEG');
-  console.log('    POST /generate/pdf   - Generate PDF');
-  console.log('    GET  /health         - Health check');
+  console.log('    POST /convert/video   - Convert video to MP4');
+  console.log('    POST /convert/audio   - Convert audio to MP3');
+  console.log('    POST /convert/image   - Convert image to PNG/JPEG');
+  console.log('    POST /generate/pdf    - Generate PDF');
+  console.log('    POST /recording/start - Start call recording');
+  console.log('    POST /recording/stop  - Stop call recording');
+  console.log('    GET  /health          - Health check');
   console.log('============================================');
   console.log('');
 });

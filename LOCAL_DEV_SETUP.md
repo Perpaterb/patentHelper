@@ -52,7 +52,7 @@ This starts:
 | PostgreSQL | localhost:5432 | AWS RDS |
 | MailHog SMTP | localhost:1025 | AWS SES |
 | MailHog Web UI | http://localhost:8025 | - |
-| Media Processor | http://localhost:3001 | ECR Lambda |
+| Worker Service | http://localhost:3001 | ECR Lambda |
 
 **Verify services are running:**
 ```bash
@@ -325,7 +325,7 @@ Access pgAdmin at: http://localhost:5050
 | PostgreSQL | 5432 | - |
 | MailHog SMTP | 1025 | - |
 | MailHog Web UI | 8025 | http://localhost:8025 |
-| Media Processor | 3001 | http://localhost:3001 |
+| Worker Service | 3001 | http://localhost:3001 |
 | pgAdmin | 5050 | http://localhost:5050 |
 
 ---
@@ -366,7 +366,7 @@ These warnings are normal in development:
 [AudioConverter] ffmpeg not available - media processing disabled
 ```
 
-Media processing runs in the Docker media-processor container, not the Node.js backend.
+Heavy processing (video/audio/image conversion, PDF generation, call recording) runs in the Docker worker-service container, not the Node.js backend.
 
 ### KINDE_CLIENT_SECRET Warning
 
@@ -421,7 +421,7 @@ docker-compose down -v
 |--------|-------------|------------|
 | Database | Docker PostgreSQL | AWS RDS |
 | Email | MailHog | AWS SES |
-| Media Processing | Docker container | AWS Lambda (ECR) |
+| Heavy Processing | Docker worker-service | AWS Lambda (ECR) |
 | File Storage | Local `uploads/` folder | AWS S3 |
 | Authentication | Kinde Dev app | Kinde Prod app |
 | API | Express on port 3000 | API Gateway + Lambda |

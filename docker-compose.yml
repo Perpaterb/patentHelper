@@ -4,7 +4,7 @@
 # Services:
 # - postgres: RDS PostgreSQL equivalent
 # - mailhog: SES email testing equivalent
-# - media-processor: ECR Lambda equivalent (ffmpeg, sharp, PDF)
+# - worker-service: Heavy processing service (ffmpeg, sharp, PDF, puppeteer)
 # - pgadmin: Optional database management UI (--profile tools)
 
 services:
@@ -49,15 +49,17 @@ services:
       retries: 3
 
   # ============================================
-  # Media Processor (mirrors ECR Lambda)
-  # Handles: video/audio conversion (ffmpeg), image conversion (sharp), PDF generation,
-  # and call recording (puppeteer with headless Chrome)
+  # Worker Service (mirrors ECR Lambda for heavy processing)
+  # Handles: video/audio conversion (ffmpeg), image conversion (sharp),
+  # PDF generation, and call recording (puppeteer with headless Chrome)
+  # This service handles all CPU/memory-intensive tasks that don't fit in
+  # the main Lambda due to size/dependency constraints.
   # ============================================
-  media-processor:
+  worker-service:
     build:
-      context: ./backend/media-processor
+      context: ./backend/worker-service
       dockerfile: Dockerfile
-    container_name: fh-media-video-audio-image-pdf-recorder
+    container_name: fh-worker-service
     ports:
       - "3001:3001"
     environment:
@@ -135,12 +137,12 @@ networks:
 #
 # View logs:
 #   docker-compose logs -f postgres
-#   docker-compose logs -f media-processor
+#   docker-compose logs -f worker-service
 #   docker-compose logs -f mailhog
 #
-# Rebuild media-processor after changes:
-#   docker-compose build media-processor
-#   docker-compose up -d media-processor
+# Rebuild worker-service after changes:
+#   docker-compose build worker-service
+#   docker-compose up -d worker-service
 #
 # =============================================================================
 # LOCAL SERVICES OVERVIEW
@@ -151,7 +153,7 @@ networks:
 # | PostgreSQL       | localhost:5432               | RDS PostgreSQL             |
 # | MailHog SMTP     | localhost:1025               | AWS SES                    |
 # | MailHog Web UI   | http://localhost:8025        | -                          |
-# | Media Processor  | http://localhost:3001        | ECR Lambda (container)     |
+# | Worker Service   | http://localhost:3001        | ECR Lambda (container)     |
 # | pgAdmin          | http://localhost:5050        | -                          |
 # | Backend API      | http://localhost:3000        | API Gateway + Lambda (zip) |
 # | Web Admin        | http://localhost:8081        | CloudFront + S3            |

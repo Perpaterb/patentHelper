@@ -1,9 +1,12 @@
 /**
- * Media Processor Service Abstraction
+ * Worker Service Abstraction (formerly Media Processor)
  *
- * Routes media processing requests to:
- * - Local: HTTP server at localhost:3001 (Docker container)
+ * Routes heavy processing requests to:
+ * - Local: HTTP server at localhost:3001 (Docker container "worker-service")
  * - Production: AWS Lambda (ECR container)
+ *
+ * Handles: video/audio conversion (ffmpeg), image conversion (sharp),
+ * PDF generation, and call recording (puppeteer).
  *
  * This abstraction allows the same backend code to work
  * in both development and production environments.
@@ -26,10 +29,10 @@ try {
   // AWS SDK not available in local development - expected behavior
 }
 
-// Configuration
+// Configuration (supports both new WORKER_SERVICE_* and legacy MEDIA_PROCESSOR_* env vars)
 const isProduction = process.env.NODE_ENV === 'production';
-const MEDIA_PROCESSOR_URL = process.env.MEDIA_PROCESSOR_URL || 'http://localhost:3001';
-const MEDIA_PROCESSOR_LAMBDA = process.env.MEDIA_PROCESSOR_LAMBDA || 'family-helper-media-processor-prod';
+const WORKER_SERVICE_URL = process.env.WORKER_SERVICE_URL || process.env.MEDIA_PROCESSOR_URL || 'http://localhost:3001';
+const WORKER_SERVICE_LAMBDA = process.env.WORKER_SERVICE_LAMBDA || process.env.MEDIA_PROCESSOR_LAMBDA || 'family-helper-worker-service-prod';
 const AWS_REGION = process.env.AWS_REGION || process.env.AWS_S3_REGION || 'ap-southeast-2';
 
 // Lambda client (initialized lazily)
@@ -54,7 +57,7 @@ async function invokeLambda(payload) {
   }
 
   const command = new InvokeCommand({
-    FunctionName: MEDIA_PROCESSOR_LAMBDA,
+    FunctionName: WORKER_SERVICE_LAMBDA,
     InvocationType: 'RequestResponse',
     Payload: JSON.stringify(payload),
   });
@@ -70,13 +73,13 @@ async function invokeLambda(payload) {
 }
 
 /**
- * Call local media processor HTTP endpoint
+ * Call local worker service HTTP endpoint
  * @param {string} endpoint - Endpoint path
  * @param {Object} options - Request options
  * @returns {Promise<Object>} Response data
  */
 async function callLocalProcessor(endpoint, options = {}) {
-  const url = `${MEDIA_PROCESSOR_URL}${endpoint}`;
+  const url = `${WORKER_SERVICE_URL}${endpoint}`;
 
   try {
     const response = await axios({
@@ -101,14 +104,14 @@ async function callLocalProcessor(endpoint, options = {}) {
 }
 
 /**
- * Call local media processor with file upload
+ * Call local worker service with file upload
  * @param {string} endpoint - Endpoint path
  * @param {string} filePath - Path to file to upload
  * @param {Object} additionalFields - Additional form fields
  * @returns {Promise<Object>} Response data
  */
 async function callLocalProcessorWithFile(endpoint, filePath, additionalFields = {}) {
-  const url = `${MEDIA_PROCESSOR_URL}${endpoint}`;
+  const url = `${WORKER_SERVICE_URL}${endpoint}`;
 
   const form = new FormData();
   form.append('file', fs.createReadStream(filePath));
@@ -274,7 +277,7 @@ async function generatePDF(options) {
 }
 
 /**
- * Check if media processor is available
+ * Check if worker service is available
  * @returns {Promise<boolean>}
  */
 async function isAvailable() {
@@ -284,7 +287,7 @@ async function isAvailable() {
   }
 
   try {
-    const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, {
+    const response = await axios.get(`${WORKER_SERVICE_URL}/health`, {
       timeout: 5000,
     });
     return response.data.status === 'healthy';
@@ -294,7 +297,7 @@ async function isAvailable() {
 }
 
 /**
- * Get media processor health status
+ * Get worker service health status
  * @returns {Promise<Object>}
  */
 async function getHealth() {
@@ -302,31 +305,31 @@ async function getHealth() {
     return {
       status: 'healthy',
       mode: 'lambda',
-      functionName: MEDIA_PROCESSOR_LAMBDA,
+      functionName: WORKER_SERVICE_LAMBDA,
     };
   }
 
   try {
-    const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, {
+    const response = await axios.get(`${WORKER_SERVICE_URL}/health`, {
       timeout: 5000,
     });
     return {
       ...response.data,
       mode: 'local',
-      url: MEDIA_PROCESSOR_URL,
+      url: WORKER_SERVICE_URL,
     };
   } catch (error) {
     return {
       status: 'unhealthy',
       mode: 'local',
-      url: MEDIA_PROCESSOR_URL,
+      url: WORKER_SERVICE_URL,
       error: error.message,
     };
   }
 }
 
 /**
- * Check media processor status and log capabilities at startup
+ * Check worker service status and log capabilities at startup
  * This consolidates all media processing capability logs into one place
  * @returns {Promise<Object>} Health status with capabilities
  */
@@ -344,7 +347,7 @@ async function checkAndLogStatus() {
 
   if (isProduction) {
     // In production, Lambda handles all processing
-    statusMessage = '☁️  Media processing via AWS Lambda';
+    statusMessage = '☁️  Worker Service (heavy processing) via AWS Lambda';
     capabilities.video = true;
     capabilities.audio = true;
     capabilities.image = true;
@@ -354,7 +357,7 @@ async function checkAndLogStatus() {
   } else {
     // Check local Docker container
     try {
-      const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, {
+      const response = await axios.get(`${WORKER_SERVICE_URL}/health`, {
         timeout: 5000,
       });
 
@@ -375,12 +378,12 @@ async function checkAndLogStatus() {
         if (capabilities.pdf) enabledCaps.push('PDF');
         if (capabilities.callRecording) enabledCaps.push('call recording');
 
-        statusMessage = `✅ Media Processor (Docker) - ${enabledCaps.join(', ')} ready`;
+        statusMessage = `✅ Worker Service (Docker) - ${enabledCaps.join(', ')} ready`;
       } else {
-        statusMessage = '❌ Media Processor (Docker) - unhealthy';
+        statusMessage = '❌ Worker Service (Docker) - unhealthy';
       }
     } catch (error) {
-      statusMessage = `❌ Media Processor (Docker) - not running (${MEDIA_PROCESSOR_URL})`;
+      statusMessage = `❌ Worker Service (Docker) - not running (${WORKER_SERVICE_URL})`;
     }
   }
 
@@ -389,7 +392,7 @@ async function checkAndLogStatus() {
   return {
     containerUp,
     capabilities,
-    url: MEDIA_PROCESSOR_URL,
+    url: WORKER_SERVICE_URL,
     isProduction,
   };
 }
@@ -405,7 +408,7 @@ module.exports = {
   // Export config for debugging
   config: {
     isProduction,
-    mediaProcessorUrl: MEDIA_PROCESSOR_URL,
-    mediaProcessorLambda: MEDIA_PROCESSOR_LAMBDA,
+    workerServiceUrl: WORKER_SERVICE_URL,
+    workerServiceLambda: WORKER_SERVICE_LAMBDA,
   },
 };
