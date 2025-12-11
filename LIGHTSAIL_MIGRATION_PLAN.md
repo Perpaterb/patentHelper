@@ -426,6 +426,20 @@ If something goes wrong:
 
 ## Current Status (2025-12-11)
 
+### ✅ MIGRATION COMPLETE
+
+| Item | Status |
+|------|--------|
+| Lightsail Deployment | ✅ Complete |
+| SSL/HTTPS | ✅ Enabled |
+| DNS Migration | ✅ Complete |
+| Old Infrastructure Teardown | ✅ Complete |
+
+### Production URLs
+
+- **Web App**: https://familyhelperapp.com
+- **API Health**: https://familyhelperapp.com/health
+
 ### Deployed to Lightsail
 
 | Resource | Value |
@@ -434,6 +448,7 @@ If something goes wrong:
 | Static IP | 52.65.37.116 |
 | Instance Size | $12/month (2GB RAM, 2 vCPU, 60GB SSD) |
 | SSH Key | ~/.ssh/lightsail-family-helper.pem |
+| SSL Certificate | Let's Encrypt (auto-renews) |
 
 ### Services Running
 
