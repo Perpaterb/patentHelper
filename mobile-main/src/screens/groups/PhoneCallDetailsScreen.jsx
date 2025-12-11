@@ -809,9 +809,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                     <Text style={styles.participantName}>
                       {participant.displayName || 'Unknown'}
                     </Text>
-                    <Text style={[styles.participantStatus, { color: statusColor }]}>
-                      {participant.status}
-                    </Text>
+                    <Text style={styles.participantRole}>Participant</Text>
                   </View>
                 </View>
               );

@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, Platform, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, Platform, FlatList, TouchableOpacity, Pressable } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Video, ResizeMode } from 'expo-av';
 import api from '../../services/api';
@@ -35,7 +35,13 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
   const [videoStatus, setVideoStatus] = useState({});
   const [endingCall, setEndingCall] = useState(false);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const [progressBarWidth, setProgressBarWidth] = useState(0);
+  const [progressBarLeft, setProgressBarLeft] = useState(0);
   const videoRef = useRef(null);
+  const progressBarRef = useRef(null);
 
   useEffect(() => {
     loadGroupInfo();
@@ -229,9 +235,28 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
 
   /**
    * Handle video playback status
+   * Uses stored durationMs from database if video metadata duration is missing (WebM issue)
    */
   const handleVideoStatusUpdate = (status) => {
     setVideoStatus(status);
+    if (status.isLoaded) {
+      setPlaybackPosition(status.positionMillis);
+      setIsPlaying(status.isPlaying);
+
+      // Use stored duration from database as fallback when video duration is 0 or Infinity
+      // WebM files often don't have duration metadata embedded
+      const chunks = call?.recording?.chunks || [];
+      const currentChunk = chunks[currentChunkIndex];
+      const storedDuration = currentChunk?.durationMs || call?.recording?.durationMs || call?.recordingDurationMs || 0;
+      const videoDuration = status.durationMillis;
+
+      // Only use video duration if it's valid (not 0, not Infinity, and not NaN)
+      if (videoDuration && videoDuration > 0 && isFinite(videoDuration)) {
+        setPlaybackDuration(videoDuration);
+      } else if (storedDuration > 0) {
+        setPlaybackDuration(storedDuration);
+      }
+    }
     if (status.error) {
       console.error('[VideoCallDetails] Video playback error:', status.error);
     }
@@ -246,6 +271,68 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
    */
   const handleVideoError = (error) => {
     console.error('[VideoCallDetails] Video load error:', error);
+  };
+
+  /**
+   * Toggle video play/pause
+   */
+  const togglePlayback = async () => {
+    if (!videoRef.current) return;
+
+    try {
+      if (isPlaying) {
+        await videoRef.current.pauseAsync();
+      } else {
+        await videoRef.current.playAsync();
+      }
+    } catch (error) {
+      console.error('[VideoCallDetails] Toggle playback error:', error);
+    }
+  };
+
+  /**
+   * Handle seek on progress bar
+   */
+  const handleSeek = async (event) => {
+    if (!videoRef.current || !playbackDuration || progressBarWidth === 0) return;
+
+    let locationX;
+
+    // Handle different event types (native touch vs web click)
+    if (event.nativeEvent?.locationX !== undefined) {
+      locationX = event.nativeEvent.locationX;
+    } else if (event.nativeEvent?.offsetX !== undefined) {
+      locationX = event.nativeEvent.offsetX;
+    } else if (event.nativeEvent?.pageX !== undefined && progressBarLeft > 0) {
+      locationX = event.nativeEvent.pageX - progressBarLeft;
+    } else {
+      return;
+    }
+
+    // Clamp to valid range
+    locationX = Math.max(0, Math.min(locationX, progressBarWidth));
+    const seekPosition = (locationX / progressBarWidth) * playbackDuration;
+
+    try {
+      await videoRef.current.setPositionAsync(Math.max(0, Math.floor(seekPosition)));
+    } catch (error) {
+      console.error('[VideoCallDetails] Seek error:', error);
+    }
+  };
+
+  /**
+   * Store progress bar dimensions for seek calculations
+   */
+  const handleProgressBarLayout = (event) => {
+    const { width, x } = event.nativeEvent.layout;
+    setProgressBarWidth(width);
+    // For web, we need the absolute position
+    if (Platform.OS === 'web' && progressBarRef.current) {
+      const rect = progressBarRef.current.getBoundingClientRect?.();
+      if (rect) {
+        setProgressBarLeft(rect.left);
+      }
+    }
   };
 
   /**
@@ -447,13 +534,14 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                     style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
                   />
                 ) : (
-                  // Use expo-av Video on native platforms
+                  // Use expo-av Video on native platforms with custom controls
+                  // Custom controls use stored durationMs to fix WebM progress bar issue
                   <Video
                     ref={videoRef}
                     key={recordingUrl}
                     source={{ uri: recordingUrl }}
                     style={styles.video}
-                    useNativeControls
+                    useNativeControls={false}
                     resizeMode={ResizeMode.CONTAIN}
                     onPlaybackStatusUpdate={handleVideoStatusUpdate}
                     onError={handleVideoError}
@@ -461,6 +549,55 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                   />
                 )}
               </View>
+
+              {/* Custom video controls for native platforms (fixes WebM progress bar) */}
+              {Platform.OS !== 'web' && (
+                <View style={styles.customControlsContainer}>
+                  <IconButton
+                    icon={isPlaying ? 'pause' : 'play'}
+                    size={32}
+                    onPress={togglePlayback}
+                    style={styles.playPauseButton}
+                    iconColor="#fff"
+                  />
+
+                  <View style={styles.progressContainer}>
+                    <Pressable
+                      ref={progressBarRef}
+                      style={styles.progressBarTouchable}
+                      onPress={handleSeek}
+                      onLayout={handleProgressBarLayout}
+                    >
+                      <View style={styles.progressBarWrapper}>
+                        <View style={styles.progressBar}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              { width: `${playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0}%` }
+                            ]}
+                          />
+                        </View>
+                        {/* Seek indicator dot */}
+                        <View
+                          style={[
+                            styles.seekDot,
+                            { left: `${playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0}%` }
+                          ]}
+                        />
+                      </View>
+                    </Pressable>
+                    <View style={styles.timeRow}>
+                      <Text style={styles.timeText}>{formatDuration(playbackPosition)}</Text>
+                      <Text style={styles.timeText}>
+                        {hasChunks
+                          ? formatDuration(sortedChunks[currentChunkIndex]?.durationMs || playbackDuration)
+                          : formatDuration(call.recording?.durationMs || call.recordingDurationMs || playbackDuration)
+                        }
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Chunk navigation controls */}
               {hasChunks && (
@@ -626,9 +763,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                     <Text style={styles.participantName}>
                       {participant.displayName || 'Unknown'}
                     </Text>
-                    <Text style={[styles.participantStatus, { color: statusColor }]}>
-                      {participant.status}
-                    </Text>
+                    <Text style={styles.participantRole}>Participant</Text>
                   </View>
                 </View>
               );
@@ -905,5 +1040,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#2196f3',
     fontWeight: '500',
+  },
+  // Custom video controls styles
+  customControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  playPauseButton: {
+    backgroundColor: '#2196f3',
+    borderRadius: 20,
+    margin: 0,
+  },
+  progressContainer: {
+    flex: 1,
+    marginLeft: 8,
+    marginRight: 8,
+  },
+  progressBarTouchable: {
+    paddingVertical: 8,
+  },
+  progressBarWrapper: {
+    position: 'relative',
+    height: 20,
+    justifyContent: 'center',
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#555',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2196f3',
+    borderRadius: 2,
+  },
+  seekDot: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2196f3',
+    top: 4,
+    marginLeft: -6,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#aaa',
   },
 });

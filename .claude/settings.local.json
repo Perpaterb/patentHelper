@@ -134,7 +134,16 @@
       "Bash(rsync:*)",
       "Bash(./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/)",
       "Bash(~/.local/bin/aws rds describe-db-instances:*)",
-      "Bash(~/.local/bin/aws rds modify-db-instance:*)"
+      "Bash(~/.local/bin/aws rds modify-db-instance:*)",
+      "Bash(git -C /home/andrew/dev/familyHelper log --oneline -20)",
+      "Bash(git -C /home/andrew/dev/familyHelper log -5 --name-status)",
+      "Bash(git -C /home/andrew/dev/familyHelper log --all --oneline)",
+      "Bash(git -C /home/andrew/dev/familyHelper show e582d30 --stat)",
+      "Bash(~/.local/bin/aws cloudfront create-invalidation:*)",
+      "Bash(~/.local/bin/aws cloudfront:*)",
+      "Bash(dig:*)",
+      "Bash(nslookup:*)",
+      "Bash(~/.local/bin/aws s3 sync:*)"
     ],
     "deny": [],
     "ask": []
