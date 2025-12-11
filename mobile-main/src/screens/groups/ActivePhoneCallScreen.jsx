@@ -405,26 +405,14 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
   // Get all participants for display (initiator + all call participants)
   const allParticipants = [];
 
-  // Helper function to determine effective status based on WebRTC state
-  const getEffectiveStatus = (memberId, baseStatus) => {
-    const webrtcState = connectionStates[memberId];
-    const hasRemoteStream = !!remoteStreams[memberId];
-
-    if (hasRemoteStream || webrtcState === 'connected') {
-      return 'joined';
-    } else if (webrtcState === 'connecting' || webrtcState === 'new') {
-      return 'accepted'; // Still connecting
-    }
-    return baseStatus;
-  };
+  // Check if we have ANY connected WebRTC peer (simplified check)
+  const hasAnyConnection = firstRemoteStream || Object.values(connectionStates).some(s => s === 'connected');
 
   // Add initiator
   if (call.initiator) {
     // If I'm the initiator, I'm always "joined"
-    // If I'm the callee, show initiator's WebRTC connection status to me
-    const initiatorStatus = isInitiator
-      ? 'joined'
-      : getEffectiveStatus(call.initiator.groupMemberId, 'joined');
+    // If I'm the callee and we have a connection, show initiator as "joined"
+    const initiatorStatus = isInitiator ? 'joined' : (hasAnyConnection ? 'joined' : 'accepted');
 
     allParticipants.push({
       ...call.initiator,
@@ -438,8 +426,8 @@ export default function ActivePhoneCallScreen({ navigation, route }) {
     call.participants.forEach(p => {
       // Don't add if already the initiator
       if (p.groupMemberId !== call.initiator?.groupMemberId) {
-        // Use WebRTC connection state to determine actual connectivity
-        const effectiveStatus = getEffectiveStatus(p.groupMemberId, p.status);
+        // If we have any connection and participant accepted, show as joined
+        const effectiveStatus = (hasAnyConnection && p.status === 'accepted') ? 'joined' : p.status;
 
         allParticipants.push({
           ...p,
