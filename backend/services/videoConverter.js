@@ -157,12 +157,14 @@ async function getVideoDurationLocal(filePath) {
  * @returns {boolean} True if conversion needed
  */
 function needsConversion(mimeType) {
+  // WebM is widely supported now - skip conversion to reduce server load
+  // Only convert legacy formats that truly need it
   const incompatibleFormats = [
-    'video/webm',
     'video/quicktime', // .mov
     'video/x-msvideo', // .avi
     'video/x-matroska', // .mkv
-    'video/ogg',
+    // 'video/webm' - removed: WebM is supported by modern browsers/apps
+    // 'video/ogg' - removed: also widely supported
   ];
   return incompatibleFormats.includes(mimeType);
 }
