@@ -449,6 +449,7 @@ If something goes wrong:
 
 ### Access
 
+- **Web App**: http://52.65.37.116/
 - **API Health**: http://52.65.37.116/health
 - **SSH**: `ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116`
 - **Logs**: `pm2 logs family-helper`
@@ -466,8 +467,55 @@ ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-h
 ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 restart family-helper"
 
 # Enable SSL (after DNS is updated)
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "sudo certbot --nginx -d api.familyhelperapp.com"
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "sudo certbot --nginx -d familyhelperapp.com -d www.familyhelperapp.com"
 ```
+
+---
+
+## DNS Migration Steps
+
+The domain `familyhelperapp.com` is managed by **Porkbun**.
+
+### Step 1: Update DNS Records in Porkbun
+
+Log into Porkbun and update the following A records:
+
+| Record Type | Name | Current Value | New Value |
+|-------------|------|---------------|-----------|
+| A | @ (root) | CloudFront IPs | 52.65.37.116 |
+| A | www | CloudFront IPs | 52.65.37.116 |
+
+### Step 2: Wait for DNS Propagation
+
+DNS changes can take up to 24-48 hours to propagate globally, but often complete within 5-30 minutes.
+
+Check propagation: https://dnschecker.org/#A/familyhelperapp.com
+
+### Step 3: Enable SSL with Let's Encrypt
+
+Once DNS points to Lightsail, run:
+
+```bash
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
+  "sudo certbot --nginx -d familyhelperapp.com -d www.familyhelperapp.com"
+```
+
+### Step 4: Update Mobile App Production Config
+
+Update `mobile-main/.env.production`:
+```
+EXPO_PUBLIC_API_URL=https://familyhelperapp.com
+```
+
+Then rebuild and deploy the mobile app.
+
+### Step 5: Verify Everything Works
+
+- [ ] Web app loads at https://familyhelperapp.com
+- [ ] API responds at https://familyhelperapp.com/health
+- [ ] Mobile app can connect to new API
+- [ ] Kinde authentication works
+- [ ] Stripe webhooks work
 
 ---
 
