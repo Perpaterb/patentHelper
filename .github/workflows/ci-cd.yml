@@ -2,10 +2,15 @@
 #
 # STATUS: DISABLED - To enable, change the trigger from workflow_dispatch to push
 #
+# NOTE: Production is now on LIGHTSAIL, not Lambda/CloudFront!
+# This workflow is outdated. For manual deployment use:
+#   ./scripts/deploy-lightsail.sh        # Full backend + frontend
+#   ./scripts/deploy-web-frontend.sh     # Frontend only
+#
 # This workflow handles:
 # - Testing backend, web-admin, and mobile-main
-# - Building and deploying Lambda API to AWS
-# - Building and deploying web-admin to CloudFront/S3
+# - (OUTDATED) Building and deploying Lambda API to AWS
+# - (OUTDATED) Building and deploying web-admin to CloudFront/S3
 #
 # To enable automatic deployment on push to main:
 # 1. Uncomment the 'push' trigger below

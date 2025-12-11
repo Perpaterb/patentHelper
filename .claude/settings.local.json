@@ -145,7 +145,8 @@
       "Bash(nslookup:*)",
       "Bash(~/.local/bin/aws s3 sync:*)",
       "Bash(~/.local/bin/aws s3 cp:*)",
-      "Bash(./scripts/deploy-lightsail.sh:*)"
+      "Bash(./scripts/deploy-lightsail.sh:*)",
+      "Bash(~/.local/bin/aws s3 ls:*)"
     ],
     "deny": [],
     "ask": []

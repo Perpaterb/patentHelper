@@ -1221,64 +1221,66 @@ The app works without it. DO NOT try to "fix" this warning.
 
 ## 🚀 CI/CD Pipeline & Deployment
 
-### GitHub Actions CI/CD
+### Current Architecture: Lightsail
 
-The project uses GitHub Actions for automated testing and deployment. Workflows are defined in `.github/workflows/`.
+**IMPORTANT:** Production runs on **AWS Lightsail**, NOT Lambda/CloudFront!
 
-**Workflow Files:**
-- `ci-cd.yml` - Main pipeline (tests + deployment on push to main)
-- `pr-checks.yml` - Pull request validation (tests + build check only)
+| Component | Location |
+|-----------|----------|
+| Backend API | Lightsail (Node.js + PM2 + nginx) |
+| Web Frontend | Lightsail (nginx serves static files from `/home/ubuntu/web-admin`) |
+| Database | AWS RDS PostgreSQL |
+| File Storage | AWS S3 |
 
-### How CI/CD Works
+### Deployment Scripts
 
-**On push to `main` branch:**
-1. **Test Phase** (runs in parallel):
-   - `test-backend`: Runs backend linting and tests
-   - `test-web-admin`: Runs web-admin tests
-   - `test-mobile-main`: Runs mobile-main tests
-
-2. **Deploy Phase** (only if ALL tests pass):
-   - `deploy-backend`: Builds Lambda package, uploads to S3, updates Lambda function
-   - `deploy-web-admin`: Builds web app, syncs to S3, invalidates CloudFront cache
-
-**On pull requests:**
-- Runs all tests
-- Verifies build compiles
-- NO deployment (just validation)
-
-### Required GitHub Secrets
-
-These secrets must be configured in GitHub repository settings:
-
-| Secret Name | Description |
-|-------------|-------------|
-| `AWS_ACCESS_KEY_ID` | AWS IAM user access key |
-| `AWS_SECRET_ACCESS_KEY` | AWS IAM user secret key |
-| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key for payments |
-
-### Manual Deployment (Emergency)
-
-If CI/CD fails or you need to deploy manually:
-
-**Deploy Backend (Lambda):**
+**Full Deployment (Backend + Frontend):**
 ```bash
-cd backend
-npm ci
-./scripts/build-lambda.sh
-aws s3 cp lambda.zip s3://family-helper-files-prod/lambda/lambda.zip
-aws lambda update-function-code \
-  --function-name family-helper-api-prod \
-  --s3-bucket family-helper-files-prod \
-  --s3-key lambda/lambda.zip
+./scripts/deploy-lightsail.sh
 ```
 
-**Deploy Web Admin (CloudFront):**
+**Frontend Only (Web App):**
 ```bash
-cd web-admin
+./scripts/deploy-web-frontend.sh
+```
+
+**What deploy-web-frontend.sh does:**
+1. Builds mobile-main for web: `npx expo export --platform web`
+2. Syncs dist/ to Lightsail: `rsync` to `/home/ubuntu/web-admin/`
+3. Verifies deployment by checking bundle hash
+
+### Manual Deployment Commands
+
+**Deploy Backend Only:**
+```bash
+# From project root
+rsync -avz --delete \
+  --exclude 'node_modules' --exclude 'uploads' --exclude '.env*' \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  ./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/
+
+# On server: install deps and restart
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 << 'EOF'
+cd /home/ubuntu/family-helper
+npm ci --omit=dev
+npx prisma generate
+npx prisma migrate deploy
+pm2 restart family-helper
+EOF
+```
+
+**Deploy Web Frontend Only:**
+```bash
+cd mobile-main
 npm install --legacy-peer-deps
 npx expo export --platform web
-aws s3 sync dist/ s3://family-helper-web-prod/ --delete
-aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
+
+rsync -avz --delete \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  ./dist/ ubuntu@52.65.37.116:/home/ubuntu/web-admin/
+
+# Verify deployment
+curl -s "https://familyhelperapp.com/index.html" | grep -o 'index-[a-f0-9]*\.js'
 ```
 
 ### Production URLs
@@ -1287,50 +1289,60 @@ aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
 |---------|-----|
 | Web App | https://familyhelperapp.com |
 | Web App (www) | https://www.familyhelperapp.com |
-| API Gateway | https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod |
-| CloudFront (direct) | https://did5g5bty80vq.cloudfront.net |
+| API | https://familyhelperapp.com/health |
+
+### Server Access
+
+```bash
+# SSH to Lightsail
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116
+
+# View PM2 logs
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-helper --lines 50"
+
+# Restart backend
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 restart family-helper"
+
+# Check PM2 status
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 status"
+```
 
 ### AWS Resources
 
 | Resource | Name/ID |
 |----------|---------|
-| Lambda Function | family-helper-api-prod |
-| S3 (Web Files) | family-helper-web-prod |
-| S3 (User Files) | family-helper-files-prod |
-| CloudFront Distribution | EOFB5YCW926IM |
+| Lightsail Instance | family-helper-prod (52.65.37.116) |
 | RDS Database | family-helper-db-prod |
+| S3 (User Files) | family-helper-files-prod |
 | Region | ap-southeast-2 (Sydney) |
 
-### Monitoring Deployments
+### Monitoring & Health Checks
 
-- **GitHub Actions**: https://github.com/Perpaterb/patentHelper/actions
-- **AWS Lambda Logs**: `aws logs tail /aws/lambda/family-helper-api-prod --follow`
-- **Health Check**: `curl https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod/health`
+```bash
+# Health check
+curl https://familyhelperapp.com/health
+
+# Check which JS bundle is deployed
+curl -s "https://familyhelperapp.com/index.html" | grep -o 'index-[a-f0-9]*\.js'
+
+# View PM2 logs (live)
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-helper"
+```
 
 ### Rollback Procedure
 
-**Rollback Lambda to previous version:**
 ```bash
-# List recent versions
-aws lambda list-versions-by-function --function-name family-helper-api-prod
-
 # Rollback to specific git commit
 git checkout <commit-hash>
-cd backend
-./scripts/build-lambda.sh
-aws s3 cp lambda.zip s3://family-helper-files-prod/lambda/lambda.zip
-aws lambda update-function-code --function-name family-helper-api-prod --s3-bucket family-helper-files-prod --s3-key lambda/lambda.zip
+
+# Redeploy
+./scripts/deploy-lightsail.sh
 ```
 
-**Rollback Web Admin:**
-```bash
-git checkout <commit-hash>
-cd web-admin
-npm install --legacy-peer-deps
-npx expo export --platform web
-aws s3 sync dist/ s3://family-helper-web-prod/ --delete
-aws cloudfront create-invalidation --distribution-id EOFB5YCW926IM --paths "/*"
-```
+### GitHub Actions (OUTDATED)
+
+The GitHub Actions workflows in `.github/workflows/` deploy to Lambda/CloudFront which is no longer used.
+They can still be used for running tests on PRs.
 
 ---
 

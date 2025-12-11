@@ -69,16 +69,22 @@ pm2 save
 pm2 status
 EOF
 
-# Build and deploy web-admin
-echo "Building web-admin..."
-cd web-admin
-npm run build
+# Build and deploy mobile-main web frontend
+echo "Building mobile-main for web..."
+cd mobile-main
+npm install --legacy-peer-deps
+npx expo export --platform web
 cd ..
 
-echo "Syncing web-admin files..."
+echo "Syncing web frontend files..."
 rsync -avz --delete \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-  ./web-admin/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
+  ./mobile-main/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
+
+# Verify deployment
+echo "Verifying deployment..."
+DEPLOYED_BUNDLE=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "grep -o 'index-[a-f0-9]*\.js' /home/ubuntu/web-admin/index.html | head -1")
+echo "Deployed bundle: $DEPLOYED_BUNDLE"
 
 echo "=== Deployment complete ==="
 echo "Check status: ssh -i $SSH_KEY ubuntu@$LIGHTSAIL_IP 'pm2 status'"
