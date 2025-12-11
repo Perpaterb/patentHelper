@@ -1,0 +1,48 @@
+# Dependencies - will be installed fresh in container
+node_modules/
+
+# Development files
+.git/
+.gitignore
+*.md
+README.md
+CHANGELOG.md
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Worker service (merged into main server)
+worker-service/
+
+# Uploads (mounted as volume)
+uploads/

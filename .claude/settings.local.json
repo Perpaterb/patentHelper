@@ -118,7 +118,9 @@
       "Bash(~/.local/bin/aws servicediscovery create-service:*)",
       "Bash(~/.local/bin/aws ecs create-service:*)",
       "Bash(~/.local/bin/aws ecs describe-services:*)",
-      "Bash(~/.local/bin/aws lambda update-function-configuration:*)"
+      "Bash(~/.local/bin/aws lambda update-function-configuration:*)",
+      "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose build api)",
+      "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose logs api)"
     ],
     "deny": [],
     "ask": []
