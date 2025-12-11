@@ -120,7 +120,21 @@
       "Bash(~/.local/bin/aws ecs describe-services:*)",
       "Bash(~/.local/bin/aws lambda update-function-configuration:*)",
       "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose build api)",
-      "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose logs api)"
+      "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose logs api)",
+      "Bash(~/.local/bin/aws lightsail get-bundles:*)",
+      "Bash(~/.local/bin/aws lightsail get-blueprints:*)",
+      "Bash(~/.local/bin/aws lightsail create-instances:*)",
+      "Bash(~/.local/bin/aws lightsail get-instance:*)",
+      "Bash(~/.local/bin/aws lightsail allocate-static-ip:*)",
+      "Bash(~/.local/bin/aws lightsail attach-static-ip:*)",
+      "Bash(~/.local/bin/aws lightsail open-instance-public-ports:*)",
+      "Bash(~/.local/bin/aws lightsail download-default-key-pair:*)",
+      "Bash(git restore:*)",
+      "Bash(\"/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe\" compose ps)",
+      "Bash(rsync:*)",
+      "Bash(./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/)",
+      "Bash(~/.local/bin/aws rds describe-db-instances:*)",
+      "Bash(~/.local/bin/aws rds modify-db-instance:*)"
     ],
     "deny": [],
     "ask": []
