@@ -69,6 +69,20 @@ pm2 save
 pm2 status
 EOF
 
+# Build and deploy web-admin
+echo "Building web-admin..."
+cd web-admin
+npm run build
+cd ..
+
+echo "Syncing web-admin files..."
+rsync -avz --delete \
+  -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+  ./web-admin/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
+
 echo "=== Deployment complete ==="
 echo "Check status: ssh -i $SSH_KEY ubuntu@$LIGHTSAIL_IP 'pm2 status'"
 echo "View logs: ssh -i $SSH_KEY ubuntu@$LIGHTSAIL_IP 'pm2 logs family-helper'"
+echo ""
+echo "Web App: https://familyhelperapp.com"
+echo "API: https://familyhelperapp.com/health"
