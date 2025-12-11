@@ -69,6 +69,10 @@
     let chunkStartTime = null;
     let chunkTimer = null;
 
+    // Upload tracking state
+    let uploadQueue = [];  // Tracks pending uploads
+    let isUploading = false;
+
     // Video state
     let participantVideos = {}; // { peerId: { video: HTMLVideoElement, stream: MediaStream } }
     let canvasContext = null;
@@ -607,6 +611,10 @@
     }
 
     async function uploadChunk(chunkIndex, recordedChunks, startTime, endTime) {
+      // Add to upload queue for tracking
+      uploadQueue.push(chunkIndex);
+      isUploading = true;
+
       try {
         if (recordedChunks.length === 0) {
           console.log(`[VideoRecorder] Chunk ${chunkIndex}: No data to upload`);
@@ -640,6 +648,12 @@
         }
       } catch (err) {
         console.error(`[VideoRecorder] Chunk ${chunkIndex} upload error:`, err);
+      } finally {
+        // Remove from upload queue
+        uploadQueue = uploadQueue.filter(idx => idx !== chunkIndex);
+        if (uploadQueue.length === 0) {
+          isUploading = false;
+        }
       }
     }
 
