@@ -152,6 +152,62 @@ async function getVideoDurationLocal(filePath) {
 }
 
 /**
+ * Remux WebM file to fix duration metadata
+ * Uses ffmpeg -c copy to re-package without re-encoding
+ * This fixes the missing duration issue in MediaRecorder WebM files
+ * @param {string} inputPath - Path to input WebM file
+ * @param {string} outputDir - Directory to save remuxed file
+ * @param {number} durationMs - Duration in milliseconds (from client)
+ * @returns {Promise<{path: string, fileName: string, mimeType: string, durationMs: number}>}
+ */
+async function remuxWebm(inputPath, outputDir, durationMs = 0) {
+  requireLocalFfmpeg();
+  const outputFileName = `${uuidv4()}.webm`;
+  const outputPath = path.join(outputDir, outputFileName);
+
+  const inputStats = await fs.stat(inputPath);
+  console.log(`[VideoConverter] Remuxing WebM to fix duration. Input size: ${(inputStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .outputOptions(['-c', 'copy']) // Copy streams without re-encoding
+      .on('start', (commandLine) => {
+        console.log('[VideoConverter] FFmpeg remux command:', commandLine);
+      })
+      .on('error', (err, stdout, stderr) => {
+        console.error('[VideoConverter] FFmpeg remux error:', err);
+        console.error('[VideoConverter] FFmpeg stderr:', stderr);
+        reject(new Error(`WebM remux failed: ${err.message}`));
+      })
+      .on('end', async () => {
+        try {
+          const outputStats = await fs.stat(outputPath);
+          console.log(`[VideoConverter] Remux complete. Output size: ${(outputStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+          // Try to get duration from remuxed file
+          let finalDurationMs = durationMs;
+          try {
+            finalDurationMs = await getVideoDurationLocal(outputPath);
+            console.log(`[VideoConverter] Duration from remuxed file: ${finalDurationMs}ms`);
+          } catch (probeErr) {
+            console.warn(`[VideoConverter] Could not probe duration, using provided: ${durationMs}ms`);
+          }
+
+          resolve({
+            path: outputPath,
+            fileName: outputFileName,
+            mimeType: 'video/webm',
+            durationMs: finalDurationMs || durationMs,
+          });
+        } catch (err) {
+          reject(new Error(`Failed to read remuxed file: ${err.message}`));
+        }
+      })
+      .save(outputPath);
+  });
+}
+
+/**
  * Check if file needs conversion (is not mp4)
  * @param {string} mimeType - MIME type of the file
  * @returns {boolean} True if conversion needed
@@ -236,18 +292,21 @@ async function getVideoDuration(filePath) {
 
 /**
  * Convert video if needed, otherwise return original
+ * For WebM files, remux to fix duration metadata
  * @param {string} filePath - Path to video file
  * @param {string} mimeType - Original MIME type
  * @param {string} outputDir - Directory for converted file
+ * @param {number} clientDurationMs - Duration from client (optional, for WebM files)
  * @returns {Promise<{path: string, mimeType: string, wasConverted: boolean, durationMs: number}>}
  */
-async function convertIfNeeded(filePath, mimeType, outputDir) {
+async function convertIfNeeded(filePath, mimeType, outputDir, clientDurationMs = 0) {
   let resultPath = filePath;
   let resultMimeType = mimeType;
   let wasConverted = false;
   let durationMs = 0;
 
   if (needsConversion(mimeType)) {
+    // Convert incompatible formats to MP4
     console.log(`Converting ${mimeType} to MP4...`);
     const result = await convertToMp4(filePath, outputDir);
     resultPath = result.path;
@@ -262,11 +321,38 @@ async function convertIfNeeded(filePath, mimeType, outputDir) {
     } catch (err) {
       console.warn(`Could not delete original file: ${err.message}`);
     }
+  } else if (mimeType === 'video/webm' && localFfmpegAvailable) {
+    // Remux WebM files to fix duration metadata
+    // MediaRecorder WebM files don't have proper duration headers
+    console.log(`[VideoConverter] Remuxing WebM to fix duration metadata...`);
+    try {
+      const result = await remuxWebm(filePath, outputDir, clientDurationMs);
+      resultPath = result.path;
+      resultMimeType = result.mimeType;
+      wasConverted = true; // Mark as converted so caller knows to use new file
+      durationMs = result.durationMs;
+
+      // Delete original file after successful remux
+      try {
+        await fs.unlink(filePath);
+        console.log(`Deleted original file: ${filePath}`);
+      } catch (err) {
+        console.warn(`Could not delete original file: ${err.message}`);
+      }
+    } catch (remuxErr) {
+      console.error(`[VideoConverter] Remux failed, using original file:`, remuxErr.message);
+      // Fall back to original file if remux fails
+    }
   }
 
   // Get duration if we haven't already
   if (!durationMs) {
-    durationMs = await getVideoDuration(resultPath);
+    try {
+      durationMs = await getVideoDuration(resultPath);
+    } catch (err) {
+      console.warn(`[VideoConverter] Could not get duration: ${err.message}`);
+      durationMs = clientDurationMs || 0;
+    }
   }
 
   return {
@@ -283,4 +369,5 @@ module.exports = {
   needsConversion,
   convertIfNeeded,
   isAvailable,
+  remuxWebm,
 };

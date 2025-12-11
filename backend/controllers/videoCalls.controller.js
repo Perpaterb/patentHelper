@@ -1121,6 +1121,7 @@ async function uploadRecording(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId, callId } = req.params;
+    const { durationMs: clientDurationMs } = req.body || {};
 
     if (!userId) {
       return res.status(401).json({
@@ -1196,15 +1197,21 @@ async function uploadRecording(req, res) {
     let fileSize = req.file.size;
     let durationMs = 0;
 
+    // Parse client duration if provided
+    const parsedClientDuration = clientDurationMs ? parseInt(clientDurationMs, 10) : 0;
+
     try {
-      // Convert to MP4 only if needed (WebM is NOT converted - see videoConverter.needsConversion)
-      const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
+      // Process the video - remux WebM to fix duration, convert incompatible formats to MP4
+      const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir, parsedClientDuration);
       filePath = converted.path;
       fileMimeType = converted.mimeType;
       durationMs = converted.durationMs;
 
       if (converted.wasConverted) {
-        fileName = fileName.replace(/\.[^.]+$/, '.mp4');
+        // Update filename extension based on output mime type
+        if (fileMimeType === 'video/mp4') {
+          fileName = fileName.replace(/\.[^.]+$/, '.mp4');
+        }
         const stats = await fs.stat(filePath);
         fileSize = stats.size;
       }
@@ -1306,7 +1313,7 @@ async function uploadRecordingChunk(req, res) {
   try {
     const userId = req.user?.userId;
     const { groupId, callId } = req.params;
-    const { chunkIndex, startedAt, endedAt } = req.body;
+    const { chunkIndex, startedAt, endedAt, durationMs: clientDurationMs } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -1395,9 +1402,12 @@ async function uploadRecordingChunk(req, res) {
     let fileSize = req.file.size;
     let durationMs = 0;
 
+    // Parse client duration (sent from videoRecorder.html)
+    const parsedClientDuration = clientDurationMs ? parseInt(clientDurationMs, 10) : 0;
+
     try {
-      // Convert to MP4 only if needed (WebM is NOT converted - see videoConverter.needsConversion)
-      const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
+      // Process the video - remux WebM to fix duration, convert incompatible formats to MP4
+      const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir, parsedClientDuration);
       filePath = converted.path;
       fileMimeType = converted.mimeType;
       durationMs = converted.durationMs;
@@ -1405,8 +1415,10 @@ async function uploadRecordingChunk(req, res) {
       if (converted.wasConverted) {
         const stats = await fs.stat(filePath);
         fileSize = stats.size;
-        // Update filename if converted to MP4
-        fileName = `chunk_${chunkIndex}.mp4`;
+        // Update filename extension based on output mime type
+        if (fileMimeType === 'video/mp4') {
+          fileName = `chunk_${chunkIndex}.mp4`;
+        }
       }
 
       // Read the file (converted or original)
