@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Pressable, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, Pressable, Platform, TouchableOpacity } from 'react-native';
 import { Card, Title, Text, Avatar, Button, Chip, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
 import api from '../../services/api';
@@ -44,6 +44,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   const [endingCall, setEndingCall] = useState(false);
   const [progressBarWidth, setProgressBarWidth] = useState(0);
   const [progressBarLeft, setProgressBarLeft] = useState(0);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const progressBarRef = useRef(null);
 
   useEffect(() => {
@@ -62,10 +63,10 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
 
   // Poll for recording after call ends (recording takes time to upload)
   useEffect(() => {
-    // Only poll if call just ended and doesn't have recording yet
-    const shouldPoll = call?.status === 'ended' &&
-                       !call?.recordingUrl &&
-                       !call?.recording?.url;
+    // Only poll if call just ended and doesn't have recording yet (single or chunks)
+    const hasRecording = call?.recordingUrl || call?.recording?.url ||
+                        (call?.recordingChunks && call.recordingChunks.length > 0);
+    const shouldPoll = call?.status === 'ended' && !hasRecording;
 
     if (!shouldPoll) return;
 
@@ -81,8 +82,10 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
         const updatedCall = response.data.phoneCalls?.find(c => c.callId === callId);
 
         if (updatedCall) {
-          // Check if recording is now available
-          if (updatedCall.recordingUrl || updatedCall.recording?.url) {
+          // Check if recording is now available (single or chunks)
+          const hasNewRecording = updatedCall.recordingUrl || updatedCall.recording?.url ||
+                                  (updatedCall.recordingChunks && updatedCall.recordingChunks.length > 0);
+          if (hasNewRecording) {
             console.log('[CallDetails] Recording found, updating state');
             setCall(updatedCall);
             clearInterval(pollForRecording);
@@ -103,7 +106,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollForRecording);
-  }, [call?.status, call?.recordingUrl, call?.recording?.url, groupId, callId]);
+  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recordingChunks?.length, groupId, callId]);
 
   /**
    * Load group info to get user role
@@ -200,11 +203,11 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   };
 
   /**
-   * Get full recording URL
+   * Get full recording URL (for single recording or chunk)
    */
-  const getRecordingUrl = () => {
-    if (!call?.recording?.url && !call?.recordingUrl) return null;
-    const relativeUrl = call?.recording?.url || call?.recordingUrl;
+  const getRecordingUrl = (chunkUrl = null) => {
+    const relativeUrl = chunkUrl || call?.recording?.url || call?.recordingUrl;
+    if (!relativeUrl) return null;
     // If already absolute URL, use it directly
     if (relativeUrl.startsWith('http')) return relativeUrl;
     // Otherwise prepend API base URL
@@ -212,10 +215,76 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   };
 
   /**
+   * Get current chunk URL (for playlist mode)
+   */
+  const getCurrentChunkUrl = () => {
+    const chunks = call?.recordingChunks;
+    if (!chunks || chunks.length === 0) return null;
+    const sortedChunks = [...chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
+    const chunk = sortedChunks[currentChunkIndex];
+    return chunk ? getRecordingUrl(chunk.fileUrl) : null;
+  };
+
+  /**
+   * Get sorted recording chunks
+   */
+  const getSortedChunks = () => {
+    const chunks = call?.recordingChunks || [];
+    return [...chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
+  };
+
+  /**
+   * Handle audio end - auto-play next chunk
+   */
+  const handleAudioEnd = async () => {
+    const chunks = getSortedChunks();
+    if (currentChunkIndex < chunks.length - 1) {
+      // Unload current sound
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+      setCurrentChunkIndex(prev => prev + 1);
+      setPlaybackPosition(0);
+      // Will auto-play via useEffect watching currentChunkIndex
+    }
+  };
+
+  // Auto-play next chunk when index changes
+  useEffect(() => {
+    const chunks = getSortedChunks();
+    if (chunks.length > 0 && currentChunkIndex > 0 && isPlaying) {
+      // Load and play the new chunk
+      const playNextChunk = async () => {
+        const chunkUrl = getCurrentChunkUrl();
+        if (chunkUrl) {
+          try {
+            setLoadingAudio(true);
+            const { sound: newSound } = await Audio.Sound.createAsync(
+              { uri: chunkUrl },
+              { shouldPlay: true },
+              onPlaybackStatusUpdate
+            );
+            setSound(newSound);
+            setIsPlaying(true);
+          } catch (err) {
+            console.error('Audio chunk playback error:', err);
+          } finally {
+            setLoadingAudio(false);
+          }
+        }
+      };
+      playNextChunk();
+    }
+  }, [currentChunkIndex]);
+
+  /**
    * Play or pause recording
    */
   const togglePlayback = async () => {
-    const recordingUrl = getRecordingUrl();
+    // Use chunk URL if chunks exist, otherwise single recording URL
+    const chunks = getSortedChunks();
+    const recordingUrl = chunks.length > 0 ? getCurrentChunkUrl() : getRecordingUrl();
     if (!recordingUrl) return;
 
     try {
@@ -253,8 +322,14 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
       setPlaybackPosition(status.positionMillis);
       setPlaybackDuration(status.durationMillis || call?.recordingDurationMs || 0);
       if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPlaybackPosition(0);
+        // Check if there are more chunks to play
+        const chunks = getSortedChunks();
+        if (chunks.length > 0 && currentChunkIndex < chunks.length - 1) {
+          handleAudioEnd();
+        } else {
+          setIsPlaying(false);
+          setPlaybackPosition(0);
+        }
       }
     }
   };
@@ -399,11 +474,16 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   }
 
   const statusColors = getStatusColor(call.status);
-  // Check for recording - API returns either recordingUrl or recording object
-  const hasRecording = (call.recording?.url || call.recordingUrl) &&
-                       !call.recording?.isHidden && !call.recordingIsHidden;
+  // Check for recording - either single URL or chunked recordings
+  const sortedChunks = getSortedChunks();
+  const hasChunks = sortedChunks.length > 0;
+  const hasSingleRecording = (call.recording?.url || call.recordingUrl) &&
+                             !call.recording?.isHidden && !call.recordingIsHidden;
+  const hasRecording = hasSingleRecording || hasChunks;
   // Check if recording is still processing
   const isRecordingProcessing = call.recording?.status === 'processing';
+  // Calculate total duration from chunks
+  const totalChunksDuration = sortedChunks.reduce((sum, chunk) => sum + (chunk.durationMs || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -489,7 +569,9 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
         {hasRecording && !isRecordingProcessing && (
           <Card style={styles.card}>
             <Card.Content>
-              <Title style={styles.sectionTitle}>Recording</Title>
+              <Title style={styles.sectionTitle}>
+                Recording {hasChunks && `(${sortedChunks.length} segments)`}
+              </Title>
 
               <View style={styles.playerContainer}>
                 <IconButton
@@ -529,11 +611,106 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                   <View style={styles.timeRow}>
                     <Text style={styles.timeText}>{formatDuration(playbackPosition)}</Text>
                     <Text style={styles.timeText}>
-                      {formatDuration(call.recording?.durationMs || call.recordingDurationMs || playbackDuration)}
+                      {hasChunks
+                        ? formatDuration(sortedChunks[currentChunkIndex]?.durationMs || playbackDuration)
+                        : formatDuration(call.recording?.durationMs || call.recordingDurationMs || playbackDuration)
+                      }
                     </Text>
                   </View>
                 </View>
               </View>
+
+              {/* Chunk navigation controls */}
+              {hasChunks && (
+                <View style={styles.chunkNavigation}>
+                  <TouchableOpacity
+                    style={[styles.chunkNavButton, currentChunkIndex === 0 && styles.chunkNavButtonDisabled]}
+                    onPress={async () => {
+                      if (sound) {
+                        await sound.unloadAsync();
+                        setSound(null);
+                      }
+                      setPlaybackPosition(0);
+                      setCurrentChunkIndex(prev => Math.max(0, prev - 1));
+                    }}
+                    disabled={currentChunkIndex === 0}
+                  >
+                    <Text style={[styles.chunkNavButtonText, currentChunkIndex === 0 && styles.chunkNavButtonTextDisabled]}>
+                      Previous
+                    </Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.chunkIndicator}>
+                    Segment {currentChunkIndex + 1} of {sortedChunks.length}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[styles.chunkNavButton, currentChunkIndex >= sortedChunks.length - 1 && styles.chunkNavButtonDisabled]}
+                    onPress={async () => {
+                      if (sound) {
+                        await sound.unloadAsync();
+                        setSound(null);
+                      }
+                      setPlaybackPosition(0);
+                      setCurrentChunkIndex(prev => Math.min(sortedChunks.length - 1, prev + 1));
+                    }}
+                    disabled={currentChunkIndex >= sortedChunks.length - 1}
+                  >
+                    <Text style={[styles.chunkNavButtonText, currentChunkIndex >= sortedChunks.length - 1 && styles.chunkNavButtonTextDisabled]}>
+                      Next
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Chunk list */}
+              {hasChunks && (
+                <View style={styles.chunkList}>
+                  <Text style={styles.chunkListTitle}>All Segments</Text>
+                  {sortedChunks.map((chunk, index) => (
+                    <TouchableOpacity
+                      key={chunk.chunkId}
+                      style={[styles.chunkItem, index === currentChunkIndex && styles.chunkItemActive]}
+                      onPress={async () => {
+                        if (sound) {
+                          await sound.unloadAsync();
+                          setSound(null);
+                        }
+                        setPlaybackPosition(0);
+                        setCurrentChunkIndex(index);
+                      }}
+                    >
+                      <View style={styles.chunkItemLeft}>
+                        <Text style={[styles.chunkItemNumber, index === currentChunkIndex && styles.chunkItemTextActive]}>
+                          {index + 1}
+                        </Text>
+                        <View>
+                          <Text style={[styles.chunkItemDuration, index === currentChunkIndex && styles.chunkItemTextActive]}>
+                            {formatDuration(chunk.durationMs)}
+                          </Text>
+                          <Text style={styles.chunkItemTime}>
+                            {new Date(chunk.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                        </View>
+                      </View>
+                      {index === currentChunkIndex && (
+                        <Text style={styles.chunkItemNowPlaying}>
+                          {isPlaying ? 'Now Playing' : 'Selected'}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Total duration */}
+              {hasChunks && (
+                <View style={styles.totalDuration}>
+                  <Text style={styles.totalDurationText}>
+                    Total Duration: {formatDuration(totalChunksDuration)}
+                  </Text>
+                </View>
+              )}
 
               {/* Admin can hide recording */}
               {userRole === 'admin' && (
@@ -871,5 +1048,100 @@ const styles = StyleSheet.create({
   participantStatus: {
     fontSize: 13,
     textTransform: 'capitalize',
+  },
+  // Chunk navigation styles
+  chunkNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    marginBottom: 12,
+  },
+  chunkNavButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#4caf50',
+    borderRadius: 4,
+  },
+  chunkNavButtonDisabled: {
+    backgroundColor: '#e0e0e0',
+  },
+  chunkNavButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chunkNavButtonTextDisabled: {
+    color: '#999',
+  },
+  chunkIndicator: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  // Chunk list styles
+  chunkList: {
+    marginBottom: 16,
+  },
+  chunkListTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  chunkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  chunkItemActive: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#4caf50',
+  },
+  chunkItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chunkItemNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    width: 24,
+    marginRight: 12,
+  },
+  chunkItemTextActive: {
+    color: '#2e7d32',
+  },
+  chunkItemDuration: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  chunkItemTime: {
+    fontSize: 12,
+    color: '#999',
+  },
+  chunkItemNowPlaying: {
+    fontSize: 12,
+    color: '#4caf50',
+    fontWeight: '500',
+  },
+  totalDuration: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  totalDurationText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
 });
