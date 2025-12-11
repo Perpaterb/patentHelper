@@ -47,8 +47,9 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
   // Poll for recording after call ends (recording takes time to upload)
   useEffect(() => {
     // Only poll if call just ended and doesn't have recording yet (single or chunks)
+    // Note: API returns chunks in call.recording.chunks, not call.recordingChunks
     const hasRecording = call?.recordingUrl || call?.recording?.url ||
-                        (call?.recordingChunks && call.recordingChunks.length > 0);
+                        (call?.recording?.chunks && call.recording.chunks.length > 0);
     const shouldPoll = call?.status === 'ended' && !hasRecording;
 
     if (!shouldPoll) return;
@@ -66,8 +67,9 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
 
         if (updatedCall) {
           // Check if recording is now available (single or chunks)
+          // Note: API returns chunks in call.recording.chunks, not call.recordingChunks
           const hasNewRecording = updatedCall.recordingUrl || updatedCall.recording?.url ||
-                                  (updatedCall.recordingChunks && updatedCall.recordingChunks.length > 0);
+                                  (updatedCall.recording?.chunks && updatedCall.recording.chunks.length > 0);
           if (hasNewRecording) {
             console.log('[VideoCallDetails] Recording found, updating state');
             setCall(updatedCall);
@@ -89,7 +91,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollForRecording);
-  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recordingChunks?.length, groupId, callId]);
+  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recording?.chunks?.length, groupId, callId]);
 
   /**
    * Load group info to get user role
@@ -197,19 +199,21 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
 
   /**
    * Get current chunk URL (for playlist mode)
+   * Note: API returns chunks in call.recording.chunks
    */
   const getCurrentChunkUrl = () => {
-    const chunks = call?.recordingChunks;
+    const chunks = call?.recording?.chunks;
     if (!chunks || chunks.length === 0) return null;
     const chunk = chunks[currentChunkIndex];
-    return chunk ? getRecordingUrl(chunk.fileUrl) : null;
+    return chunk ? getRecordingUrl(chunk.url) : null;
   };
 
   /**
    * Get sorted recording chunks
+   * Note: API returns chunks in call.recording.chunks
    */
   const getSortedChunks = () => {
-    const chunks = call?.recordingChunks || [];
+    const chunks = call?.recording?.chunks || [];
     return [...chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
   };
 
@@ -232,7 +236,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
       console.error('[VideoCallDetails] Video playback error:', status.error);
     }
     // Auto-play next chunk when current one finishes
-    if (status.didJustFinish && call?.recordingChunks?.length > 0) {
+    if (status.didJustFinish && call?.recording?.chunks?.length > 0) {
       handleVideoEnd();
     }
   };
