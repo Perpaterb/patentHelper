@@ -139,7 +139,7 @@ async function getStorageUsage(req, res) {
       groupUsage[groupId].count += 1;
     }
 
-    // Get phone call recordings for these groups
+    // Get phone call recordings for these groups (legacy single-file recordings)
     const phoneCallRecordings = await prisma.phoneCall.findMany({
       where: {
         groupId: { in: groupIds },
@@ -152,7 +152,7 @@ async function getStorageUsage(req, res) {
       },
     });
 
-    // Add phone call recording sizes
+    // Add phone call recording sizes (legacy single-file)
     for (const recording of phoneCallRecordings) {
       const bytes = recording.recordingSizeBytes || BigInt(0);
       totalBytes += bytes;
@@ -166,7 +166,54 @@ async function getStorageUsage(req, res) {
       groupUsage[gId].count += 1;
     }
 
-    // Get video call recordings for these groups
+    // Get phone call recording chunks for these groups (new chunked recordings)
+    const phoneCallsWithChunks = await prisma.phoneCall.findMany({
+      where: {
+        groupId: { in: groupIds },
+        recordingIsHidden: false,
+      },
+      select: {
+        callId: true,
+        groupId: true,
+      },
+    });
+
+    const phoneCallIds = phoneCallsWithChunks.map(c => c.callId);
+    const phoneCallIdToGroupId = {};
+    for (const call of phoneCallsWithChunks) {
+      phoneCallIdToGroupId[call.callId] = call.groupId;
+    }
+
+    if (phoneCallIds.length > 0) {
+      const phoneChunks = await prisma.phoneCallRecordingChunk.findMany({
+        where: {
+          callId: { in: phoneCallIds },
+          status: 'completed', // Only count completed chunks
+        },
+        select: {
+          callId: true,
+          sizeBytes: true,
+        },
+      });
+
+      // Add phone call chunk sizes
+      for (const chunk of phoneChunks) {
+        const bytes = chunk.sizeBytes || BigInt(0);
+        totalBytes += bytes;
+        phonecallBytes += bytes;
+
+        const gId = phoneCallIdToGroupId[chunk.callId];
+        if (gId) {
+          if (!groupUsage[gId]) {
+            groupUsage[gId] = { bytes: BigInt(0), count: 0 };
+          }
+          groupUsage[gId].bytes += bytes;
+          groupUsage[gId].count += 1;
+        }
+      }
+    }
+
+    // Get video call recordings for these groups (legacy single-file recordings)
     const videoCallRecordings = await prisma.videoCall.findMany({
       where: {
         groupId: { in: groupIds },
@@ -179,7 +226,7 @@ async function getStorageUsage(req, res) {
       },
     });
 
-    // Add video call recording sizes
+    // Add video call recording sizes (legacy single-file)
     for (const recording of videoCallRecordings) {
       const bytes = recording.recordingSizeBytes || BigInt(0);
       totalBytes += bytes;
@@ -191,6 +238,54 @@ async function getStorageUsage(req, res) {
       }
       groupUsage[gId].bytes += bytes;
       groupUsage[gId].count += 1;
+    }
+
+    // Get video call recording chunks for these groups (new chunked recordings)
+    // Chunks are stored in VideoCallRecordingChunk table, linked to VideoCall via callId
+    const videoCallsWithChunks = await prisma.videoCall.findMany({
+      where: {
+        groupId: { in: groupIds },
+        recordingIsHidden: false,
+      },
+      select: {
+        callId: true,
+        groupId: true,
+      },
+    });
+
+    const videoCallIds = videoCallsWithChunks.map(c => c.callId);
+    const callIdToGroupId = {};
+    for (const call of videoCallsWithChunks) {
+      callIdToGroupId[call.callId] = call.groupId;
+    }
+
+    if (videoCallIds.length > 0) {
+      const videoChunks = await prisma.videoCallRecordingChunk.findMany({
+        where: {
+          callId: { in: videoCallIds },
+          status: 'completed', // Only count completed chunks
+        },
+        select: {
+          callId: true,
+          sizeBytes: true,
+        },
+      });
+
+      // Add video call chunk sizes
+      for (const chunk of videoChunks) {
+        const bytes = chunk.sizeBytes || BigInt(0);
+        totalBytes += bytes;
+        videocallBytes += bytes;
+
+        const gId = callIdToGroupId[chunk.callId];
+        if (gId) {
+          if (!groupUsage[gId]) {
+            groupUsage[gId] = { bytes: BigInt(0), count: 0 };
+          }
+          groupUsage[gId].bytes += bytes;
+          groupUsage[gId].count += 1;
+        }
+      }
     }
 
     // Build groups array
