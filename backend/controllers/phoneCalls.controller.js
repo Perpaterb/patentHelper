@@ -225,6 +225,20 @@ async function getPhoneCalls(req, res) {
             },
           },
         },
+        recordingChunks: {
+          orderBy: { chunkIndex: 'asc' },
+          select: {
+            chunkId: true,
+            chunkIndex: true,
+            fileId: true,
+            fileUrl: true,
+            durationMs: true,
+            sizeBytes: true,
+            startedAt: true,
+            endedAt: true,
+            status: true,
+          },
+        },
       },
       orderBy: { startedAt: 'desc' },
       take: parseInt(limit),
@@ -272,9 +286,20 @@ async function getPhoneCalls(req, res) {
         hiddenAt: call.recordingHiddenAt,
       } : {
         isHidden: false,
-        status: call.recordingStatus || (call.recordingUrl ? 'ready' : null),
+        status: call.recordingStatus || (call.recordingUrl ? 'ready' : (call.recordingChunks?.length > 0 ? 'ready' : null)),
         url: call.recordingUrl,
         durationMs: call.recordingDurationMs,
+        // Include recording chunks if available
+        chunks: call.recordingChunks?.map(chunk => ({
+          chunkId: chunk.chunkId,
+          chunkIndex: chunk.chunkIndex,
+          url: chunk.fileUrl,
+          durationMs: chunk.durationMs,
+          sizeBytes: chunk.sizeBytes ? Number(chunk.sizeBytes) : null,
+          startedAt: chunk.startedAt,
+          endedAt: chunk.endedAt,
+          status: chunk.status,
+        })) || [],
       },
     }));
 
@@ -1275,6 +1300,211 @@ async function uploadRecording(req, res) {
 }
 
 /**
+ * Upload a recording chunk (for gapless chunked recording)
+ * POST /groups/:groupId/phone-calls/:callId/recording-chunk
+ *
+ * Each phone call can have multiple chunks that together form the complete recording.
+ * Chunks are created with overlap to ensure gapless audio.
+ *
+ * @param {Object} req - Express request (with file from multer)
+ * @param {Object} res - Express response
+ */
+async function uploadRecordingChunk(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, callId } = req.params;
+    const { chunkIndex, startedAt, endedAt } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recording chunk file provided',
+      });
+    }
+
+    if (chunkIndex === undefined || chunkIndex === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chunk index is required',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Get the call
+    const call = await prisma.phoneCall.findUnique({
+      where: { callId },
+      include: { participants: true },
+    });
+
+    if (!call || call.groupId !== groupId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Call not found',
+      });
+    }
+
+    // Check if user is initiator or participant
+    const isInitiator = call.initiatedBy === membership.groupMemberId;
+    const isParticipant = call.participants.some(
+      p => p.groupMemberId === membership.groupMemberId
+    );
+
+    if (!isInitiator && !isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not part of this call',
+      });
+    }
+
+    console.log(`[Phone Recording Chunk] Uploading chunk ${chunkIndex} for call ${callId}`);
+
+    // Update recording status to 'recording' if not already
+    if (call.recordingStatus !== 'recording') {
+      await prisma.phoneCall.update({
+        where: { callId },
+        data: { recordingStatus: 'recording' },
+      });
+    }
+
+    // Save the file temporarily
+    const tempDir = os.tmpdir();
+    const tempInputPath = path.join(tempDir, `phone_chunk_${Date.now()}_${uuidv4()}`);
+    await fs.writeFile(tempInputPath, req.file.buffer);
+
+    let filePath = tempInputPath;
+    let fileMimeType = req.file.mimetype;
+    let fileName = `chunk_${chunkIndex}.mp3`;
+    let fileSize = req.file.size;
+    let durationMs = 0;
+
+    try {
+      // Convert to MP3 if needed
+      const converted = await audioConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
+      filePath = converted.path;
+      fileMimeType = converted.mimeType;
+      durationMs = converted.durationMs;
+
+      if (converted.wasConverted) {
+        const stats = await fs.stat(filePath);
+        fileSize = stats.size;
+      }
+
+      // Read the converted file
+      let fileBuffer = await fs.readFile(filePath);
+
+      // Encrypt the recording before upload
+      if (fileEncryption.isAvailable()) {
+        console.log(`[Phone Recording Chunk ${chunkIndex}] Encrypting before upload...`);
+        fileBuffer = fileEncryption.encryptFile(fileBuffer);
+        fileSize = fileBuffer.length;
+      }
+
+      // Upload using storage service
+      const uploadResult = await storageService.uploadFile(fileBuffer, {
+        category: 'recordings',
+        userId: userId,
+        groupId: groupId,
+        originalName: fileName,
+        mimeType: 'audio/mpeg',
+        size: fileSize,
+      });
+
+      const fileId = uploadResult.fileId;
+      const chunkUrl = uploadResult.url;
+
+      // Parse timestamps
+      const chunkStartedAt = startedAt ? new Date(startedAt) : new Date();
+      const chunkEndedAt = endedAt ? new Date(endedAt) : new Date();
+
+      // Create the recording chunk record
+      const chunk = await prisma.phoneCallRecordingChunk.create({
+        data: {
+          callId: callId,
+          chunkIndex: parseInt(chunkIndex, 10),
+          fileId: fileId,
+          fileUrl: chunkUrl,
+          durationMs: durationMs || (chunkEndedAt.getTime() - chunkStartedAt.getTime()),
+          sizeBytes: BigInt(fileSize),
+          startedAt: chunkStartedAt,
+          endedAt: chunkEndedAt,
+          status: 'ready',
+        },
+      });
+
+      console.log(`[Phone Recording Chunk ${chunkIndex}] Saved successfully. Duration: ${durationMs}ms, Size: ${fileSize} bytes`);
+
+      // Create audit log
+      await prisma.auditLog.create({
+        data: {
+          groupId: groupId,
+          action: 'upload_phone_recording_chunk',
+          actionLocation: 'phone_calls',
+          performedBy: membership.groupMemberId,
+          performedByName: membership.displayName,
+          performedByEmail: membership.email || 'N/A',
+          messageContent: `Uploaded phone call recording chunk ${chunkIndex}. Duration: ${Math.round(durationMs / 1000)}s, Size: ${Math.round(fileSize / 1024)}KB`,
+          logData: { callId, chunkId: chunk.chunkId, chunkIndex, fileId, durationMs, fileSize },
+        },
+      });
+
+      return res.json({
+        success: true,
+        message: 'Recording chunk uploaded successfully',
+        chunk: {
+          chunkId: chunk.chunkId,
+          chunkIndex: chunk.chunkIndex,
+          url: chunkUrl,
+          durationMs: chunk.durationMs,
+          sizeBytes: fileSize,
+          startedAt: chunk.startedAt,
+          endedAt: chunk.endedAt,
+        },
+      });
+    } finally {
+      // Cleanup temp files
+      try {
+        if (filePath !== tempInputPath) {
+          await fs.unlink(filePath).catch(() => {});
+        }
+        await fs.unlink(tempInputPath).catch(() => {});
+      } catch (cleanupErr) {
+        console.warn('Cleanup warning:', cleanupErr.message);
+      }
+    }
+  } catch (error) {
+    console.error('Upload phone recording chunk error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload recording chunk',
+      error: error.message,
+    });
+  }
+}
+
+/**
  * Leave a call (without ending it for others)
  * PUT /groups/:groupId/phone-calls/:callId/leave
  *
@@ -1933,6 +2163,7 @@ module.exports = {
   leaveCall,
   hideRecording,
   uploadRecording,
+  uploadRecordingChunk,
   sendSignal,
   getSignals,
   getIceServers,

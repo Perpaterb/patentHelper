@@ -1206,7 +1206,7 @@ model PhoneCall {
   status      String    @default("ringing") @db.VarChar(20) // ringing, active, ended, missed
   durationMs  Int?      @map("duration_ms")
 
-  // Recording (MP3 format)
+  // Recording - legacy single file (kept for backwards compatibility)
   recordingFileId     String?   @map("recording_file_id") @db.Uuid
   recordingUrl        String?   @map("recording_url")
   recordingStatus     String?   @map("recording_status") @db.VarChar(20) // processing, ready, failed
@@ -1216,10 +1216,11 @@ model PhoneCall {
   recordingHiddenBy   String?   @map("recording_hidden_by") @db.Uuid
   recordingHiddenAt   DateTime? @map("recording_hidden_at") @db.Timestamp(6)
 
-  group          Group                  @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  initiator      GroupMember            @relation("CallInitiator", fields: [initiatedBy], references: [groupMemberId])
-  recordingHider GroupMember?           @relation("CallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
-  participants   PhoneCallParticipant[]
+  group           Group                     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  initiator       GroupMember               @relation("CallInitiator", fields: [initiatedBy], references: [groupMemberId])
+  recordingHider  GroupMember?              @relation("CallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
+  participants    PhoneCallParticipant[]
+  recordingChunks PhoneCallRecordingChunk[]
 
   @@index([groupId])
   @@index([status])
@@ -1259,7 +1260,7 @@ model VideoCall {
   status      String    @default("ringing") @db.VarChar(20) // ringing, active, ended, missed
   durationMs  Int?      @map("duration_ms")
 
-  // Recording (MP4 format)
+  // Recording - legacy single file (kept for backwards compatibility)
   recordingFileId     String?   @map("recording_file_id") @db.Uuid
   recordingUrl        String?   @map("recording_url")
   recordingStatus     String?   @map("recording_status") @db.VarChar(20) // processing, ready, failed
@@ -1269,10 +1270,11 @@ model VideoCall {
   recordingHiddenBy   String?   @map("recording_hidden_by") @db.Uuid
   recordingHiddenAt   DateTime? @map("recording_hidden_at") @db.Timestamp(6)
 
-  group          Group                  @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
-  initiator      GroupMember            @relation("VideoCallInitiator", fields: [initiatedBy], references: [groupMemberId])
-  recordingHider GroupMember?           @relation("VideoCallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
-  participants   VideoCallParticipant[]
+  group           Group                     @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  initiator       GroupMember               @relation("VideoCallInitiator", fields: [initiatedBy], references: [groupMemberId])
+  recordingHider  GroupMember?              @relation("VideoCallRecordingHider", fields: [recordingHiddenBy], references: [groupMemberId])
+  participants    VideoCallParticipant[]
+  recordingChunks VideoCallRecordingChunk[]
 
   @@index([groupId])
   @@index([status])
@@ -1296,6 +1298,53 @@ model VideoCallParticipant {
   @@index([groupMemberId])
   @@index([status])
   @@map("video_call_participants")
+}
+
+// ============================================
+// RECORDING CHUNK MODELS (for gapless chunked recording)
+// Each chunk is 2 minutes max, uploaded independently
+// ============================================
+
+model PhoneCallRecordingChunk {
+  chunkId    String   @id @default(uuid()) @map("chunk_id") @db.Uuid
+  callId     String   @map("call_id") @db.Uuid
+  chunkIndex Int      @map("chunk_index") // 0, 1, 2, ... for ordering
+  fileId     String   @map("file_id") @db.Uuid
+  fileUrl    String   @map("file_url")
+  durationMs Int      @map("duration_ms")
+  sizeBytes  BigInt   @map("size_bytes")
+  startedAt  DateTime @map("started_at") @db.Timestamp(6) // When this chunk's recording started
+  endedAt    DateTime @map("ended_at") @db.Timestamp(6) // When this chunk's recording ended
+  status     String   @default("processing") @map("status") @db.VarChar(20) // processing, ready, failed
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  call PhoneCall @relation(fields: [callId], references: [callId], onDelete: Cascade)
+
+  @@unique([callId, chunkIndex])
+  @@index([callId])
+  @@index([status])
+  @@map("phone_call_recording_chunks")
+}
+
+model VideoCallRecordingChunk {
+  chunkId    String   @id @default(uuid()) @map("chunk_id") @db.Uuid
+  callId     String   @map("call_id") @db.Uuid
+  chunkIndex Int      @map("chunk_index") // 0, 1, 2, ... for ordering
+  fileId     String   @map("file_id") @db.Uuid
+  fileUrl    String   @map("file_url")
+  durationMs Int      @map("duration_ms")
+  sizeBytes  BigInt   @map("size_bytes")
+  startedAt  DateTime @map("started_at") @db.Timestamp(6) // When this chunk's recording started
+  endedAt    DateTime @map("ended_at") @db.Timestamp(6) // When this chunk's recording ended
+  status     String   @default("processing") @map("status") @db.VarChar(20) // processing, ready, failed
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  call VideoCall @relation(fields: [callId], references: [callId], onDelete: Cascade)
+
+  @@unique([callId, chunkIndex])
+  @@index([callId])
+  @@index([status])
+  @@map("video_call_recording_chunks")
 }
 
 // ============================================

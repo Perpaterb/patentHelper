@@ -29,15 +29,25 @@
     const CALL_TYPE = params.get('callType') || 'phone'; // 'phone' or 'video'
     const AUTH_TOKEN = params.get('token');
 
+    // Chunked recording configuration
+    // 2-minute chunks with 5-second overlap for gapless recording
+    const CHUNK_DURATION_MS = 2 * 60 * 1000; // 2 minutes per chunk
+    const OVERLAP_DURATION_MS = 5 * 1000;    // 5 second overlap for gapless recording
+
     // State
     let peerConnections = {};
     let pendingIceCandidates = {}; // Queue ICE candidates until offer is processed
     let localStream = null;
-    let mediaRecorder = null;
-    let recordedChunks = [];
     let isRecording = false;
     let audioContext = null;
     let mixedDestination = null;
+
+    // Chunked recording state
+    let activeRecorders = []; // Array of { mediaRecorder, chunks, chunkIndex, startedAt }
+    let currentChunkIndex = 0;
+    let chunkTimer = null;
+    let uploadQueue = []; // Queue of chunks waiting to be uploaded
+    let isUploading = false;
 
     const statusEl = document.getElementById('status');
 
@@ -408,37 +418,14 @@
           });
         }
 
-        // Use webm/opus codec for better compatibility
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm';
-        console.log('[Recorder] Using MIME type:', mimeType);
-
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: mimeType,
-          audioBitsPerSecond: 128000 // 128kbps for good quality
-        });
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            recordedChunks.push(event.data);
-            console.log('[Recorder] Chunk received, size:', event.data.size, 'bytes, total chunks:', recordedChunks.length);
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          console.log('[Recorder] MediaRecorder stopped, total chunks:', recordedChunks.length);
-          uploadRecording();
-        };
-
-        mediaRecorder.onerror = (event) => {
-          console.error('[Recorder] MediaRecorder error:', event.error);
-        };
-
-        mediaRecorder.start(1000); // Collect data every second
         isRecording = true;
         updateStatus('Recording in progress...', 'recording');
-        console.log('[Recorder] MediaRecorder started, state:', mediaRecorder.state);
+
+        // Start first chunk
+        startNewChunk();
+
+        // Schedule chunk rotation
+        scheduleChunkRotation();
 
         // Expose stop function for Puppeteer
         window.stopRecording = stopRecording;
@@ -450,8 +437,8 @@
             clearInterval(statsInterval);
             return;
           }
-          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
-          console.log('[Recorder] Recording stats - chunks:', recordedChunks.length, 'total size:', totalSize, 'bytes');
+          console.log('[Recorder] Recording stats - active recorders:', activeRecorders.length,
+                      ', chunks uploaded:', currentChunkIndex - activeRecorders.length);
         }, 5000);
         window.statsInterval = statsInterval;
 
@@ -461,57 +448,195 @@
       }
     }
 
-    function stopRecording() {
-      return new Promise((resolve) => {
-        if (!isRecording || !mediaRecorder) {
-          resolve();
-          return;
-        }
+    function startNewChunk() {
+      const stream = mixedDestination.stream;
+      const chunkIndex = currentChunkIndex++;
 
-        mediaRecorder.onstop = async () => {
-          await uploadRecording();
-          resolve();
-        };
+      // Use webm/opus codec for better compatibility
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
 
-        mediaRecorder.stop();
-        isRecording = false;
-        window.isRecording = false;
-        updateStatus('Recording stopped, uploading...');
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+        audioBitsPerSecond: 128000 // 128kbps for good quality
       });
+
+      const recorderState = {
+        mediaRecorder,
+        chunks: [],
+        chunkIndex,
+        startedAt: new Date()
+      };
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recorderState.chunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        recorderState.endedAt = new Date();
+        console.log(`[Recorder] Chunk ${chunkIndex} stopped, data size:`,
+                    recorderState.chunks.reduce((sum, c) => sum + c.size, 0), 'bytes');
+
+        // Remove from active recorders
+        activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
+
+        // Queue for upload
+        queueChunkForUpload(recorderState);
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error(`[Recorder] Chunk ${chunkIndex} error:`, event.error);
+      };
+
+      mediaRecorder.start(1000); // Collect data every second
+      activeRecorders.push(recorderState);
+
+      console.log(`[Recorder] Started chunk ${chunkIndex}, active recorders:`, activeRecorders.length);
     }
 
-    async function uploadRecording() {
-      try {
-        if (recordedChunks.length === 0) {
-          console.log('[Recorder] No data to upload');
+    function scheduleChunkRotation() {
+      // Start new chunk before stopping old one (overlap period)
+      const rotationTime = CHUNK_DURATION_MS - OVERLAP_DURATION_MS;
+
+      chunkTimer = setInterval(() => {
+        if (!isRecording) {
+          clearInterval(chunkTimer);
           return;
         }
 
-        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-        recordedChunks = [];
+        console.log('[Recorder] Rotating chunks - starting new chunk first (gapless)');
 
-        const formData = new FormData();
-        formData.append('recording', blob, `${CALL_TYPE}-call-${CALL_ID}.webm`);
+        // Start new chunk FIRST (gapless - overlap period begins)
+        startNewChunk();
 
-        const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
-        const response = await fetch(
-          `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recording`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
-            body: formData
+        // Stop the old chunk after overlap period
+        setTimeout(() => {
+          const oldRecorder = activeRecorders.find(r => r.chunkIndex === currentChunkIndex - 2);
+          if (oldRecorder && oldRecorder.mediaRecorder.state === 'recording') {
+            console.log(`[Recorder] Stopping old chunk ${oldRecorder.chunkIndex} after overlap`);
+            oldRecorder.mediaRecorder.stop();
           }
-        );
+        }, OVERLAP_DURATION_MS);
+      }, rotationTime);
+    }
 
-        if (response.ok) {
-          updateStatus('Recording uploaded successfully!', 'connected');
-        } else {
-          updateStatus('Upload failed: ' + response.statusText);
-        }
+    function queueChunkForUpload(recorderState) {
+      uploadQueue.push(recorderState);
+      processUploadQueue();
+    }
+
+    async function processUploadQueue() {
+      if (isUploading || uploadQueue.length === 0) return;
+
+      isUploading = true;
+      const chunkData = uploadQueue.shift();
+
+      try {
+        await uploadChunk(chunkData);
       } catch (err) {
-        console.error('[Recorder] Upload error:', err);
-        updateStatus('Upload error: ' + err.message);
+        console.error('[Recorder] Chunk upload failed:', err);
+        // Re-queue failed chunk at the beginning
+        uploadQueue.unshift(chunkData);
       }
+
+      isUploading = false;
+      processUploadQueue();
+    }
+
+    async function uploadChunk(recorderState) {
+      const { chunks, chunkIndex, startedAt, endedAt } = recorderState;
+
+      if (chunks.length === 0) {
+        console.log(`[Recorder] Chunk ${chunkIndex} has no data, skipping upload`);
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('recording', blob, `chunk-${chunkIndex}.webm`);
+      formData.append('chunkIndex', chunkIndex.toString());
+      formData.append('startedAt', startedAt.toISOString());
+      formData.append('endedAt', (endedAt || new Date()).toISOString());
+
+      console.log(`[Recorder] Uploading chunk ${chunkIndex}, size:`, blob.size, 'bytes');
+
+      const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+      const response = await fetch(
+        `${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recording-chunk`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[Recorder] Chunk ${chunkIndex} uploaded successfully:`, data);
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      }
+    }
+
+    function stopRecording() {
+      return new Promise(async (resolve) => {
+        if (!isRecording) {
+          resolve();
+          return;
+        }
+
+        isRecording = false;
+        window.isRecording = false;
+        updateStatus('Recording stopped, uploading remaining chunks...');
+
+        // Clear chunk rotation timer
+        if (chunkTimer) {
+          clearInterval(chunkTimer);
+          chunkTimer = null;
+        }
+
+        // Stop all active recorders
+        const stopPromises = activeRecorders.map(r => {
+          return new Promise((res) => {
+            if (r.mediaRecorder.state === 'recording') {
+              const originalOnStop = r.mediaRecorder.onstop;
+              r.mediaRecorder.onstop = () => {
+                if (originalOnStop) originalOnStop();
+                res();
+              };
+              r.mediaRecorder.stop();
+            } else {
+              res();
+            }
+          });
+        });
+
+        await Promise.all(stopPromises);
+
+        // Wait for upload queue to be processed
+        const waitForUploads = () => {
+          return new Promise((res) => {
+            const check = () => {
+              if (uploadQueue.length === 0 && !isUploading) {
+                res();
+              } else {
+                setTimeout(check, 500);
+              }
+            };
+            check();
+          });
+        };
+
+        await waitForUploads();
+
+        updateStatus('All chunks uploaded successfully!', 'connected');
+        console.log('[Recorder] All recordings uploaded');
+        resolve();
+      });
     }
 
     function cleanup() {
@@ -525,6 +650,11 @@
         clearInterval(window.statsInterval);
       }
 
+      if (chunkTimer) {
+        clearInterval(chunkTimer);
+        chunkTimer = null;
+      }
+
       // Stop and remove audio elements
       Object.entries(audioElements).forEach(([label, el]) => {
         console.log('[Recorder] Stopping audio element for', label);
@@ -533,6 +663,14 @@
         el.remove();
       });
       audioElements = {};
+
+      // Stop all active recorders
+      activeRecorders.forEach(r => {
+        if (r.mediaRecorder.state === 'recording') {
+          r.mediaRecorder.stop();
+        }
+      });
+      activeRecorders = [];
 
       Object.values(peerConnections).forEach(pc => pc.close());
       peerConnections = {};

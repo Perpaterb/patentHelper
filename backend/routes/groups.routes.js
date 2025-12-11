@@ -447,6 +447,12 @@ router.put('/:groupId/phone-calls/:callId/hide-recording', requireAuth, phoneCal
  */
 router.post('/:groupId/phone-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), phoneCallsController.uploadRecording);
 
+/**
+ * POST /groups/:groupId/phone-calls/:callId/recording-chunk
+ * Upload a phone call recording chunk (for gapless chunked recording)
+ */
+router.post('/:groupId/phone-calls/:callId/recording-chunk', requireAuth, recordingUpload.single('recording'), phoneCallsController.uploadRecordingChunk);
+
 // WebRTC Signaling for Phone Calls
 /**
  * POST /groups/:groupId/phone-calls/:callId/signal
@@ -547,6 +553,12 @@ router.put('/:groupId/video-calls/:callId/leave', requireAuth, videoCallsControl
  * Upload a video call recording (converts to MP4)
  */
 router.post('/:groupId/video-calls/:callId/recording', requireAuth, recordingUpload.single('recording'), videoCallsController.uploadRecording);
+
+/**
+ * POST /groups/:groupId/video-calls/:callId/recording-chunk
+ * Upload a video call recording chunk (for gapless chunked recording)
+ */
+router.post('/:groupId/video-calls/:callId/recording-chunk', requireAuth, recordingUpload.single('recording'), videoCallsController.uploadRecordingChunk);
 
 // =====================
 // WebRTC Signaling Routes

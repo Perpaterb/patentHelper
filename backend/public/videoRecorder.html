@@ -51,15 +51,23 @@
     const CANVAS_HEIGHT = 720;
     const FRAME_RATE = 30;
 
+    // Chunked recording settings
+    const CHUNK_DURATION_MS = 2 * 60 * 1000; // 2 minutes per chunk
+    const OVERLAP_DURATION_MS = 5 * 1000;    // 5 second overlap for gapless recording
+
     // State
     let peerConnections = {};
     let pendingIceCandidates = {};
     let localStream = null;
-    let mediaRecorder = null;
-    let recordedChunks = [];
     let isRecording = false;
     let audioContext = null;
     let mixedAudioDestination = null;
+
+    // Chunked recording state
+    let currentChunkIndex = 0;
+    let activeRecorders = []; // Can have up to 2 during transition
+    let chunkStartTime = null;
+    let chunkTimer = null;
 
     // Video state
     let participantVideos = {}; // { peerId: { video: HTMLVideoElement, stream: MediaStream } }
@@ -327,8 +335,8 @@
 
       // Start recording after first participant joins
       if (!isRecording && Object.keys(participantVideos).length >= 1) {
-        console.log('[VideoRecorder] First participant joined, starting recording...');
-        startRecording();
+        console.log('[VideoRecorder] First participant joined, starting chunked recording...');
+        startChunkedRecording();
       }
     }
 
@@ -474,53 +482,73 @@
       }
     }
 
-    function startRecording() {
+    // ============================================
+    // CHUNKED RECORDING FUNCTIONS
+    // ============================================
+
+    function createMediaRecorder(chunkIndex, startTime) {
+      // Capture canvas stream
+      const canvasStream = canvas.captureStream(FRAME_RATE);
+      const videoTrack = canvasStream.getVideoTracks()[0];
+
+      // Combine canvas video + mixed audio
+      const combinedStream = new MediaStream([
+        videoTrack,
+        ...mixedAudioDestination.stream.getAudioTracks()
+      ]);
+
+      // Use webm with VP8 video and Opus audio
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+        ? 'video/webm;codecs=vp8,opus'
+        : 'video/webm';
+
+      const mediaRecorder = new MediaRecorder(combinedStream, {
+        mimeType: mimeType,
+        videoBitsPerSecond: 2500000, // 2.5 Mbps
+        audioBitsPerSecond: 128000   // 128 kbps
+      });
+
+      const recordedChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const endTime = new Date().toISOString();
+        console.log(`[VideoRecorder] Chunk ${chunkIndex} stopped, uploading...`);
+        await uploadChunk(chunkIndex, recordedChunks, startTime, endTime);
+
+        // Remove this recorder from active list
+        activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
+      };
+
+      return {
+        mediaRecorder,
+        recordedChunks,
+        chunkIndex,
+        startTime
+      };
+    }
+
+    function startChunkedRecording() {
       if (isRecording) return;
 
       try {
-        // Capture canvas stream
-        const canvasStream = canvas.captureStream(FRAME_RATE);
-        const videoTrack = canvasStream.getVideoTracks()[0];
-
-        // Combine canvas video + mixed audio
-        const combinedStream = new MediaStream([
-          videoTrack,
-          ...mixedAudioDestination.stream.getAudioTracks()
-        ]);
-
-        // Use webm with VP8 video and Opus audio
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-          ? 'video/webm;codecs=vp8,opus'
-          : 'video/webm';
-        console.log('[VideoRecorder] Using MIME type:', mimeType);
-
-        mediaRecorder = new MediaRecorder(combinedStream, {
-          mimeType: mimeType,
-          videoBitsPerSecond: 2500000, // 2.5 Mbps
-          audioBitsPerSecond: 128000   // 128 kbps
-        });
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            recordedChunks.push(event.data);
-            console.log('[VideoRecorder] Chunk:', event.data.size, 'bytes, total:', recordedChunks.length);
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          console.log('[VideoRecorder] MediaRecorder stopped');
-          uploadRecording();
-        };
-
-        mediaRecorder.onerror = (event) => {
-          console.error('[VideoRecorder] MediaRecorder error:', event.error);
-        };
-
-        mediaRecorder.start(1000); // Collect data every second
         isRecording = true;
         window.isRecording = true;
-        updateStatus('Recording video...', 'recording');
-        console.log('[VideoRecorder] Recording started');
+        currentChunkIndex = 0;
+
+        // Start first chunk
+        startNewChunk();
+
+        // Schedule chunk rotation
+        scheduleChunkRotation();
+
+        updateStatus('Recording video (chunked)...', 'recording');
+        console.log('[VideoRecorder] Chunked recording started');
 
         // Log stats periodically
         const statsInterval = setInterval(() => {
@@ -528,55 +556,75 @@
             clearInterval(statsInterval);
             return;
           }
-          const totalSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
-          console.log('[VideoRecorder] Stats - chunks:', recordedChunks.length,
-                      'size:', (totalSize / 1024 / 1024).toFixed(2), 'MB',
+          console.log('[VideoRecorder] Stats - active chunks:', activeRecorders.length,
+                      'current chunk:', currentChunkIndex,
                       'participants:', Object.keys(participantVideos).length);
-        }, 5000);
+        }, 10000);
         window.statsInterval = statsInterval;
 
       } catch (err) {
-        console.error('[VideoRecorder] Start recording error:', err);
+        console.error('[VideoRecorder] Start chunked recording error:', err);
         updateStatus('Recording failed: ' + err.message);
       }
     }
 
-    function stopRecording() {
-      return new Promise((resolve) => {
-        if (!isRecording || !mediaRecorder) {
-          resolve();
+    function startNewChunk() {
+      const startTime = new Date().toISOString();
+      const recorder = createMediaRecorder(currentChunkIndex, startTime);
+
+      recorder.mediaRecorder.start(1000); // Collect data every second
+      activeRecorders.push(recorder);
+
+      console.log(`[VideoRecorder] Started chunk ${currentChunkIndex} at ${startTime}`);
+      currentChunkIndex++;
+    }
+
+    function scheduleChunkRotation() {
+      // Calculate time until next chunk rotation
+      // We start new chunk 5 seconds before stopping old one (overlap)
+      const rotationTime = CHUNK_DURATION_MS - OVERLAP_DURATION_MS;
+
+      chunkTimer = setInterval(() => {
+        if (!isRecording) {
+          clearInterval(chunkTimer);
           return;
         }
 
-        mediaRecorder.onstop = async () => {
-          await uploadRecording();
-          resolve();
-        };
+        // Start new chunk FIRST (gapless - overlap period begins)
+        console.log('[VideoRecorder] Starting overlap period - new chunk starting...');
+        startNewChunk();
 
-        mediaRecorder.stop();
-        isRecording = false;
-        window.isRecording = false;
-        updateStatus('Recording stopped, uploading...');
-      });
+        // Stop the old chunk after overlap period
+        setTimeout(() => {
+          const oldRecorder = activeRecorders.find(r => r.chunkIndex === currentChunkIndex - 2);
+          if (oldRecorder && oldRecorder.mediaRecorder.state === 'recording') {
+            console.log(`[VideoRecorder] Stopping chunk ${oldRecorder.chunkIndex} after overlap`);
+            oldRecorder.mediaRecorder.stop();
+          }
+        }, OVERLAP_DURATION_MS);
+
+      }, rotationTime);
     }
 
-    async function uploadRecording() {
+    async function uploadChunk(chunkIndex, recordedChunks, startTime, endTime) {
       try {
         if (recordedChunks.length === 0) {
-          console.log('[VideoRecorder] No data to upload');
+          console.log(`[VideoRecorder] Chunk ${chunkIndex}: No data to upload`);
           return;
         }
 
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
-        console.log('[VideoRecorder] Uploading recording:', sizeMB, 'MB');
-        recordedChunks = [];
+        console.log(`[VideoRecorder] Uploading chunk ${chunkIndex}: ${sizeMB} MB`);
 
         const formData = new FormData();
-        formData.append('recording', blob, `video-call-${CALL_ID}.webm`);
+        formData.append('recording', blob, `video-call-${CALL_ID}-chunk-${chunkIndex}.webm`);
+        formData.append('chunkIndex', chunkIndex.toString());
+        formData.append('startedAt', startTime);
+        formData.append('endedAt', endTime);
 
         const response = await fetch(
-          `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recording`,
+          `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recording-chunk`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
@@ -585,17 +633,55 @@
         );
 
         if (response.ok) {
-          updateStatus('Recording uploaded successfully!', 'connected');
-          console.log('[VideoRecorder] Upload successful');
+          console.log(`[VideoRecorder] Chunk ${chunkIndex} uploaded successfully`);
         } else {
           const errText = await response.text();
-          updateStatus('Upload failed: ' + response.statusText);
-          console.error('[VideoRecorder] Upload failed:', errText);
+          console.error(`[VideoRecorder] Chunk ${chunkIndex} upload failed:`, errText);
         }
       } catch (err) {
-        console.error('[VideoRecorder] Upload error:', err);
-        updateStatus('Upload error: ' + err.message);
+        console.error(`[VideoRecorder] Chunk ${chunkIndex} upload error:`, err);
       }
+    }
+
+    async function stopRecording() {
+      return new Promise(async (resolve) => {
+        if (!isRecording) {
+          resolve();
+          return;
+        }
+
+        console.log('[VideoRecorder] Stopping all recording...');
+        isRecording = false;
+        window.isRecording = false;
+
+        if (chunkTimer) {
+          clearInterval(chunkTimer);
+          chunkTimer = null;
+        }
+
+        // Stop all active recorders
+        const stopPromises = activeRecorders.map(recorder => {
+          return new Promise((resolveStop) => {
+            if (recorder.mediaRecorder.state === 'recording') {
+              const originalOnStop = recorder.mediaRecorder.onstop;
+              recorder.mediaRecorder.onstop = async (event) => {
+                if (originalOnStop) {
+                  await originalOnStop.call(recorder.mediaRecorder, event);
+                }
+                resolveStop();
+              };
+              recorder.mediaRecorder.stop();
+            } else {
+              resolveStop();
+            }
+          });
+        });
+
+        await Promise.all(stopPromises);
+        updateStatus('All chunks uploaded', 'connected');
+        console.log('[VideoRecorder] All chunks stopped and uploaded');
+        resolve();
+      });
     }
 
     function cleanup() {
@@ -611,6 +697,10 @@
 
       if (window.statsInterval) {
         clearInterval(window.statsInterval);
+      }
+
+      if (chunkTimer) {
+        clearInterval(chunkTimer);
       }
 
       // Clean up participant videos
