@@ -19,10 +19,18 @@ let localFfmpegAvailable = false;
 
 try {
   ffmpeg = require('fluent-ffmpeg');
-  const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-  const ffprobePath = require('@ffprobe-installer/ffprobe').path;
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  ffmpeg.setFfprobePath(ffprobePath);
+
+  // Try bundled ffmpeg first, fall back to system ffmpeg
+  try {
+    const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+    const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
+  } catch (installerErr) {
+    // Use system ffmpeg/ffprobe (must be in PATH)
+    console.log('[VideoConverter] Using system ffmpeg');
+  }
+
   localFfmpegAvailable = true;
   // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 } catch (err) {
