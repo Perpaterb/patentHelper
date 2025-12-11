@@ -371,25 +371,44 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           style: 'destructive',
           onPress: async () => {
             setLeavingCall(true);
+
+            // Stop video/audio immediately for instant visual feedback
+            stopConnection();
+            stopPolling();
+
+            // Navigate immediately so user sees the call end instantly
+            // API calls continue in background
+            const navigateToList = () => {
+              navigation.replace('VideoCalls', { groupId });
+            };
+            const navigateToDetails = () => {
+              navigation.replace('VideoCallDetails', {
+                groupId,
+                callId,
+                call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
+              });
+            };
+
             try {
-              await stopRecording();
-              stopConnection();
+              // Stop recording first (non-blocking for UI)
+              stopRecording().catch(err => console.error('Stop recording error:', err));
+
+              // Make API call to leave
               const response = await api.put(`/groups/${groupId}/video-calls/${callId}/leave`);
-              stopPolling();
 
               if (response.data.callEnded) {
-                navigation.replace('VideoCallDetails', {
-                  groupId,
-                  callId,
-                  call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
-                });
+                navigateToDetails();
               } else {
-                navigation.replace('VideoCalls', { groupId });
+                navigateToList();
               }
             } catch (err) {
               console.error('Leave call error:', err);
-              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to leave call');
-              setLeavingCall(false);
+              // Still navigate away even if API fails - call is already stopped locally
+              if (isInitiator) {
+                navigateToDetails();
+              } else {
+                navigateToList();
+              }
             }
           },
         },
@@ -410,11 +429,19 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           style: 'destructive',
           onPress: async () => {
             setEndingCall(true);
+
+            // Stop video/audio immediately for instant visual feedback
+            stopConnection();
+            stopPolling();
+
             try {
-              await stopRecording();
-              stopConnection();
+              // Stop recording (non-blocking for UI)
+              stopRecording().catch(err => console.error('Stop recording error:', err));
+
+              // Make API call to end the call
               await api.put(`/groups/${groupId}/video-calls/${callId}/end`);
-              stopPolling();
+
+              // Navigate to call details
               navigation.replace('VideoCallDetails', {
                 groupId,
                 callId,
@@ -422,8 +449,12 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
               });
             } catch (err) {
               console.error('End call error:', err);
-              CustomAlert.alert('Error', err.response?.data?.message || 'Failed to end call');
-              setEndingCall(false);
+              // Still navigate away even if API fails - call is already stopped locally
+              navigation.replace('VideoCallDetails', {
+                groupId,
+                callId,
+                call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
+              });
             }
           },
         },
