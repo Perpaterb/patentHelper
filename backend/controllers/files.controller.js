@@ -19,6 +19,7 @@ const {
 } = require('../services/imageConversion.service');
 const audioConverter = require('../services/audioConverter');
 const mediaProcessor = require('../services/mediaProcessor.service');
+const fileEncryption = require('../services/fileEncryption.service');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
@@ -604,18 +605,27 @@ async function getFile(req, res) {
     // Get file metadata
     const metadata = await storageService.getFileMetadata(fileId);
 
-    // Check if we're in Lambda/S3 mode - use presigned URL redirect
-    // This avoids API Gateway binary response issues
+    // Check if we're in Lambda/S3 mode
     const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    if (isLambda && storageService.getFileUrl) {
+    // For encrypted files, we MUST download and decrypt (can't use presigned URLs)
+    // For non-encrypted files in Lambda, use presigned URL redirect for better performance
+    let fileBuffer = await storageService.getFile(fileId);
+    let needsDecryption = fileEncryption.isEncrypted(fileBuffer);
+
+    if (isLambda && storageService.getFileUrl && !needsDecryption) {
       // Redirect to presigned S3 URL (works better for binary files through API Gateway)
       const presignedUrl = await storageService.getFileUrl(fileId, 3600); // 1 hour expiry
       return res.redirect(302, presignedUrl);
     }
 
-    // Local development - serve file directly
-    const fileBuffer = await storageService.getFile(fileId);
+    // Decrypt if the file is encrypted (recordings use application-level encryption)
+    if (needsDecryption) {
+      console.log(`[Files] Decrypting file ${fileId}...`);
+      fileBuffer = fileEncryption.decryptFile(fileBuffer);
+      console.log(`[Files] Decrypted. Size: ${(fileBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    }
+
     const fileSize = fileBuffer.length;
 
     // Check for range request (needed for audio/video seeking and duration detection)

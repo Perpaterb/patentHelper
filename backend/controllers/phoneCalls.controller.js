@@ -15,6 +15,7 @@ const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissi
 const audioConverter = require('../services/audioConverter');
 const recorderService = require('../services/recorder.service');
 const { storageService } = require('../services/storage');
+const fileEncryption = require('../services/fileEncryption.service');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
@@ -1190,7 +1191,17 @@ async function uploadRecording(req, res) {
       }
 
       // Read the converted file
-      const fileBuffer = await fs.readFile(filePath);
+      let fileBuffer = await fs.readFile(filePath);
+
+      // Encrypt the recording before upload
+      if (fileEncryption.isAvailable()) {
+        console.log('[Phone Recording] Encrypting recording before upload...');
+        fileBuffer = fileEncryption.encryptFile(fileBuffer);
+        fileSize = fileBuffer.length;
+        console.log('[Phone Recording] Recording encrypted, new size:', fileSize);
+      } else {
+        console.warn('[Phone Recording] Encryption not available - storing unencrypted');
+      }
 
       // Upload using storage service (works for both local and S3)
       const uploadResult = await storageService.uploadFile(fileBuffer, {
