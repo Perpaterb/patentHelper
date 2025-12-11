@@ -143,7 +143,9 @@
       "Bash(~/.local/bin/aws cloudfront:*)",
       "Bash(dig:*)",
       "Bash(nslookup:*)",
-      "Bash(~/.local/bin/aws s3 sync:*)"
+      "Bash(~/.local/bin/aws s3 sync:*)",
+      "Bash(~/.local/bin/aws s3 cp:*)",
+      "Bash(./scripts/deploy-lightsail.sh:*)"
     ],
     "deny": [],
     "ask": []

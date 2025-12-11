@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>Video Call Recorder</title>
+  <!-- TS-EBML for fixing WebM duration metadata -->
+  <script src="https://cdn.jsdelivr.net/npm/ts-ebml@3.0.0/lib/ebml.min.js"></script>
   <style>
     body {
       background: #000;
@@ -39,6 +41,55 @@
   <div id="remoteAudios" style="display:none;"></div>
 
   <script>
+    // ============================================
+    // WebM Duration Fix using TS-EBML library
+    // WebM files from MediaRecorder don't have duration metadata.
+    // This uses the ts-ebml library to properly inject duration.
+    // ============================================
+
+    // Fix WebM duration using ts-ebml library
+    async function fixWebmDuration(blob, durationMs) {
+      try {
+        // Check if EBML library is loaded
+        if (typeof EBML === 'undefined') {
+          console.warn('[WebM Fix] EBML library not loaded, returning original blob');
+          return blob;
+        }
+
+        const buffer = await blob.arrayBuffer();
+        const decoder = new EBML.Decoder();
+        const reader = new EBML.Reader();
+
+        // Decode the WebM file
+        reader.logging = false;
+        reader.drop_default_duration = false;
+
+        const elms = decoder.decode(buffer);
+        elms.forEach((elm) => reader.read(elm));
+        reader.stop();
+
+        // Get the metadata refinement with duration
+        const refinedMetadataBuf = EBML.tools.makeMetadataSeekable(
+          reader.metadatas,
+          durationMs,
+          reader.cues
+        );
+
+        // Get the body (video data after metadata)
+        const body = buffer.slice(reader.metadataSize);
+
+        // Combine refined metadata with body
+        const result = new Blob([refinedMetadataBuf, body], { type: 'video/webm' });
+
+        console.log(`[WebM Fix] Successfully fixed duration: ${durationMs}ms`);
+        return result;
+      } catch (err) {
+        console.error('[WebM Fix] Error fixing duration:', err);
+        // Return original blob if fixing fails
+        return blob;
+      }
+    }
+
     // Configuration passed via URL params
     const params = new URLSearchParams(window.location.search);
     const API_URL = params.get('apiUrl') || 'http://localhost:3001';
@@ -625,15 +676,27 @@
           return;
         }
 
-        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        let blob = new Blob(recordedChunks, { type: 'video/webm' });
+
+        // Calculate duration in milliseconds
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
+        const durationMs = endDate.getTime() - startDate.getTime();
+
+        // Fix WebM duration metadata before upload
+        // This ensures the video player can show correct duration and progress
+        console.log(`[VideoRecorder] Fixing WebM duration: ${durationMs}ms`);
+        blob = await fixWebmDuration(blob, durationMs);
+
         const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
-        console.log(`[VideoRecorder] Uploading chunk ${chunkIndex}: ${sizeMB} MB`);
+        console.log(`[VideoRecorder] Uploading chunk ${chunkIndex}: ${sizeMB} MB, duration: ${durationMs}ms`);
 
         const formData = new FormData();
         formData.append('recording', blob, `video-call-${CALL_ID}-chunk-${chunkIndex}.webm`);
         formData.append('chunkIndex', chunkIndex.toString());
         formData.append('startedAt', startTime);
         formData.append('endedAt', endTime);
+        formData.append('durationMs', durationMs.toString());
 
         const response = await fetch(
           `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recording-chunk`,
