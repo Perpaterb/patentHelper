@@ -457,12 +457,31 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   // Get all participants for display (initiator + all call participants)
   const allParticipants = [];
 
+  // Helper function to determine effective status based on WebRTC state
+  const getEffectiveStatus = (memberId, baseStatus) => {
+    const webrtcState = connectionStates[memberId];
+    const hasRemoteStream = !!remoteStreams[memberId];
+
+    if (hasRemoteStream || webrtcState === 'connected') {
+      return 'joined';
+    } else if (webrtcState === 'connecting' || webrtcState === 'new') {
+      return 'accepted'; // Still connecting
+    }
+    return baseStatus;
+  };
+
   // Add initiator
   if (call.initiator) {
+    // If I'm the initiator, I'm always "joined"
+    // If I'm the callee, show initiator's WebRTC connection status to me
+    const initiatorStatus = isInitiator
+      ? 'joined'
+      : getEffectiveStatus(call.initiator.groupMemberId, 'joined');
+
     allParticipants.push({
       ...call.initiator,
       isInitiator: true,
-      callStatus: 'joined',
+      callStatus: initiatorStatus,
     });
   }
 
@@ -472,16 +491,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
       // Don't add if already the initiator
       if (p.groupMemberId !== call.initiator?.groupMemberId) {
         // Use WebRTC connection state to determine actual connectivity
-        // If we have a remote stream or WebRTC says connected, they're truly connected
-        const webrtcState = connectionStates[p.groupMemberId];
-        const hasRemoteStream = !!remoteStreams[p.groupMemberId];
-        let effectiveStatus = p.status;
-
-        if (hasRemoteStream || webrtcState === 'connected') {
-          effectiveStatus = 'joined';
-        } else if (webrtcState === 'connecting' || webrtcState === 'new') {
-          effectiveStatus = 'accepted'; // Still connecting
-        }
+        const effectiveStatus = getEffectiveStatus(p.groupMemberId, p.status);
 
         allParticipants.push({
           ...p,
