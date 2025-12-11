@@ -2,137 +2,67 @@
  * Recorder Service
  *
  * Routes call recording requests to:
- * 1. Fargate Recorder Service (production) - Always-warm container for 2-3s start time
- * 2. Local Docker container (development) - For local testing
+ * 1. Local Puppeteer (unified server / Lightsail) - Direct in-process recording
+ * 2. HTTP Recorder Service (legacy Docker setup) - For backward compatibility
  *
- * The actual Puppeteer/Chrome recording happens in the recorder-service container,
- * not in the main API backend. Media Processor Lambda is for file conversion only.
+ * In unified Lightsail mode, recording happens directly in this process
+ * using the local Puppeteer service.
  */
 
 const axios = require('axios');
 
 // Configuration
-// Priority: RECORDER_FARGATE_URL > MEDIA_PROCESSOR_URL (local)
-const RECORDER_FARGATE_URL = process.env.RECORDER_FARGATE_URL;
-const MEDIA_PROCESSOR_URL = process.env.MEDIA_PROCESSOR_URL || 'http://localhost:3001';
-const MEDIA_PROCESSOR_LAMBDA = process.env.MEDIA_PROCESSOR_LAMBDA;
-const AWS_REGION = process.env.AWS_REGION || 'ap-southeast-2';
+// USE_LOCAL_RECORDER: Set to 'true' for unified Lightsail mode (direct Puppeteer)
+// RECORDER_HTTP_URL: URL for legacy HTTP-based recorder service
+const USE_LOCAL_RECORDER = process.env.USE_LOCAL_RECORDER === 'true' ||
+                           process.env.NODE_ENV === 'production' && !process.env.RECORDER_HTTP_URL;
+const RECORDER_HTTP_URL = process.env.RECORDER_HTTP_URL || process.env.RECORDER_FARGATE_URL || 'http://localhost:3001';
+const UPLOADS_DIR = process.env.UPLOADS_DIR || require('path').join(__dirname, '../uploads');
 
-// Get the active recorder URL (Fargate if set, otherwise local)
-function getRecorderUrl() {
-  return RECORDER_FARGATE_URL || MEDIA_PROCESSOR_URL;
+// Local Puppeteer recorder (lazy loaded)
+let localRecorder = null;
+function getLocalRecorder() {
+  if (!localRecorder) {
+    localRecorder = require('./media/puppeteer.recorder.service');
+  }
+  return localRecorder;
 }
 
-// Use Lambda SDK only when MEDIA_PROCESSOR_LAMBDA is set
-let lambdaClient = null;
-if (MEDIA_PROCESSOR_LAMBDA) {
-  const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
-  lambdaClient = new LambdaClient({ region: AWS_REGION });
-}
+// Log mode at startup
+console.log(`[Recorder] Mode: ${USE_LOCAL_RECORDER ? 'Local Puppeteer (unified)' : 'HTTP (' + RECORDER_HTTP_URL + ')'}`);
 
-/**
- * Invoke the Media Processor Lambda function
- * @param {string} action - The action to perform (start, stop, status)
- * @param {Object} payload - The payload to send
- * @returns {Promise<Object>} The response from the Lambda
- */
-async function invokeLambda(action, payload) {
-  if (!lambdaClient) {
-    throw new Error('Lambda client not initialized - MEDIA_PROCESSOR_LAMBDA not set');
-  }
-
-  const { InvokeCommand } = require('@aws-sdk/client-lambda');
-
-  console.log(`[Recorder] Invoking Lambda ${MEDIA_PROCESSOR_LAMBDA} with action: ${action}`);
-
-  const command = new InvokeCommand({
-    FunctionName: MEDIA_PROCESSOR_LAMBDA,
-    InvocationType: 'RequestResponse',
-    Payload: JSON.stringify({
-      action,
-      ...payload,
-    }),
-  });
-
-  const response = await lambdaClient.send(command);
-
-  // Parse the response
-  const responsePayload = JSON.parse(new TextDecoder().decode(response.Payload));
-
-  // Check for Lambda execution errors
-  if (response.FunctionError) {
-    console.error('[Recorder] Lambda execution error:', responsePayload);
-    throw new Error(responsePayload.errorMessage || 'Lambda execution failed');
-  }
-
-  // Handle API Gateway-style response (statusCode + body)
-  if (responsePayload.statusCode && responsePayload.body) {
-    const body = typeof responsePayload.body === 'string'
-      ? JSON.parse(responsePayload.body)
-      : responsePayload.body;
-
-    if (responsePayload.statusCode >= 400) {
-      throw new Error(body.error || body.message || 'Media processor error');
-    }
-
-    return body;
-  }
-
-  return responsePayload;
-}
 
 /**
  * Check if recording service is available
  *
- * Priority:
- * 1. Fargate Recorder Service (RECORDER_FARGATE_URL) - Production
- * 2. Local Docker container (MEDIA_PROCESSOR_URL) - Development
- *
- * Note: The Media Processor Lambda only supports file conversion (audio/video),
- * NOT live WebRTC call recording. Live recording requires a continuously running
- * service with Puppeteer.
+ * Modes:
+ * 1. Local Puppeteer (unified/Lightsail) - Always available if puppeteer is installed
+ * 2. HTTP Recorder Service (legacy Docker) - Requires health check
  *
  * @returns {Promise<boolean>}
  */
 async function isAvailable() {
+  // Local Puppeteer mode - always available (puppeteer is a dependency)
+  if (USE_LOCAL_RECORDER) {
+    console.log('[Recorder] Local Puppeteer mode - available');
+    return true;
+  }
+
+  // HTTP mode - check health endpoint
   try {
-    // Check Fargate recorder service first (production)
-    if (RECORDER_FARGATE_URL) {
-      try {
-        const response = await axios.get(`${RECORDER_FARGATE_URL}/health`, { timeout: 5000 });
-        const hasRecordingCapability = response.data.status === 'healthy' && response.data.capabilities?.includes('recording');
-        console.log(`[Recorder] Fargate service available: ${hasRecordingCapability}, capabilities: ${response.data.capabilities}`);
-        return hasRecordingCapability;
-      } catch (error) {
-        console.log(`[Recorder] Fargate service not available: ${error.message}`);
-        // Fall through to check local service
-      }
-    }
-
-    // Lambda mode does NOT support recording - only file conversion
-    // Live WebRTC recording requires a continuously running Puppeteer service
-    if (MEDIA_PROCESSOR_LAMBDA && !RECORDER_FARGATE_URL) {
-      console.log(`[Recorder] Lambda mode does not support live recording - MEDIA_PROCESSOR_LAMBDA=${MEDIA_PROCESSOR_LAMBDA}`);
-      return false;
-    }
-
-    // HTTP mode (local docker) - check health endpoint and verify recording capability
-    const response = await axios.get(`${MEDIA_PROCESSOR_URL}/health`, { timeout: 5000 });
-    const hasRecordingCapability = response.data.status === 'healthy' && response.data.capabilities?.includes('recording');
-    console.log(`[Recorder] HTTP mode available: ${hasRecordingCapability}, capabilities: ${response.data.capabilities}`);
+    const response = await axios.get(`${RECORDER_HTTP_URL}/health`, { timeout: 5000 });
+    const hasRecordingCapability = response.data.status === 'healthy' &&
+                                   response.data.capabilities?.includes('recording');
+    console.log(`[Recorder] HTTP service available: ${hasRecordingCapability}, capabilities: ${response.data.capabilities}`);
     return hasRecordingCapability;
   } catch (error) {
-    console.log('[Recorder] Service not available:', error.message);
+    console.log('[Recorder] HTTP service not available:', error.message);
     return false;
   }
 }
 
 /**
- * Start recording a call via Recorder Service
- *
- * Priority:
- * 1. Fargate Recorder Service (RECORDER_FARGATE_URL) - Production
- * 2. Local Docker container (MEDIA_PROCESSOR_URL) - Development
+ * Start recording a call
  *
  * @param {Object} options - Recording options
  * @param {string} options.groupId - Group ID
@@ -145,32 +75,34 @@ async function isAvailable() {
 async function startRecording({ groupId, callId, callType, authToken, apiUrl }) {
   console.log(`[Recorder] Starting recording for ${callType}-${callId}`);
 
-  const payload = {
-    groupId,
-    callId,
-    callType,
-    authToken,
-    apiUrl,
-  };
+  // Local Puppeteer mode (unified/Lightsail)
+  if (USE_LOCAL_RECORDER) {
+    console.log('[Recorder] Using local Puppeteer');
+    const recorder = getLocalRecorder();
+    return recorder.startRecording({
+      groupId,
+      callId,
+      callType,
+      authToken,
+      apiUrl,
+      uploadsDir: UPLOADS_DIR,
+    });
+  }
 
-  const recorderUrl = getRecorderUrl();
-
+  // HTTP mode (legacy Docker)
+  console.log(`[Recorder] Using HTTP mode - ${RECORDER_HTTP_URL}`);
   try {
-    // Use HTTP mode (Fargate or local Docker)
-    console.log(`[Recorder] Using HTTP mode - ${recorderUrl}`);
     const response = await axios.post(
-      `${recorderUrl}/recording/start`,
-      payload,
-      {
-        timeout: 60000, // 1 minute timeout for browser launch
-      }
+      `${RECORDER_HTTP_URL}/recording/start`,
+      { groupId, callId, callType, authToken, apiUrl },
+      { timeout: 60000 } // 1 minute timeout for browser launch
     );
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to start recording');
     }
 
-    console.log(`[Recorder] Recording started successfully via HTTP`);
+    console.log('[Recorder] Recording started successfully via HTTP');
     return response.data;
   } catch (error) {
     console.error('[Recorder] Start recording error:', error.message);
@@ -182,7 +114,7 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl }) 
 }
 
 /**
- * Stop recording a call via Recorder Service
+ * Stop recording a call
  *
  * @param {string} callId - Call ID
  * @param {string} callType - 'phone' or 'video'
@@ -191,29 +123,27 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl }) 
 async function stopRecording(callId, callType) {
   console.log(`[Recorder] Stopping recording for ${callType}-${callId}`);
 
-  const payload = {
-    callId,
-    callType,
-  };
+  // Local Puppeteer mode (unified/Lightsail)
+  if (USE_LOCAL_RECORDER) {
+    console.log('[Recorder] Using local Puppeteer');
+    const recorder = getLocalRecorder();
+    return recorder.stopRecording(callId, callType);
+  }
 
-  const recorderUrl = getRecorderUrl();
-
+  // HTTP mode (legacy Docker)
+  console.log(`[Recorder] Using HTTP mode - ${RECORDER_HTTP_URL}`);
   try {
-    // Use HTTP mode (Fargate or local Docker)
-    console.log(`[Recorder] Using HTTP mode - ${recorderUrl}`);
     const response = await axios.post(
-      `${recorderUrl}/recording/stop`,
-      payload,
-      {
-        timeout: 30000, // 30 second timeout
-      }
+      `${RECORDER_HTTP_URL}/recording/stop`,
+      { callId, callType },
+      { timeout: 30000 } // 30 second timeout
     );
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to stop recording');
     }
 
-    console.log(`[Recorder] Recording stopped successfully via HTTP`);
+    console.log('[Recorder] Recording stopped successfully via HTTP');
     return response.data;
   } catch (error) {
     console.error('[Recorder] Stop recording error:', error.message);
@@ -225,19 +155,23 @@ async function stopRecording(callId, callType) {
 }
 
 /**
- * Check if a call is being recorded via Recorder Service
+ * Check if a call is being recorded
  *
  * @param {string} callId - Call ID
  * @param {string} callType - 'phone' or 'video'
  * @returns {Promise<boolean>}
  */
 async function isRecording(callId, callType) {
-  const recorderUrl = getRecorderUrl();
+  // Local Puppeteer mode
+  if (USE_LOCAL_RECORDER) {
+    const recorder = getLocalRecorder();
+    return recorder.isRecording(callId, callType);
+  }
 
+  // HTTP mode
   try {
-    // Use HTTP mode (Fargate or local Docker)
     const response = await axios.get(
-      `${recorderUrl}/recording/status/${callType}/${callId}`,
+      `${RECORDER_HTTP_URL}/recording/status/${callType}/${callId}`,
       { timeout: 5000 }
     );
     return response.data.isRecording === true;
@@ -248,19 +182,23 @@ async function isRecording(callId, callType) {
 }
 
 /**
- * Get recording status via Recorder Service
+ * Get recording status
  *
  * @param {string} callId - Call ID
  * @param {string} callType - 'phone' or 'video'
  * @returns {Promise<Object|null>}
  */
 async function getRecordingStatus(callId, callType) {
-  const recorderUrl = getRecorderUrl();
+  // Local Puppeteer mode
+  if (USE_LOCAL_RECORDER) {
+    const recorder = getLocalRecorder();
+    return recorder.getRecordingStatus(callId, callType);
+  }
 
+  // HTTP mode
   try {
-    // Use HTTP mode (Fargate or local Docker)
     const response = await axios.get(
-      `${recorderUrl}/recording/status/${callType}/${callId}`,
+      `${RECORDER_HTTP_URL}/recording/status/${callType}/${callId}`,
       { timeout: 5000 }
     );
 
@@ -281,10 +219,13 @@ async function getRecordingStatus(callId, callType) {
 
 /**
  * Stop all active recordings (for graceful shutdown)
- * Note: This is a no-op in the routing service - the media processor handles its own cleanup
  */
 async function stopAllRecordings() {
-  console.log(`[Recorder] stopAllRecordings called - media processor handles its own cleanup`);
+  if (USE_LOCAL_RECORDER) {
+    const recorder = getLocalRecorder();
+    return recorder.stopAllRecordings();
+  }
+  console.log('[Recorder] stopAllRecordings - HTTP mode does not support this operation');
 }
 
 module.exports = {

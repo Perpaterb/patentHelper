@@ -1,13 +1,78 @@
 # Docker Compose for Local Development
-# Mirrors production AWS infrastructure for consistent development experience
+#
+# SIMPLIFIED ARCHITECTURE - Mirrors Lightsail Production
 #
 # Services:
-# - postgres: RDS PostgreSQL equivalent
-# - mailhog: SES email testing equivalent
-# - worker-service: Heavy processing service (ffmpeg, sharp, PDF, puppeteer)
-# - pgadmin: Optional database management UI (--profile tools)
+# - api: Unified Express server (API + Recording + Media Processing)
+# - postgres: Database (mirrors RDS)
+# - mailhog: Email testing (mirrors SES)
+# - pgadmin: Optional database management UI
 
 services:
+  # ============================================
+  # Unified API Server
+  # Everything in one container (like Lightsail)
+  # ============================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: family-helper-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # Database - use local postgres
+      DATABASE_URL: postgresql://familyhelper_admin:localdev123@postgres:5432/familyhelper
+      # S3 - use production S3 for file storage (or local for dev)
+      S3_BUCKET: ${S3_BUCKET:-family-helper-files-prod}
+      AWS_REGION: ap-southeast-2
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Use local file storage if no S3 credentials
+      USE_LOCAL_STORAGE: ${USE_LOCAL_STORAGE:-true}
+      UPLOADS_DIR: /app/uploads
+      # Email - use mailhog locally
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      EMAIL_FROM: noreply@familyhelper.local
+      # Auth - Kinde
+      KINDE_DOMAIN: ${KINDE_DOMAIN:-https://familyhelperapp.kinde.com}
+      KINDE_CLIENT_ID: ${KINDE_CLIENT_ID:-552e8d9d29f046418a8dfce0b7f0de1b}
+      KINDE_CLIENT_SECRET: ""
+      # Stripe (use test keys for dev)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # API URL for Puppeteer recorder (inside container, so localhost works)
+      API_BASE_URL: http://localhost:3000
+      # Use local Puppeteer recorder (unified mode)
+      USE_LOCAL_RECORDER: "true"
+      # Puppeteer Chrome path (in Docker)
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      # JWT for internal auth
+      JWT_SECRET: local-dev-jwt-secret-change-in-production
+      MESSAGE_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      # CORS
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:8081
+    volumes:
+      # Mount source code for hot reload (optional)
+      # - ./backend:/app
+      # - /app/node_modules
+      # Persist uploads
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - family-helper-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # ============================================
   # PostgreSQL Database (mirrors RDS)
   # ============================================
@@ -18,7 +83,6 @@ services:
       POSTGRES_DB: familyhelper
       POSTGRES_USER: familyhelper_admin
       POSTGRES_PASSWORD: localdev123
-      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
@@ -39,54 +103,9 @@ services:
     container_name: family-helper-mailhog
     ports:
       - "1025:1025"  # SMTP server
-      - "8025:8025"  # Web UI
+      - "8025:8025"  # Web UI - http://localhost:8025
     networks:
       - family-helper-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # ============================================
-  # Worker Service (mirrors ECR Lambda for heavy processing)
-  # Handles: video/audio conversion (ffmpeg), image conversion (sharp),
-  # PDF generation, and call recording (puppeteer with headless Chrome)
-  # This service handles all CPU/memory-intensive tasks that don't fit in
-  # the main Lambda due to size/dependency constraints.
-  # ============================================
-  worker-service:
-    build:
-      context: ./backend/worker-service
-      dockerfile: Dockerfile
-    container_name: fh-worker-service
-    ports:
-      - "3001:3001"
-    environment:
-      NODE_ENV: development
-      PORT: 3001
-      # Local file storage (shared with backend)
-      UPLOADS_DIR: /app/uploads
-      # WSL2: Docker host URL for Puppeteer to reach the backend
-      # In WSL2, host.docker.internal doesn't work reliably, so we use the WSL IP
-      # Run: ip addr show eth0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
-      # Or set DOCKER_HOST_URL in your shell before docker-compose up
-      DOCKER_HOST_URL: ${DOCKER_HOST_URL:-host.docker.internal}
-    volumes:
-      # Share uploads directory with backend
-      - ./backend/uploads:/app/uploads
-    # Allow container to access host machine (for Puppeteer to reach backend at localhost:3000)
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - family-helper-network
-    depends_on:
-      - postgres
 
   # ============================================
   # pgAdmin (Optional - Database management UI)
@@ -100,72 +119,48 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - postgres
     networks:
       - family-helper-network
     profiles:
-      - tools  # Only starts with: docker-compose --profile tools up
+      - tools
 
 volumes:
   postgres_data:
-    driver: local
-  pgadmin_data:
-    driver: local
 
 networks:
   family-helper-network:
     driver: bridge
 
 # =============================================================================
-# USAGE INSTRUCTIONS
+# USAGE
 # =============================================================================
 #
-# Start all services (recommended for development):
+# Start everything:
 #   docker-compose up -d
 #
-# Start with pgAdmin for database management:
+# Start with pgAdmin:
 #   docker-compose --profile tools up -d
 #
-# Stop services:
-#   docker-compose down
+# View logs:
+#   docker-compose logs -f api
 #
-# Stop and remove data (fresh start):
+# Rebuild after code changes:
+#   docker-compose build api && docker-compose up -d api
+#
+# Fresh start (delete data):
 #   docker-compose down -v
 #
-# View logs:
-#   docker-compose logs -f postgres
-#   docker-compose logs -f worker-service
-#   docker-compose logs -f mailhog
-#
-# Rebuild worker-service after changes:
-#   docker-compose build worker-service
-#   docker-compose up -d worker-service
-#
 # =============================================================================
-# LOCAL SERVICES OVERVIEW
+# SERVICES
 # =============================================================================
 #
-# | Service          | Local URL                    | Production Equivalent      |
-# |------------------|------------------------------|----------------------------|
-# | PostgreSQL       | localhost:5432               | RDS PostgreSQL             |
-# | MailHog SMTP     | localhost:1025               | AWS SES                    |
-# | MailHog Web UI   | http://localhost:8025        | -                          |
-# | Worker Service   | http://localhost:3001        | ECR Lambda (container)     |
-# | pgAdmin          | http://localhost:5050        | -                          |
-# | Backend API      | http://localhost:3000        | API Gateway + Lambda (zip) |
-# | Web Admin        | http://localhost:8081        | CloudFront + S3            |
-# | Mobile Main      | Expo DevTools                | App Store / Play Store     |
-#
-# =============================================================================
-# ENVIRONMENT VARIABLES FOR backend/.env
-# =============================================================================
-#
-# DATABASE_URL=postgresql://familyhelper_admin:localdev123@localhost:5432/familyhelper
-# SMTP_HOST=localhost
-# SMTP_PORT=1025
-# MEDIA_PROCESSOR_URL=http://localhost:3001
+# | Service   | URL                          | Description                |
+# |-----------|------------------------------|----------------------------|
+# | API       | http://localhost:3000        | Unified backend server     |
+# | Postgres  | localhost:5432               | Database                   |
+# | MailHog   | http://localhost:8025        | Email testing UI           |
+# | pgAdmin   | http://localhost:5050        | Database admin (optional)  |
 #
 # =============================================================================
