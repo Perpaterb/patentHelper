@@ -237,11 +237,8 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           await stopRecording();
           stopConnection();
 
-          navigation.replace('VideoCallDetails', {
-            groupId,
-            callId,
-            call: updatedCall,
-          });
+          // Navigate to calls list so all participants land on the same screen
+          navigation.replace('VideoCalls', { groupId });
         }
       }
     } catch (err) {
@@ -376,40 +373,19 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             stopConnection();
             stopPolling();
 
-            // Navigate immediately so user sees the call end instantly
-            // API calls continue in background
-            const navigateToList = () => {
-              navigation.replace('VideoCalls', { groupId });
-            };
-            const navigateToDetails = () => {
-              navigation.replace('VideoCallDetails', {
-                groupId,
-                callId,
-                call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
-              });
-            };
-
             try {
-              // Stop recording first (non-blocking for UI)
+              // Stop recording (non-blocking for UI)
               stopRecording().catch(err => console.error('Stop recording error:', err));
 
               // Make API call to leave
-              const response = await api.put(`/groups/${groupId}/video-calls/${callId}/leave`);
-
-              if (response.data.callEnded) {
-                navigateToDetails();
-              } else {
-                navigateToList();
-              }
+              await api.put(`/groups/${groupId}/video-calls/${callId}/leave`);
             } catch (err) {
               console.error('Leave call error:', err);
-              // Still navigate away even if API fails - call is already stopped locally
-              if (isInitiator) {
-                navigateToDetails();
-              } else {
-                navigateToList();
-              }
+              // Continue to navigate even on error - call is already stopped locally
             }
+
+            // Always navigate to calls list so all participants land on the same screen
+            navigation.replace('VideoCalls', { groupId });
           },
         },
       ]
@@ -440,22 +416,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
 
               // Make API call to end the call
               await api.put(`/groups/${groupId}/video-calls/${callId}/end`);
-
-              // Navigate to call details
-              navigation.replace('VideoCallDetails', {
-                groupId,
-                callId,
-                call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
-              });
             } catch (err) {
               console.error('End call error:', err);
-              // Still navigate away even if API fails - call is already stopped locally
-              navigation.replace('VideoCallDetails', {
-                groupId,
-                callId,
-                call: { ...call, status: 'ended', endedAt: new Date().toISOString() },
-              });
+              // Continue to navigate even on error - call is already stopped locally
             }
+
+            // Always navigate to calls list so all participants land on the same screen
+            navigation.replace('VideoCalls', { groupId });
           },
         },
       ]
