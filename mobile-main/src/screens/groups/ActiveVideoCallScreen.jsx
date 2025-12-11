@@ -138,6 +138,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   }, [call?.status, call?.connectedAt]);
 
   // Attach streams to video elements on web
+  // Note: isCameraOn is included because toggling camera removes/adds the video element
   useEffect(() => {
     if (Platform.OS === 'web') {
       if (localVideoRef.current && localStream) {
@@ -147,7 +148,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         remoteVideoRef.current.srcObject = firstRemoteStream;
       }
     }
-  }, [localStream, firstRemoteStream]);
+  }, [localStream, firstRemoteStream, isCameraOn]);
 
   // Start recording when call becomes active (only if recording is enabled)
   useEffect(() => {
