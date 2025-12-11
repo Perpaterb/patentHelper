@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, ImageBackground } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, ImageBackground, Animated } from 'react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 import { Card, Title, Text, FAB, Avatar, Chip, Searchbar, Badge, IconButton, Portal, Modal, TextInput, Button } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -38,6 +38,9 @@ export default function GroupsListScreen({ navigation }) {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [sendingFeedback, setSendingFeedback] = useState(false);
 
+  // Animation for arrow pointing to invites
+  const arrowAnim = useRef(new Animated.Value(0)).current;
+
   // Use ref instead of state to prevent useFocusEffect re-execution on auth error
   const authErrorRef = useRef(false);
   // Track if this is the first load to show loading spinner
@@ -46,6 +49,29 @@ export default function GroupsListScreen({ navigation }) {
   useEffect(() => {
     filterGroups();
   }, [searchQuery, groups]);
+
+  // Start arrow animation when user has no groups but has invitations
+  useEffect(() => {
+    if (groups.length === 0 && invitationCount > 0 && !loading) {
+      // Bouncing animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(arrowAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arrowAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      arrowAnim.setValue(0);
+    }
+  }, [groups.length, invitationCount, loading]);
 
   /**
    * Refresh groups list when screen comes into focus
@@ -413,14 +439,41 @@ export default function GroupsListScreen({ navigation }) {
   /**
    * Render empty state
    */
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>No groups found</Text>
-      <Text style={styles.emptySubtext}>
-        {searchQuery ? 'Try a different search term' : 'Create your first group to get started'}
-      </Text>
-    </View>
-  );
+  const renderEmptyState = () => {
+    const showInviteArrow = !searchQuery && groups.length === 0 && invitationCount > 0;
+
+    // Interpolate animation for bounce effect
+    const arrowTranslateY = arrowAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -10],
+    });
+
+    return (
+      <View style={styles.emptyState}>
+        {showInviteArrow && (
+          <Animated.View
+            style={[
+              styles.inviteArrowContainer,
+              { transform: [{ translateY: arrowTranslateY }] }
+            ]}
+          >
+            <Text style={styles.inviteArrowText}>
+              You have {invitationCount} pending invitation{invitationCount > 1 ? 's' : ''}!
+            </Text>
+            <Text style={styles.inviteArrowIcon}>↗</Text>
+          </Animated.View>
+        )}
+        <Text style={styles.emptyText}>No groups found</Text>
+        <Text style={styles.emptySubtext}>
+          {searchQuery
+            ? 'Try a different search term'
+            : showInviteArrow
+              ? 'Check your invitations to join a group'
+              : 'Create your first group to get started'}
+        </Text>
+      </View>
+    );
+  };
 
   /**
    * Render error state
@@ -672,6 +725,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  inviteArrowContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    alignItems: 'flex-end',
+  },
+  inviteArrowText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6200ee',
+    marginBottom: 4,
+    textAlign: 'right',
+  },
+  inviteArrowIcon: {
+    fontSize: 40,
+    color: '#6200ee',
+    fontWeight: 'bold',
   },
   errorState: {
     flex: 1,

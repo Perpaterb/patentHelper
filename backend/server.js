@@ -18,9 +18,17 @@
  * - /files - File uploads
  */
 
-// Load environment variables (only in local development)
-if (process.env.NODE_ENV !== 'production' && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
-  require('dotenv').config({ path: '../.env.local' });
+// Load environment variables
+// - Local development: loads from ../.env.local
+// - Lightsail production: loads from .env (same directory)
+// - Lambda: uses Lambda environment variables (no dotenv needed)
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  const dotenv = require('dotenv');
+  // Try .env in current directory first (Lightsail), then ../.env.local (local dev)
+  const result = dotenv.config();
+  if (result.error) {
+    dotenv.config({ path: '../.env.local' });
+  }
 }
 const express = require('express');
 const cors = require('cors');

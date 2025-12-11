@@ -24,14 +24,33 @@ let ffmpegAvailable = false;
 
 try {
   ffmpeg = require('fluent-ffmpeg');
-  const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-  const ffprobePath = require('@ffprobe-installer/ffprobe').path;
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  ffmpeg.setFfprobePath(ffprobePath);
+
+  // Try npm-installed ffmpeg first, fall back to system ffmpeg
+  try {
+    const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+    const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
+  } catch (installerErr) {
+    // @ffmpeg-installer not available, try system ffmpeg
+    const { execSync } = require('child_process');
+    try {
+      const systemFfmpeg = execSync('which ffmpeg', { encoding: 'utf8' }).trim();
+      const systemFfprobe = execSync('which ffprobe', { encoding: 'utf8' }).trim();
+      if (systemFfmpeg && systemFfprobe) {
+        ffmpeg.setFfmpegPath(systemFfmpeg);
+        ffmpeg.setFfprobePath(systemFfprobe);
+        console.log('[AudioConverter] Using system ffmpeg:', systemFfmpeg);
+      } else {
+        throw new Error('System ffmpeg not found');
+      }
+    } catch (sysErr) {
+      throw new Error('Neither @ffmpeg-installer nor system ffmpeg available');
+    }
+  }
   ffmpegAvailable = true;
-  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
 } catch (err) {
-  // Startup log suppressed - consolidated in mediaProcessor.service.js checkAndLogStatus()
+  console.log('[AudioConverter] ffmpeg not available:', err.message);
 }
 
 // Path to shared uploads directory (mounted in Docker as /app/uploads)

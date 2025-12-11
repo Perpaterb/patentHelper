@@ -31,8 +31,10 @@ try {
 
 // Configuration (supports both new WORKER_SERVICE_* and legacy MEDIA_PROCESSOR_* env vars)
 // Detect production by Lambda environment OR NODE_ENV
+// BUT: If USE_LOCAL_RECORDER=true (Lightsail deployment), use local processing even in production
 const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-const isProduction = isLambda || process.env.NODE_ENV === 'production';
+const useLocalProcessing = process.env.USE_LOCAL_RECORDER === 'true';
+const isProduction = isLambda && !useLocalProcessing;
 const WORKER_SERVICE_URL = process.env.WORKER_SERVICE_URL || process.env.MEDIA_PROCESSOR_URL || 'http://localhost:3001';
 const WORKER_SERVICE_LAMBDA = process.env.WORKER_SERVICE_LAMBDA || process.env.MEDIA_PROCESSOR_LAMBDA || 'family-helper-worker-service-prod';
 const AWS_REGION = process.env.AWS_REGION || process.env.AWS_S3_REGION || 'ap-southeast-2';
