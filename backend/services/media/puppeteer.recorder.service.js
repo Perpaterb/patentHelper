@@ -75,6 +75,9 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl, up
 
     const page = await browser.newPage();
 
+    // Set longer timeout for page operations (needed for chunked recording uploads)
+    page.setDefaultTimeout(120000); // 2 minutes
+
     // Set up console logging from the page
     page.on('console', msg => {
       console.log(`[Recorder Page] ${msg.text()}`);
@@ -158,11 +161,12 @@ async function stopRecording(callId, callType) {
     // Tell the page to stop recording and wait for upload
     if (recordingStatus.isRecording) {
       console.log(`[Recorder] Stopping MediaRecorder...`);
+      // stopRecording now handles chunked recording - stops all recorders and waits for uploads
       await page.evaluate(() => window.stopRecording());
 
-      // Wait for upload to complete (longer wait)
+      // Wait for upload to complete (longer wait for chunked uploads)
       console.log(`[Recorder] Waiting for upload to complete...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 10000));
     } else {
       console.log(`[Recorder] Recording was not active`);
     }

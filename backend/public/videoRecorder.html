@@ -644,44 +644,48 @@
     }
 
     async function stopRecording() {
-      return new Promise(async (resolve) => {
-        if (!isRecording) {
-          resolve();
-          return;
+      if (!isRecording) {
+        return;
+      }
+
+      console.log('[VideoRecorder] Stopping all recording...');
+      isRecording = false;
+      window.isRecording = false;
+
+      if (chunkTimer) {
+        clearInterval(chunkTimer);
+        chunkTimer = null;
+      }
+
+      // Stop all active recorders - they will upload in background via onstop handlers
+      activeRecorders.forEach(recorder => {
+        if (recorder.mediaRecorder.state === 'recording') {
+          recorder.mediaRecorder.stop();
         }
-
-        console.log('[VideoRecorder] Stopping all recording...');
-        isRecording = false;
-        window.isRecording = false;
-
-        if (chunkTimer) {
-          clearInterval(chunkTimer);
-          chunkTimer = null;
-        }
-
-        // Stop all active recorders
-        const stopPromises = activeRecorders.map(recorder => {
-          return new Promise((resolveStop) => {
-            if (recorder.mediaRecorder.state === 'recording') {
-              const originalOnStop = recorder.mediaRecorder.onstop;
-              recorder.mediaRecorder.onstop = async (event) => {
-                if (originalOnStop) {
-                  await originalOnStop.call(recorder.mediaRecorder, event);
-                }
-                resolveStop();
-              };
-              recorder.mediaRecorder.stop();
-            } else {
-              resolveStop();
-            }
-          });
-        });
-
-        await Promise.all(stopPromises);
-        updateStatus('All chunks uploaded', 'connected');
-        console.log('[VideoRecorder] All chunks stopped and uploaded');
-        resolve();
       });
+
+      updateStatus('Recorders stopped, uploading chunks...', 'connected');
+      console.log('[VideoRecorder] All recorders stopped, uploads will continue in background');
+
+      // Wait for all uploads to complete before resolving
+      // This allows the puppeteer service to know when uploads are done
+      const waitForUploads = () => {
+        return new Promise((resolve) => {
+          const checkUploads = () => {
+            if (uploadQueue.length === 0 && !isUploading) {
+              console.log('[VideoRecorder] All uploads complete');
+              updateStatus('All chunks uploaded', 'connected');
+              resolve();
+            } else {
+              console.log(`[VideoRecorder] Waiting for uploads: queue=${uploadQueue.length}, uploading=${isUploading}`);
+              setTimeout(checkUploads, 1000);
+            }
+          };
+          checkUploads();
+        });
+      };
+
+      await waitForUploads();
     }
 
     function cleanup() {
