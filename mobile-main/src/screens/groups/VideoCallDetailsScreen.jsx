@@ -740,7 +740,6 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                   <Text style={styles.participantName}>
                     {call.initiator.displayName || 'Unknown'}
                   </Text>
-                  <Text style={styles.participantRole}>Caller (Initiator)</Text>
                 </View>
               </View>
             )}
@@ -763,7 +762,6 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                     <Text style={styles.participantName}>
                       {participant.displayName || 'Unknown'}
                     </Text>
-                    <Text style={styles.participantRole}>Participant</Text>
                   </View>
                 </View>
               );
