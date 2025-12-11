@@ -14,6 +14,7 @@ const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const videoConverter = require('../services/videoConverter');
 const recorderService = require('../services/recorder.service');
+const storageService = require('../services/storage');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
@@ -1182,39 +1183,21 @@ async function uploadRecording(req, res) {
         fileSize = stats.size;
       }
 
-      // For local development, save to uploads directory
-      const uploadsDir = path.join(__dirname, '..', 'uploads', 'recordings');
-      await fs.mkdir(uploadsDir, { recursive: true });
-
-      const fileId = uuidv4();
-      const finalFileName = `${fileId}.mp4`;
-      const finalPath = path.join(uploadsDir, finalFileName);
-
-      // Copy converted file to uploads
+      // Read the converted file
       const fileBuffer = await fs.readFile(filePath);
-      await fs.writeFile(finalPath, fileBuffer);
 
-      // Create metadata JSON file for storage service compatibility
-      const metadataPath = path.join(uploadsDir, `${fileId}.json`);
-      const metadata = {
-        fileId: fileId,
-        fileName: finalFileName,
-        originalName: fileName,
-        mimeType: 'video/mp4',
-        size: fileSize,
+      // Upload using storage service (works for both local and S3)
+      const uploadResult = await storageService.uploadFile(fileBuffer, {
         category: 'recordings',
         userId: userId,
         groupId: groupId,
-        storagePath: finalPath,
-        uploadedAt: new Date().toISOString(),
-        isHidden: false,
-        callId: callId,
-        durationMs: durationMs,
-      };
-      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+        originalName: fileName.replace(/\.[^.]+$/, '.mp4'),
+        mimeType: 'video/mp4',
+        size: fileSize,
+      });
 
-      // Generate URL
-      const recordingUrl = `/files/${fileId}`;
+      const fileId = uploadResult.fileId;
+      const recordingUrl = uploadResult.url;
 
       // Update the call with recording info
       await prisma.videoCall.update({
