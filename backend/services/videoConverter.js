@@ -93,8 +93,8 @@ async function convertToMp4Local(inputPath, outputDir) {
       .videoCodec('libx264')
       .audioCodec('aac')
       .outputOptions([
-        '-preset fast',
-        '-crf 23', // Good quality balance
+        '-preset ultrafast', // Fast encoding for server-side processing
+        '-crf 28', // Slightly lower quality for faster encoding
         '-movflags +faststart', // Enable streaming
         '-profile:v baseline', // Wide compatibility (iOS, Android, web)
         '-level 3.1', // Wide device support
