@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deploy mobile-main web build to Lightsail
+# Deploy web-admin to Lightsail
 # Usage: ./scripts/deploy-web-frontend.sh
 #
-# This script builds the mobile-main app for web and syncs it to Lightsail.
+# This script builds the web-admin app and syncs it to Lightsail.
 # The web frontend is served by nginx from /home/ubuntu/web-admin on Lightsail.
 
 set -e
@@ -14,7 +14,7 @@ LIGHTSAIL_IP="52.65.37.116"
 SSH_KEY="$HOME/.ssh/lightsail-family-helper.pem"
 WEB_DIR="/home/ubuntu/web-admin"
 
-echo "=== Deploying Web Frontend to Lightsail ==="
+echo "=== Deploying Web Admin to Lightsail ==="
 echo "Project root: $PROJECT_ROOT"
 
 # Ensure SSH key has correct permissions
@@ -22,8 +22,8 @@ chmod 600 "$SSH_KEY"
 
 # Build the web frontend
 echo ""
-echo "Step 1: Building mobile-main for web..."
-cd "$PROJECT_ROOT/mobile-main"
+echo "Step 1: Building web-admin for web..."
+cd "$PROJECT_ROOT/web-admin"
 npm install --legacy-peer-deps
 npx expo export --platform web
 
@@ -42,7 +42,7 @@ echo ""
 echo "Step 2: Syncing to Lightsail..."
 rsync -avz --delete \
     -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-    "$PROJECT_ROOT/mobile-main/dist/" ubuntu@$LIGHTSAIL_IP:$WEB_DIR/
+    "$PROJECT_ROOT/web-admin/dist/" ubuntu@$LIGHTSAIL_IP:$WEB_DIR/
 
 # Verify deployment
 echo ""
@@ -73,5 +73,5 @@ else
 fi
 
 echo ""
-echo "=== Web Frontend Deployment Complete ==="
+echo "=== Web Admin Deployment Complete ==="
 echo "URL: https://familyhelperapp.com"

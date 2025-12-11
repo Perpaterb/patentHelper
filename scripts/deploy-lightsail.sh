@@ -69,17 +69,17 @@ pm2 save
 pm2 status
 EOF
 
-# Build and deploy mobile-main web frontend
-echo "Building mobile-main for web..."
-cd mobile-main
+# Build and deploy web-admin
+echo "Building web-admin for web..."
+cd web-admin
 npm install --legacy-peer-deps
 npx expo export --platform web
 cd ..
 
-echo "Syncing web frontend files..."
+echo "Syncing web-admin files..."
 rsync -avz --delete \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-  ./mobile-main/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
+  ./web-admin/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
 
 # Verify deployment
 echo "Verifying deployment..."

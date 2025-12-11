@@ -1245,7 +1245,7 @@ The app works without it. DO NOT try to "fix" this warning.
 ```
 
 **What deploy-web-frontend.sh does:**
-1. Builds mobile-main for web: `npx expo export --platform web`
+1. Builds web-admin for web: `npx expo export --platform web`
 2. Syncs dist/ to Lightsail: `rsync` to `/home/ubuntu/web-admin/`
 3. Verifies deployment by checking bundle hash
 
@@ -1271,7 +1271,7 @@ EOF
 
 **Deploy Web Frontend Only:**
 ```bash
-cd mobile-main
+cd web-admin
 npm install --legacy-peer-deps
 npx expo export --platform web
 
