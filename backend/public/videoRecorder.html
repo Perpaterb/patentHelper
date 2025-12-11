@@ -611,9 +611,13 @@
     }
 
     async function uploadChunk(chunkIndex, recordedChunks, startTime, endTime) {
-      // Add to upload queue for tracking
-      uploadQueue.push(chunkIndex);
-      isUploading = true;
+      // Note: uploadQueue is pre-populated in stopRecording() before onstop fires
+      // This ensures waitForUploads doesn't resolve prematurely
+      // We only add here if not already in queue (for mid-call chunk rotations)
+      if (!uploadQueue.includes(chunkIndex)) {
+        uploadQueue.push(chunkIndex);
+        isUploading = true;
+      }
 
       try {
         if (recordedChunks.length === 0) {
@@ -670,6 +674,15 @@
         clearInterval(chunkTimer);
         chunkTimer = null;
       }
+
+      // Pre-populate upload queue BEFORE stopping (onstop is async)
+      // This ensures waitForUploads doesn't resolve prematurely
+      activeRecorders.forEach(recorder => {
+        if (recorder.mediaRecorder.state === 'recording') {
+          uploadQueue.push(recorder.chunkIndex);
+          isUploading = true;
+        }
+      });
 
       // Stop all active recorders - they will upload in background via onstop handlers
       activeRecorders.forEach(recorder => {
