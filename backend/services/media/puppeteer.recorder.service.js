@@ -47,6 +47,8 @@ async function startRecording({ groupId, callId, callType, authToken, apiUrl, up
     // Launch headless browser with proper audio support
     const launchOptions = {
       headless: 'new',
+      // Increase protocol timeout for long-running operations like chunk uploads
+      protocolTimeout: 300000, // 5 minutes
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
