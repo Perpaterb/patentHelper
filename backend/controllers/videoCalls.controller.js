@@ -1197,7 +1197,7 @@ async function uploadRecording(req, res) {
     let durationMs = 0;
 
     try {
-      // Convert to MP4 if needed
+      // Convert to MP4 only if needed (WebM is NOT converted - see videoConverter.needsConversion)
       const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
       filePath = converted.path;
       fileMimeType = converted.mimeType;
@@ -1209,7 +1209,7 @@ async function uploadRecording(req, res) {
         fileSize = stats.size;
       }
 
-      // Read the converted file
+      // Read the file (converted or original)
       let fileBuffer = await fs.readFile(filePath);
 
       // Encrypt the recording before upload
@@ -1222,13 +1222,13 @@ async function uploadRecording(req, res) {
         console.log('[Video Recording] Encryption not available (key not configured)');
       }
 
-      // Upload using storage service (works for both local and S3)
+      // Upload using storage service (preserve original mime type)
       const uploadResult = await storageService.uploadFile(fileBuffer, {
         category: 'recordings',
         userId: userId,
         groupId: groupId,
-        originalName: fileName.replace(/\.[^.]+$/, '.mp4'),
-        mimeType: 'video/mp4',
+        originalName: fileName,
+        mimeType: fileMimeType,
         size: fileSize,
       });
 
@@ -1268,7 +1268,7 @@ async function uploadRecording(req, res) {
           url: recordingUrl,
           durationMs,
           sizeBytes: fileSize,
-          mimeType: 'video/mp4',
+          mimeType: fileMimeType,
         },
       });
     } finally {
@@ -1389,12 +1389,14 @@ async function uploadRecordingChunk(req, res) {
 
     let filePath = tempInputPath;
     let fileMimeType = req.file.mimetype;
-    let fileName = `chunk_${chunkIndex}.mp4`;
+    // Determine file extension from mime type (preserve WebM, don't force MP4)
+    const fileExtension = fileMimeType === 'video/webm' ? 'webm' : (fileMimeType === 'video/mp4' ? 'mp4' : 'webm');
+    let fileName = `chunk_${chunkIndex}.${fileExtension}`;
     let fileSize = req.file.size;
     let durationMs = 0;
 
     try {
-      // Convert to MP4 if needed
+      // Convert to MP4 only if needed (WebM is NOT converted - see videoConverter.needsConversion)
       const converted = await videoConverter.convertIfNeeded(tempInputPath, fileMimeType, tempDir);
       filePath = converted.path;
       fileMimeType = converted.mimeType;
@@ -1403,9 +1405,11 @@ async function uploadRecordingChunk(req, res) {
       if (converted.wasConverted) {
         const stats = await fs.stat(filePath);
         fileSize = stats.size;
+        // Update filename if converted to MP4
+        fileName = `chunk_${chunkIndex}.mp4`;
       }
 
-      // Read the converted file
+      // Read the file (converted or original)
       let fileBuffer = await fs.readFile(filePath);
 
       // Encrypt the recording before upload
@@ -1415,13 +1419,13 @@ async function uploadRecordingChunk(req, res) {
         fileSize = fileBuffer.length;
       }
 
-      // Upload using storage service
+      // Upload using storage service (preserve original mime type)
       const uploadResult = await storageService.uploadFile(fileBuffer, {
         category: 'recordings',
         userId: userId,
         groupId: groupId,
         originalName: fileName,
-        mimeType: 'video/mp4',
+        mimeType: fileMimeType,
         size: fileSize,
       });
 
