@@ -398,19 +398,22 @@ If something goes wrong:
 ## Checklist
 
 ### Pre-Migration
-- [ ] Test locally with Docker
-- [ ] Verify Puppeteer works in unified server
-- [ ] Test all API endpoints locally
+- [x] Test locally with Docker
+- [x] Verify Puppeteer works in unified server
+- [x] Test all API endpoints locally
 - [ ] Test call recording locally
 
 ### Migration
-- [ ] Create Lightsail instance
-- [ ] Install dependencies
-- [ ] Deploy code
-- [ ] Configure Nginx + SSL
-- [ ] Test with Lightsail IP directly
-- [ ] Update DNS
-- [ ] Update Kinde/Stripe URLs
+- [x] Create Lightsail instance (family-helper-prod)
+- [x] Install dependencies (Node.js 20, PM2, Nginx, Chromium, FFmpeg)
+- [x] Deploy code (via rsync)
+- [x] Configure Nginx reverse proxy
+- [x] Set up SSH tunnel to RDS via bastion
+- [x] Test with Lightsail IP directly (http://52.65.37.116/health)
+- [ ] Configure SSL (run `sudo certbot --nginx` after DNS points to Lightsail)
+- [ ] Update DNS to point to 52.65.37.116
+- [ ] Update Kinde callback URLs
+- [ ] Update Stripe webhook URL
 
 ### Post-Migration
 - [ ] Verify all features work
@@ -418,6 +421,53 @@ If something goes wrong:
 - [ ] Test mobile app connectivity
 - [ ] Test web admin
 - [ ] Delete old infrastructure (after 1 week of stability)
+
+---
+
+## Current Status (2025-12-11)
+
+### Deployed to Lightsail
+
+| Resource | Value |
+|----------|-------|
+| Instance Name | family-helper-prod |
+| Static IP | 52.65.37.116 |
+| Instance Size | $12/month (2GB RAM, 2 vCPU, 60GB SSD) |
+| SSH Key | ~/.ssh/lightsail-family-helper.pem |
+
+### Services Running
+
+```
+┌──────────────────┬─────────────┬──────────┐
+│ Service          │ Status      │ Port     │
+├──────────────────┼─────────────┼──────────┤
+│ Node.js (PM2)    │ Running     │ 3000     │
+│ Nginx            │ Running     │ 80       │
+│ SSH Tunnel (RDS) │ Running     │ 5432     │
+└──────────────────┴─────────────┴──────────┘
+```
+
+### Access
+
+- **API Health**: http://52.65.37.116/health
+- **SSH**: `ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116`
+- **Logs**: `pm2 logs family-helper`
+
+### Key Commands
+
+```bash
+# Deploy updates
+./scripts/deploy-lightsail.sh
+
+# View logs
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-helper --lines 50"
+
+# Restart app
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 restart family-helper"
+
+# Enable SSL (after DNS is updated)
+ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "sudo certbot --nginx -d api.familyhelperapp.com"
+```
 
 ---
 
