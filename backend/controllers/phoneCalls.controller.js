@@ -623,7 +623,9 @@ async function initiateCall(req, res) {
 
     if (shouldRecord) {
       const authToken = req.headers.authorization?.replace('Bearer ', '');
-      const apiUrl = `${req.protocol}://${req.get('host')}`;
+      // Use X-Forwarded-Proto header (set by Nginx) or fall back to req.protocol
+      const protocol = req.get('X-Forwarded-Proto') || req.protocol;
+      const apiUrl = process.env.API_BASE_URL || `${protocol}://${req.get('host')}`;
 
       recorderService.startRecording({
         groupId,
@@ -1752,7 +1754,9 @@ async function startServerRecording(req, res) {
 
     // Get auth token from request
     const authToken = req.headers.authorization?.replace('Bearer ', '');
-    const apiUrl = `${req.protocol}://${req.get('host')}`;
+    // Use X-Forwarded-Proto header (set by Nginx) or fall back to req.protocol
+    const protocol = req.get('X-Forwarded-Proto') || req.protocol;
+    const apiUrl = process.env.API_BASE_URL || `${protocol}://${req.get('host')}`;
 
     // Start the ghost recorder
     await recorderService.startRecording({
