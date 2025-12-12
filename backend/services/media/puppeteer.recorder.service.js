@@ -172,11 +172,16 @@ async function stopRecording(callId, callType) {
     if (recordingStatus.isRecording) {
       console.log(`[Recorder] Stopping MediaRecorder...`);
       // stopRecording now handles chunked recording - stops all recorders and waits for uploads
-      await page.evaluate(() => window.stopRecording());
+      console.log(`[Recorder] Calling window.stopRecording() - this should wait for all uploads...`);
+      const stopResult = await page.evaluate(async () => {
+        await window.stopRecording();
+        return 'stopRecording completed';
+      });
+      console.log(`[Recorder] stopRecording result: ${stopResult}`);
 
-      // Wait for upload to complete (longer wait for chunked uploads)
-      console.log(`[Recorder] Waiting for upload to complete...`);
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      // Additional safety wait after stopRecording completes
+      console.log(`[Recorder] Additional safety wait...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
     } else {
       console.log(`[Recorder] Recording was not active`);
     }
