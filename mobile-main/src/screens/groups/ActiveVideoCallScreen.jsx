@@ -83,6 +83,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
     toggleVideo,
     toggleAudio,
     stopConnection,
+    recordingChunks, // { totalExpected, uploaded, uploading }
   } = useWebRTC({
     groupId,
     callId,
@@ -553,7 +554,17 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
           {isRecording && (
             <View style={styles.recordingIndicator}>
               <View style={styles.recordingDot} />
-              <Text style={styles.recordingLabel}>REC</Text>
+              <Text style={styles.recordingLabel}>
+                REC{recordingChunks?.totalExpected > 0 ? ` ${recordingChunks.totalExpected}` : ''}
+              </Text>
+            </View>
+          )}
+          {/* Show upload progress when chunks are being uploaded */}
+          {recordingChunks?.totalExpected > 0 && recordingChunks.uploaded < recordingChunks.totalExpected && (
+            <View style={styles.uploadIndicator}>
+              <Text style={styles.uploadLabel}>
+                {recordingChunks.uploading ? '⬆️' : '⏳'} {recordingChunks.uploaded}/{recordingChunks.totalExpected}
+              </Text>
             </View>
           )}
           {isRecordingDisabled && (
@@ -781,6 +792,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   notRecordingLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  uploadIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(33, 150, 243, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  uploadLabel: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',

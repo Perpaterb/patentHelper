@@ -72,6 +72,13 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const [connectionStates, setConnectionStates] = useState({}); // { peerId: state }
   const [recordingStatus, setRecordingStatus] = useState([]); // Recording status messages from server
 
+  // Recording chunk tracking - parsed from status messages
+  const [recordingChunks, setRecordingChunks] = useState({
+    totalExpected: 0,    // How many chunks will there be (from "Recording X STARTED")
+    uploaded: 0,         // How many have been uploaded (from "UPLOADED to S3")
+    uploading: false,    // Is an upload currently in progress
+  });
+
   const peerConnectionsRef = useRef({}); // { peerId: RTCPeerConnection }
   const iceServersRef = useRef([]);
   const pollingRef = useRef(null);
@@ -280,7 +287,36 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
       // Handle recording status messages from server
       if (newStatus && newStatus.length > 0) {
-        newStatus.forEach(msg => console.log(`[Recording] ${msg}`));
+        newStatus.forEach(msg => {
+          console.log(`[Recording] ${msg}`);
+
+          // Parse messages to track chunk progress
+          // "Recording X STARTED" - indicates there will be X chunks
+          const startedMatch = msg.match(/Recording (\d+) STARTED/);
+          if (startedMatch) {
+            const chunkNum = parseInt(startedMatch[1], 10);
+            setRecordingChunks(prev => ({
+              ...prev,
+              totalExpected: Math.max(prev.totalExpected, chunkNum),
+            }));
+          }
+
+          // "Recording X uploading to S3..." - upload in progress
+          const uploadingMatch = msg.match(/Recording \d+ uploading to S3/);
+          if (uploadingMatch) {
+            setRecordingChunks(prev => ({ ...prev, uploading: true }));
+          }
+
+          // "Recording X UPLOADED to S3 ✓" - upload complete
+          const uploadedMatch = msg.match(/Recording (\d+) UPLOADED to S3/);
+          if (uploadedMatch) {
+            setRecordingChunks(prev => ({
+              ...prev,
+              uploaded: prev.uploaded + 1,
+              uploading: false,
+            }));
+          }
+        });
         setRecordingStatus(prev => [...prev, ...newStatus].slice(-20)); // Keep last 20 messages
       }
 
@@ -430,6 +466,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     setRemoteStreams({});
     setConnectionStates({});
     setRecordingStatus([]);
+    setRecordingChunks({ totalExpected: 0, uploaded: 0, uploading: false });
   }, []);
 
   /**
@@ -489,6 +526,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     connectionStates,
     isWebRTCSupported,
     recordingStatus, // Recording status messages from server
+    recordingChunks, // { totalExpected, uploaded, uploading } - for UI progress display
 
     // Controls
     startConnection,
