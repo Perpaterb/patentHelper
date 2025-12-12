@@ -10,7 +10,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 
 const PrivacyPolicyScreen = () => {
-  const lastUpdated = 'December 12, 2024';
+  const lastUpdated = 'December 13, 2025';
 
   return (
     <View style={styles.container}>

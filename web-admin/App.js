@@ -111,6 +111,9 @@ import SecretSantaViewScreen from './src/screens/SecretSantaViewScreen';
 import GiftRegistryPublicScreen from './src/screens/GiftRegistryPublicScreen';
 import ItemRegistryPublicScreen from './src/screens/ItemRegistryPublicScreen';
 
+// Privacy Policy (no auth required)
+import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
+
 const Stack = createStackNavigator();
 
 /**
@@ -188,6 +191,8 @@ const linking = {
       // Public registry pages (no auth required)
       GiftRegistryPublic: 'gift-registry/:webToken',
       ItemRegistryPublic: 'item-registry/:webToken',
+      // Privacy Policy (no auth required)
+      PrivacyPolicy: 'privacy-policy',
       // Public/Admin pages
       Landing: '',
       Login: 'login',
@@ -341,6 +346,8 @@ function AppNavigator() {
               {/* Public registry screens - no auth required */}
               <Stack.Screen name="GiftRegistryPublic" component={GiftRegistryPublicScreen} />
               <Stack.Screen name="ItemRegistryPublic" component={ItemRegistryPublicScreen} />
+              {/* Privacy Policy - no auth required */}
+              <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             </>
           ) : (
           // Authenticated screens (with AppLayout)
@@ -429,6 +436,9 @@ function AppNavigator() {
             {/* Public registry screens - available when authenticated too */}
             <Stack.Screen name="GiftRegistryPublic" component={GiftRegistryPublicScreen} />
             <Stack.Screen name="ItemRegistryPublic" component={ItemRegistryPublicScreen} />
+
+            {/* Privacy Policy - available when authenticated too */}
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           </>
         )}
       </Stack.Navigator>
