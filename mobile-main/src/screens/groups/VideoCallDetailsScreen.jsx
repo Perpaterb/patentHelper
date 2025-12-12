@@ -656,17 +656,24 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
                       )}
                     </TouchableOpacity>
                   ))}
+                  {/* Show pending upload indicator if recording is still in progress */}
+                  {call.recording?.status === 'recording' && (
+                    <View style={styles.chunkItemPending}>
+                      <View style={styles.chunkItemLeft}>
+                        <Text style={styles.chunkItemNumberPending}>
+                          {sortedChunks.length + 1}
+                        </Text>
+                        <View>
+                          <Text style={styles.chunkItemDurationPending}>Uploading...</Text>
+                          <Text style={styles.chunkItemTime}>In progress</Text>
+                        </View>
+                      </View>
+                      <ActivityIndicator size="small" color="#ff9800" />
+                    </View>
+                  )}
                 </View>
               )}
 
-              <View style={styles.videoDuration}>
-                <Text style={styles.videoDurationText}>
-                  {hasChunks
-                    ? `Total Duration: ${formatDuration(totalChunksDuration)}`
-                    : `Duration: ${formatDuration(call.recording?.durationMs || call.recordingDurationMs)}`
-                  }
-                </Text>
-              </View>
 
               {/* Admin can hide recording */}
               {userRole === 'admin' && (
@@ -1038,6 +1045,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#2196f3',
     fontWeight: '500',
+  },
+  chunkItemPending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff8e1',
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#ffcc80',
+    borderStyle: 'dashed',
+  },
+  chunkItemNumberPending: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ff9800',
+    width: 24,
+    marginRight: 12,
+  },
+  chunkItemDurationPending: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#ff9800',
   },
   // Custom video controls styles
   customControlsContainer: {
