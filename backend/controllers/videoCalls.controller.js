@@ -2222,8 +2222,10 @@ async function getRecorderSignals(req, res) {
 }
 
 // In-memory store for recording status messages (per call)
-// Messages expire after 30 seconds
+// Messages expire after 60 seconds, tracked per-peer for deduplication
+// Structure: Map<callId, { messages: [{id, message, timestamp}], deliveredTo: Map<peerId, Set<messageId>> }>
 const recordingStatusMessages = new Map();
+let messageIdCounter = 0;
 
 /**
  * Broadcast recording status to all call participants
@@ -2238,23 +2240,29 @@ async function broadcastRecordingStatus(req, res) {
       return res.status(400).json({ success: false, message: 'Missing message' });
     }
 
-    // Store the message with timestamp
+    // Get or create call message store
+    let callStore = recordingStatusMessages.get(callId);
+    if (!callStore) {
+      callStore = { messages: [], deliveredTo: new Map() };
+      recordingStatusMessages.set(callId, callStore);
+    }
+
+    // Add new message with unique ID
     const statusMessage = {
+      id: ++messageIdCounter,
       message,
       timestamp: Date.now(),
     };
+    callStore.messages.push(statusMessage);
 
-    // Get existing messages or create new array
-    let messages = recordingStatusMessages.get(callId) || [];
+    // Clean up old messages (older than 60 seconds)
+    const cutoff = Date.now() - 60000;
+    callStore.messages = callStore.messages.filter(m => m.timestamp > cutoff);
 
-    // Add new message
-    messages.push(statusMessage);
-
-    // Keep only last 10 messages and messages from last 30 seconds
-    const cutoff = Date.now() - 30000;
-    messages = messages.filter(m => m.timestamp > cutoff).slice(-10);
-
-    recordingStatusMessages.set(callId, messages);
+    // Keep only last 20 messages
+    if (callStore.messages.length > 20) {
+      callStore.messages = callStore.messages.slice(-20);
+    }
 
     return res.json({ success: true });
   } catch (error) {
@@ -2265,16 +2273,28 @@ async function broadcastRecordingStatus(req, res) {
 
 /**
  * Get recording status messages for a call (called by clients polling signals)
- * Returns and clears messages for the requesting user
+ * Returns only NEW messages that haven't been delivered to this peer yet
  */
 function getRecordingStatusMessages(callId, peerId) {
-  const messages = recordingStatusMessages.get(callId) || [];
+  const callStore = recordingStatusMessages.get(callId);
+  if (!callStore || callStore.messages.length === 0) {
+    return [];
+  }
 
-  // Return messages from last 5 seconds that haven't been seen
-  const cutoff = Date.now() - 5000;
-  const recentMessages = messages.filter(m => m.timestamp > cutoff);
+  // Get or create the set of delivered message IDs for this peer
+  let deliveredIds = callStore.deliveredTo.get(peerId);
+  if (!deliveredIds) {
+    deliveredIds = new Set();
+    callStore.deliveredTo.set(peerId, deliveredIds);
+  }
 
-  return recentMessages.map(m => m.message);
+  // Find messages not yet delivered to this peer
+  const newMessages = callStore.messages.filter(m => !deliveredIds.has(m.id));
+
+  // Mark these messages as delivered to this peer
+  newMessages.forEach(m => deliveredIds.add(m.id));
+
+  return newMessages.map(m => m.message);
 }
 
 /**

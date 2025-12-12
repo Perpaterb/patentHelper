@@ -143,7 +143,8 @@
     let isUploading = false;
 
     // Video state
-    let participantVideos = {}; // { peerId: { video: HTMLVideoElement, stream: MediaStream } }
+    let participantVideos = {}; // { peerId: { video: HTMLVideoElement, stream: MediaStream, displayName: string } }
+    let participantNames = {}; // { peerId: displayName } - fetched from API
     let canvasContext = null;
     let animationFrameId = null;
 
@@ -274,6 +275,18 @@
           }
 
           if (call.status === 'active') {
+            // Store participant names for display
+            if (call.initiator) {
+              participantNames[call.initiator.groupMemberId] = call.initiator.displayName;
+            }
+            if (call.participants) {
+              call.participants.forEach(p => {
+                participantNames[p.groupMemberId] = p.displayName;
+              });
+            }
+            // Mark ourselves as the recording bot
+            participantNames['recorder'] = 'Recording Bot';
+
             updateStatus('Connected. Waiting for participants...', 'connected');
             // Poll for WebRTC signals
             pollForSignals();
@@ -362,8 +375,9 @@
               canvasContext.fillStyle = '#666';
               canvasContext.font = '16px sans-serif';
               canvasContext.textAlign = 'center';
+              const displayName = participantVideos[peerId]?.displayName || participantNames[peerId] || `Participant ${index + 1}`;
               canvasContext.fillText(
-                `Participant ${index + 1}`,
+                displayName,
                 x + cellWidth / 2,
                 y + cellHeight / 2
               );
@@ -394,8 +408,9 @@
     }
 
     function addParticipantStream(peerId, stream) {
-      const participantCount = Object.keys(participantVideos).length + 1;
-      logEvent(`Participant ${participantCount} joined`, 'info');
+      // Get display name for this peer (fetched earlier or fallback)
+      const displayName = participantNames[peerId] || `Participant ${Object.keys(participantVideos).length + 1}`;
+      logEvent(`${displayName} joined the call`, 'info');
 
       // Create video element for this participant
       const video = document.createElement('video');
@@ -409,7 +424,7 @@
         console.error('[VideoRecorder] Video play failed:', err);
       });
 
-      participantVideos[peerId] = { video, stream };
+      participantVideos[peerId] = { video, stream, displayName };
 
       // Add audio to mixer
       const audioTracks = stream.getAudioTracks();
@@ -444,6 +459,7 @@
     function removeParticipantStream(peerId) {
       const participant = participantVideos[peerId];
       if (participant) {
+        const displayName = participant.displayName || 'Participant';
         participant.video.pause();
         participant.video.srcObject = null;
         participant.video.remove();
@@ -453,7 +469,7 @@
           participant.audioEl.remove();
         }
         delete participantVideos[peerId];
-        logEvent(`Participant left (${Object.keys(participantVideos).length} remaining)`, 'info');
+        logEvent(`${displayName} left (${Object.keys(participantVideos).length} remaining)`, 'info');
       }
     }
 
@@ -771,7 +787,13 @@
         return;
       }
 
-      logEvent(`CALL ENDED - stopping ${activeRecorders.length} active recording(s)`, 'warning');
+      const activeCount = activeRecorders.filter(r => r.mediaRecorder.state === 'recording').length;
+      const chunkNumbers = activeRecorders
+        .filter(r => r.mediaRecorder.state === 'recording')
+        .map(r => r.chunkIndex + 1)
+        .join(', ');
+
+      logEvent(`CALL ENDED - saving ${activeCount} recording(s)`, 'warning');
 
       isRecording = false;
       window.isRecording = false;
@@ -789,6 +811,12 @@
           isUploading = true;
         }
       });
+
+      // Broadcast which chunks are being uploaded BEFORE stopping
+      // This message will reach participants who are still polling
+      if (activeCount > 0) {
+        logEvent(`Uploading Recording ${chunkNumbers} to S3 (this may take a moment)...`, 'info');
+      }
 
       // Stop all active recorders - they will upload in background via onstop handlers
       activeRecorders.forEach(recorder => {
