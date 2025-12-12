@@ -279,6 +279,14 @@ jobs:
             exit 1
           fi
 
+      - name: Get deployed bundle version
+        run: |
+          echo "📦 Checking deployed bundle version..."
+          DEPLOYED_BUNDLE=$(ssh -i ~/.ssh/lightsail.pem ubuntu@${{ env.LIGHTSAIL_IP }} \
+            "grep -o 'index-[a-f0-9]*\.js' /home/ubuntu/web-admin/index.html | head -1")
+          echo "✅ Deployed bundle: $DEPLOYED_BUNDLE"
+          echo "DEPLOYED_BUNDLE=$DEPLOYED_BUNDLE" >> $GITHUB_OUTPUT
+
   # ============================================
   # DEPLOYMENT SUMMARY
   # ============================================
@@ -294,6 +302,10 @@ jobs:
           echo "=========================================="
           echo "DEPLOYMENT SUMMARY"
           echo "=========================================="
+          echo ""
+          echo "Commit:   ${{ github.sha }}"
+          echo "Branch:   ${{ github.ref_name }}"
+          echo "Actor:    ${{ github.actor }}"
           echo ""
           echo "Backend:  ${{ needs.deploy-backend.result }}"
           echo "Web App:  ${{ needs.deploy-web-admin.result }}"
