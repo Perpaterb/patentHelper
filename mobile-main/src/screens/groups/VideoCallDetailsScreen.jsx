@@ -50,39 +50,44 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
     }
   }, [callId]);
 
-  // Poll for recording after call ends (recording takes time to upload)
+  // Poll for recording updates:
+  // 1. When call just ended and no recording yet
+  // 2. When recording is still uploading (status === 'recording')
   useEffect(() => {
-    // Only poll if call just ended and doesn't have recording yet (single or chunks)
-    // Note: API returns chunks in call.recording.chunks, not call.recordingChunks
     const hasRecording = call?.recordingUrl || call?.recording?.url ||
                         (call?.recording?.chunks && call.recording.chunks.length > 0);
-    const shouldPoll = call?.status === 'ended' && !hasRecording;
+    const isUploading = call?.recording?.status === 'recording';
+    const shouldPoll = call?.status === 'ended' && (!hasRecording || isUploading);
 
     if (!shouldPoll) return;
 
     let pollCount = 0;
-    const maxPolls = 12; // Poll for up to 60 seconds (12 * 5s)
+    const maxPolls = 60; // Poll for up to 5 minutes (60 * 5s) for uploads
 
     const pollForRecording = setInterval(async () => {
       pollCount++;
-      console.log(`[VideoCallDetails] Polling for recording (${pollCount}/${maxPolls})...`);
+      if (isUploading) {
+        console.log(`[VideoCallDetails] Polling for upload completion (${pollCount})...`);
+      } else {
+        console.log(`[VideoCallDetails] Polling for recording (${pollCount}/${maxPolls})...`);
+      }
 
       try {
         const response = await api.get(`/groups/${groupId}/video-calls`);
         const updatedCall = response.data.videoCalls?.find(c => c.callId === callId);
 
         if (updatedCall) {
-          // Check if recording is now available (single or chunks)
-          // Note: API returns chunks in call.recording.chunks, not call.recordingChunks
           const hasNewRecording = updatedCall.recordingUrl || updatedCall.recording?.url ||
                                   (updatedCall.recording?.chunks && updatedCall.recording.chunks.length > 0);
-          if (hasNewRecording) {
-            console.log('[VideoCallDetails] Recording found, updating state');
-            setCall(updatedCall);
+          const stillUploading = updatedCall.recording?.status === 'recording';
+
+          // Always update state to reflect new chunks or status changes
+          setCall(updatedCall);
+
+          // Stop polling when upload is complete (status is no longer 'recording')
+          if (hasNewRecording && !stillUploading) {
+            console.log('[VideoCallDetails] Recording complete, stopping poll');
             clearInterval(pollForRecording);
-          } else if (updatedCall.durationMs !== call.durationMs) {
-            // Duration updated even if no recording yet
-            setCall(updatedCall);
           }
         }
       } catch (err) {
@@ -97,7 +102,7 @@ export default function VideoCallDetailsScreen({ navigation, route }) {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollForRecording);
-  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recording?.chunks?.length, groupId, callId]);
+  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recording?.chunks?.length, call?.recording?.status, groupId, callId]);
 
   /**
    * Load group info to get user role
