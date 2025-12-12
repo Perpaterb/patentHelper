@@ -188,7 +188,7 @@ async function getStorageUsage(req, res) {
       const phoneChunks = await prisma.phoneCallRecordingChunk.findMany({
         where: {
           callId: { in: phoneCallIds },
-          status: 'completed', // Only count completed chunks
+          status: 'ready', // Only count ready chunks (successfully uploaded)
         },
         select: {
           callId: true,
@@ -263,7 +263,7 @@ async function getStorageUsage(req, res) {
       const videoChunks = await prisma.videoCallRecordingChunk.findMany({
         where: {
           callId: { in: videoCallIds },
-          status: 'completed', // Only count completed chunks
+          status: 'ready', // Only count ready chunks (successfully uploaded)
         },
         select: {
           callId: true,
@@ -691,10 +691,14 @@ async function getGroupFiles(req, res) {
     });
 
     // Get video call recordings from this group
+    // Include both legacy single-file recordings (recordingUrl) and new chunked recordings
     const videoCallRecordings = await prisma.videoCall.findMany({
       where: {
         groupId: groupId,
-        recordingUrl: { not: null },
+        OR: [
+          { recordingUrl: { not: null } }, // Legacy single-file recordings
+          { recordingChunks: { some: { status: 'ready' } } }, // New chunked recordings
+        ],
       },
       include: {
         initiator: {
@@ -729,6 +733,17 @@ async function getGroupFiles(req, res) {
                 profilePhotoFileId: true,
               },
             },
+          },
+        },
+        // Include recording chunks to calculate total size and get URL
+        recordingChunks: {
+          where: { status: 'ready' },
+          orderBy: { chunkIndex: 'asc' },
+          select: {
+            chunkId: true,
+            fileUrl: true,
+            durationMs: true,
+            sizeBytes: true,
           },
         },
       },
@@ -831,8 +846,30 @@ async function getGroupFiles(req, res) {
         };
       }
 
+      // For chunked recordings, calculate total size and duration from chunks
+      const hasChunks = call.recordingChunks && call.recordingChunks.length > 0;
+      let totalSizeBytes = 0;
+      let totalDurationMs = 0;
+      let recordingUrl = null;
+      let mimeType = 'video/mp4';
+
+      if (hasChunks) {
+        // New chunked recording system
+        totalSizeBytes = call.recordingChunks.reduce((sum, chunk) => sum + Number(chunk.sizeBytes || 0), 0);
+        totalDurationMs = call.recordingChunks.reduce((sum, chunk) => sum + (chunk.durationMs || 0), 0);
+        // Use first chunk URL for preview/playback (chunks are ordered)
+        recordingUrl = call.recordingChunks[0]?.fileUrl || null;
+        // WebM is the native format from MediaRecorder
+        mimeType = 'video/webm';
+      } else if (call.recordingUrl) {
+        // Legacy single-file recording
+        totalSizeBytes = Number(call.recordingSizeBytes || 0);
+        totalDurationMs = call.recordingDurationMs || 0;
+        recordingUrl = call.recordingUrl;
+      }
+
       // Format duration for filename
-      const durationSecs = call.recordingDurationMs ? Math.floor(call.recordingDurationMs / 1000) : 0;
+      const durationSecs = totalDurationMs ? Math.floor(totalDurationMs / 1000) : 0;
       const durationMins = Math.floor(durationSecs / 60);
       const durationSecsRemain = durationSecs % 60;
       const durationStr = `${durationMins}m${durationSecsRemain}s`;
@@ -840,11 +877,11 @@ async function getGroupFiles(req, res) {
       return {
         mediaId: `videocall-${call.callId}`,
         fileName: `Video Call Recording (${durationStr})`,
-        fileSizeBytes: Number(call.recordingSizeBytes || 0),
-        mimeType: 'video/mp4',
+        fileSizeBytes: totalSizeBytes,
+        mimeType: mimeType,
         fileType: 'videocall',
         uploadedAt: call.endedAt || call.startedAt,
-        url: call.recordingUrl ? `${baseUrl}${call.recordingUrl}` : null,
+        url: recordingUrl ? `${baseUrl}${recordingUrl}` : null,
         thumbnailUrl: null,
         pendingDeletion: false, // TODO: Add approval workflow for call recordings
         isLog: false,
@@ -854,6 +891,8 @@ async function getGroupFiles(req, res) {
         deletedBy: deletedBy,
         callId: call.callId, // Include call ID for reference
         callDurationMs: call.durationMs,
+        hasChunks: hasChunks, // Indicate if this is a chunked recording
+        chunkCount: hasChunks ? call.recordingChunks.length : 0,
       };
     });
 
