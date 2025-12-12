@@ -97,6 +97,57 @@ If you're about to build something complex, STOP and ask the user if there's a s
 
 ---
 
+## 🔧 CRITICAL: All Addresses Must Be Environment Variables
+
+**ABSOLUTE RULE: All connection addresses, URLs, and IPs MUST be environment variables.**
+
+This ensures the same codebase works for both development and production without code changes.
+
+### What MUST be in .env files (NEVER hardcoded):
+
+- ✅ Database connection strings (`DATABASE_URL`)
+- ✅ API base URLs (`API_BASE_URL`, `EXPO_PUBLIC_API_URL`)
+- ✅ Authentication domains (`KINDE_DOMAIN`)
+- ✅ S3 bucket names (`S3_BUCKET`)
+- ✅ External service URLs
+- ✅ Server IPs (bastion, database hosts)
+- ✅ CORS origins
+
+### Environment Files:
+
+| Environment | Backend | Web-Admin | Mobile |
+|-------------|---------|-----------|--------|
+| **Development** | `backend/.env` | `web-admin/.env` | `mobile-main/.env` |
+| **Production** | Lightsail `/home/ubuntu/family-helper/.env` | Built with prod values | Built with prod values |
+
+### Before Making Changes:
+
+1. **NEVER hardcode** URLs, IPs, or connection strings in source code
+2. **ALWAYS use** `process.env.VARIABLE_NAME` or config files that read from env
+3. **CHECK** that your change works in BOTH dev and prod
+4. **ASK** if unsure whether something should be an env var (answer is usually YES)
+
+### Example - WRONG vs RIGHT:
+
+```javascript
+// ❌ WRONG - Hardcoded
+const dbUrl = 'postgresql://user:pass@localhost:5432/db';
+const apiUrl = 'https://familyhelperapp.com';
+
+// ✅ RIGHT - Environment variable
+const dbUrl = process.env.DATABASE_URL;
+const apiUrl = process.env.API_BASE_URL;
+```
+
+### Infrastructure Dependencies:
+
+See `infrastructure/AWS_RESOURCES.md` for:
+- Which AWS resources must stay running
+- How to update bastion IP if it changes
+- SSH tunnel configuration for database access
+
+---
+
 ## 🚨 CRITICAL: Changing Backend API Endpoints
 
 **MANDATORY PROCESS - NO EXCEPTIONS**
