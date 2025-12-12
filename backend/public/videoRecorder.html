@@ -25,6 +25,21 @@
     .participant-video {
       background: #333;
     }
+    #eventLog {
+      margin-top: 20px;
+      padding: 10px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry { margin: 2px 0; }
+    .log-info { color: #4caf50; }
+    .log-warning { color: #ff9800; }
+    .log-error { color: #f44336; }
+    .log-recording { color: #2196f3; }
   </style>
 </head>
 <body>
@@ -33,6 +48,9 @@
 
   <!-- Canvas for compositing all video streams -->
   <canvas id="recordingCanvas" width="1280" height="720"></canvas>
+
+  <!-- Event Log for recording status -->
+  <div id="eventLog"></div>
 
   <!-- Hidden container for participant videos -->
   <div id="videoGrid"></div>
@@ -131,12 +149,25 @@
 
     const statusEl = document.getElementById('status');
     const canvas = document.getElementById('recordingCanvas');
+    const eventLogEl = document.getElementById('eventLog');
     canvasContext = canvas.getContext('2d');
 
     function updateStatus(msg, className = '') {
       statusEl.textContent = msg;
       statusEl.className = className;
       console.log('[VideoRecorder]', msg);
+    }
+
+    // User-friendly event logging (visible on page)
+    function logEvent(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${timestamp}] ${message}`;
+      eventLogEl.appendChild(entry);
+      eventLogEl.scrollTop = eventLogEl.scrollHeight;
+      // Also log to console for PM2 logs
+      console.log(`[Recording] ${message}`);
     }
 
     async function init() {
@@ -169,7 +200,7 @@
           silentDestination.stream.getAudioTracks()[0],
           blackVideoTrack
         ]);
-        console.log('[VideoRecorder] Created silent local stream with black video');
+        // Silent local stream with black video created
 
         // Set up audio mixer for recording
         await setupAudioMixer();
@@ -198,7 +229,7 @@
       silentGain.gain.value = 0;
       silentGain.connect(audioContext.destination);
 
-      console.log('[VideoRecorder] Audio mixer ready');
+      // Audio mixer ready
     }
 
     async function connectToCall() {
@@ -221,7 +252,6 @@
 
           if (call.status === 'ended') {
             updateStatus('Call ended before recording could start');
-            console.log('[VideoRecorder] Call ended, stopping');
             return;
           }
 
@@ -235,7 +265,6 @@
           // Call not active yet, wait and retry
           if (retries === 0) {
             updateStatus('Waiting for call to start...');
-            console.log('[VideoRecorder] Call status:', call.status, '- waiting for active...');
           }
 
           retries++;
@@ -347,7 +376,8 @@
     }
 
     function addParticipantStream(peerId, stream) {
-      console.log('[VideoRecorder] Adding participant stream:', peerId);
+      const participantCount = Object.keys(participantVideos).length + 1;
+      logEvent(`Participant ${participantCount} joined`, 'info');
 
       // Create video element for this participant
       const video = document.createElement('video');
@@ -366,7 +396,6 @@
       // Add audio to mixer
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length > 0) {
-        console.log('[VideoRecorder] Adding audio track for', peerId);
 
         // Create audio element to force Chrome to process the audio
         const audioEl = document.createElement('audio');
@@ -390,7 +419,6 @@
 
       // Start recording after first participant joins
       if (!isRecording && Object.keys(participantVideos).length >= 1) {
-        console.log('[VideoRecorder] First participant joined, starting chunked recording...');
         startChunkedRecording();
       }
     }
@@ -407,13 +435,12 @@
           participant.audioEl.remove();
         }
         delete participantVideos[peerId];
-        console.log('[VideoRecorder] Removed participant:', peerId);
+        logEvent(`Participant left (${Object.keys(participantVideos).length} remaining)`, 'info');
       }
     }
 
     async function pollForSignals() {
       const signalUrl = `${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recorder-signal`;
-      console.log('[VideoRecorder] Signal polling URL:', signalUrl);
 
       const pollInterval = setInterval(async () => {
         try {
@@ -442,7 +469,6 @@
 
     async function handleSignal(signal) {
       const { from: fromId, type, data } = signal;
-      console.log('[VideoRecorder] Handling signal:', type, 'from:', fromId);
 
       if (type === 'ice-candidate') {
         const pc = peerConnections[fromId];
@@ -462,7 +488,6 @@
       }
 
       if (!peerConnections[fromId]) {
-        console.log('[VideoRecorder] Creating peer connection for', fromId);
         const pc = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -478,7 +503,6 @@
         }
 
         pc.ontrack = (event) => {
-          console.log('[VideoRecorder] Received track:', event.track.kind, 'from', fromId);
           addParticipantStream(fromId, event.streams[0]);
         };
 
@@ -489,7 +513,6 @@
         };
 
         pc.onconnectionstatechange = () => {
-          console.log('[VideoRecorder] Connection state for', fromId, ':', pc.connectionState);
           if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
             removeParticipantStream(fromId);
           }
@@ -573,11 +596,14 @@
 
       mediaRecorder.onstop = async () => {
         const endTime = new Date().toISOString();
+        const chunkNum = chunkIndex + 1; // Human-readable (1-based)
         const dataSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
-        console.log(`[VideoRecorder] Chunk ${chunkIndex} onstop fired: ${recordedChunks.length} data chunks, total size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
+        const sizeMB = (dataSize / 1024 / 1024).toFixed(2);
+
+        logEvent(`Recording ${chunkNum} ENDED (${sizeMB} MB)`, 'recording');
 
         if (recordedChunks.length === 0) {
-          console.warn(`[VideoRecorder] Chunk ${chunkIndex} has NO DATA - skipping upload`);
+          logEvent(`Recording ${chunkNum} has NO DATA - skipping upload`, 'warning');
           activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
           // Remove from upload queue since we're not uploading
           uploadQueue = uploadQueue.filter(idx => idx !== chunkIndex);
@@ -587,11 +613,11 @@
           return;
         }
 
+        logEvent(`Recording ${chunkNum} uploading to S3...`, 'info');
         await uploadChunk(chunkIndex, recordedChunks, startTime, endTime);
 
         // Remove this recorder from active list
         activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
-        console.log(`[VideoRecorder] Chunk ${chunkIndex} removed from activeRecorders. Remaining: ${activeRecorders.length}`);
       };
 
       return {
@@ -617,19 +643,6 @@
         scheduleChunkRotation();
 
         updateStatus('Recording video (chunked)...', 'recording');
-        console.log('[VideoRecorder] Chunked recording started');
-
-        // Log stats periodically
-        const statsInterval = setInterval(() => {
-          if (!isRecording) {
-            clearInterval(statsInterval);
-            return;
-          }
-          console.log('[VideoRecorder] Stats - active chunks:', activeRecorders.length,
-                      'current chunk:', currentChunkIndex,
-                      'participants:', Object.keys(participantVideos).length);
-        }, 10000);
-        window.statsInterval = statsInterval;
 
       } catch (err) {
         console.error('[VideoRecorder] Start chunked recording error:', err);
@@ -639,12 +652,13 @@
 
     function startNewChunk() {
       const startTime = new Date().toISOString();
+      const chunkNum = currentChunkIndex + 1; // Human-readable (1-based)
       const recorder = createMediaRecorder(currentChunkIndex, startTime);
 
       recorder.mediaRecorder.start(1000); // Collect data every second
       activeRecorders.push(recorder);
 
-      console.log(`[VideoRecorder] Started chunk ${currentChunkIndex} at ${startTime}`);
+      logEvent(`Recording ${chunkNum} STARTED`, 'recording');
       currentChunkIndex++;
     }
 
@@ -660,14 +674,12 @@
         }
 
         // Start new chunk FIRST (gapless - overlap period begins)
-        console.log('[VideoRecorder] Starting overlap period - new chunk starting...');
         startNewChunk();
 
         // Stop the old chunk after overlap period
         setTimeout(() => {
           const oldRecorder = activeRecorders.find(r => r.chunkIndex === currentChunkIndex - 2);
           if (oldRecorder && oldRecorder.mediaRecorder.state === 'recording') {
-            console.log(`[VideoRecorder] Stopping chunk ${oldRecorder.chunkIndex} after overlap`);
             oldRecorder.mediaRecorder.stop();
           }
         }, OVERLAP_DURATION_MS);
@@ -686,7 +698,6 @@
 
       try {
         if (recordedChunks.length === 0) {
-          console.log(`[VideoRecorder] Chunk ${chunkIndex}: No data to upload`);
           return;
         }
 
@@ -698,12 +709,7 @@
         const durationMs = endDate.getTime() - startDate.getTime();
 
         // Fix WebM duration metadata before upload
-        // This ensures the video player can show correct duration and progress
-        console.log(`[VideoRecorder] Fixing WebM duration: ${durationMs}ms`);
         blob = await fixWebmDuration(blob, durationMs);
-
-        const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
-        console.log(`[VideoRecorder] Uploading chunk ${chunkIndex}: ${sizeMB} MB, duration: ${durationMs}ms`);
 
         const formData = new FormData();
         formData.append('recording', blob, `video-call-${CALL_ID}-chunk-${chunkIndex}.webm`);
@@ -721,13 +727,17 @@
           }
         );
 
+        const chunkNum = chunkIndex + 1; // Human-readable
         if (response.ok) {
-          console.log(`[VideoRecorder] Chunk ${chunkIndex} uploaded successfully`);
+          logEvent(`Recording ${chunkNum} UPLOADED to S3 ✓`, 'info');
         } else {
           const errText = await response.text();
+          logEvent(`Recording ${chunkNum} upload FAILED: ${response.status}`, 'error');
           console.error(`[VideoRecorder] Chunk ${chunkIndex} upload failed:`, errText);
         }
       } catch (err) {
+        const chunkNum = chunkIndex + 1;
+        logEvent(`Recording ${chunkNum} upload ERROR: ${err.message}`, 'error');
         console.error(`[VideoRecorder] Chunk ${chunkIndex} upload error:`, err);
       } finally {
         // Remove from upload queue
@@ -743,11 +753,7 @@
         return;
       }
 
-      console.log('[VideoRecorder] Stopping all recording...');
-      console.log(`[VideoRecorder] Active recorders at stop: ${activeRecorders.length}`);
-      activeRecorders.forEach(r => {
-        console.log(`[VideoRecorder] - Chunk ${r.chunkIndex}: state=${r.mediaRecorder.state}, dataChunks=${r.recordedChunks?.length || 'N/A'}`);
-      });
+      logEvent(`CALL ENDED - stopping ${activeRecorders.length} active recording(s)`, 'warning');
 
       isRecording = false;
       window.isRecording = false;
@@ -763,24 +769,17 @@
         if (recorder.mediaRecorder.state === 'recording') {
           uploadQueue.push(recorder.chunkIndex);
           isUploading = true;
-          console.log(`[VideoRecorder] Added chunk ${recorder.chunkIndex} to upload queue`);
-        } else {
-          console.log(`[VideoRecorder] Chunk ${recorder.chunkIndex} NOT in recording state: ${recorder.mediaRecorder.state}`);
         }
       });
-
-      console.log(`[VideoRecorder] Upload queue after pre-population: [${uploadQueue.join(', ')}]`);
 
       // Stop all active recorders - they will upload in background via onstop handlers
       activeRecorders.forEach(recorder => {
         if (recorder.mediaRecorder.state === 'recording') {
-          console.log(`[VideoRecorder] Stopping chunk ${recorder.chunkIndex}...`);
           recorder.mediaRecorder.stop();
         }
       });
 
       updateStatus('Recorders stopped, uploading chunks...', 'connected');
-      console.log('[VideoRecorder] All recorders stopped, uploads will continue in background');
 
       // Wait for all uploads to complete before resolving
       // This allows the puppeteer service to know when uploads are done
@@ -788,11 +787,10 @@
         return new Promise((resolve) => {
           const checkUploads = () => {
             if (uploadQueue.length === 0 && !isUploading) {
-              console.log('[VideoRecorder] All uploads complete');
+              logEvent('All recordings uploaded ✓', 'info');
               updateStatus('All chunks uploaded', 'connected');
               resolve();
             } else {
-              console.log(`[VideoRecorder] Waiting for uploads: queue=${uploadQueue.length}, uploading=${isUploading}`);
               setTimeout(checkUploads, 1000);
             }
           };
@@ -804,7 +802,6 @@
     }
 
     function cleanup() {
-      console.log('[VideoRecorder] Cleaning up...');
 
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -814,17 +811,24 @@
         clearInterval(window.signalPollInterval);
       }
 
-      if (window.statsInterval) {
-        clearInterval(window.statsInterval);
-      }
-
       if (chunkTimer) {
         clearInterval(chunkTimer);
       }
 
       // Clean up participant videos
       Object.keys(participantVideos).forEach(peerId => {
-        removeParticipantStream(peerId);
+        const participant = participantVideos[peerId];
+        if (participant) {
+          participant.video.pause();
+          participant.video.srcObject = null;
+          participant.video.remove();
+          if (participant.audioEl) {
+            participant.audioEl.pause();
+            participant.audioEl.srcObject = null;
+            participant.audioEl.remove();
+          }
+          delete participantVideos[peerId];
+        }
       });
 
       Object.values(peerConnections).forEach(pc => pc.close());
@@ -837,8 +841,6 @@
       if (audioContext && audioContext.state !== 'closed') {
         audioContext.close();
       }
-
-      console.log('[VideoRecorder] Cleanup complete');
     }
 
     // Expose for Puppeteer control
@@ -849,7 +851,7 @@
     // Initialize
     init().then(() => {
       window.recorderReady = true;
-      console.log('[VideoRecorder] Ready');
+      logEvent('Recorder initialized, waiting for participants...', 'info');
     });
   </script>
 </body>
