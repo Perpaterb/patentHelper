@@ -300,6 +300,8 @@ async function getVideoDuration(filePath) {
  * @returns {Promise<{path: string, mimeType: string, wasConverted: boolean, durationMs: number}>}
  */
 async function convertIfNeeded(filePath, mimeType, outputDir, clientDurationMs = 0) {
+  console.log(`[VideoConverter] convertIfNeeded called: mimeType="${mimeType}", clientDuration=${clientDurationMs}ms, localFfmpegAvailable=${localFfmpegAvailable}`);
+
   let resultPath = filePath;
   let resultMimeType = mimeType;
   let wasConverted = false;
@@ -321,9 +323,10 @@ async function convertIfNeeded(filePath, mimeType, outputDir, clientDurationMs =
     } catch (err) {
       console.warn(`Could not delete original file: ${err.message}`);
     }
-  } else if (mimeType === 'video/webm' && localFfmpegAvailable) {
+  } else if (mimeType.startsWith('video/webm') && localFfmpegAvailable) {
     // Remux WebM files to fix duration metadata
     // MediaRecorder WebM files don't have proper duration headers
+    // Note: startsWith to handle "video/webm;codecs=vp9,opus" etc.
     console.log(`[VideoConverter] Remuxing WebM to fix duration metadata...`);
     try {
       const result = await remuxWebm(filePath, outputDir, clientDurationMs);
