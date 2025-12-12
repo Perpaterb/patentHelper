@@ -156,9 +156,17 @@ async function stopRecording(callId, callType) {
     // Get recording status before stopping
     const recordingStatus = await page.evaluate(() => ({
       isRecording: window.isRecording,
-      chunks: typeof recordedChunks !== 'undefined' ? recordedChunks.length : 0,
+      activeRecordersCount: typeof activeRecorders !== 'undefined' ? activeRecorders.length : 0,
+      activeRecorderChunks: typeof activeRecorders !== 'undefined'
+        ? activeRecorders.map(r => ({
+            chunkIndex: r.chunkIndex,
+            state: r.mediaRecorder?.state,
+            dataChunks: r.recordedChunks?.length || 0
+          }))
+        : [],
+      currentChunkIndex: typeof currentChunkIndex !== 'undefined' ? currentChunkIndex : -1,
     }));
-    console.log(`[Recorder] Recording status before stop:`, recordingStatus);
+    console.log(`[Recorder] Recording status before stop:`, JSON.stringify(recordingStatus, null, 2));
 
     // Tell the page to stop recording and wait for upload
     if (recordingStatus.isRecording) {

@@ -573,11 +573,25 @@
 
       mediaRecorder.onstop = async () => {
         const endTime = new Date().toISOString();
-        console.log(`[VideoRecorder] Chunk ${chunkIndex} stopped, uploading...`);
+        const dataSize = recordedChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+        console.log(`[VideoRecorder] Chunk ${chunkIndex} onstop fired: ${recordedChunks.length} data chunks, total size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
+
+        if (recordedChunks.length === 0) {
+          console.warn(`[VideoRecorder] Chunk ${chunkIndex} has NO DATA - skipping upload`);
+          activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
+          // Remove from upload queue since we're not uploading
+          uploadQueue = uploadQueue.filter(idx => idx !== chunkIndex);
+          if (uploadQueue.length === 0) {
+            isUploading = false;
+          }
+          return;
+        }
+
         await uploadChunk(chunkIndex, recordedChunks, startTime, endTime);
 
         // Remove this recorder from active list
         activeRecorders = activeRecorders.filter(r => r.chunkIndex !== chunkIndex);
+        console.log(`[VideoRecorder] Chunk ${chunkIndex} removed from activeRecorders. Remaining: ${activeRecorders.length}`);
       };
 
       return {
@@ -730,6 +744,11 @@
       }
 
       console.log('[VideoRecorder] Stopping all recording...');
+      console.log(`[VideoRecorder] Active recorders at stop: ${activeRecorders.length}`);
+      activeRecorders.forEach(r => {
+        console.log(`[VideoRecorder] - Chunk ${r.chunkIndex}: state=${r.mediaRecorder.state}, dataChunks=${r.recordedChunks?.length || 'N/A'}`);
+      });
+
       isRecording = false;
       window.isRecording = false;
 
@@ -744,12 +763,18 @@
         if (recorder.mediaRecorder.state === 'recording') {
           uploadQueue.push(recorder.chunkIndex);
           isUploading = true;
+          console.log(`[VideoRecorder] Added chunk ${recorder.chunkIndex} to upload queue`);
+        } else {
+          console.log(`[VideoRecorder] Chunk ${recorder.chunkIndex} NOT in recording state: ${recorder.mediaRecorder.state}`);
         }
       });
+
+      console.log(`[VideoRecorder] Upload queue after pre-population: [${uploadQueue.join(', ')}]`);
 
       // Stop all active recorders - they will upload in background via onstop handlers
       activeRecorders.forEach(recorder => {
         if (recorder.mediaRecorder.state === 'recording') {
+          console.log(`[VideoRecorder] Stopping chunk ${recorder.chunkIndex}...`);
           recorder.mediaRecorder.stop();
         }
       });
