@@ -53,8 +53,8 @@ services:
       # JWT for internal auth
       JWT_SECRET: local-dev-jwt-secret-change-in-production
       MESSAGE_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      # CORS - web-admin on 8081, mobile-main on 8082
-      CORS_ORIGINS: http://localhost:3000,http://localhost:8081,http://localhost:8082
+      # CORS
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:8081
     volumes:
       # Mount source code for hot reload (optional)
       # - ./backend:/app

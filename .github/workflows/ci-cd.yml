@@ -14,10 +14,8 @@
 name: CI/CD Pipeline
 
 on:
-  # DISABLED: Automatic deployment on push to main
-  # Uncomment below to re-enable
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
   workflow_dispatch:
     inputs:

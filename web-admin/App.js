@@ -250,7 +250,6 @@ const linking = {
 function AppNavigator() {
   const { isAuthenticated, isLoading, getToken, user } = useKindeAuth();
   const [tokenExchanged, setTokenExchanged] = useState(false);
-  const [tokenExchangeError, setTokenExchangeError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Handle token exchange when Kinde authentication completes
@@ -270,8 +269,6 @@ function AppNavigator() {
       try {
         const kindeToken = await getToken();
         if (!kindeToken || !user || !user.email) {
-          console.error('Token exchange: Missing kindeToken or user data');
-          setTokenExchangeError('Failed to get authentication data');
           return;
         }
 
@@ -285,7 +282,6 @@ function AppNavigator() {
           },
         };
 
-        console.log('[Auth] Exchanging Kinde token for backend tokens...');
         const response = await fetch(`${config.api.url}/auth/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -294,8 +290,7 @@ function AppNavigator() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Token exchange failed');
+          throw new Error('Token exchange failed');
         }
 
         const data = await response.json();
@@ -304,17 +299,11 @@ function AppNavigator() {
           // Also store refresh token for imported mobile screens that use localStorage-based token storage
           if (data.refreshToken) {
             await SecureStore.setItemAsync('refreshToken', data.refreshToken);
-            console.log('[Auth] Tokens stored successfully');
-          } else {
-            console.warn('[Auth] No refresh token in response');
           }
           setTokenExchanged(true);
-        } else {
-          throw new Error('No access token in response');
         }
       } catch (error) {
         console.error('Token exchange failed:', error.message);
-        setTokenExchangeError(error.message);
       }
     }
 
@@ -322,33 +311,11 @@ function AppNavigator() {
   }, [isAuthenticated, isLoading, getToken, user, tokenExchanged]);
 
   // Show loading until Kinde has finished checking auth state
-  // AND token exchange has completed (if authenticated)
   // This prevents the brief flash of unauthenticated state that causes redirect loops
-  // AND prevents screens from making API calls before tokens are stored
   if (isLoading || !authChecked) {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  // Show error if token exchange failed
-  if (isAuthenticated && tokenExchangeError) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Authentication Error</Text>
-        <Text style={styles.errorMessage}>{tokenExchangeError}</Text>
-        <Text style={styles.errorHint}>Please refresh the page or try logging in again.</Text>
-      </View>
-    );
-  }
-
-  // Wait for token exchange to complete before showing authenticated content
-  if (isAuthenticated && !tokenExchanged) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Setting up your session...</Text>
       </View>
     );
   }
@@ -493,20 +460,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-    marginBottom: 8,
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  errorHint: {
-    fontSize: 12,
-    color: '#999',
   },
 });
