@@ -62,20 +62,28 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   }, [callId]);
 
   // Poll for recording after call ends (recording takes time to upload)
+  // Also poll while uploads are in progress (recording status === 'recording')
   useEffect(() => {
-    // Only poll if call just ended and doesn't have recording yet (single or chunks)
+    // Check if there's already a recording
     const hasRecording = call?.recordingUrl || call?.recording?.url ||
-                        (call?.recordingChunks && call.recordingChunks.length > 0);
-    const shouldPoll = call?.status === 'ended' && !hasRecording;
+                        (call?.recordingChunks && call.recordingChunks.length > 0) ||
+                        (call?.recording?.chunks && call.recording.chunks.length > 0);
+    // Check if upload is in progress
+    const isUploading = call?.recording?.status === 'recording';
+    // Poll if: call ended AND (no recording yet OR upload in progress)
+    const shouldPoll = call?.status === 'ended' && (!hasRecording || isUploading);
 
     if (!shouldPoll) return;
 
     let pollCount = 0;
-    const maxPolls = 12; // Poll for up to 60 seconds (12 * 5s)
+    // Poll for up to 5 minutes if uploading, 60 seconds otherwise
+    const maxPolls = isUploading ? 60 : 12;
 
     const pollForRecording = setInterval(async () => {
       pollCount++;
-      console.log(`[CallDetails] Polling for recording (${pollCount}/${maxPolls})...`);
+      if (pollCount % 6 === 1 || pollCount === 1) { // Log every 30s or first poll
+        console.log(`[CallDetails] Polling for recording (${pollCount}/${maxPolls})...`);
+      }
 
       try {
         const response = await api.get(`/groups/${groupId}/phone-calls`);
@@ -84,13 +92,16 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
         if (updatedCall) {
           // Check if recording is now available (single or chunks)
           const hasNewRecording = updatedCall.recordingUrl || updatedCall.recording?.url ||
-                                  (updatedCall.recordingChunks && updatedCall.recordingChunks.length > 0);
-          if (hasNewRecording) {
-            console.log('[CallDetails] Recording found, updating state');
+                                  (updatedCall.recordingChunks && updatedCall.recordingChunks.length > 0) ||
+                                  (updatedCall.recording?.chunks && updatedCall.recording.chunks.length > 0);
+          const stillUploading = updatedCall.recording?.status === 'recording';
+
+          if (hasNewRecording && !stillUploading) {
+            console.log('[CallDetails] Recording complete, updating state');
             setCall(updatedCall);
             clearInterval(pollForRecording);
-          } else if (updatedCall.durationMs !== call.durationMs) {
-            // Duration updated even if no recording yet
+          } else {
+            // Update state with any changes (new chunks, etc)
             setCall(updatedCall);
           }
         }
@@ -106,7 +117,7 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollForRecording);
-  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recordingChunks?.length, groupId, callId]);
+  }, [call?.status, call?.recordingUrl, call?.recording?.url, call?.recording?.status, call?.recordingChunks?.length, call?.recording?.chunks?.length, groupId, callId]);
 
   /**
    * Load group info to get user role
@@ -227,9 +238,10 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
 
   /**
    * Get sorted recording chunks
+   * Handles both call.recordingChunks and call.recording.chunks formats
    */
   const getSortedChunks = () => {
-    const chunks = call?.recordingChunks || [];
+    const chunks = call?.recordingChunks || call?.recording?.chunks || [];
     return [...chunks].sort((a, b) => a.chunkIndex - b.chunkIndex);
   };
 
@@ -479,11 +491,12 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
   const hasChunks = sortedChunks.length > 0;
   const hasSingleRecording = (call.recording?.url || call.recordingUrl) &&
                              !call.recording?.isHidden && !call.recordingIsHidden;
-  const hasRecording = hasSingleRecording || hasChunks;
+  // Check if recording is in progress (uploading chunks)
+  const isUploadingRecording = call.recording?.status === 'recording';
+  // Show recording section if we have content OR if uploads are in progress
+  const hasRecording = hasSingleRecording || hasChunks || isUploadingRecording;
   // Check if recording is still processing
   const isRecordingProcessing = call.recording?.status === 'processing';
-  // Calculate total duration from chunks
-  const totalChunksDuration = sortedChunks.reduce((sum, chunk) => sum + (chunk.durationMs || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -663,8 +676,8 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                 </View>
               )}
 
-              {/* Chunk list */}
-              {hasChunks && (
+              {/* Chunk list - show if we have chunks OR if uploads are in progress */}
+              {(hasChunks || isUploadingRecording) && (
                 <View style={styles.chunkList}>
                   <Text style={styles.chunkListTitle}>All Segments</Text>
                   {sortedChunks.map((chunk, index) => (
@@ -700,15 +713,22 @@ export default function PhoneCallDetailsScreen({ navigation, route }) {
                       )}
                     </TouchableOpacity>
                   ))}
-                </View>
-              )}
 
-              {/* Total duration */}
-              {hasChunks && (
-                <View style={styles.totalDuration}>
-                  <Text style={styles.totalDurationText}>
-                    Total Duration: {formatDuration(totalChunksDuration)}
-                  </Text>
+                  {/* Show pending upload indicator if recording is still in progress */}
+                  {isUploadingRecording && (
+                    <View style={styles.chunkItemPending}>
+                      <View style={styles.chunkItemLeft}>
+                        <Text style={styles.chunkItemNumberPending}>
+                          {sortedChunks.length + 1}
+                        </Text>
+                        <View>
+                          <Text style={styles.chunkItemDurationPending}>Uploading...</Text>
+                          <Text style={styles.chunkItemTime}>In progress</Text>
+                        </View>
+                      </View>
+                      <ActivityIndicator size="small" color="#ff9800" />
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -1132,14 +1152,30 @@ const styles = StyleSheet.create({
     color: '#4caf50',
     fontWeight: '500',
   },
-  totalDuration: {
+  // Pending upload indicator styles
+  chunkItemPending: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff8e1',
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+    borderStyle: 'dashed',
   },
-  totalDurationText: {
+  chunkItemNumberPending: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ff9800',
+    width: 24,
+    marginRight: 12,
+  },
+  chunkItemDurationPending: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '500',
+    color: '#ff9800',
   },
 });

@@ -502,6 +502,12 @@ router.get('/:groupId/phone-calls/:callId/recorder-signal', requireAuth, phoneCa
  */
 router.post('/:groupId/phone-calls/:callId/recorder-signal', requireAuth, phoneCallsController.sendRecorderSignal);
 
+/**
+ * POST /groups/:groupId/phone-calls/:callId/recording-status
+ * Broadcast recording status message to all call participants
+ */
+router.post('/:groupId/phone-calls/:callId/recording-status', requireAuth, phoneCallsController.broadcastRecordingStatus);
+
 // ============================================
 // VIDEO CALLS ROUTES
 // ============================================

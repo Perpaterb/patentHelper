@@ -12,6 +12,7 @@
 <body>
   <h1>Ghost Recorder</h1>
   <div id="status">Initializing...</div>
+  <div id="eventLog" style="max-height: 200px; overflow-y: auto; margin: 10px 0; padding: 10px; background: #111; border-radius: 4px; font-size: 12px;"></div>
   <div id="participants"></div>
 
   <!-- Hidden video/audio elements for streams -->
@@ -49,12 +50,45 @@
     let uploadQueue = []; // Queue of chunks waiting to be uploaded
     let isUploading = false;
 
+    // Participant tracking
+    let participantNames = {}; // { peerId: displayName }
+
     const statusEl = document.getElementById('status');
+    const eventLogEl = document.getElementById('eventLog');
 
     function updateStatus(msg, className = '') {
       statusEl.textContent = msg;
       statusEl.className = className;
       console.log('[Recorder]', msg);
+    }
+
+    // Log events to UI and broadcast to participants
+    function logEvent(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.style.color = type === 'warning' ? '#ff9800' : type === 'error' ? '#f44336' : '#4caf50';
+      entry.textContent = `[${timestamp}] ${message}`;
+      eventLogEl.appendChild(entry);
+      eventLogEl.scrollTop = eventLogEl.scrollHeight;
+      console.log(`[Recording] ${message}`);
+      broadcastRecordingStatus(message);
+    }
+
+    // Broadcast recording status to all participants via signaling
+    async function broadcastRecordingStatus(message) {
+      try {
+        const endpoint = CALL_TYPE === 'video' ? 'video-calls' : 'phone-calls';
+        await fetch(`${API_URL}/groups/${GROUP_ID}/${endpoint}/${CALL_ID}/recording-status`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AUTH_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message })
+        });
+      } catch (err) {
+        // Silently fail - don't disrupt recording for status updates
+      }
     }
 
     async function init() {
@@ -113,6 +147,18 @@
 
           if (call.status === 'active') {
             updateStatus('Connected. Starting recording...', 'connected');
+            logEvent('Recorder initialized, waiting for participants...', 'info');
+
+            // Store participant names for display
+            if (call.initiator) {
+              participantNames[call.initiator.groupMemberId] = call.initiator.displayName;
+            }
+            if (call.participants) {
+              call.participants.forEach(p => {
+                participantNames[p.groupMemberId] = p.displayName;
+              });
+            }
+            participantNames['recorder'] = 'Recording Bot';
 
             // Set up audio context for mixing streams
             await setupAudioMixer();
@@ -178,6 +224,10 @@
       try {
         const audioTracks = stream.getAudioTracks();
         console.log('[Recorder] Stream', label, 'has', audioTracks.length, 'audio tracks');
+
+        // Log participant joining with name if available
+        const displayName = participantNames[label] || `Participant`;
+        logEvent(`${displayName} joined the call`, 'info');
 
         if (audioTracks.length > 0) {
           const track = audioTracks[0];
@@ -495,6 +545,7 @@
       activeRecorders.push(recorderState);
 
       console.log(`[Recorder] Started chunk ${chunkIndex}, active recorders:`, activeRecorders.length);
+      logEvent(`Recording ${chunkIndex + 1} STARTED`, 'info');
     }
 
     function scheduleChunkRotation() {
@@ -555,6 +606,11 @@
       }
 
       const blob = new Blob(chunks, { type: 'audio/webm' });
+      const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+
+      logEvent(`Recording ${chunkIndex + 1} ENDED (${sizeMB} MB)`, 'info');
+      logEvent(`Recording ${chunkIndex + 1} uploading to S3...`, 'info');
+
       const formData = new FormData();
       formData.append('recording', blob, `chunk-${chunkIndex}.webm`);
       formData.append('chunkIndex', chunkIndex.toString());
@@ -576,8 +632,10 @@
       if (response.ok) {
         const data = await response.json();
         console.log(`[Recorder] Chunk ${chunkIndex} uploaded successfully:`, data);
+        logEvent(`Recording ${chunkIndex + 1} UPLOADED to S3 ✓`, 'info');
       } else {
         const errorText = await response.text();
+        logEvent(`Recording ${chunkIndex + 1} upload FAILED`, 'error');
         throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
     }
@@ -589,9 +647,22 @@
           return;
         }
 
+        const activeCount = activeRecorders.filter(r => r.mediaRecorder.state === 'recording').length;
+        const chunkNumbers = activeRecorders
+          .filter(r => r.mediaRecorder.state === 'recording')
+          .map(r => r.chunkIndex + 1)
+          .join(', ');
+
+        logEvent(`CALL ENDED - saving ${activeCount} recording(s)`, 'warning');
+
         isRecording = false;
         window.isRecording = false;
         updateStatus('Recording stopped, uploading remaining chunks...');
+
+        // Broadcast which chunks are being uploaded BEFORE stopping
+        if (activeCount > 0) {
+          logEvent(`Uploading Recording ${chunkNumbers} to S3 (this may take a moment)...`, 'info');
+        }
 
         // Clear chunk rotation timer
         if (chunkTimer) {

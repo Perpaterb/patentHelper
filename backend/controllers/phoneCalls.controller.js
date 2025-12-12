@@ -32,6 +32,14 @@ const os = require('os');
 // Clean up old signals (older than 5 minutes) - runs on each Lambda cold start
 const SIGNAL_TTL_MINUTES = 5;
 
+/**
+ * In-memory store for recording status messages broadcast by the recorder
+ * Messages expire after 60 seconds, tracked per-peer for deduplication
+ * Structure: Map<callId, { messages: [{id, message, timestamp}], deliveredTo: Map<peerId, Set<messageId>> }>
+ */
+const recordingStatusMessages = new Map();
+let messageIdCounter = 0;
+
 async function cleanupOldSignals() {
   try {
     const cutoffTime = new Date(Date.now() - SIGNAL_TTL_MINUTES * 60 * 1000);
@@ -1888,11 +1896,15 @@ async function getSignals(req, res) {
       }
     }
 
+    // Get recording status messages (for displaying chunk upload progress)
+    const recordingStatus = getRecordingStatusMessages(callId, membership.groupMemberId);
+
     return res.json({
       success: true,
       signals: mySignals,
       peers,
       myPeerId: membership.groupMemberId,
+      recordingStatus, // Array of status messages from recorder
     });
   } catch (error) {
     console.error('Get phone signals error:', error);
@@ -2154,6 +2166,78 @@ async function sendRecorderSignal(req, res) {
   }
 }
 
+/**
+ * Broadcast recording status message to all call participants
+ * POST /groups/:groupId/phone-calls/:callId/recording-status
+ *
+ * Called by the recorder to broadcast status updates (chunk started, uploading, uploaded)
+ */
+async function broadcastRecordingStatus(req, res) {
+  try {
+    const { callId } = req.params;
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Missing message' });
+    }
+
+    // Get or create call message store
+    let callStore = recordingStatusMessages.get(callId);
+    if (!callStore) {
+      callStore = { messages: [], deliveredTo: new Map() };
+      recordingStatusMessages.set(callId, callStore);
+    }
+
+    // Add new message with unique ID
+    const statusMessage = {
+      id: ++messageIdCounter,
+      message,
+      timestamp: Date.now(),
+    };
+    callStore.messages.push(statusMessage);
+
+    // Clean up old messages (older than 60 seconds)
+    const cutoff = Date.now() - 60000;
+    callStore.messages = callStore.messages.filter(m => m.timestamp > cutoff);
+
+    // Keep only last 20 messages
+    if (callStore.messages.length > 20) {
+      callStore.messages = callStore.messages.slice(-20);
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Broadcast recording status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to broadcast status', error: error.message });
+  }
+}
+
+/**
+ * Get undelivered recording status messages for a peer
+ * Tracks which messages have been delivered to which peers to avoid duplicates
+ */
+function getRecordingStatusMessages(callId, peerId) {
+  const callStore = recordingStatusMessages.get(callId);
+  if (!callStore || callStore.messages.length === 0) {
+    return [];
+  }
+
+  // Get or create the set of delivered message IDs for this peer
+  let deliveredIds = callStore.deliveredTo.get(peerId);
+  if (!deliveredIds) {
+    deliveredIds = new Set();
+    callStore.deliveredTo.set(peerId, deliveredIds);
+  }
+
+  // Find messages not yet delivered to this peer
+  const newMessages = callStore.messages.filter(m => !deliveredIds.has(m.id));
+
+  // Mark these messages as delivered to this peer
+  newMessages.forEach(m => deliveredIds.add(m.id));
+
+  return newMessages.map(m => m.message);
+}
+
 module.exports = {
   getPhoneCalls,
   getActiveCalls,
@@ -2172,4 +2256,5 @@ module.exports = {
   getRecordingStatus,
   getRecorderSignals,
   sendRecorderSignal,
+  broadcastRecordingStatus,
 };
