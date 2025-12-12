@@ -154,6 +154,7 @@ async function stopRecording(callId, callType) {
     const duration = Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
 
     // Get recording status before stopping
+    /* eslint-disable no-undef -- page.evaluate runs in browser context */
     const recordingStatus = await page.evaluate(() => ({
       isRecording: window.isRecording,
       activeRecordersCount: typeof activeRecorders !== 'undefined' ? activeRecorders.length : 0,
@@ -166,6 +167,7 @@ async function stopRecording(callId, callType) {
         : [],
       currentChunkIndex: typeof currentChunkIndex !== 'undefined' ? currentChunkIndex : -1,
     }));
+    /* eslint-enable no-undef */
     console.log(`[Recorder] Recording status before stop:`, JSON.stringify(recordingStatus, null, 2));
 
     // Tell the page to stop recording and wait for upload
@@ -173,10 +175,12 @@ async function stopRecording(callId, callType) {
       console.log(`[Recorder] Stopping MediaRecorder...`);
       // stopRecording now handles chunked recording - stops all recorders and waits for uploads
       console.log(`[Recorder] Calling window.stopRecording() - this should wait for all uploads...`);
+      /* eslint-disable no-undef -- page.evaluate runs in browser context */
       const stopResult = await page.evaluate(async () => {
         await window.stopRecording();
         return 'stopRecording completed';
       });
+      /* eslint-enable no-undef */
       console.log(`[Recorder] stopRecording result: ${stopResult}`);
 
       // Additional safety wait after stopRecording completes
@@ -188,7 +192,9 @@ async function stopRecording(callId, callType) {
 
     // Cleanup
     console.log(`[Recorder] Running cleanup...`);
+    /* eslint-disable no-undef -- page.evaluate runs in browser context */
     await page.evaluate(() => window.cleanup());
+    /* eslint-enable no-undef */
     await browser.close();
 
     activeRecordings.delete(sessionKey);

@@ -2144,7 +2144,7 @@ async function changeMemberRole(req, res) {
           requiredApprovalPercentage: '100.00',
           status: shouldAutoApprove ? 'approved' : 'pending',
           approvalData: JSON.stringify({
-            targetUserId: targetUserId,
+            targetUserId: targetMembership.userId,
             targetGroupMemberId: targetMembership.groupMemberId,
             targetEmail: targetMembership.user?.email || targetMembership.displayName,
             targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
@@ -2318,7 +2318,7 @@ async function changeMemberRole(req, res) {
           requiredApprovalPercentage: '50.00',
           status: shouldAutoApprove ? 'approved' : 'pending',
           approvalData: JSON.stringify({
-            targetUserId: targetUserId,
+            targetUserId: targetMembership.userId,
             targetGroupMemberId: targetMembership.groupMemberId,
             targetEmail: targetMembership.user?.email || targetMembership.displayName,
             targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
@@ -2685,7 +2685,7 @@ async function removeMember(req, res) {
           requiredApprovalPercentage: '50.00',
           status: shouldAutoApprove ? 'approved' : 'pending',
           approvalData: JSON.stringify({
-            targetUserId: targetUserId,
+            targetUserId: targetMembership.userId,
             targetGroupMemberId: targetMembership.groupMemberId,
             targetEmail: targetMembership.user?.email || targetMembership.displayName,
             targetDisplayName: targetMembership.user?.displayName || targetMembership.displayName,
