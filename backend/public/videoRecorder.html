@@ -168,6 +168,24 @@
       eventLogEl.scrollTop = eventLogEl.scrollHeight;
       // Also log to console for PM2 logs
       console.log(`[Recording] ${message}`);
+      // Broadcast to all call participants
+      broadcastRecordingStatus(message);
+    }
+
+    // Broadcast recording status to all participants via signaling
+    async function broadcastRecordingStatus(message) {
+      try {
+        await fetch(`${API_URL}/groups/${GROUP_ID}/video-calls/${CALL_ID}/recording-status`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AUTH_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message })
+        });
+      } catch (err) {
+        // Silently fail - don't disrupt recording for status updates
+      }
     }
 
     async function init() {

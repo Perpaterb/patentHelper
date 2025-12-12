@@ -1973,11 +1973,15 @@ async function getSignals(req, res) {
       }
     }
 
+    // Get recording status messages
+    const recordingStatus = getRecordingStatusMessages(callId, membership.groupMemberId);
+
     return res.json({
       success: true,
       signals: mySignals,
       peers,
       myPeerId: membership.groupMemberId,
+      recordingStatus, // Array of status messages from recorder
     });
   } catch (error) {
     console.error('Get signals error:', error);
@@ -2217,6 +2221,62 @@ async function getRecorderSignals(req, res) {
   }
 }
 
+// In-memory store for recording status messages (per call)
+// Messages expire after 30 seconds
+const recordingStatusMessages = new Map();
+
+/**
+ * Broadcast recording status to all call participants
+ * POST /groups/:groupId/video-calls/:callId/recording-status
+ */
+async function broadcastRecordingStatus(req, res) {
+  try {
+    const { callId } = req.params;
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Missing message' });
+    }
+
+    // Store the message with timestamp
+    const statusMessage = {
+      message,
+      timestamp: Date.now(),
+    };
+
+    // Get existing messages or create new array
+    let messages = recordingStatusMessages.get(callId) || [];
+
+    // Add new message
+    messages.push(statusMessage);
+
+    // Keep only last 10 messages and messages from last 30 seconds
+    const cutoff = Date.now() - 30000;
+    messages = messages.filter(m => m.timestamp > cutoff).slice(-10);
+
+    recordingStatusMessages.set(callId, messages);
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Broadcast recording status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to broadcast status' });
+  }
+}
+
+/**
+ * Get recording status messages for a call (called by clients polling signals)
+ * Returns and clears messages for the requesting user
+ */
+function getRecordingStatusMessages(callId, peerId) {
+  const messages = recordingStatusMessages.get(callId) || [];
+
+  // Return messages from last 5 seconds that haven't been seen
+  const cutoff = Date.now() - 5000;
+  const recentMessages = messages.filter(m => m.timestamp > cutoff);
+
+  return recentMessages.map(m => m.message);
+}
+
 /**
  * Send WebRTC signal from the ghost recorder
  * POST /groups/:groupId/video-calls/:callId/recorder-signal
@@ -2277,4 +2337,5 @@ module.exports = {
   getRecordingStatus,
   getRecorderSignals,
   sendRecorderSignal,
+  broadcastRecordingStatus,
 };

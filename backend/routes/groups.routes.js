@@ -612,4 +612,10 @@ router.get('/:groupId/video-calls/:callId/recorder-signal', requireAuth, videoCa
  */
 router.post('/:groupId/video-calls/:callId/recorder-signal', requireAuth, videoCallsController.sendRecorderSignal);
 
+/**
+ * POST /groups/:groupId/video-calls/:callId/recording-status
+ * Broadcast recording status message to all call participants
+ */
+router.post('/:groupId/video-calls/:callId/recording-status', requireAuth, videoCallsController.broadcastRecordingStatus);
+
 module.exports = router;

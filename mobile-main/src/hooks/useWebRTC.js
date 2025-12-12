@@ -48,6 +48,7 @@ if (Platform.OS === 'web') {
  * @property {Object.<string, PeerConnection>} peers - Map of peer connections
  * @property {boolean} isConnecting - Whether connection is in progress
  * @property {string} error - Error message if any
+ * @property {string[]} recordingStatus - Recording status messages from server
  */
 
 /**
@@ -69,6 +70,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const [error, setError] = useState(null);
   const [myPeerId, setMyPeerId] = useState(null);
   const [connectionStates, setConnectionStates] = useState({}); // { peerId: state }
+  const [recordingStatus, setRecordingStatus] = useState([]); // Recording status messages from server
 
   const peerConnectionsRef = useRef({}); // { peerId: RTCPeerConnection }
   const iceServersRef = useRef([]);
@@ -88,8 +90,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
   const createPeerConnection = useCallback((peerId) => {
     if (!isWebRTCSupported) return null;
 
-    console.log(`[WebRTC] Creating peer connection for ${peerId}`);
-
     const pc = new RTCPeerConnectionClass({
       iceServers: iceServersRef.current,
     });
@@ -103,11 +103,8 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     // Handle incoming tracks
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Received track from ${peerId}`, event.track.kind);
-
       // Filter out the ghost recorder - it shouldn't appear as a participant
       if (peerId === 'recorder') {
-        console.log('[WebRTC] Ignoring track from ghost recorder');
         return;
       }
 
@@ -121,7 +118,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     // Handle ICE candidates
     pc.onicecandidate = async (event) => {
       if (event.candidate) {
-        console.log(`[WebRTC] Sending ICE candidate to ${peerId}`);
         try {
           await api.post(`${apiBasePath}/signal`, {
             type: 'ice-candidate',
@@ -129,26 +125,25 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
             targetPeerId: peerId,
           });
         } catch (err) {
-          console.error('[WebRTC] Failed to send ICE candidate:', err);
+          console.error('[WebRTC] ICE candidate error:', err.message);
         }
       }
     };
 
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] Connection state for ${peerId}:`, pc.connectionState);
-
       // Don't track recorder's connection state
       if (peerId === 'recorder') return;
+
+      // Only log significant state changes
+      if (['connected', 'failed', 'disconnected'].includes(pc.connectionState)) {
+        console.log(`[WebRTC] ${peerId}: ${pc.connectionState}`);
+      }
 
       setConnectionStates(prev => ({
         ...prev,
         [peerId]: pc.connectionState,
       }));
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] ICE state for ${peerId}:`, pc.iceConnectionState);
     };
 
     peerConnectionsRef.current[peerId] = pc;
@@ -167,7 +162,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     }
 
     try {
-      console.log(`[WebRTC] Creating offer for ${peerId}`);
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -179,9 +173,8 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
         data: offer,
         targetPeerId: peerId,
       });
-      console.log(`[WebRTC] Offer sent to ${peerId}`);
     } catch (err) {
-      console.error('[WebRTC] Failed to create offer:', err);
+      console.error('[WebRTC] Offer error:', err.message);
       setError('Failed to create offer');
     }
   }, [groupId, callId, createPeerConnection, isWebRTCSupported]);
@@ -198,7 +191,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     }
 
     try {
-      console.log(`[WebRTC] Handling offer from ${peerId}`);
       await pc.setRemoteDescription(new RTCSessionDescriptionClass(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -208,9 +200,8 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
         data: answer,
         targetPeerId: peerId,
       });
-      console.log(`[WebRTC] Answer sent to ${peerId}`);
     } catch (err) {
-      console.error('[WebRTC] Failed to handle offer:', err);
+      console.error('[WebRTC] Answer error:', err.message);
       setError('Failed to handle offer');
     }
   }, [groupId, callId, createPeerConnection, isWebRTCSupported]);
@@ -223,15 +214,13 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     const pc = peerConnectionsRef.current[peerId];
     if (!pc) {
-      console.warn(`[WebRTC] No peer connection for ${peerId} to handle answer`);
       return;
     }
 
     try {
-      console.log(`[WebRTC] Handling answer from ${peerId}`);
       await pc.setRemoteDescription(new RTCSessionDescriptionClass(answer));
     } catch (err) {
-      console.error('[WebRTC] Failed to handle answer:', err);
+      console.error('[WebRTC] Handle answer error:', err.message);
       setError('Failed to handle answer');
     }
   }, [isWebRTCSupported]);
@@ -244,14 +233,13 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     const pc = peerConnectionsRef.current[peerId];
     if (!pc) {
-      console.warn(`[WebRTC] No peer connection for ${peerId} to add ICE candidate`);
       return;
     }
 
     try {
       await pc.addIceCandidate(new RTCIceCandidateClass(candidate));
     } catch (err) {
-      console.error('[WebRTC] Failed to add ICE candidate:', err);
+      // ICE candidate errors are common and usually not critical
     }
   }, [isWebRTCSupported]);
 
@@ -271,7 +259,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
           await handleIceCandidate(signal.from, signal.data);
           break;
         default:
-          console.warn('[WebRTC] Unknown signal type:', signal.type);
+          // Unknown signal type - ignore
       }
     }
   }, [handleOffer, handleAnswer, handleIceCandidate]);
@@ -284,10 +272,16 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     try {
       const response = await api.get(`${apiBasePath}/signal`);
-      const { signals, peers, myPeerId: receivedPeerId } = response.data;
+      const { signals, peers, myPeerId: receivedPeerId, recordingStatus: newStatus } = response.data;
 
       if (receivedPeerId && !myPeerId) {
         setMyPeerId(receivedPeerId);
+      }
+
+      // Handle recording status messages from server
+      if (newStatus && newStatus.length > 0) {
+        newStatus.forEach(msg => console.log(`[Recording] ${msg}`));
+        setRecordingStatus(prev => [...prev, ...newStatus].slice(-20)); // Keep last 20 messages
       }
 
       // Process any incoming signals
@@ -309,13 +303,12 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
       if (!isInitiator && peers) {
         for (const peer of peers) {
           if (peer.peerId === 'recorder' && !peerConnectionsRef.current['recorder']) {
-            console.log('[WebRTC] Sending offer to recorder');
             await createOffer('recorder');
           }
         }
       }
     } catch (err) {
-      console.error('[WebRTC] Failed to poll signals:', err);
+      console.error('[WebRTC] Signal poll error:', err.message);
     }
   }, [groupId, callId, isActive, isInitiator, myPeerId, processSignals, createOffer, isWebRTCSupported]);
 
@@ -324,13 +317,11 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
    */
   const initializeLocalStream = useCallback(async () => {
     if (!isWebRTCSupported) {
-      console.log('[WebRTC] Not supported on this platform');
       setError('WebRTC is not available. Please use a development build with react-native-webrtc.');
       return null;
     }
 
     try {
-      console.log(`[WebRTC] Getting local media stream (audioOnly: ${audioOnly})...`);
       const constraints = {
         video: !audioOnly, // No video for phone calls
         audio: true,
@@ -338,10 +329,9 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
       const stream = await mediaDevicesAPI.getUserMedia(constraints);
       localStreamRef.current = stream;
       setLocalStream(stream);
-      console.log('[WebRTC] Local stream initialized');
       return stream;
     } catch (err) {
-      console.error('[WebRTC] Failed to get local stream:', err);
+      console.error('[WebRTC] Media access error:', err.message);
       // Try audio only if video fails (for video calls)
       if (!audioOnly) {
         try {
@@ -351,10 +341,9 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
           });
           localStreamRef.current = audioStream;
           setLocalStream(audioStream);
-          console.log('[WebRTC] Audio-only stream initialized (video failed)');
           return audioStream;
         } catch (audioErr) {
-          console.error('[WebRTC] Failed to get audio stream:', audioErr);
+          console.error('[WebRTC] Audio access error:', audioErr.message);
           setError('Failed to access microphone');
           return null;
         }
@@ -372,9 +361,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     try {
       const response = await api.get(`${apiBasePath}/ice-servers`);
       iceServersRef.current = response.data.iceServers || [];
-      console.log('[WebRTC] ICE servers fetched:', iceServersRef.current.length);
     } catch (err) {
-      console.error('[WebRTC] Failed to fetch ICE servers:', err);
       // Use default Google STUN servers as fallback
       iceServersRef.current = [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -417,8 +404,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
    * Stop all connections and cleanup
    */
   const stopConnection = useCallback(() => {
-    console.log('[WebRTC] Stopping connections...');
-
     // Stop polling
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -427,7 +412,6 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
 
     // Close all peer connections
     for (const [peerId, pc] of Object.entries(peerConnectionsRef.current)) {
-      console.log(`[WebRTC] Closing connection to ${peerId}`);
       pc.close();
     }
     peerConnectionsRef.current = {};
@@ -435,9 +419,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     // Stop local stream - use ref to ensure we always have access to current stream
     const stream = localStreamRef.current;
     if (stream) {
-      console.log('[WebRTC] Stopping local stream tracks...');
       stream.getTracks().forEach(track => {
-        console.log(`[WebRTC] Stopping track: ${track.kind}`);
         track.stop();
       });
       localStreamRef.current = null;
@@ -447,6 +429,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     // Clear remote streams
     setRemoteStreams({});
     setConnectionStates({});
+    setRecordingStatus([]);
   }, []);
 
   /**
@@ -505,6 +488,7 @@ export function useWebRTC({ groupId, callId, isActive, isInitiator, audioOnly = 
     myPeerId,
     connectionStates,
     isWebRTCSupported,
+    recordingStatus, // Recording status messages from server
 
     // Controls
     startConnection,
