@@ -1,54 +1,45 @@
 # CI/CD Pipeline for Family Helper App
 #
-# STATUS: DISABLED - To enable, change the trigger from workflow_dispatch to push
+# ARCHITECTURE: Lightsail-based deployment
+# - Backend: Express.js on Ubuntu Lightsail with PM2
+# - Frontend: Static files served by Nginx on same Lightsail instance
+# - Database: AWS RDS PostgreSQL
+# - Storage: AWS S3
 #
-# NOTE: Production is now on LIGHTSAIL, not Lambda/CloudFront!
-# This workflow is outdated. For manual deployment use:
-#   ./scripts/deploy-lightsail.sh        # Full backend + frontend
-#   ./scripts/deploy-web-frontend.sh     # Frontend only
-#
-# This workflow handles:
-# - Testing backend, web-admin, and mobile-main
-# - (OUTDATED) Building and deploying Lambda API to AWS
-# - (OUTDATED) Building and deploying web-admin to CloudFront/S3
-#
-# To enable automatic deployment on push to main:
-# 1. Uncomment the 'push' trigger below
-# 2. Comment out 'workflow_dispatch'
-#
-# Manual deployment:
-# - Go to Actions tab in GitHub
-# - Select "CI/CD Pipeline"
-# - Click "Run workflow"
+# TRIGGERS:
+# - Push to main: Full test + deploy pipeline
+# - Pull requests: Tests only (via pr-checks.yml)
+# - Manual: workflow_dispatch with options
 
 name: CI/CD Pipeline
 
 on:
-  # DISABLED: Uncomment below to enable automatic deployment on push to main
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
-  # Manual trigger only (workflow is disabled for automatic runs)
   workflow_dispatch:
     inputs:
       deploy_backend:
-        description: 'Deploy Backend Lambda'
+        description: 'Deploy Backend'
         required: false
-        default: 'true'
+        default: true
         type: boolean
       deploy_web:
         description: 'Deploy Web Admin'
         required: false
-        default: 'true'
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Skip Tests (emergency deploy)'
+        required: false
+        default: false
         type: boolean
 
 env:
   NODE_VERSION: '20'
-  AWS_REGION: 'ap-southeast-2'
-  LAMBDA_FUNCTION_NAME: 'family-helper-api-prod'
-  S3_LAMBDA_BUCKET: 'family-helper-files-prod'
-  S3_WEB_BUCKET: 'family-helper-web-prod'
-  CLOUDFRONT_DISTRIBUTION_ID: 'EOFB5YCW926IM'
+  LIGHTSAIL_IP: '52.65.37.116'
+  APP_DIR: '/home/ubuntu/family-helper'
+  WEB_DIR: '/home/ubuntu/web-admin'
 
 jobs:
   # ============================================
@@ -57,6 +48,7 @@ jobs:
   test-backend:
     name: Test Backend
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
 
     steps:
       - name: Checkout code
@@ -90,6 +82,7 @@ jobs:
   test-web-admin:
     name: Test Web Admin
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
 
     steps:
       - name: Checkout code
@@ -115,6 +108,7 @@ jobs:
   test-mobile-main:
     name: Test Mobile Main
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
 
     steps:
       - name: Checkout code
@@ -138,176 +132,97 @@ jobs:
           CI: true
 
   # ============================================
-  # DEPLOY BACKEND - Lambda API
+  # DEPLOY BACKEND - Lightsail
   # ============================================
   deploy-backend:
-    name: Deploy Backend Lambda
+    name: Deploy Backend to Lightsail
     runs-on: ubuntu-latest
     needs: [test-backend, test-web-admin, test-mobile-main]
-    if: ${{ github.event.inputs.deploy_backend != 'false' }}
+    if: |
+      always() &&
+      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
+      (needs.test-web-admin.result == 'success' || needs.test-web-admin.result == 'skipped') &&
+      (needs.test-mobile-main.result == 'success' || needs.test-mobile-main.result == 'skipped') &&
+      (github.event.inputs.deploy_backend != 'false')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Build Lambda package
-        working-directory: backend
+      - name: Setup SSH
         run: |
-          echo "🏗️  Building Lambda deployment package..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
+          chmod 600 ~/.ssh/lightsail.pem
+          ssh-keyscan -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
 
-          # Clean up any existing build
-          rm -rf lambda-build lambda.zip
+      - name: Deploy backend files
+        run: |
+          echo "📦 Syncing backend files to Lightsail..."
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude 'uploads' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude '*.log' \
+            --exclude 'coverage' \
+            --exclude '__tests__' \
+            --exclude '.git' \
+            -e "ssh -i ~/.ssh/lightsail.pem" \
+            ./backend/ ubuntu@${{ env.LIGHTSAIL_IP }}:${{ env.APP_DIR }}/
 
-          # Create build directory
-          mkdir -p lambda-build
+      - name: Install dependencies and restart
+        run: |
+          echo "🔧 Installing dependencies and restarting..."
+          ssh -i ~/.ssh/lightsail.pem ubuntu@${{ env.LIGHTSAIL_IP }} << 'EOF'
+          cd /home/ubuntu/family-helper
 
-          # Copy necessary files
-          echo "📦 Copying files..."
-          cp -r controllers lambda-build/
-          cp -r routes lambda-build/
-          cp -r services lambda-build/
-          cp -r middleware lambda-build/
-          cp -r config lambda-build/
-          cp -r prisma lambda-build/
-          cp -r utils lambda-build/ 2>/dev/null || true
-          cp server.js lambda-build/
-          cp lambda.js lambda-build/
-          cp package.json lambda-build/
-          cp package-lock.json lambda-build/
-
-          # Copy public folder if it exists
-          if [ -d "public" ]; then
-            cp -r public lambda-build/
-          fi
-
-          # Install production dependencies only
-          echo "📥 Installing production dependencies..."
-          cd lambda-build
+          # Install production dependencies
           npm ci --omit=dev
 
           # Generate Prisma client
-          echo "🗄️  Generating Prisma client..."
           npx prisma generate
 
-          # Remove unnecessary files to reduce package size
-          echo "🧹 Cleaning up unnecessary files..."
+          # Run database migrations
+          npx prisma migrate deploy
 
-          # Remove media processing packages (handled by Worker Service)
-          rm -rf node_modules/fluent-ffmpeg 2>/dev/null || true
-          rm -rf node_modules/@ffmpeg-installer 2>/dev/null || true
-          rm -rf node_modules/@ffprobe-installer 2>/dev/null || true
+          # Restart the app with PM2
+          pm2 restart family-helper || pm2 start server.js --name family-helper
 
-          # Remove sharp and image processing (handled by Worker Service)
-          rm -rf node_modules/sharp 2>/dev/null || true
-          rm -rf node_modules/@img 2>/dev/null || true
-          rm -rf node_modules/heic-convert 2>/dev/null || true
-          rm -rf node_modules/libheif-js 2>/dev/null || true
+          # Save PM2 config
+          pm2 save
 
-          # Remove non-Lambda Prisma engine binaries (keep only rhel for Lambda)
-          find node_modules -type f -name "libquery_engine-*" ! -name "*rhel*" -delete 2>/dev/null || true
-          find node_modules/@prisma -name "*darwin*" -type d -exec rm -rf {} + 2>/dev/null || true
-          find node_modules/@prisma -name "*windows*" -type d -exec rm -rf {} + 2>/dev/null || true
-          find node_modules/@prisma -name "*debian*" -type d -exec rm -rf {} + 2>/dev/null || true
-          find node_modules/@prisma -name "*linux-musl*" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Show status
+          pm2 status
+          EOF
 
-          # Remove dev packages that may have slipped through
-          rm -rf node_modules/typescript 2>/dev/null || true
-          rm -rf node_modules/effect 2>/dev/null || true
-          rm -rf node_modules/eslint 2>/dev/null || true
-          rm -rf node_modules/fast-check 2>/dev/null || true
-          rm -rf node_modules/@types 2>/dev/null || true
-          rm -rf node_modules/core-js 2>/dev/null || true
-
-          # Remove TypeScript and documentation files
-          find node_modules -name "*.ts" ! -name "*.d.ts" -delete 2>/dev/null || true
-          find node_modules -name "*.map" -delete 2>/dev/null || true
-          find node_modules -name "README*" -delete 2>/dev/null || true
-          find node_modules -name "CHANGELOG*" -delete 2>/dev/null || true
-          find node_modules -name "*.md" -delete 2>/dev/null || true
-          find node_modules -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "example" -exec rm -rf {} + 2>/dev/null || true
-          find node_modules -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
-
-          # Show node_modules size after cleanup
-          echo "📊 node_modules size after cleanup:"
-          du -sh node_modules
-
-          # Create zip file
-          echo "📦 Creating zip file..."
-          zip -r ../lambda.zip . -x "*.git*" -x "*__tests__*" -x "*.test.js" -x "*.spec.js"
-
-          cd ..
-          rm -rf lambda-build
-
-          # Show final size
-          ZIP_SIZE=$(ls -lh lambda.zip | awk '{print $5}')
-          UNZIP_SIZE=$(unzip -l lambda.zip | tail -1 | awk '{print $1}')
-          UNZIP_MB=$(echo "scale=2; $UNZIP_SIZE / 1048576" | bc)
-          echo "✅ Lambda package built: ${ZIP_SIZE} compressed, ${UNZIP_MB} MB uncompressed"
-
-          # Check Lambda size limit (250MB)
-          if [ "$UNZIP_SIZE" -gt 262144000 ]; then
-            echo "❌ ERROR: Package exceeds 250MB Lambda limit!"
-            exit 1
-          fi
-
-      - name: Upload Lambda to S3
-        working-directory: backend
+      - name: Verify backend health
         run: |
-          echo "⬆️  Uploading Lambda package to S3..."
-          aws s3 cp lambda.zip s3://${{ env.S3_LAMBDA_BUCKET }}/lambda/lambda.zip
-
-      - name: Update Lambda function
-        run: |
-          echo "🔄 Updating Lambda function..."
-          aws lambda update-function-code \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --s3-bucket ${{ env.S3_LAMBDA_BUCKET }} \
-            --s3-key lambda/lambda.zip
-
-          echo "⏳ Waiting for Lambda update to complete..."
-          aws lambda wait function-updated --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
-          echo "✅ Lambda function updated successfully!"
-
-      - name: Verify Lambda health
-        run: |
-          echo "🏥 Checking Lambda health..."
+          echo "🏥 Checking backend health..."
           sleep 5
-          HEALTH_RESPONSE=$(curl -s https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod/health)
+          HEALTH_RESPONSE=$(curl -s https://familyhelperapp.com/health)
           echo "Health response: $HEALTH_RESPONSE"
 
           if echo "$HEALTH_RESPONSE" | grep -q '"status":"healthy"'; then
-            echo "✅ Lambda is healthy!"
+            echo "✅ Backend is healthy!"
           else
-            echo "⚠️  Lambda health check returned unexpected response"
+            echo "⚠️  Backend health check returned unexpected response"
             exit 1
           fi
 
   # ============================================
-  # DEPLOY WEB ADMIN - CloudFront/S3
+  # DEPLOY WEB ADMIN - Lightsail
   # ============================================
   deploy-web-admin:
-    name: Deploy Web Admin
+    name: Deploy Web Admin to Lightsail
     runs-on: ubuntu-latest
     needs: [test-backend, test-web-admin, test-mobile-main]
-    if: ${{ github.event.inputs.deploy_web != 'false' }}
+    if: |
+      always() &&
+      (needs.test-backend.result == 'success' || needs.test-backend.result == 'skipped') &&
+      (needs.test-web-admin.result == 'success' || needs.test-web-admin.result == 'skipped') &&
+      (needs.test-mobile-main.result == 'success' || needs.test-mobile-main.result == 'skipped') &&
+      (github.event.inputs.deploy_web != 'false')
 
     steps:
       - name: Checkout code
@@ -320,12 +235,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web-admin/package-lock.json
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
+          chmod 600 ~/.ssh/lightsail.pem
+          ssh-keyscan -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
 
       - name: Install dependencies
         working-directory: web-admin
@@ -336,42 +251,25 @@ jobs:
         run: npx expo export --platform web
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-          EXPO_PUBLIC_API_URL: "https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod"
+          EXPO_PUBLIC_API_URL: "https://familyhelperapp.com"
           EXPO_PUBLIC_KINDE_DOMAIN: "https://familyhelperapp.kinde.com"
           EXPO_PUBLIC_KINDE_CLIENT_ID: "bfbf86777e654654b374cf92f5719c74"
           EXPO_PUBLIC_KINDE_REDIRECT_URI: "https://familyhelperapp.com/auth/callback"
           EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI: "https://familyhelperapp.com"
           EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
 
-      - name: Deploy to S3
+      - name: Deploy web app
         working-directory: web-admin
         run: |
-          echo "⬆️  Uploading web app to S3..."
-          aws s3 sync dist/ s3://${{ env.S3_WEB_BUCKET }}/ --delete
-          echo "✅ S3 upload complete!"
-
-      - name: Invalidate CloudFront cache
-        run: |
-          echo "🔄 Invalidating CloudFront cache..."
-          INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*" \
-            --query 'Invalidation.Id' \
-            --output text)
-
-          echo "Invalidation ID: $INVALIDATION_ID"
-          echo "⏳ Waiting for CloudFront invalidation to complete..."
-
-          aws cloudfront wait invalidation-completed \
-            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --id $INVALIDATION_ID
-
-          echo "✅ CloudFront cache invalidated!"
+          echo "📦 Syncing web app to Lightsail..."
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/lightsail.pem" \
+            ./dist/ ubuntu@${{ env.LIGHTSAIL_IP }}:${{ env.WEB_DIR }}/
 
       - name: Verify web deployment
         run: |
           echo "🌐 Verifying web deployment..."
-          sleep 5
+          sleep 3
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://familyhelperapp.com)
 
           if [ "$HTTP_STATUS" = "200" ]; then
@@ -397,11 +295,10 @@ jobs:
           echo "DEPLOYMENT SUMMARY"
           echo "=========================================="
           echo ""
-          echo "Backend Lambda: ${{ needs.deploy-backend.result }}"
-          echo "Web Admin:      ${{ needs.deploy-web-admin.result }}"
+          echo "Backend:  ${{ needs.deploy-backend.result }}"
+          echo "Web App:  ${{ needs.deploy-web-admin.result }}"
           echo ""
-          echo "Production URLs:"
-          echo "  - Web App: https://familyhelperapp.com"
-          echo "  - API:     https://i5i7f82usg.execute-api.ap-southeast-2.amazonaws.com/prod"
+          echo "Production URL: https://familyhelperapp.com"
+          echo "Health Check:   https://familyhelperapp.com/health"
           echo ""
           echo "=========================================="
