@@ -66,4 +66,11 @@ router.put(
   itemRegistryController.reorderItems
 );
 
+// Passcode Management
+router.post(
+  '/:registryId/reset-passcode',
+  requireAuth,
+  itemRegistryController.resetPasscode
+);
+
 module.exports = router;

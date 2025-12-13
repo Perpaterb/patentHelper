@@ -1459,6 +1459,107 @@ async function verifyItemRegistryPasscode(req, res) {
   }
 }
 
+/**
+ * Reset passcode for an item registry
+ * POST /groups/:groupId/item-registries/:registryId/reset-passcode
+ */
+async function resetPasscode(req, res) {
+  try {
+    const { groupId, registryId } = req.params;
+
+    // Get registry
+    const registry = await prisma.itemRegistry.findUnique({
+      where: {
+        registryId: registryId,
+      },
+    });
+
+    if (!registry) {
+      return res.status(404).json({
+        error: 'Registry not found',
+        message: 'Item registry not found',
+      });
+    }
+
+    // Verify registry belongs to this group
+    if (registry.groupId !== groupId) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Registry does not belong to this group',
+      });
+    }
+
+    // Verify registry uses passcode
+    if (registry.sharingType !== 'passcode') {
+      return res.status(400).json({
+        error: 'Invalid operation',
+        message: 'Registry does not use passcode sharing',
+      });
+    }
+
+    // Verify user can edit (creator or admin)
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId: groupId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    const canEdit = registry.creatorId === membership.groupMemberId || membership.role === 'admin';
+
+    if (!canEdit) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Only the creator or admins can reset the passcode',
+      });
+    }
+
+    // Generate new passcode
+    const newPasscode = generatePasscode();
+
+    // Update registry
+    await prisma.itemRegistry.update({
+      where: {
+        registryId: registryId,
+      },
+      data: {
+        passcode: newPasscode,
+      },
+    });
+
+    // Audit log for resetting passcode
+    await prisma.auditLog.create({
+      data: {
+        groupId: groupId,
+        action: 'reset_passcode',
+        performedBy: membership.groupMemberId,
+        performedByName: membership.displayName,
+        performedByEmail: membership.email || 'N/A',
+        actionLocation: 'item_registry',
+        messageContent: `Reset passcode for item registry "${registry.name}"`,
+      },
+    });
+
+    res.json({
+      success: true,
+      passcode: newPasscode,
+    });
+  } catch (error) {
+    console.error('Reset item registry passcode error:', error);
+    res.status(500).json({
+      error: 'Failed to reset passcode',
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {
   getItemRegistries,
   getItemRegistryById,
@@ -1473,4 +1574,5 @@ module.exports = {
   unlinkPersonalRegistry,
   getPublicItemRegistry,
   verifyItemRegistryPasscode,
+  resetPasscode,
 };

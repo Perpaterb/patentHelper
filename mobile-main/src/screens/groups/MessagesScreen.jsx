@@ -1426,15 +1426,20 @@ export default function MessagesScreen({ navigation, route }) {
             activeOpacity={1}
             onPress={() => setShowEmojiPicker(false)}
           >
-            <View style={styles.webEmojiPickerContainer}>
+            <Pressable
+              style={styles.webEmojiPickerContainer}
+              onPress={(e) => e.stopPropagation()}
+            >
               <WebEmojiPicker
                 onEmojiClick={(emojiData) => {
                   handleEmojiSelect({ emoji: emojiData.emoji });
                 }}
                 width="100%"
                 height={400}
+                searchPlaceHolder="Search emoji..."
+                skinTonesDisabled
               />
-            </View>
+            </Pressable>
           </TouchableOpacity>
         </Modal>
       )}
@@ -1458,15 +1463,20 @@ export default function MessagesScreen({ navigation, route }) {
               setReactionTargetMessage(null);
             }}
           >
-            <View style={styles.webEmojiPickerContainer}>
+            <Pressable
+              style={styles.webEmojiPickerContainer}
+              onPress={(e) => e.stopPropagation()}
+            >
               <WebEmojiPicker
                 onEmojiClick={(emojiData) => {
                   handleReactionSelect({ emoji: emojiData.emoji });
                 }}
                 width="100%"
                 height={400}
+                searchPlaceHolder="Search emoji..."
+                skinTonesDisabled
               />
-            </View>
+            </Pressable>
           </TouchableOpacity>
         </Modal>
       )}

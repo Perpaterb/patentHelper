@@ -126,7 +126,7 @@ export default function PersonalItemRegistryDetailScreen({ navigation, route }) 
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await api.post(`/users/personal-registries/item-registries/${registryId}/reset-passcode`);
+              const response = await api.put(`/users/personal-registries/item-registries/${registryId}/reset-passcode`);
               CustomAlert.alert(
                 'Passcode Reset',
                 `New passcode: ${response.data.passcode}\n\nPlease save this passcode and share it with people who need access to this registry.`,
