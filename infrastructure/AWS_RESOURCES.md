@@ -83,6 +83,37 @@ These old/unused resources were deleted to reduce costs:
 - SSA-dev
 - RosterHelperServerless-dev
 
+### Deleted S3 Buckets (Dec 13, 2024)
+All non-Family Helper S3 buckets were deleted:
+- aws-sam-cli-managed-default-samclisourcebucket-bq87ca08br21
+- cf-templates-od1244c63r93-ap-southeast-2
+- custom-mannequin-dev-distbucket-ykmp77zgz7t9
+- custom-mannequin-dev-serverlessdeploymentbucket-4v29bneox4c7
+- custom-mannequin-prod-serverlessdeploymentbucket-rthjxjn7wv3e
+- custom-mannequin-producti-serverlessdeploymentbuck-6oljoglmm13p
+- game1-02-dev-serverlessdeploymentbucket-cub6nejs6z6i
+- game1-02-dev-serverlessdeploymentbucket-lpovjw3xc9jp
+- game1-dev-distbucket-bxqschnuvgcs
+- game1-dev-distbucket-cjtaigjqwme8
+- game1-dev-serverlessdeploymentbucket-lywjl2qfc5v0
+- game1-dev-serverlessdeploymentbucket-tmhywoefarcg
+- iamusernotify
+- internalskillsearch-dev-distbucket-nvdcjzxnukgf
+- internalskillsearch-dev-serverlessdeploymentbucket-etrjk5d24l7m
+- rosterhelperserverless-d-serverlessdeploymentbuck-eibmuk6kc2fz
+- rosterhelperserverless-dev-distbucket-1qibg6gymgza1
+- serverless-custom-manneq-serverlessdeploymentbuck-bnu8cav6n6hz
+- serverless-custom-mannequin-dev-distbucket-h3z2bwaed5w7
+- serverless-custom-manniquin-dev-distbucket-1ktpqp6vkfnde
+- serverless-portfolio-dev-distbucket-7iebujnzoka9
+- serverless-portfolio-dev-serverlessdeploymentbuck-lbv1pey9lsjd
+- serverlessreactboilerplat-serverlessdeploymentbuck-sl5brotv9wna
+- ssa-dev-distbucket-nwavsfzrvicz
+- ssa-dev-serverlessdeploymentbucket-cyjhvzyu6xch
+
+### Deleted CloudFront Distributions (Dec 13, 2024)
+- E1FANZJFDUQV1 (d2o5ja8q1b1ri4.cloudfront.net) - Old custom-mannequin project
+
 ---
 
 ## Bastion SSH Tunnel Configuration
@@ -194,19 +225,23 @@ When the bastion EC2 is stopped and restarted, it gets a NEW public IP address.
 
 ---
 
-## Other AWS Resources (Not Family Helper)
+## Current AWS Resources Summary
 
-These resources exist in the account but are NOT part of Family Helper:
+After cleanup (Dec 13, 2024), the AWS account now contains ONLY Family Helper resources:
 
-### S3 Buckets (can be deleted if not needed)
-- aws-sam-cli-managed-default-samclisourcebucket-*
-- cf-templates-*
-- custom-mannequin-* (multiple)
-- game1-* (multiple)
-- internalskillsearch-*
-- rosterhelperserverless-*
-- serverless-* (multiple)
-- ssa-*
+### S3 Buckets (2)
+- `family-helper-files-prod` - User uploads
+- `family-helper-web-prod` - Web app static files
 
-### CloudFront
-- E1FANZJFDUQV1 (d2o5ja8q1b1ri4.cloudfront.net) - Unknown, may be from old project
+### CloudFront Distributions (1)
+- `EOFB5YCW926IM` (did5g5bty80vq.cloudfront.net / familyhelperapp.com)
+
+### Compute
+- Lightsail: `family-helper-prod`
+- EC2: `family-helper-bastion` (t2.micro)
+- Lambda: `family-helper-media-processor-prod`
+
+### Database
+- RDS: `family-helper-db-prod`
+
+**All old/unused resources from other projects have been deleted.**
