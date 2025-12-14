@@ -87,6 +87,7 @@ export default function LandingScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.logo}>Family Helper</Text>
         <View style={styles.headerButtons}>
+          <Button mode="text" onPress={() => navigation.navigate('Updates')}>Updates</Button>
           <Button mode="text" onPress={() => login()}>Login</Button>
           <Button mode="contained" onPress={() => register()}>Sign Up</Button>
         </View>

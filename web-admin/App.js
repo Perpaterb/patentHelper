@@ -114,6 +114,9 @@ import ItemRegistryPublicScreen from './src/screens/ItemRegistryPublicScreen';
 // Privacy Policy (no auth required)
 import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 
+// Updates page (no auth required)
+import UpdatesScreen from './src/screens/UpdatesScreen';
+
 const Stack = createStackNavigator();
 
 /**
@@ -193,6 +196,8 @@ const linking = {
       ItemRegistryPublic: 'item-registry/:webToken',
       // Privacy Policy (no auth required)
       PrivacyPolicy: 'privacy-policy',
+      // Updates page (no auth required)
+      Updates: 'updates',
       // Public/Admin pages
       Landing: '',
       Login: 'login',
@@ -348,6 +353,8 @@ function AppNavigator() {
               <Stack.Screen name="ItemRegistryPublic" component={ItemRegistryPublicScreen} />
               {/* Privacy Policy - no auth required */}
               <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+              {/* Updates page - no auth required */}
+              <Stack.Screen name="Updates" component={UpdatesScreen} />
             </>
           ) : (
           // Authenticated screens (with AppLayout)
@@ -439,6 +446,9 @@ function AppNavigator() {
 
             {/* Privacy Policy - available when authenticated too */}
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+
+            {/* Updates page - available when authenticated too */}
+            <Stack.Screen name="Updates" component={UpdatesScreen} />
           </>
         )}
       </Stack.Navigator>
