@@ -87,9 +87,9 @@ export default function LandingScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.logo}>Family Helper</Text>
         <View style={styles.headerButtons}>
-          <Button mode="text" onPress={() => navigation.navigate('Updates')}>Updates</Button>
-          <Button mode="text" onPress={() => login()}>Login</Button>
-          <Button mode="contained" onPress={() => register()}>Sign Up</Button>
+          <Button mode="text" onPress={() => navigation.navigate('Updates')} labelStyle={styles.headerButtonLabel}>Updates</Button>
+          <Button mode="text" onPress={() => login()} labelStyle={styles.headerButtonLabel} style={styles.headerButtonSpacing}>Login</Button>
+          <Button mode="contained" onPress={() => register()} labelStyle={styles.headerButtonLabel} style={styles.headerButtonSpacing}>Sign Up</Button>
         </View>
       </View>
 
@@ -261,6 +261,13 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  headerButtonLabel: {
+    fontSize: 16,
+  },
+  headerButtonSpacing: {
+    marginLeft: 8,
   },
   hero: {
     padding: 40,
