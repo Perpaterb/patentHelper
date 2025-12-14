@@ -773,10 +773,11 @@ async function respondToCall(req, res) {
       });
     }
 
-    if (call.status !== 'ringing') {
+    // Allow responding if call is ringing OR active (2nd+ person joining after 1st accepted)
+    if (call.status !== 'ringing' && call.status !== 'active') {
       return res.status(400).json({
         success: false,
-        message: 'This call is no longer ringing',
+        message: 'This call is no longer available',
       });
     }
 
