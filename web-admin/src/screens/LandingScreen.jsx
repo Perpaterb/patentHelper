@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   Text,
   Button,
@@ -82,7 +82,7 @@ export default function LandingScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <div style={{ height: '100vh', overflowY: 'auto', backgroundColor: '#f5f5f5' }}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>Family Helper</Text>
@@ -231,7 +231,8 @@ export default function LandingScreen({ navigation }) {
           © {new Date().getFullYear()} Family Helper. All rights reserved.
         </Text>
       </View>
-    </ScrollView>
+      <View style={{ height: 40 }} />
+    </div>
   );
 }
 
