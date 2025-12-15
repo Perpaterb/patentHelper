@@ -23,8 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.parentinghelper.app",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.parentinghelper.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
