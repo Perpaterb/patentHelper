@@ -402,12 +402,69 @@ async function getUserTokens(userId) {
   });
 }
 
+/**
+ * Send notification to admins about a pending approval request
+ *
+ * @param {string} groupId - Group ID
+ * @param {string} excludeAdminId - Admin ID to exclude (the requester)
+ * @param {string} approvalType - Type of approval (add_member, remove_member, etc.)
+ * @param {string} description - Human-readable description of what needs approval
+ * @param {string} approvalId - The approval record ID
+ * @returns {Promise<Object>} Result
+ */
+async function sendApprovalNotification(groupId, excludeAdminId, approvalType, description, approvalId) {
+  try {
+    // Get all admins in the group except the requester
+    const admins = await prisma.groupMember.findMany({
+      where: {
+        groupId: groupId,
+        role: 'admin',
+        isRegistered: true,
+        isHidden: false,
+        groupMemberId: { not: excludeAdminId },
+        userId: { not: null },
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    const adminUserIds = admins.map(a => a.userId).filter(Boolean);
+
+    if (adminUserIds.length === 0) {
+      return { success: true, sent: 0 };
+    }
+
+    // Get group name
+    const group = await prisma.group.findUnique({
+      where: { groupId },
+      select: { name: true },
+    });
+
+    return sendToUsers(
+      adminUserIds,
+      `Approval Needed: ${group?.name || 'Group'}`,
+      description,
+      {
+        type: 'approval_request',
+        approvalType: approvalType,
+        groupId: groupId,
+        approvalId: approvalId,
+      }
+    );
+  } catch (error) {
+    console.error('[PushNotification] Failed to send approval notification:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   sendPushNotifications,
   sendToUser,
   sendToUsers,
   sendToGroupMembers,
   sendToGroupMembersWithPreferences,
+  sendApprovalNotification,
   registerToken,
   unregisterToken,
   getUserTokens,

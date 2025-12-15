@@ -8,6 +8,7 @@ const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
+const pushNotificationService = require('../services/pushNotification.service');
 
 /**
  * Get all finance matters for a group
@@ -590,6 +591,23 @@ async function createFinanceMatter(req, res) {
       }
     } catch (emailError) {
       console.error('[Finance] Error sending notification emails:', emailError.message);
+    }
+
+    // Send push notifications to members (excluding creator) - fire and forget
+    const otherMemberIds = memberIds.filter(id => id !== groupMembership.groupMemberId);
+    if (otherMemberIds.length > 0) {
+      const formattedAmount = `${currency.toUpperCase()} ${parseFloat(totalAmount).toFixed(2)}`;
+      pushNotificationService.sendToGroupMembersWithPreferences(
+        otherMemberIds,
+        'finance',
+        `New Finance: ${name.trim()}`,
+        `${groupMembership.displayName} added a ${formattedAmount} expense`,
+        {
+          type: 'new_finance_matter',
+          groupId: groupId,
+          financeMatterId: financeMatter.financeMatterId,
+        }
+      ).catch(err => console.error('[Finance] Failed to send push notifications:', err));
     }
 
     return res.status(201).json({

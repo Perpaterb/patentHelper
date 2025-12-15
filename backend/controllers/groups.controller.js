@@ -7,6 +7,7 @@
 const { prisma } = require('../config/database');
 const { emailService } = require('../services/email');
 const emailTemplates = require('../services/email/templates');
+const pushNotificationService = require('../services/pushNotification.service');
 
 /**
  * Generate icon letters from name or email
@@ -1158,6 +1159,15 @@ async function inviteMember(req, res) {
         },
       });
 
+      // Send push notification to other admins (fire and forget)
+      pushNotificationService.sendApprovalNotification(
+        groupId,
+        requesterMembership.groupMemberId,
+        'add_member',
+        `${requesterMembership.displayName} wants to add ${displayName} as ${role}`,
+        approval.approvalId
+      ).catch(err => console.error('[Groups] Failed to send approval notification:', err));
+
       res.status(202).json({
         success: true,
         message: `Approval request created to add ${email} to the group. Waiting for other admin approvals.`,
@@ -1420,6 +1430,15 @@ async function deleteGroup(req, res) {
           messageContent: `Requested approval to delete group "${group.name}"`,
         },
       });
+
+      // Send push notification to other admins (fire and forget)
+      pushNotificationService.sendApprovalNotification(
+        groupId,
+        membership.groupMemberId,
+        'delete_group',
+        `${membership.displayName} wants to delete this group`,
+        approval.approvalId
+      ).catch(err => console.error('[Groups] Failed to send approval notification:', err));
 
       return res.status(200).json({
         success: true,
@@ -3088,6 +3107,15 @@ async function updateGroupSettings(req, res) {
         } else {
           recordingApprovalCreated = true;
           pendingRecordingChanges = changesDesc;
+
+          // Send push notification to other admins (fire and forget)
+          pushNotificationService.sendApprovalNotification(
+            groupId,
+            membership.groupMemberId,
+            'change_recording_settings',
+            `${membership.displayName} wants to change recording settings: ${changesDesc.join(', ')}`,
+            approval.approvalId
+          ).catch(err => console.error('[Groups] Failed to send approval notification:', err));
         }
       }
 

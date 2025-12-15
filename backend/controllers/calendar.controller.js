@@ -413,30 +413,14 @@ async function createCalendarEvent(req, res) {
       },
     });
 
-    // Send push notifications to group members (excluding creator)
+    // Send push notifications to attendees only (excluding creator)
     // Fire and forget - don't block the response
     (async () => {
       try {
-        // Get group info for notification
-        const groupInfo = await prisma.group.findUnique({
-          where: { groupId: groupId },
-          select: { name: true },
-        });
+        // Only notify attendees, not all group members
+        const notifyAttendeeIds = attendeeIds.filter(id => id !== membership.groupMemberId);
 
-        // Get all group members except the creator
-        const groupMembers = await prisma.groupMember.findMany({
-          where: {
-            groupId: groupId,
-            isRegistered: true,
-            isHidden: false,
-            groupMemberId: { not: membership.groupMemberId },
-          },
-          select: { groupMemberId: true },
-        });
-
-        const memberIds = groupMembers.map(m => m.groupMemberId);
-
-        if (memberIds.length > 0) {
+        if (notifyAttendeeIds.length > 0) {
           const startDate = new Date(startTime);
           const formattedDate = startDate.toLocaleDateString('en-US', {
             month: 'short',
@@ -446,10 +430,10 @@ async function createCalendarEvent(req, res) {
           });
 
           await pushNotificationService.sendToGroupMembersWithPreferences(
-            memberIds,
+            notifyAttendeeIds,
             'calendar',
             `New Event: ${title}`,
-            `${membership.displayName} added an event for ${formattedDate}`,
+            `${membership.displayName} invited you to an event on ${formattedDate}`,
             {
               type: 'new_calendar_event',
               groupId: groupId,
