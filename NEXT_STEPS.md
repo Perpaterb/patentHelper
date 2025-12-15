@@ -1,8 +1,88 @@
 # Next Steps - Parenting Helper Development
 
-## Current Status (Updated: 2025-12-10)
+## Current Status (Updated: 2025-12-15)
 
-Currently working on: **Production Deployment**
+Currently working on: **Production - Live and Stable**
+
+---
+
+## 🔒 PRIORITY: Future Security Improvements (When App Gets Traction)
+
+### 1. ALB + OIDC Authentication at Edge (HIGH PRIORITY)
+
+**Current State:** Authentication happens inside the Express app. Unauthorized traffic still reaches the server before being rejected by middleware.
+
+**Goal:** Move authentication to AWS Application Load Balancer so unauthorized traffic NEVER reaches the app.
+
+**Proposed Architecture:**
+```
+                    ┌──────────────────────┐
+                    │ CloudFront (Public)  │
+User ───────────────│  - Landing page      │
+                    │  - Updates page      │
+                    │  - Static assets     │
+                    └──────────────────────┘
+                              │
+                              │ (auth required routes)
+                              ▼
+                    ┌──────────────────────┐
+                    │   ALB + OIDC         │
+                    │   (Kinde Auth)       │──── Not authenticated? → Redirect to Kinde
+                    └──────────────────────┘
+                              │
+                              │ Only authenticated traffic passes
+                              ▼
+                    ┌──────────────────────┐
+                    │   Lightsail          │
+                    │   (Express API)      │
+                    └──────────────────────┘
+```
+
+**What's Needed:**
+
+1. **AWS ALB** - Application Load Balancer (~$16-25/month extra)
+2. **Configure ALB OIDC** with Kinde endpoints:
+   - Issuer: `https://familyhelperapp.kinde.com`
+   - Authorization: `https://familyhelperapp.kinde.com/oauth2/auth`
+   - Token: `https://familyhelperapp.kinde.com/oauth2/token`
+   - User Info: `https://familyhelperapp.kinde.com/oauth2/v2/user_profile`
+3. **Kinde Client Secret** - Need to obtain from Kinde (currently using PKCE flow without secret)
+4. **Callback URL** in Kinde: `https://alb-dns/oauth2/idpresponse`
+5. **Split traffic** - Public pages via CloudFront, authenticated routes via ALB
+
+**Benefits:**
+- Unauthorized traffic blocked at ALB (never reaches app)
+- DDoS protection improved (ALB handles malformed requests)
+- Reduced server load (no processing of unauthorized requests)
+- Defense in depth
+
+**Estimated Cost Increase:** ~$15-25/month
+
+**When to Implement:** When app has significant user base and security becomes critical priority.
+
+**Reference Docs:**
+- [AWS ALB Authentication](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html)
+- [Kinde OIDC Setup](https://docs.kinde.com/developer-tools/about/using-kinde-without-an-sdk/)
+
+---
+
+## Recent Updates (2025-12-15)
+
+### Recording Queue System - COMPLETE
+Implemented a queue system for recorded calls to prevent server overload.
+
+**Features:**
+- Configurable concurrent recording limit (default: 5)
+- Queue UI shown when at capacity
+- Email alerts to support when users enter queue
+- Users can exit queue or disable recording to skip
+- Well-documented configuration in `backend/config/recordingQueue.config.js`
+
+### Video Call Join Fix - COMPLETE
+Fixed issue where 2nd+ participants couldn't join video calls.
+
+### Updates Page - COMPLETE
+Added public Updates & Coming Soon page accessible from landing page.
 
 ---
 
