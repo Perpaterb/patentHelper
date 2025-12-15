@@ -8,11 +8,117 @@ Currently working on: **Production - Live and Stable**
 
 ## 🔒 PRIORITY: Future Security Improvements (When App Gets Traction)
 
-### 1. ALB + OIDC Authentication at Edge (HIGH PRIORITY)
+### 1. Edge Authentication - Block Unauthorized Traffic BEFORE App
 
 **Current State:** Authentication happens inside the Express app. Unauthorized traffic still reaches the server before being rejected by middleware.
 
-**Goal:** Move authentication to AWS Application Load Balancer so unauthorized traffic NEVER reaches the app.
+**Goal:** Move authentication to an edge layer so unauthorized traffic NEVER reaches the app.
+
+---
+
+#### Option A: oauth2-proxy Sidecar Container (RECOMMENDED)
+
+**What is oauth2-proxy?**
+A lightweight reverse proxy that handles OAuth2/OIDC authentication. Runs as a sidecar container alongside your app.
+
+**Proposed Architecture:**
+```
+                    ┌──────────────────────┐
+                    │ CloudFront (Public)  │
+User ───────────────│  - Landing page      │
+                    │  - Updates page      │
+                    │  - Static assets     │
+                    └──────────────────────┘
+                              │
+                              │ (auth required routes)
+                              ▼
+                    ┌──────────────────────────────────────┐
+                    │         Lightsail Instance           │
+                    │  ┌─────────────────┐                 │
+                    │  │  oauth2-proxy   │ ◄── Port 4180   │
+                    │  │  (Kinde OIDC)   │                 │
+                    │  └────────┬────────┘                 │
+                    │           │ Only authenticated       │
+                    │           │ requests pass            │
+                    │           ▼                          │
+                    │  ┌─────────────────┐                 │
+                    │  │  Express API    │ ◄── Port 3000   │
+                    │  │  (internal)     │     (localhost) │
+                    │  └─────────────────┘                 │
+                    └──────────────────────────────────────┘
+```
+
+**How it works:**
+1. External traffic hits oauth2-proxy on port 4180
+2. oauth2-proxy checks for valid session cookie
+3. If no valid session → redirects to Kinde login
+4. If valid session → proxies request to Express on localhost:3000
+5. Express receives request with `X-Forwarded-User` header containing user info
+
+**Implementation Steps:**
+
+1. **Add oauth2-proxy to docker-compose.yml:**
+```yaml
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    ports:
+      - "4180:4180"
+    environment:
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://familyhelperapp.kinde.com
+      - OAUTH2_PROXY_CLIENT_ID=${KINDE_CLIENT_ID}
+      - OAUTH2_PROXY_CLIENT_SECRET=${KINDE_CLIENT_SECRET}
+      - OAUTH2_PROXY_COOKIE_SECRET=${COOKIE_SECRET}  # 32-byte random string
+      - OAUTH2_PROXY_COOKIE_SECURE=true
+      - OAUTH2_PROXY_UPSTREAMS=http://api:3000
+      - OAUTH2_PROXY_EMAIL_DOMAINS=*
+      - OAUTH2_PROXY_PASS_ACCESS_TOKEN=true
+      - OAUTH2_PROXY_SET_XAUTHREQUEST=true
+      - OAUTH2_PROXY_REDIRECT_URL=https://api.familyhelperapp.com/oauth2/callback
+      # Skip auth for public endpoints
+      - OAUTH2_PROXY_SKIP_AUTH_ROUTES=^/health,^/public
+    depends_on:
+      - api
+
+  api:
+    # ... existing Express config
+    # Change to only listen on localhost (not exposed externally)
+    expose:
+      - "3000"
+```
+
+2. **Add callback URL to Kinde:**
+   - `https://api.familyhelperapp.com/oauth2/callback`
+
+3. **Get Kinde Client Secret:**
+   - Currently using PKCE (no secret)
+   - Need to get client secret from Kinde dashboard for server-side flow
+
+4. **Update Express middleware:**
+   - Trust `X-Forwarded-User` and `X-Forwarded-Email` headers from oauth2-proxy
+   - Remove Kinde SDK token validation (oauth2-proxy handles it)
+
+**Benefits:**
+- ✅ **$0 extra cost** (runs on existing Lightsail instance)
+- ✅ Unauthorized traffic blocked before reaching Express
+- ✅ Open source, well-maintained (11k+ GitHub stars)
+- ✅ Supports session cookies (better for web) + JWT passthrough (for mobile)
+- ✅ Built-in session management
+- ✅ Easy to configure skip rules for public endpoints
+
+**Considerations:**
+- Requires Kinde client secret (server-side OIDC flow)
+- Adds ~50MB to container footprint
+- Need to handle mobile app JWT tokens (pass-through mode)
+
+**Reference Docs:**
+- [oauth2-proxy GitHub](https://github.com/oauth2-proxy/oauth2-proxy)
+- [oauth2-proxy OIDC Provider](https://oauth2-proxy.github.io/oauth2-proxy/configuration/providers/openid_connect)
+
+---
+
+#### Option B: AWS ALB + OIDC (Alternative)
 
 **Proposed Architecture:**
 ```
@@ -53,16 +159,31 @@ User ───────────────│  - Landing page      │
 **Benefits:**
 - Unauthorized traffic blocked at ALB (never reaches app)
 - DDoS protection improved (ALB handles malformed requests)
-- Reduced server load (no processing of unauthorized requests)
-- Defense in depth
+- AWS-managed (no container to maintain)
+- Automatic scaling
+
+**Downsides:**
+- ❌ **~$15-25/month extra cost**
+- More complex networking setup
+- Requires VPC configuration
 
 **Estimated Cost Increase:** ~$15-25/month
-
-**When to Implement:** When app has significant user base and security becomes critical priority.
 
 **Reference Docs:**
 - [AWS ALB Authentication](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html)
 - [Kinde OIDC Setup](https://docs.kinde.com/developer-tools/about/using-kinde-without-an-sdk/)
+
+---
+
+#### Recommendation
+
+**Use Option A (oauth2-proxy)** because:
+1. **Zero extra cost** - runs on existing infrastructure
+2. **Simpler setup** - just add a container
+3. **More flexible** - easy to customize auth rules
+4. **Same security benefit** - unauthorized traffic blocked before app
+
+**When to Implement:** When app has significant user base and security becomes critical priority.
 
 ---
 
