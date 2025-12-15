@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile-main",
-    "slug": "mobile-main",
+    "name": "Parenting Helper",
+    "slug": "family-helper",
     "version": "1.0.0",
     "scheme": "parentinghelper",
     "orientation": "portrait",
