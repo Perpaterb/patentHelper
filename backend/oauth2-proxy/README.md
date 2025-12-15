@@ -4,20 +4,88 @@ This directory contains configuration for oauth2-proxy, which provides edge auth
 
 ## Overview
 
-### Current Architecture (Without oauth2-proxy)
+### Current Mode: Simple Blocking (Phase 1)
+
+**STATUS: Implemented but deferred for full validation**
+
+Currently oauth2-proxy is configured in "simple blocking" mode. This is a stepping stone to full edge authentication.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CURRENT ARCHITECTURE                                  │
+│                        (Simple Blocking Mode)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│    ┌──────────┐     ┌───────────────┐     ┌─────────────┐     ┌──────────┐ │
+│    │          │     │               │     │             │     │          │ │
+│    │ Internet │────▶│ oauth2-proxy  │────▶│  Express    │────▶│ Database │ │
+│    │          │     │ (passthrough) │     │    API      │     │          │ │
+│    └──────────┘     └───────────────┘     └─────────────┘     └──────────┘ │
+│                            │                     │                          │
+│                            │                     │                          │
+│                     Currently skips        API validates its                │
+│                     all routes (can't      own custom JWTs                  │
+│                     validate API JWTs)     (JWT_SECRET)                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Why simple blocking?
+- API uses custom JWTs signed with JWT_SECRET (issuer: parenting-helper-api)
+- oauth2-proxy validates Kinde tokens (issuer: https://familyhelperapp.kinde.com)
+- These are DIFFERENT tokens with DIFFERENT issuers
+- oauth2-proxy cannot validate API's custom JWTs
+
+Current behavior:
+- All routes are skipped (SKIP_AUTH_ROUTES: "^/.*")
+- oauth2-proxy acts as a passthrough proxy
+- API handles all authentication internally
+```
+
+### Future Architecture (Full Edge Validation - Phase 2)
+
+**TODO: Implement when adding load balancer or migrating to Kinde tokens**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         TARGET ARCHITECTURE                                  │
+│                     (Full Edge Validation Mode)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│    ┌──────────┐     ┌───────────────┐     ┌─────────────┐     ┌──────────┐ │
+│    │          │     │               │     │             │     │          │ │
+│    │ Internet │────▶│ oauth2-proxy  │────▶│  Express    │────▶│ Database │ │
+│    │          │     │ (validates!)  │     │    API      │     │          │ │
+│    └──────────┘     └───────┬───────┘     └─────────────┘     └──────────┘ │
+│                             │                    │                          │
+│                      ┌──────┴──────┐             │                          │
+│                      │             │             │                          │
+│                      ▼             ▼             │                          │
+│               ┌──────────┐  ┌──────────┐   API trusts                       │
+│               │ No Token │  │ Invalid  │   oauth2-proxy                     │
+│               │          │  │  Token   │   completely                       │
+│               └────┬─────┘  └────┬─────┘                                    │
+│                    │             │                                          │
+│                    ▼             ▼                                          │
+│               ┌─────────────────────┐                                       │
+│               │   Public Pages      │                                       │
+│               │   (Landing Page)    │                                       │
+│               └─────────────────────┘                                       │
+│                                                                              │
+│  Requirements for full validation:                                          │
+│  1. Mobile apps send Kinde tokens directly (not custom JWTs)                │
+│  2. API validates Kinde tokens (not custom JWTs)                            │
+│  3. Remove JWT_SECRET-based auth from API                                   │
+│  4. Update all auth middleware to use Kinde validation                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Legacy Architecture (Without oauth2-proxy)
 ```
 User → Nginx → Express (handles auth internally)
                   ↓
           Unauthorized requests still
           reach Express before rejection
-```
-
-### New Architecture (With oauth2-proxy)
-```
-User → Nginx → oauth2-proxy → Express
-                    ↓
-          Unauthorized requests
-          blocked HERE (never reach Express)
 ```
 
 ## Benefits
@@ -293,3 +361,78 @@ curl https://familyhelperapp.com/health
 2. **Cookie secret must be random** - Use `openssl rand -base64 32`
 3. **HTTPS required in production** - Cookies have `Secure` flag
 4. **Session duration** - Default 24 hours, configurable in `oauth2-proxy.cfg`
+
+## Migration Roadmap: Simple Blocking → Full Edge Validation
+
+**Current State (Phase 1 - Simple Blocking):**
+- oauth2-proxy installed and configured
+- All routes skipped (`SKIP_AUTH_ROUTES: "^/.*"`)
+- API handles all authentication internally
+- oauth2-proxy acts as passthrough proxy
+
+**Future State (Phase 2 - Full Edge Validation):**
+
+When you need a load balancer or want full edge validation, follow this migration:
+
+### Step 1: Migrate Mobile Apps to Kinde Tokens
+
+Currently mobile apps:
+1. Login via Kinde → Get Kinde token
+2. Exchange Kinde token for custom JWT via `/auth/mobile/token`
+3. Use custom JWT for all API calls
+
+Change to:
+1. Login via Kinde → Get Kinde token
+2. Use Kinde token directly for all API calls (skip `/auth/mobile/token`)
+
+### Step 2: Update API Authentication Middleware
+
+Currently API (`backend/middleware/auth.js`):
+```javascript
+// Validates custom JWT signed with JWT_SECRET
+jwt.verify(token, process.env.JWT_SECRET)
+```
+
+Change to:
+```javascript
+// Validate Kinde tokens using JWKS
+const jwksClient = require('jwks-rsa');
+const client = jwksClient({ jwksUri: 'https://familyhelperapp.kinde.com/.well-known/jwks' });
+```
+
+### Step 3: Configure oauth2-proxy for Validation
+
+Update `docker-compose.yml`:
+```yaml
+# Remove this line (currently skips all routes):
+OAUTH2_PROXY_SKIP_AUTH_ROUTES: "^/.*"
+
+# Change to only skip public routes:
+OAUTH2_PROXY_SKIP_AUTH_ROUTES: "^/health.*|^/public.*|^/webhooks.*"
+
+# Ensure JWT validation is enabled:
+OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "false"
+```
+
+### Step 4: Test Thoroughly
+
+1. Test mobile app login flow
+2. Test web app login flow
+3. Test API endpoints with valid tokens
+4. Test API endpoints with invalid/expired tokens
+5. Verify oauth2-proxy blocks unauthorized requests
+
+### Estimated Effort
+
+- Mobile apps: 2-4 hours (update auth service)
+- API middleware: 4-8 hours (new JWKS validation)
+- Testing: 4-8 hours (comprehensive auth testing)
+- Total: ~2-3 days of focused work
+
+### When to Do This
+
+Consider migrating when:
+- Adding a load balancer (ALB, nginx load balancing)
+- Security audit requires edge authentication
+- Need to reduce load on API from unauthorized requests
+- Moving to multi-region deployment

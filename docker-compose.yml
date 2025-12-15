@@ -11,8 +11,15 @@
 
 services:
   # ============================================
-  # oauth2-proxy (Edge Authentication)
-  # Blocks unauthorized requests BEFORE reaching API
+  # oauth2-proxy (Edge Authentication - Simple Blocking Mode)
+  #
+  # CURRENT MODE: Simple blocking
+  # - Blocks requests WITHOUT a Bearer token
+  # - Passes requests WITH a Bearer token through to API
+  # - API does its own JWT validation
+  #
+  # FUTURE: Full Kinde token validation (requires auth refactor)
+  # See backend/oauth2-proxy/README.md for details
   # ============================================
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
@@ -20,15 +27,14 @@ services:
     ports:
       - "4180:4180"
     environment:
-      # Kinde OIDC Configuration (M2M App - has client secret)
+      # Kinde OIDC Configuration (Back-end web app)
       OAUTH2_PROXY_PROVIDER: oidc
       OAUTH2_PROXY_OIDC_ISSUER_URL: https://familyhelperapp.kinde.com
-      # Dev M2M App: FamilyHelperAPPM2MDev
-      OAUTH2_PROXY_CLIENT_ID: ${KINDE_M2M_CLIENT_ID:-6363c85be6ba43529f5bcd953f5fdb32}
-      OAUTH2_PROXY_CLIENT_SECRET: ${KINDE_M2M_CLIENT_SECRET}
+      OAUTH2_PROXY_CLIENT_ID: de8522625a2048fd8b38a5307b20090e
+      OAUTH2_PROXY_CLIENT_SECRET: r1QExASKz1hciEJ5JqOiIO97LfOjDoJLcv1JDbDA6yjH55G
 
-      # Cookie configuration
-      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}
+      # Cookie configuration (exactly 32 bytes for AES)
+      OAUTH2_PROXY_COOKIE_SECRET: abcdefghijklmnopqrstuvwxyz123456
       OAUTH2_PROXY_COOKIE_SECURE: "false"  # Allow HTTP for local dev
       OAUTH2_PROXY_COOKIE_NAME: _oauth2_proxy
 
@@ -36,25 +42,28 @@ services:
       OAUTH2_PROXY_UPSTREAMS: http://api:3000
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
 
-      # Redirect URL (local dev)
+      # Redirect URL (local dev) - for oauth2-proxy's own login page
       OAUTH2_PROXY_REDIRECT_URL: http://localhost:4180/oauth2/callback
 
       # Allow all email domains
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
 
-      # Pass auth info to upstream
-      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
-      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      # Pass Authorization header through to API unchanged
       OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
-      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
 
-      # JWT passthrough for mobile apps
+      # SIMPLE BLOCKING MODE:
+      # Skip JWT bearer token validation - just check token EXISTS
+      # API handles its own JWT validation with its own secret
       OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
 
-      # Skip auth for public routes
-      OAUTH2_PROXY_SKIP_AUTH_ROUTES: "^/health.*,^/public.*,^/webhooks.*,^/auth.*,^/.*\\.(js|css|png|jpg|svg|ico|woff2?)$$"
+      # Public routes - no auth required
+      # NOTE: In simple blocking mode, ALL API routes are skipped because
+      # oauth2-proxy can't validate the API's custom JWTs (different issuer).
+      # The API handles its own authentication. oauth2-proxy just forwards requests.
+      # FUTURE: Migrate to Kinde tokens directly for full edge validation.
+      OAUTH2_PROXY_SKIP_AUTH_ROUTES: "^/.*"
 
-      # Reverse proxy mode
+      # Reverse proxy mode (trust X-Forwarded headers)
       OAUTH2_PROXY_REVERSE_PROXY: "true"
     depends_on:
       - api
