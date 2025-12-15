@@ -13,6 +13,7 @@ import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import UserAvatar from '../../components/shared/UserAvatar';
+import RecordingQueueModal from '../../components/RecordingQueueModal';
 
 /**
  * @typedef {Object} InitiateVideoCallScreenProps
@@ -33,6 +34,11 @@ export default function InitiateVideoCallScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [initiating, setInitiating] = useState(false);
   const [currentUserMemberId, setCurrentUserMemberId] = useState(null);
+  const [groupSettings, setGroupSettings] = useState(null);
+
+  // Queue state
+  const [showQueueModal, setShowQueueModal] = useState(false);
+  const [queueInfo, setQueueInfo] = useState(null);
 
   useEffect(() => {
     loadMembers();
@@ -47,6 +53,7 @@ export default function InitiateVideoCallScreen({ navigation, route }) {
       const response = await api.get(`/groups/${groupId}`);
       const group = response.data.group;
       setCurrentUserMemberId(group?.currentUserMember?.groupMemberId);
+      setGroupSettings(group?.settings || {});
 
       // Filter out current user and supervisors (they can't receive calls)
       // Members must have a userId (linked to real user account) to receive calls
@@ -89,6 +96,44 @@ export default function InitiateVideoCallScreen({ navigation, route }) {
       return;
     }
 
+    // Check if recording is enabled for this group
+    const recordingEnabled = groupSettings?.recordVideoCalls !== false;
+
+    // If recording is enabled, check queue status first
+    if (recordingEnabled) {
+      setInitiating(true);
+      try {
+        const queueResponse = await api.post('/recording-queue/join', {
+          groupId,
+          callType: 'video',
+          participantIds: selectedMembers,
+        });
+
+        // If no queue needed, proceed with call
+        if (!queueResponse.data.needsQueue) {
+          await proceedWithCall();
+          return;
+        }
+
+        // Queue is needed - show queue modal
+        setQueueInfo(queueResponse.data);
+        setShowQueueModal(true);
+        setInitiating(false);
+      } catch (err) {
+        console.error('Queue check error:', err);
+        // If queue check fails, try to proceed anyway
+        await proceedWithCall();
+      }
+    } else {
+      // Recording disabled - proceed directly
+      await proceedWithCall();
+    }
+  };
+
+  /**
+   * Proceed with initiating the call (after queue or when recording disabled)
+   */
+  const proceedWithCall = async () => {
     setInitiating(true);
     try {
       const response = await api.post(`/groups/${groupId}/video-calls`, {
@@ -112,6 +157,23 @@ export default function InitiateVideoCallScreen({ navigation, route }) {
       );
       setInitiating(false);
     }
+  };
+
+  /**
+   * Handle when it's the user's turn in the queue
+   */
+  const handleQueueTurnReady = () => {
+    setShowQueueModal(false);
+    setQueueInfo(null);
+    proceedWithCall();
+  };
+
+  /**
+   * Handle when user exits the queue
+   */
+  const handleQueueExit = () => {
+    setShowQueueModal(false);
+    setQueueInfo(null);
   };
 
   /**
@@ -220,6 +282,17 @@ export default function InitiateVideoCallScreen({ navigation, route }) {
           </Button>
         </View>
       )}
+
+      {/* Recording Queue Modal */}
+      <RecordingQueueModal
+        visible={showQueueModal}
+        queueInfo={queueInfo}
+        groupId={groupId}
+        callType="video"
+        onTurnReady={handleQueueTurnReady}
+        onExit={handleQueueExit}
+        onClose={handleQueueExit}
+      />
     </View>
   );
 }

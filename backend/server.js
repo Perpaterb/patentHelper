@@ -57,6 +57,7 @@ const feedbackRoutes = require('./routes/feedback.routes');
 const storageRoutes = require('./routes/storage.routes');
 const supportRoutes = require('./routes/support.routes');
 const mediaProcessingRoutes = require('./routes/mediaProcessing.routes');
+const recordingQueueRoutes = require('./routes/recordingQueue.routes');
 
 // Middleware
 app.use(cors({
@@ -96,6 +97,7 @@ app.use('/feedback', feedbackRoutes);
 app.use('/storage', storageRoutes);
 app.use('/support', supportRoutes);
 app.use('/media', mediaProcessingRoutes);
+app.use('/recording-queue', recordingQueueRoutes);
 
 // 404 handler
 app.use((req, res) => {
