@@ -121,11 +121,11 @@ User → Nginx → Express (handles auth internally)
 | `nginx-with-oauth2-proxy.conf` | Nginx config that routes through oauth2-proxy |
 | `.env` (create on server) | Secrets (client ID, client secret, cookie secret) |
 
-## Important: M2M App Required
+## Important: Back-end Web App Required
 
 **oauth2-proxy requires a "confidential client" with a client secret.**
 
-The regular Kinde apps (FamilyHelperAPPDev/Prod) are "public clients" (SPA/Mobile) and don't have secrets. You need a separate **Machine-to-Machine (M2M)** app for oauth2-proxy.
+The regular Kinde apps (FamilyHelperAPPDev/Prod) are "public clients" (SPA/Mobile) and don't have secrets. You need a separate **Back-end Web** app for oauth2-proxy.
 
 ### Kinde Apps Structure
 
@@ -133,16 +133,26 @@ The regular Kinde apps (FamilyHelperAPPDev/Prod) are "public clients" (SPA/Mobil
 |-----|------|---------|------------|
 | FamilyHelperAPPDev | Public (SPA) | Web app + Mobile (Dev) | No |
 | FamilyHelperAPPProd | Public (SPA) | Web app + Mobile (Prod) | No |
-| FamilyHelperAPPM2MDev | M2M | oauth2-proxy (Dev) | **Yes** |
-| FamilyHelperAPPM2MProd | M2M | oauth2-proxy (Prod) | **Yes** (TODO) |
+| FamilyHelperBackEndWebAPP | Back-end web | oauth2-proxy (Dev) | **Yes** |
+| FamilyHelperBackEndWebAPPProd | Back-end web | oauth2-proxy (Prod) | **Yes** |
 
-### Dev M2M App Credentials
+### Dev Back-end Web App Credentials
 
 | Setting | Value |
 |---------|-------|
-| Name | FamilyHelperAPPM2MDev |
-| Client ID | `6363c85be6ba43529f5bcd953f5fdb32` |
+| Name | FamilyHelperBackEndWebAPP |
+| Client ID | `de8522625a2048fd8b38a5307b20090e` |
 | Client Secret | (stored securely, not in repo) |
+| Callback URL | `http://localhost:4180/oauth2/callback` |
+
+### Prod Back-end Web App Credentials
+
+| Setting | Value |
+|---------|-------|
+| Name | FamilyHelperBackEndWebAPPProd |
+| Client ID | `aa8f22665e164787ac554f97c1138ee0` |
+| Client Secret | (stored on server only, NEVER in repo) |
+| Callback URL | `https://familyhelperapp.com/oauth2/callback` |
 
 ## Local Development Testing
 
