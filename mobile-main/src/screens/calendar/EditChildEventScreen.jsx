@@ -34,6 +34,10 @@ export default function EditChildEventScreen({ route, navigation }) {
   const [recurrenceEndDate, setRecurrenceEndDate] = useState(null);
   const [isForever, setIsForever] = useState(true);
 
+  // Notification
+  const [notificationMinutes, setNotificationMinutes] = useState(15);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
   // Responsibility events data
   const [responsibilityEvents, setResponsibilityEvents] = useState([]);
   const [allChildren, setAllChildren] = useState([]);
@@ -66,6 +70,9 @@ export default function EditChildEventScreen({ route, navigation }) {
         setRecurrenceEndDate(new Date(event.recurrenceEndDate));
         setIsForever(false);
       }
+
+      // Set notification minutes
+      setNotificationMinutes(event.notificationMinutes ?? 15);
 
       // Extract responsibility events data
       if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
@@ -109,12 +116,13 @@ export default function EditChildEventScreen({ route, navigation }) {
     try {
       await API.put(`/groups/${groupId}/calendar/events/${eventId}`, {
         title: title.trim(),
-        notes: notes.trim() || null,
+        description: notes.trim() || null, // Backend expects 'description' which maps to 'notes'
         startTime: startDate.toISOString(),
         endTime: endDate.toISOString(),
         isRecurring,
         recurrenceRule: isRecurring ? recurrenceRule : null,
         recurrenceEndDate: isRecurring && !isForever && recurrenceEndDate ? recurrenceEndDate.toISOString() : null,
+        notificationMinutes,
       });
 
       CustomAlert.alert('Success', 'Event updated successfully', [
@@ -189,6 +197,15 @@ export default function EditChildEventScreen({ route, navigation }) {
   const getRecurrenceLabel = () => {
     const option = RECURRENCE_OPTIONS.find(opt => opt.value === recurrenceRule);
     return option ? option.label : 'Daily';
+  };
+
+  const formatNotificationTime = (minutes) => {
+    if (minutes === 0) return 'At time of event';
+    if (minutes < 60) return `${minutes} minutes before`;
+    if (minutes === 60) return '1 hour before';
+    if (minutes < 1440) return `${minutes / 60} hours before`;
+    if (minutes === 1440) return '1 day before';
+    return `${minutes / 1440} days before`;
   };
 
   const getChildName = (childId) => {
@@ -328,6 +345,19 @@ export default function EditChildEventScreen({ route, navigation }) {
           </>
         )}
 
+        {/* Notification Time */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Notification Time</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowNotificationModal(true)}
+          >
+            <Text style={styles.dateButtonText}>
+              {formatNotificationTime(notificationMinutes)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Responsibility Events Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Child Responsibilities</Text>
@@ -342,14 +372,6 @@ export default function EditChildEventScreen({ route, navigation }) {
                   ? getMemberName(re.startResponsibleMemberId)
                   : re.startResponsibleOtherName}
               </Text>
-              {re.endResponsibleMemberId || re.endResponsibleOtherName ? (
-                <Text style={styles.responsibilityText}>
-                  <Text style={styles.bold}>Handoff To:</Text>{' '}
-                  {re.endResponsibilityType === 'member'
-                    ? getMemberName(re.endResponsibleMemberId)
-                    : re.endResponsibleOtherName}
-                </Text>
-              ) : null}
             </View>
           ))}
           <Text style={styles.helperText}>
@@ -425,6 +447,41 @@ export default function EditChildEventScreen({ route, navigation }) {
               <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={() => setShowRecurrenceModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Notification Time Modal */}
+      {showNotificationModal && (
+        <Modal transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Notification Time</Text>
+              {[0, 5, 15, 30, 60, 120, 1440].map(minutes => (
+                <TouchableOpacity
+                  key={minutes}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setNotificationMinutes(minutes);
+                    setShowNotificationModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.modalOptionText,
+                    notificationMinutes === minutes && { color: '#6200ee', fontWeight: '600' }
+                  ]}>
+                    {formatNotificationTime(minutes)}
+                    {notificationMinutes === minutes && ' ✓'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowNotificationModal(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>

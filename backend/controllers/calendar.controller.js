@@ -269,14 +269,13 @@ async function createCalendarEvent(req, res) {
     const { groupId } = req.params;
     const {
       title,
-      description,
-      location,
+      description, // Maps to 'notes' in database
       startTime,
       endTime,
-      allDay = false,
       isRecurring = false,
-      recurrenceRule,
+      recurrenceRule, // Maps to 'recurrencePattern' in database
       attendeeIds = [],
+      notificationMinutes = 15, // Default 15 minutes before
     } = req.body;
 
     if (!userId) {
@@ -366,6 +365,7 @@ async function createCalendarEvent(req, res) {
         endTime: new Date(endTime),
         isRecurring: isRecurring,
         recurrencePattern: recurrenceRule || null,
+        notificationMinutes: notificationMinutes,
         createdBy: membership.groupMemberId,
         attendees: {
           create: attendeeIds.map(attendeeId => ({
@@ -667,14 +667,13 @@ async function updateCalendarEvent(req, res) {
     const { groupId, eventId } = req.params;
     const {
       title,
-      description,
-      location,
+      description, // Maps to 'notes' in database
       startTime,
       endTime,
-      allDay,
       isRecurring,
-      recurrenceRule,
+      recurrenceRule, // Maps to 'recurrencePattern' in database
       attendeeIds = [],
+      notificationMinutes,
     } = req.body;
 
     if (!userId) {
@@ -748,13 +747,12 @@ async function updateCalendarEvent(req, res) {
       where: { eventId: eventId },
       data: {
         ...(title && { title }),
-        ...(description !== undefined && { description }),
-        ...(location !== undefined && { location }),
+        ...(description !== undefined && { notes: description }), // Frontend sends 'description', DB uses 'notes'
         ...(startTime && { startTime: new Date(startTime) }),
         ...(endTime && { endTime: new Date(endTime) }),
-        ...(allDay !== undefined && { allDay }),
         ...(isRecurring !== undefined && { isRecurring }),
-        ...(recurrenceRule !== undefined && { recurrenceRule }),
+        ...(recurrenceRule !== undefined && { recurrencePattern: recurrenceRule }), // Frontend sends 'recurrenceRule', DB uses 'recurrencePattern'
+        ...(notificationMinutes !== undefined && { notificationMinutes }),
         createdAt: new Date(), // Update timestamp to move to top of layer stack
         attendees: attendeeIds.length > 0 ? {
           deleteMany: {},
@@ -775,7 +773,7 @@ async function updateCalendarEvent(req, res) {
         },
         attendees: {
           include: {
-            member: {
+            groupMember: {
               select: {
                 groupMemberId: true,
                 displayName: true,
@@ -1110,6 +1108,7 @@ async function createResponsibilityEvent(req, res) {
       recurrenceRule,
       recurrenceEndDate,
       responsibilityEvents = [], // Array of {childId, startResponsibilityType, startResponsibleMemberId, ...}
+      notificationMinutes = 15, // Default 15 minutes before
     } = req.body;
 
     // Validate required fields
@@ -1173,6 +1172,7 @@ async function createResponsibilityEvent(req, res) {
           endTime: end,
           isRecurring: isRecurring || false,
           recurrencePattern: recurrenceRule || null,
+          notificationMinutes: notificationMinutes,
           isResponsibilityEvent: true,
           createdBy: membership.groupMemberId,
         },

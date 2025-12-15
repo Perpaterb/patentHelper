@@ -76,15 +76,21 @@ export default function EditEventScreen({ navigation, route }) {
 
         // Populate form with existing data
         setTitle(event.title || '');
-        setDescription(event.description || '');
+        setDescription(event.notes || ''); // Backend uses 'notes', frontend uses 'description'
         setStartDate(new Date(event.startTime));
         setEndDate(new Date(event.endTime));
         setIsRecurring(event.isRecurring || false);
 
-        // Parse recurrence rule if exists
-        if (event.recurrenceRule) {
-          const freqMatch = event.recurrenceRule.match(/FREQ=(\w+)/);
-          const intervalMatch = event.recurrenceRule.match(/INTERVAL=(\d+)/);
+        // Populate attendees from event data
+        if (event.attendees && event.attendees.length > 0) {
+          const attendeeIds = event.attendees.map(a => a.groupMember?.groupMemberId || a.groupMemberId);
+          setSelectedMemberIds(attendeeIds.filter(Boolean));
+        }
+
+        // Parse recurrence pattern if exists (backend uses 'recurrencePattern', not 'recurrenceRule')
+        if (event.recurrencePattern) {
+          const freqMatch = event.recurrencePattern.match(/FREQ=(\w+)/);
+          const intervalMatch = event.recurrencePattern.match(/INTERVAL=(\d+)/);
 
           if (freqMatch) {
             const baseFreq = freqMatch[1];
@@ -100,7 +106,7 @@ export default function EditEventScreen({ navigation, route }) {
             }
           }
 
-          const untilMatch = event.recurrenceRule.match(/UNTIL=(\d{8})/);
+          const untilMatch = event.recurrencePattern.match(/UNTIL=(\d{8})/);
           if (untilMatch) {
             const dateStr = untilMatch[1]; // YYYYMMDD
             const year = parseInt(dateStr.substring(0, 4));

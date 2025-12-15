@@ -66,3 +66,7 @@ Thumbs.db
 
 # Recovery credentials - NEVER COMMIT
 RECOVERY_CREDENTIALS.txt
+
+# Firebase credentials
+mobile-main/google-services.json
+mobile-main/*firebase*.json

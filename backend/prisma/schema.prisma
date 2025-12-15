@@ -470,6 +470,7 @@ model CalendarEvent {
   recurrenceEndDate     DateTime?                  @map("recurrence_end_date") @db.Timestamp(6)
   parentEventId         String?                    @map("parent_event_id") @db.Uuid
   isResponsibilityEvent Boolean                    @default(false) @map("is_responsibility_event")
+  notificationMinutes   Int?                       @default(15) @map("notification_minutes")
   creator               GroupMember                @relation("EventCreator", fields: [createdBy], references: [groupMemberId])
   group                 Group                      @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
   parentEvent           CalendarEvent?             @relation("RecurringEvents", fields: [parentEventId], references: [eventId])

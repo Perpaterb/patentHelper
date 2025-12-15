@@ -31,6 +31,10 @@ export default function CreateChildEventScreen({ navigation, route }) {
   const [recurrenceFrequency, setRecurrenceFrequency] = useState('WEEKLY');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState(null);
 
+  // Notification
+  const [notificationMinutes, setNotificationMinutes] = useState(15);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
   // Group members
   const [members, setMembers] = useState([]);
   const [children, setChildren] = useState([]); // Available children
@@ -172,6 +176,7 @@ export default function CreateChildEventScreen({ navigation, route }) {
         recurrenceRule,
         recurrenceEndDate: recurrenceEndDate ? recurrenceEndDate.toISOString() : null,
         responsibilityEvents,
+        notificationMinutes,
       });
 
       if (response.data.success) {
@@ -212,6 +217,15 @@ export default function CreateChildEventScreen({ navigation, route }) {
       case 'YEARLY': return 'Every Year';
       default: return 'Every Week';
     }
+  };
+
+  const formatNotificationTime = (minutes) => {
+    if (minutes === 0) return 'At time of event';
+    if (minutes < 60) return `${minutes} minutes before`;
+    if (minutes === 60) return '1 hour before';
+    if (minutes < 1440) return `${minutes / 60} hours before`;
+    if (minutes === 1440) return '1 day before';
+    return `${minutes / 1440} days before`;
   };
 
   const getSelectedChildrenNames = () => {
@@ -438,6 +452,18 @@ export default function CreateChildEventScreen({ navigation, route }) {
         )}
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.label}>Notification Time</Text>
+        <TouchableOpacity
+          style={styles.picker}
+          onPress={() => setShowNotificationModal(true)}
+        >
+          <Text style={styles.pickerText}>
+            {formatNotificationTime(notificationMinutes)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
         <Text style={styles.createButtonText}>Create Child Event</Text>
       </TouchableOpacity>
@@ -622,6 +648,41 @@ export default function CreateChildEventScreen({ navigation, route }) {
                 ))}
               </View>
               <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowColorPicker(false)}>
+                <Text style={styles.cancelModalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Notification Time Modal */}
+      {showNotificationModal && (
+        <Modal transparent={true} animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS === 'web' && styles.modalContentWeb
+            ]}>
+              <Text style={styles.pickerModalTitle}>Notification Time</Text>
+              {[0, 5, 15, 30, 60, 120, 1440].map(minutes => (
+                <TouchableOpacity
+                  key={minutes}
+                  style={styles.pickerOption}
+                  onPress={() => {
+                    setNotificationMinutes(minutes);
+                    setShowNotificationModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.pickerOptionText,
+                    notificationMinutes === minutes && { color: '#6200ee', fontWeight: '600' }
+                  ]}>
+                    {formatNotificationTime(minutes)}
+                    {notificationMinutes === minutes && ' ✓'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.cancelModalButton} onPress={() => setShowNotificationModal(false)}>
                 <Text style={styles.cancelModalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
