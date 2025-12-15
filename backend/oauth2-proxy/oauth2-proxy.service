@@ -1,0 +1,43 @@
+# systemd service for oauth2-proxy
+# Install to: /etc/systemd/system/oauth2-proxy.service
+#
+# Commands:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable oauth2-proxy
+#   sudo systemctl start oauth2-proxy
+#   sudo systemctl status oauth2-proxy
+#   journalctl -u oauth2-proxy -f
+
+[Unit]
+Description=oauth2-proxy Edge Authentication
+Documentation=https://oauth2-proxy.github.io/oauth2-proxy/
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+# oauth2-proxy binary location
+ExecStart=/usr/local/bin/oauth2-proxy --config=/home/ubuntu/family-helper/oauth2-proxy/oauth2-proxy.cfg
+
+# Environment file with secrets
+EnvironmentFile=/home/ubuntu/family-helper/oauth2-proxy/.env
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=oauth2-proxy
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/family-helper
+
+[Install]
+WantedBy=multi-user.target

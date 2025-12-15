@@ -3,12 +3,65 @@
 # SIMPLIFIED ARCHITECTURE - Mirrors Lightsail Production
 #
 # Services:
+# - oauth2-proxy: Edge authentication (blocks unauthorized requests)
 # - api: Unified Express server (API + Recording + Media Processing)
 # - postgres: Database (mirrors RDS)
 # - mailhog: Email testing (mirrors SES)
 # - pgadmin: Optional database management UI
 
 services:
+  # ============================================
+  # oauth2-proxy (Edge Authentication)
+  # Blocks unauthorized requests BEFORE reaching API
+  # ============================================
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: family-helper-oauth2-proxy
+    ports:
+      - "4180:4180"
+    environment:
+      # Kinde OIDC Configuration
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://familyhelperapp.kinde.com
+      OAUTH2_PROXY_CLIENT_ID: ${KINDE_CLIENT_ID:-552e8d9d29f046418a8dfce0b7f0de1b}
+      OAUTH2_PROXY_CLIENT_SECRET: ${KINDE_CLIENT_SECRET}
+
+      # Cookie configuration
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}
+      OAUTH2_PROXY_COOKIE_SECURE: "false"  # Allow HTTP for local dev
+      OAUTH2_PROXY_COOKIE_NAME: _oauth2_proxy
+
+      # Upstream (Express API)
+      OAUTH2_PROXY_UPSTREAMS: http://api:3000
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+
+      # Redirect URL (local dev)
+      OAUTH2_PROXY_REDIRECT_URL: http://localhost:4180/oauth2/callback
+
+      # Allow all email domains
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+
+      # Pass auth info to upstream
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
+
+      # JWT passthrough for mobile apps
+      OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
+
+      # Skip auth for public routes
+      OAUTH2_PROXY_SKIP_AUTH_ROUTES: "^/health.*,^/public.*,^/webhooks.*,^/auth.*,^/.*\\.(js|css|png|jpg|svg|ico|woff2?)$$"
+
+      # Reverse proxy mode
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+    depends_on:
+      - api
+    networks:
+      - family-helper-network
+    profiles:
+      - oauth2-proxy  # Only start with: docker-compose --profile oauth2-proxy up
+
   # ============================================
   # Unified API Server
   # Everything in one container (like Lightsail)
@@ -137,14 +190,19 @@ networks:
 # USAGE
 # =============================================================================
 #
-# Start everything:
+# Start everything (without oauth2-proxy):
 #   docker-compose up -d
+#
+# Start with oauth2-proxy (edge auth testing):
+#   docker-compose --profile oauth2-proxy up -d
+#   NOTE: Requires KINDE_CLIENT_SECRET env var
 #
 # Start with pgAdmin:
 #   docker-compose --profile tools up -d
 #
 # View logs:
 #   docker-compose logs -f api
+#   docker-compose logs -f oauth2-proxy
 #
 # Rebuild after code changes:
 #   docker-compose build api && docker-compose up -d api
@@ -156,11 +214,34 @@ networks:
 # SERVICES
 # =============================================================================
 #
-# | Service   | URL                          | Description                |
-# |-----------|------------------------------|----------------------------|
-# | API       | http://localhost:3000        | Unified backend server     |
-# | Postgres  | localhost:5432               | Database                   |
-# | MailHog   | http://localhost:8025        | Email testing UI           |
-# | pgAdmin   | http://localhost:5050        | Database admin (optional)  |
+# | Service       | URL                          | Description                |
+# |---------------|------------------------------|----------------------------|
+# | oauth2-proxy  | http://localhost:4180        | Edge auth (optional)       |
+# | API           | http://localhost:3000        | Unified backend server     |
+# | Postgres      | localhost:5432               | Database                   |
+# | MailHog       | http://localhost:8025        | Email testing UI           |
+# | pgAdmin       | http://localhost:5050        | Database admin (optional)  |
+#
+# =============================================================================
+# OAUTH2-PROXY TESTING
+# =============================================================================
+#
+# To test oauth2-proxy locally:
+#
+# 1. Get Kinde Client Secret from Kinde dashboard
+# 2. Add callback URL in Kinde: http://localhost:4180/oauth2/callback
+# 3. Set environment variables:
+#    export KINDE_CLIENT_SECRET="your-client-secret"
+#    export OAUTH2_PROXY_COOKIE_SECRET=$(openssl rand -base64 32 | tr -d '\n')
+#
+# 4. Start with oauth2-proxy profile:
+#    docker-compose --profile oauth2-proxy up -d
+#
+# 5. Access API through oauth2-proxy:
+#    curl http://localhost:4180/health  # Should work (public route)
+#    curl http://localhost:4180/groups  # Redirects to Kinde login
+#
+# 6. Mobile app testing (JWT passthrough):
+#    curl -H "Authorization: Bearer <jwt_token>" http://localhost:4180/groups
 #
 # =============================================================================
