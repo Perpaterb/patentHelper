@@ -258,8 +258,9 @@ const linking = {
 };
 
 function AppNavigator() {
-  const { isAuthenticated, isLoading, getToken, user } = useKindeAuth();
+  const { isAuthenticated, isLoading, getToken, user, logout } = useKindeAuth();
   const [tokenExchanged, setTokenExchanged] = useState(false);
+  const [tokenExchangeError, setTokenExchangeError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Handle token exchange when Kinde authentication completes
@@ -314,6 +315,7 @@ function AppNavigator() {
         }
       } catch (error) {
         console.error('Token exchange failed:', error.message);
+        setTokenExchangeError(error.message);
       }
     }
 
@@ -326,6 +328,33 @@ function AppNavigator() {
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  // If authenticated but token exchange hasn't completed yet, show loading
+  // This prevents API calls from happening before we have the access token
+  if (isAuthenticated && !tokenExchanged) {
+    // If there was an error during token exchange, show error and allow retry
+    if (tokenExchangeError) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Login failed: {tokenExchangeError}</Text>
+          <Text
+            style={styles.retryLink}
+            onPress={() => {
+              setTokenExchangeError(null);
+              logout();
+            }}
+          >
+            Try again
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Completing login...</Text>
       </View>
     );
   }
@@ -480,5 +509,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorText: {
+    color: '#d32f2f',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryLink: {
+    color: '#1976d2',
+    textDecorationLine: 'underline',
+    cursor: 'pointer',
   },
 });
