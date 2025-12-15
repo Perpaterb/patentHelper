@@ -142,36 +142,50 @@ docker-compose down -v
 
 ## Deployment
 
-### Deploy to Production
+### 🚨 IMPORTANT: Use CI/CD for ALL Deployments
+
+**NEVER deploy manually. Always use the CI/CD pipeline.**
+
+The correct deployment workflow is:
+1. Make changes on a feature branch
+2. Run tests locally (`npm test` in both backend and web-admin)
+3. Merge to main and push
+4. CI/CD pipeline automatically deploys
+
+### How CI/CD Works
+
+When you push to `main`, GitHub Actions:
+1. Runs all tests (backend + web-admin)
+2. If tests pass:
+   - Deploys backend to Lightsail (via rsync + PM2 restart)
+   - Builds web-admin (`npx expo export`)
+   - Deploys web-admin to Lightsail
+   - **Invalidates CloudFront cache** (ensures latest index.js is served)
+
+### Monitor Deployments
 
 ```bash
-# Full deployment (backend + web app)
-./scripts/deploy-lightsail.sh
+# Check CI/CD status
+# Go to: https://github.com/Perpaterb/patentHelper/actions
+
+# Verify deployment after CI/CD completes
+curl https://familyhelperapp.com/health
 ```
 
-This script:
-1. Syncs backend files to Lightsail
-2. Installs dependencies
-3. Runs Prisma migrations
-4. Restarts PM2
-5. Builds and deploys web-admin
+### Manual Deployment (EMERGENCY ONLY)
 
-### Deploy Backend Only
+**Only use these commands if CI/CD is broken and production is down.**
 
 ```bash
-# Sync files
+# Backend only (emergency)
 rsync -avz --exclude 'node_modules' --exclude '.env*' \
   -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
   ./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/
 
-# Install and restart
 ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
   "cd /home/ubuntu/family-helper && npm ci --omit=dev && npx prisma migrate deploy && pm2 restart family-helper"
-```
 
-### Deploy Web App Only
-
-```bash
+# Web app only (emergency)
 cd web-admin
 npm install --legacy-peer-deps
 npx expo export --platform web
@@ -180,6 +194,8 @@ rsync -avz --delete \
   -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
   ./dist/ ubuntu@52.65.37.116:/home/ubuntu/web-admin/
 ```
+
+**After any manual deployment, you MUST fix CI/CD so it works again.**
 
 ---
 
@@ -281,29 +297,46 @@ ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'df -h'
 
 ## CI/CD Pipeline
 
-### Current Status
+### Current Status: ACTIVE
 
-**Manual deployment** via `./scripts/deploy-lightsail.sh`
+**All deployments go through GitHub Actions CI/CD.**
 
-GitHub Actions available for automated testing:
-- `.github/workflows/pr-checks.yml` - Runs tests on pull requests
+Workflow file: `.github/workflows/ci-cd.yml`
 
-### Future: Enable Automatic Deployment
+### What CI/CD Does
 
-To enable automatic deployment on push to main:
+On push to `main`:
 
-1. Update `.github/workflows/ci-cd.yml`
-2. Uncomment the `push` trigger
-3. Add Lightsail deployment steps (SSH-based)
+1. **Test Phase** (parallel):
+   - `test-backend`: Runs `npm test` in backend/
+   - `test-web-admin`: Runs `npm test` in web-admin/
+
+2. **Deploy Phase** (only if ALL tests pass):
+   - `deploy-backend`:
+     - SSH into Lightsail
+     - rsync backend files
+     - `npm ci --omit=dev`
+     - `npx prisma migrate deploy`
+     - `pm2 restart family-helper`
+   - `deploy-web-admin`:
+     - Build: `npx expo export --platform web`
+     - rsync to Lightsail
+     - Invalidate CloudFront cache
 
 ### Required GitHub Secrets
 
-| Secret | Description |
-|--------|-------------|
-| `AWS_ACCESS_KEY_ID` | AWS IAM access key |
-| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
-| `LIGHTSAIL_SSH_KEY` | Private key for Lightsail SSH |
-| `STRIPE_PUBLISHABLE_KEY` | Stripe key for web build |
+| Secret | Description | Status |
+|--------|-------------|--------|
+| `AWS_ACCESS_KEY_ID` | AWS IAM access key | ✅ Configured |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key | ✅ Configured |
+| `LIGHTSAIL_SSH_KEY` | Private key for Lightsail SSH | ✅ Configured |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe key for web build | ✅ Configured |
+
+### Monitoring CI/CD
+
+- **GitHub Actions Dashboard**: https://github.com/Perpaterb/patentHelper/actions
+- Green checkmark = Success
+- Red X = Failed (check logs, fix issues, push again)
 
 ---
 

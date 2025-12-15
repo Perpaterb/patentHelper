@@ -1,72 +1,123 @@
 # Claude Code Instructions for Parenting Helper App
 
-## 🔒 ABSOLUTE RULE: Git Commits for EVERY Change
+## 🔒 ABSOLUTE RULE: Branch-Based Development & CI/CD Deployment
 
-**CRITICAL: GitHub must be a perfect mirror of ALL work done by Claude.**
+**CRITICAL: All changes go through branches. CI/CD handles ALL deployments. NEVER deploy manually.**
 
-### The Iron-Clad Rule
+### The Development Workflow
 
-**EVERY SINGLE CHANGE must be committed and pushed to GitHub IMMEDIATELY.**
+```
+User Request → New Branch → Code Changes → Auto Tests → Commit → Manual Testing → Push to Main → CI/CD Deploys
+```
 
-This includes:
-- ✅ Editing a single line of code
-- ✅ Updating any documentation file
-- ✅ Creating a new file
-- ✅ Deleting a file
-- ✅ Renaming a file
-- ✅ Changing a configuration
-- ✅ **EVERYTHING - No exceptions**
+### Step-by-Step Mandatory Process
 
-### Mandatory Workflow (EVERY TIME)
+#### 1. START: Create a Feature Branch
+When the user requests ANY change, IMMEDIATELY create a new branch:
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/short-description
+```
 
-After making ANY change:
+Branch naming conventions:
+- `feature/add-queue-system` - New features
+- `fix/video-call-join-bug` - Bug fixes
+- `refactor/cleanup-auth` - Refactoring
+- `docs/update-readme` - Documentation
 
-1. **Check status**: `git status` - verify what changed
-2. **Stage all**: `git add -A` - stage all changes
-3. **Commit**: `git commit -m "descriptive message"` - use conventional commits format
-4. **Push**: `git push` - push to GitHub immediately
-5. **ONLY THEN** can you ask the user a question or report what you did
+#### 2. DEVELOP: Make Changes on the Branch
+- Make code changes
+- Commit frequently with descriptive messages
+- Use conventional commit format:
+  - `feat: Add new feature`
+  - `fix: Bug fix`
+  - `refactor: Code refactoring`
+  - `docs: Documentation updates`
+  - `test: Add or update tests`
+  - `chore: Maintenance tasks`
 
-### Conventional Commit Format
+#### 3. TEST: Run Automated Tests (MANDATORY before any commit)
+```bash
+# Backend tests
+cd backend && npm test
 
-- `feat: Add new feature`
-- `fix: Bug fix`
-- `refactor: Code refactoring`
-- `docs: Documentation updates`
-- `test: Add or update tests`
-- `chore: Maintenance tasks`
+# Web-admin tests
+cd web-admin && npm test
+```
 
-### Why This is CRITICAL
+**If tests fail: FIX THEM before committing. Do NOT commit broken code.**
 
-✅ **Point-in-time recovery** - User can `git reset --hard <commit-hash>` to any point
-✅ **Prevents data loss** - If Claude breaks something, easy rollback
-✅ **Clear checkpoints** - Each change is a discrete commit
-✅ **Complete audit trail** - Perfect history of all work
+#### 4. COMMIT: Stage and Commit Changes
+```bash
+git add -A
+git commit -m "feat: Description of change"
+```
+
+#### 5. LOCAL TESTING: Manual Verification
+- Test the feature manually in the browser/app
+- Verify it works as expected
+- Check for edge cases
+
+#### 6. MERGE TO MAIN: Push to Trigger CI/CD
+```bash
+git checkout main
+git pull origin main
+git merge feature/short-description
+git push origin main
+```
+
+#### 7. CI/CD: Let the Pipeline Deploy
+**DO NOT manually deploy. The CI/CD pipeline will:**
+- Run all tests again
+- Build the applications
+- Deploy backend to Lightsail
+- Deploy web-admin to S3/CloudFront
+- Invalidate CloudFront cache (ensures latest index.js)
+
+#### 8. VERIFY: Check CI/CD Status
+- Check GitHub Actions: https://github.com/Perpaterb/patentHelper/actions
+- Wait for green checkmarks
+- If pipeline fails, fix issues and push again
+
+### 🚨 NEVER DO THESE THINGS
+
+❌ **NEVER** deploy manually with `rsync` or `ssh`
+❌ **NEVER** push directly to main without testing
+❌ **NEVER** skip running `npm test`
+❌ **NEVER** commit code that breaks tests
+❌ **NEVER** bypass CI/CD for "quick fixes"
+
+### Why CI/CD Only?
+
+✅ **Consistency** - Same deployment process every time
+✅ **Testing** - Tests run before every deployment
+✅ **Cache invalidation** - CloudFront cache cleared automatically
+✅ **Audit trail** - GitHub Actions logs all deployments
+✅ **Rollback** - Easy to revert via git if issues found
+✅ **No accidents** - Can't accidentally deploy broken code
 
 ### Before Asking "What's Next?"
 
-**MANDATORY SAFETY CHECKPOINT:**
+**MANDATORY CHECKLIST:**
 
-Before asking the user "What would you like to work on next?" or any similar prompt, you MUST:
+1. All changes committed to feature branch
+2. `npm test` passes in both backend and web-admin
+3. Branch merged to main
+4. Pushed to origin
+5. CI/CD pipeline is green (or at least running)
 
-1. Run `git status` to check for uncommitted changes
-2. If there are uncommitted changes:
-   - Run `npm test` to ensure tests pass
-   - Stage all changes: `git add -A`
-   - Commit with descriptive message
-   - Push to remote: `git push`
-3. Inform the user: "Changes committed and pushed to [commit message]. Ready for next task."
+Only THEN ask: "Changes merged and CI/CD deploying. Ready for next task."
 
-**Exception:** If there are NO uncommitted changes (clean working tree), you can skip the commit step.
+### Emergency Hotfix Process
 
-### NEVER Do This
-
-❌ **NEVER** ask a question without committing first
-❌ **NEVER** batch multiple changes into one commit
-❌ **NEVER** skip pushing to remote
-❌ **NEVER** assume "this is too small to commit"
-
-**Remember**: GitHub is the safety net. Commit EVERYTHING.
+If production is broken and needs immediate fix:
+1. Still create a branch: `git checkout -b hotfix/critical-fix`
+2. Make minimal fix
+3. Run tests: `npm test`
+4. Merge to main and push
+5. Monitor CI/CD closely
+6. **Still DO NOT deploy manually** - let CI/CD handle it
 
 ---
 
