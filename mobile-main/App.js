@@ -6,7 +6,7 @@
  */
 
 import 'react-native-gesture-handler';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
@@ -14,6 +14,7 @@ import * as SecureStore from 'expo-secure-store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CONFIG } from './src/constants/config';
 import authEvents from './src/services/authEvents';
+import pushNotificationService from './src/services/pushNotification.service';
 import { CustomAlertProvider, setGlobalAlertHandler, useCustomAlert } from './src/components/CustomAlert';
 import ForceUpdateModal from './src/components/ForceUpdateModal';
 import { useVersionCheck } from './src/hooks/useVersionCheck';
@@ -64,9 +65,35 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [navigationKey, setNavigationKey] = useState(0);
+  const pushTokenRef = useRef(null);
 
   useEffect(() => {
     checkAuthStatus();
+  }, []);
+
+  /**
+   * Set up push notification listeners
+   */
+  useEffect(() => {
+    // Listen for notifications received while app is in foreground
+    const notificationReceivedCleanup = pushNotificationService.addNotificationReceivedListener(
+      (notification) => {
+        console.log('[App] Notification received:', notification.request.content.title);
+      }
+    );
+
+    // Listen for user tapping on notifications
+    const notificationResponseCleanup = pushNotificationService.addNotificationResponseListener(
+      (response) => {
+        console.log('[App] Notification tapped:', response.notification.request.content.data);
+        // TODO: Navigate to relevant screen based on notification data
+      }
+    );
+
+    return () => {
+      notificationReceivedCleanup();
+      notificationResponseCleanup();
+    };
   }, []);
 
   /**
@@ -106,11 +133,23 @@ export default function App() {
   /**
    * Handle successful login
    */
-  const handleLoginSuccess = (user) => {
+  const handleLoginSuccess = async (user) => {
     console.log('Login successful:', user.email);
     // Force navigation reset on login to clear any stale state
     setNavigationKey(prev => prev + 1);
     setIsAuthenticated(true);
+
+    // Initialize push notifications after login
+    try {
+      const pushToken = await pushNotificationService.initializePushNotifications();
+      pushTokenRef.current = pushToken;
+      if (pushToken) {
+        console.log('[App] Push notifications initialized');
+      }
+    } catch (error) {
+      console.error('[App] Failed to initialize push notifications:', error);
+      // Don't block login on push notification failure
+    }
   };
 
   /**
@@ -118,6 +157,16 @@ export default function App() {
    */
   const handleLogout = async () => {
     console.log('[App] Logging out user');
+
+    // Unregister push token before logout
+    if (pushTokenRef.current) {
+      try {
+        await pushNotificationService.unregisterToken(pushTokenRef.current);
+        pushTokenRef.current = null;
+      } catch (error) {
+        console.error('[App] Error unregistering push token:', error);
+      }
+    }
 
     // Clear stored tokens
     try {

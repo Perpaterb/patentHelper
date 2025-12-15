@@ -12,6 +12,7 @@
 
 const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
+const pushNotificationService = require('../services/pushNotification.service');
 
 /**
  * Get calendar events for a group
@@ -411,6 +412,55 @@ async function createCalendarEvent(req, res) {
         messageContent: `Created event "${title}" from ${startTime} to ${endTime}`,
       },
     });
+
+    // Send push notifications to group members (excluding creator)
+    // Fire and forget - don't block the response
+    (async () => {
+      try {
+        // Get group info for notification
+        const groupInfo = await prisma.group.findUnique({
+          where: { groupId: groupId },
+          select: { name: true },
+        });
+
+        // Get all group members except the creator
+        const groupMembers = await prisma.groupMember.findMany({
+          where: {
+            groupId: groupId,
+            isRegistered: true,
+            isHidden: false,
+            groupMemberId: { not: membership.groupMemberId },
+          },
+          select: { groupMemberId: true },
+        });
+
+        const memberIds = groupMembers.map(m => m.groupMemberId);
+
+        if (memberIds.length > 0) {
+          const startDate = new Date(startTime);
+          const formattedDate = startDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+
+          await pushNotificationService.sendToGroupMembersWithPreferences(
+            memberIds,
+            'calendar',
+            `New Event: ${title}`,
+            `${membership.displayName} added an event for ${formattedDate}`,
+            {
+              type: 'new_calendar_event',
+              groupId: groupId,
+              eventId: event.eventId,
+            }
+          );
+        }
+      } catch (notificationError) {
+        console.error('[Calendar] Failed to send push notifications:', notificationError);
+      }
+    })();
 
     return res.status(201).json({
       success: true,

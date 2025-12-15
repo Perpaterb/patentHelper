@@ -50,6 +50,7 @@ model User {
   billingHistory          BillingHistory[]
   supportActionsPerformed SupportAuditLog[]      @relation("SupportActionPerformer")
   supportActionsReceived  SupportAuditLog[]      @relation("SupportActionTarget")
+  deviceTokens            DeviceToken[]
 
   @@index([email])
   @@index([kindeId])
@@ -1433,4 +1434,29 @@ model WebRTCSignal {
   @@index([callId, toPeerId, isConsumed])
   @@index([createdAt])
   @@map("webrtc_signals")
+}
+
+// ============================================
+// PUSH NOTIFICATION DEVICE TOKENS
+// Stores Expo Push Tokens for each user's devices
+// A user can have multiple devices (phone, tablet)
+// ============================================
+
+model DeviceToken {
+  tokenId       String   @id @default(uuid()) @map("token_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  expoPushToken String   @map("expo_push_token") @db.VarChar(255) // ExponentPushToken[xxx]
+  deviceName    String?  @map("device_name") @db.VarChar(100) // e.g., "John's iPhone"
+  platform      String   @map("platform") @db.VarChar(10) // 'ios', 'android', 'web'
+  isActive      Boolean  @default(true) @map("is_active") // Set to false if token becomes invalid
+  lastUsedAt    DateTime @default(now()) @map("last_used_at") @db.Timestamp(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, expoPushToken]) // A token can only be registered once per user
+  @@index([userId])
+  @@index([isActive])
+  @@map("device_tokens")
 }
