@@ -14,7 +14,7 @@
  */
 
 const config = require('../config/recordingQueue.config');
-const emailService = require('./email.service');
+const { emailService } = require('./email');
 
 /**
  * Queue entry structure
