@@ -97,7 +97,6 @@ app.use('/feedback', feedbackRoutes);
 app.use('/storage', storageRoutes);
 app.use('/support', supportRoutes);
 app.use('/media', mediaProcessingRoutes);
-app.use('/recording-queue', recordingQueueRoutes);
 
 // 404 handler
 app.use((req, res) => {

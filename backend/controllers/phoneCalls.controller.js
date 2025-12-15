@@ -14,7 +14,6 @@ const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
 const audioConverter = require('../services/audioConverter');
 const recorderService = require('../services/recorder.service');
-const recordingQueue = require('../services/recordingQueue.service');
 const { storageService } = require('../services/storage');
 const fileEncryption = require('../services/fileEncryption.service');
 const { v4: uuidv4 } = require('uuid');
@@ -658,9 +657,6 @@ async function initiateCall(req, res) {
     const shouldRecord = settings?.recordPhoneCalls !== false; // Default to true if settings don't exist
 
     if (shouldRecord) {
-      // Track recording in queue system
-      recordingQueue.recordingStarted(userId, 'phone');
-
       const authToken = req.headers.authorization?.replace('Bearer ', '');
       // Use X-Forwarded-Proto header (set by Nginx) or fall back to req.protocol
       const protocol = req.get('X-Forwarded-Proto') || req.protocol;
@@ -680,8 +676,6 @@ async function initiateCall(req, res) {
         }).catch(err => console.error('[Phone Call] Failed to update recording status:', err));
       }).catch(err => {
         console.error('[Phone Call] Failed to start recorder:', err);
-        // If recording fails to start, decrement the count
-        recordingQueue.recordingEnded();
       });
     } else {
       console.log('[Phone Call] Recording disabled for group, skipping recorder');
@@ -991,11 +985,6 @@ async function endCall(req, res) {
         leftAt: new Date(),
       },
     });
-
-    // If call was being recorded, decrement the recording queue count
-    if (call.recordingStatus === 'recording') {
-      recordingQueue.recordingEnded();
-    }
 
     // Create audit log
     await prisma.auditLog.create({
@@ -1625,11 +1614,6 @@ async function leaveCall(req, res) {
         },
       });
 
-      // If call was being recorded, decrement the recording queue count
-      if (call.recordingStatus === 'recording') {
-        recordingQueue.recordingEnded();
-      }
-
       // Create audit log
       await prisma.auditLog.create({
         data: {
@@ -1686,11 +1670,6 @@ async function leaveCall(req, res) {
           durationMs,
         },
       });
-
-      // If call was being recorded, decrement the recording queue count
-      if (call.recordingStatus === 'recording') {
-        recordingQueue.recordingEnded();
-      }
 
       // Create audit log
       await prisma.auditLog.create({

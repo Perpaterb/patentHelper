@@ -8,10 +8,10 @@
 const express = require('express');
 const router = express.Router();
 const recordingQueueController = require('../controllers/recordingQueue.controller');
-const { authenticate } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth.middleware');
 
 // All routes require authentication
-router.use(authenticate);
+router.use(requireAuth);
 
 // Get queue status
 router.get('/status', recordingQueueController.getStatus);
