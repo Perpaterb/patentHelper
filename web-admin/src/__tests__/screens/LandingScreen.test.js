@@ -206,8 +206,8 @@ describe('LandingScreen', () => {
       );
 
       const buttons = root.findAllByType('button');
-      // Login button is typically the first text button in header
-      fireEvent.press(buttons[0]);
+      // Login button is the second button in header (after Updates)
+      fireEvent.press(buttons[1]);
 
       expect(mockLogin).toHaveBeenCalledTimes(1);
     });
@@ -228,8 +228,8 @@ describe('LandingScreen', () => {
       );
 
       const buttons = root.findAllByType('button');
-      // Sign Up is the second button in header
-      fireEvent.press(buttons[1]);
+      // Sign Up is the third button in header (after Updates and Login)
+      fireEvent.press(buttons[2]);
 
       expect(mockRegister).toHaveBeenCalledTimes(1);
     });
