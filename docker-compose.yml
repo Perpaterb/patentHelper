@@ -20,11 +20,12 @@ services:
     ports:
       - "4180:4180"
     environment:
-      # Kinde OIDC Configuration
+      # Kinde OIDC Configuration (M2M App - has client secret)
       OAUTH2_PROXY_PROVIDER: oidc
       OAUTH2_PROXY_OIDC_ISSUER_URL: https://familyhelperapp.kinde.com
-      OAUTH2_PROXY_CLIENT_ID: ${KINDE_CLIENT_ID:-552e8d9d29f046418a8dfce0b7f0de1b}
-      OAUTH2_PROXY_CLIENT_SECRET: ${KINDE_CLIENT_SECRET}
+      # Dev M2M App: FamilyHelperAPPM2MDev
+      OAUTH2_PROXY_CLIENT_ID: ${KINDE_M2M_CLIENT_ID:-6363c85be6ba43529f5bcd953f5fdb32}
+      OAUTH2_PROXY_CLIENT_SECRET: ${KINDE_M2M_CLIENT_SECRET}
 
       # Cookie configuration
       OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}
@@ -230,8 +231,8 @@ networks:
 #
 # 1. Get Kinde Client Secret from Kinde dashboard
 # 2. Add callback URL in Kinde: http://localhost:4180/oauth2/callback
-# 3. Set environment variables:
-#    export KINDE_CLIENT_SECRET="your-client-secret"
+# 3. Set environment variables (use M2M app secret):
+#    export KINDE_M2M_CLIENT_SECRET="your-m2m-client-secret"
 #    export OAUTH2_PROXY_COOKIE_SECRET=$(openssl rand -base64 32 | tr -d '\n')
 #
 # 4. Start with oauth2-proxy profile:

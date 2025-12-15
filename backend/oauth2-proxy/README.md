@@ -53,23 +53,45 @@ User → Nginx → oauth2-proxy → Express
 | `nginx-with-oauth2-proxy.conf` | Nginx config that routes through oauth2-proxy |
 | `.env` (create on server) | Secrets (client ID, client secret, cookie secret) |
 
+## Important: M2M App Required
+
+**oauth2-proxy requires a "confidential client" with a client secret.**
+
+The regular Kinde apps (FamilyHelperAPPDev/Prod) are "public clients" (SPA/Mobile) and don't have secrets. You need a separate **Machine-to-Machine (M2M)** app for oauth2-proxy.
+
+### Kinde Apps Structure
+
+| App | Type | Purpose | Has Secret |
+|-----|------|---------|------------|
+| FamilyHelperAPPDev | Public (SPA) | Web app + Mobile (Dev) | No |
+| FamilyHelperAPPProd | Public (SPA) | Web app + Mobile (Prod) | No |
+| FamilyHelperAPPM2MDev | M2M | oauth2-proxy (Dev) | **Yes** |
+| FamilyHelperAPPM2MProd | M2M | oauth2-proxy (Prod) | **Yes** (TODO) |
+
+### Dev M2M App Credentials
+
+| Setting | Value |
+|---------|-------|
+| Name | FamilyHelperAPPM2MDev |
+| Client ID | `6363c85be6ba43529f5bcd953f5fdb32` |
+| Client Secret | (stored securely, not in repo) |
+
 ## Local Development Testing
 
 ### Prerequisites
-1. Get **Kinde Client Secret** from Kinde dashboard:
-   - Go to: https://familyhelperapp.kinde.com
-   - Settings → Applications → FamilyHelperAPPDev
-   - Copy the Client Secret
+1. The **M2M app** is already created (FamilyHelperAPPM2MDev)
+   - Client ID: `6363c85be6ba43529f5bcd953f5fdb32`
+   - Client Secret: Get from Kinde dashboard
 
-2. Add callback URL in Kinde:
-   - Settings → Applications → FamilyHelperAPPDev → Callbacks
+2. Add callback URL in Kinde for the M2M app:
+   - Settings → Applications → FamilyHelperAPPM2MDev → Callbacks
    - Add: `http://localhost:4180/oauth2/callback`
 
 ### Start oauth2-proxy Locally
 
 ```bash
-# Set environment variables
-export KINDE_CLIENT_SECRET="your-client-secret-from-kinde"
+# Set environment variables (use M2M app secret from Kinde dashboard)
+export KINDE_M2M_CLIENT_SECRET="your-m2m-client-secret-from-kinde"
 export OAUTH2_PROXY_COOKIE_SECRET=$(openssl rand -base64 32 | tr -d '\n')
 
 # Start with oauth2-proxy profile
