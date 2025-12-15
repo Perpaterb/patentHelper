@@ -23,13 +23,19 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.parentinghelper.app"
+      "package": "com.parentinghelper.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "936f1528-bfc6-4659-b9de-657a6737330d"
+      }
+    }
   }
 }
