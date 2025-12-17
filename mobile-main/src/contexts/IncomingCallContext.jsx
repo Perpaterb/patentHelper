@@ -139,7 +139,17 @@ export function IncomingCallProvider({ children, isAuthenticated = false }) {
       setIncomingCall(null);
       setCallType(null);
     } catch (err) {
-      console.error('[IncomingCallContext] Error checking for incoming calls:', err);
+      // Silently ignore auth errors (401) - the auth system will handle re-login
+      // This commonly happens when the app is backgrounded and the token expires
+      const isAuthError = err.response?.status === 401 ||
+                          err.message?.toLowerCase().includes('log in') ||
+                          err.message?.toLowerCase().includes('unauthorized');
+
+      if (!isAuthError) {
+        // Only log non-auth errors for debugging
+        console.log('[IncomingCallContext] Error checking for incoming calls:', err.message);
+      }
+      // Don't show error to user - just silently stop checking
     }
   };
 
