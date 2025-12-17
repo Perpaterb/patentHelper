@@ -44,7 +44,7 @@ Before building for release, ensure `.env` has production values:
 # Mobile Main - Production Environment
 EXPO_PUBLIC_API_URL=https://familyhelperapp.com
 EXPO_PUBLIC_KINDE_DOMAIN=familyhelperapp.kinde.com
-EXPO_PUBLIC_KINDE_CLIENT_ID=bfbf86777e654654b374cf92f5719c74
+EXPO_PUBLIC_KINDE_CLIENT_ID=aa8f22665e164787ac554f97c1138ee0
 EXPO_PUBLIC_KINDE_REDIRECT_URI=familyhelper://callback
 EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=familyhelper://
 EXPO_PUBLIC_WEB_URL=https://familyhelperapp.com
@@ -72,7 +72,7 @@ cp .env .env.dev.backup
 cat > .env << 'EOF'
 EXPO_PUBLIC_API_URL=https://familyhelperapp.com
 EXPO_PUBLIC_KINDE_DOMAIN=familyhelperapp.kinde.com
-EXPO_PUBLIC_KINDE_CLIENT_ID=bfbf86777e654654b374cf92f5719c74
+EXPO_PUBLIC_KINDE_CLIENT_ID=aa8f22665e164787ac554f97c1138ee0
 EXPO_PUBLIC_KINDE_REDIRECT_URI=familyhelper://callback
 EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=familyhelper://
 EXPO_PUBLIC_WEB_URL=https://familyhelperapp.com

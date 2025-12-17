@@ -12,7 +12,7 @@ This document contains every decision made during the planning phase. Use this a
 
 ### Product Structure
 - [✅] **3 separate products** sharing one backend (KISS principle)
-  1. **Admin Web App** (parentinghelperapp.com) - React - BUILT FIRST
+  1. **Admin Web App** (familyhelperapp.com) - React - BUILT FIRST
   2. **Parenting Helper Mobile** - React Native - BUILT SECOND
   3. **PH Messenger Mobile** - React Native - BUILT THIRD
 
@@ -184,7 +184,7 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Budget Alerts:** $100 dev, $500 production
 
 ### Kinde Authentication
-- [✅] **Domain:** https://parentinghelper.kinde.com
+- [✅] **Domain:** https://familyhelper.kinde.com
 - [✅] **Client ID:** 39fa7698fc83461eb065dfc850f867ee
 
 ### Stripe
@@ -195,11 +195,11 @@ This document contains every decision made during the planning phase. Use this a
   - Additional Storage ($1 per 2GB/month)
 
 ### Email
-- [✅] **System Email:** noreply@parentinghelperapp.com
-- [✅] **Support Email:** support@parentinghelperapp.com
+- [✅] **System Email:** noreply@familyhelperapp.com
+- [✅] **Support Email:** support@familyhelperapp.com
 
 ### Domain
-- [✅] **Domain:** parentinghelperapp.com ✅ **REGISTERED** (2025-10-21)
+- [✅] **Domain:** familyhelperapp.com ✅ **REGISTERED** (2025-10-21)
 
 ### Firebase
 - [✅] **Account:** zcarss@gmail.com (for future Android push)
@@ -300,7 +300,7 @@ This document contains every decision made during the planning phase. Use this a
 - [✅] **Privacy Policy:** Standard template (iubenda.com or similar)
 - [✅] **Terms of Service:** Standard template with custody disclaimers
 - [✅] **Todo:** Draft during Phase 2 (Web App)
-- [✅] **Host:** parentinghelperapp.com/privacy and /terms
+- [✅] **Host:** familyhelperapp.com/privacy and /terms
 - [✅] **Requirements:**
   - Data retention (7+ years, nothing deleted)
   - GDPR compliance
@@ -321,7 +321,7 @@ This document contains every decision made during the planning phase. Use this a
 
 1. **Register Domain** (15 mins, $10-15/year)
    - [ ] Go to Porkbun.com
-   - [ ] Register parentinghelperapp.com
+   - [ ] Register familyhelperapp.com
 
 2. **Install Software** (1-2 hours)
    - [ ] Node.js v20 LTS

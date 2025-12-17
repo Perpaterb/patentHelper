@@ -175,7 +175,7 @@ This scope:
 **Folder Structure (Hidden from User):**
 ```
 User's Google Drive (root)
-  └── .parentinghelper/  (hidden folder)
+  └── .familyhelper/  (hidden folder)
       ├── media/
       │   ├── message-abc123.jpg
       │   ├── calendar-def456.pdf
@@ -203,7 +203,7 @@ async function uploadMessagePhoto(userId, file) {
     auth: accessToken,
     requestBody: {
       name: `message-${messageId}.jpg`,
-      parents: [appFolderId], // Hidden .parentinghelper folder
+      parents: [appFolderId], // Hidden .familyhelper folder
     },
     media: {
       mimeType: 'image/jpeg',

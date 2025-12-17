@@ -81,7 +81,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8081
 
 # Kinde Authentication (FamilyHelperAPPDev)
 KINDE_DOMAIN=https://familyhelperapp.kinde.com
-KINDE_CLIENT_ID=552e8d9d29f046418a8dfce0b7f0de1b
+KINDE_CLIENT_ID=de8522625a2048fd8b38a5307b20090e
 KINDE_CLIENT_SECRET=
 # Note: KINDE_CLIENT_SECRET is NOT needed - Kinde uses PKCE flow
 
@@ -194,7 +194,7 @@ EXPO_PUBLIC_API_TIMEOUT=30000
 
 # Kinde Authentication (FamilyHelperAPPDev)
 EXPO_PUBLIC_KINDE_DOMAIN=https://familyhelperapp.kinde.com
-EXPO_PUBLIC_KINDE_CLIENT_ID=552e8d9d29f046418a8dfce0b7f0de1b
+EXPO_PUBLIC_KINDE_CLIENT_ID=de8522625a2048fd8b38a5307b20090e
 EXPO_PUBLIC_KINDE_REDIRECT_URI=http://localhost:8081/auth/callback
 EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=http://localhost:8081
 
@@ -235,7 +235,7 @@ EXPO_PUBLIC_API_URL=http://10.0.2.2:3000
 
 # Kinde Authentication (FamilyHelperAPPDev)
 EXPO_PUBLIC_KINDE_DOMAIN=https://familyhelperapp.kinde.com
-EXPO_PUBLIC_KINDE_CLIENT_ID=552e8d9d29f046418a8dfce0b7f0de1b
+EXPO_PUBLIC_KINDE_CLIENT_ID=de8522625a2048fd8b38a5307b20090e
 EXPO_PUBLIC_KINDE_REDIRECT_URI=exp+mobile-main://callback
 EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=exp+mobile-main://
 
@@ -251,8 +251,8 @@ EXPO_PUBLIC_WEB_URL=http://10.0.2.2:8081
 
 | Environment | Client ID | Usage |
 |-------------|-----------|-------|
-| **FamilyHelperAPPDev** | `552e8d9d29f046418a8dfce0b7f0de1b` | Local development |
-| **FamilyHelperAPPProd** | `bfbf86777e654654b374cf92f5719c74` | Production |
+| **FamilyHelperAPPDev** | `de8522625a2048fd8b38a5307b20090e` | Local development |
+| **FamilyHelperAPPProd** | `aa8f22665e164787ac554f97c1138ee0` | Production |
 
 Both use domain: `https://familyhelperapp.kinde.com`
 

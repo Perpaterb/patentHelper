@@ -1,11 +1,11 @@
 # AI to Developer - Required Information & Suggestions
 
 **Last Updated:** 2025-10-18
-**Project:** Parenting Helper App + PH Messenger Companion App
+**Project:** family helper App + PH Messenger Companion App
 **Status:** Planning Phase - Awaiting Developer Input
 
 **Note:** This project includes TWO mobile apps sharing the same backend:
-- **Parenting Helper** (main app) - Full features
+- **family helper** (main app) - Full features
 - **PH Messenger** (companion app) - Messaging only, biometric auth
 
 ---
@@ -227,7 +227,7 @@ npm install @reduxjs/toolkit react-redux redux-persist
 - [✅] **Q:** Can supervisors use PH Messenger?
   - **DECISION: B) No, blocked**
   - Supervisors cannot send messages, so PH Messenger serves no purpose
-  - If supervisor tries to open PH Messenger, show: "Supervisors cannot use PH Messenger. Please use the main Parenting Helper app for read-only access."
+  - If supervisor tries to open PH Messenger, show: "Supervisors cannot use PH Messenger. Please use the main family helper app for read-only access."
 
 - [✅] **Q:** If user has both apps, do they share local data?
   - **DECISION: A) Yes, shared Redux Persist storage**
@@ -368,12 +368,12 @@ npm install @reduxjs/toolkit react-redux redux-persist
 ## 🎨 DESIGN & UX DECISIONS
 
 ### 1. **App Names** ✅ **DECIDED**
-- [✅] **Main Mobile App:** "Parenting Helper"
+- [✅] **Main Mobile App:** "family helper"
 - [✅] **Messenger App:** "PH Messenger"
 
 ### 2. **App Icons** ✅ **DECIDED**
 - [✅] **Icons Ready:**
-  - **Parenting Helper App:** `PHIcon/` folder
+  - **family helper App:** `PHIcon/` folder
     - iOS: `Assets.xcassets/AppIcon.appiconset/` (all required sizes)
     - Android: `android/mipmap-*/ic_launcher.png` (5 density buckets)
     - App Store: `appstore.png` (1024x1024)
@@ -723,7 +723,7 @@ Suggested:
 ### App Store Requirements ❓ **NEEDS COMPLETION**
 #### iOS App Store (Both Apps)
 - [ ] **Apple Developer Account** - Purchase before Phase 6 ($99/year)
-- [ ] **Check app name availability:** "Parenting Helper" and "PH Messenger"
+- [ ] **Check app name availability:** "family helper" and "PH Messenger"
 - [✅] **Privacy Policy URL:** Will host on parentinghelperapp.com
 - [✅] **Terms of Service URL:** Will host on parentinghelperapp.com
 - [✅] **Support email:** support@parentinghelperapp.com
@@ -731,7 +731,7 @@ Suggested:
 
 #### Google Play Store (Both Apps)
 - [ ] **Google Play Developer Account** - Purchase before Phase 6 ($25 one-time)
-- [ ] **Check app name availability:** "Parenting Helper" and "PH Messenger"
+- [ ] **Check app name availability:** "family helper" and "PH Messenger"
 - [✅] **Privacy Policy URL:** Same as iOS
 - [✅] **Target SDK:** Android 13+ (API level 33+)
 
@@ -745,7 +745,7 @@ Suggested:
 3. [ ] **Register domain name** (if needed for app)
 4. [ ] **Create Kinde account** and configure
 5. [ ] **Create Stripe account** and set up products
-6. [ ] **Decide on app names** (Parenting Helper + PH Messenger)
+6. [ ] **Decide on app names** (family helper + PH Messenger)
 7. [ ] **Check App Store availability** for both app names
 
 ### Week 2: Development Environment
@@ -754,7 +754,7 @@ Suggested:
    - Expo CLI (no Xcode/Android Studio needed!)
    - Terraform, AWS CLI
 9. [ ] **Create project structure:**
-   - `mobile-main/` (Parenting Helper)
+   - `mobile-main/` (family helper)
    - `mobile-messenger/` (PH Messenger)
    - `backend/` (Lambda functions)
    - `shared/` (Shared components)
@@ -814,7 +814,7 @@ Suggested:
 Since you haven't used GitHub Projects before, here's the setup:
 
 ### Board Structure
-**Project Name:** Parenting Helper - MVP1 Development
+**Project Name:** family helper - MVP1 Development
 
 **Columns:**
 1. **📋 Backlog** - Features/tasks not yet started
@@ -825,7 +825,7 @@ Since you haven't used GitHub Projects before, here's the setup:
 
 ### Labels (for organization)
 - `web-app` - Admin web app features
-- `mobile-main` - Parenting Helper mobile app
+- `mobile-main` - family helper mobile app
 - `mobile-messenger` - PH Messenger app
 - `backend` - API/Lambda functions
 - `infrastructure` - AWS/Terraform

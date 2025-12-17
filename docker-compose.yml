@@ -65,7 +65,7 @@ services:
       EMAIL_FROM: noreply@familyhelper.local
       # Auth - Kinde (Dev app)
       KINDE_DOMAIN: ${KINDE_DOMAIN:-https://familyhelperapp.kinde.com}
-      KINDE_CLIENT_ID: ${KINDE_CLIENT_ID:-552e8d9d29f046418a8dfce0b7f0de1b}
+      KINDE_CLIENT_ID: ${KINDE_CLIENT_ID:-de8522625a2048fd8b38a5307b20090e}
       KINDE_CLIENT_SECRET: ""
       # Stripe (use test keys for dev)
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}

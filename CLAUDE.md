@@ -1,4 +1,4 @@
-# Claude Code Instructions for Parenting Helper App
+# Claude Code Instructions for family helper App
 
 ## 🔒 ABSOLUTE RULE: Branch-Based Development & CI/CD Deployment
 
@@ -302,7 +302,7 @@ See `backend/controllers/groups.controller.js` - `POST /groups/:groupId/members`
 * Use consistent naming conventions, file structure, and architecture patterns as described in README.md.
 * The project has **3 products** built in sequence, sharing 1 backend:
   1. **`web-admin/`** - Admin Web App (React, built FIRST) - Subscriptions, payments, log exports
-  2. **`mobile-main/`** - Parenting Helper main app (React Native with Expo, built SECOND) - Messaging, calendar, finance (NO payments)
+  2. **`mobile-main/`** - family helper main app (React Native with Expo, built SECOND) - Messaging, calendar, finance (NO payments)
   3. **`mobile-messenger/`** - PH Messenger companion app (React Native with Expo, built THIRD) - Messaging only
 * Supporting infrastructure:
   * `backend/` - AWS Lambda functions (JavaScript/Node.js with JSDoc) - Shared by all 3 products
@@ -1090,7 +1090,7 @@ await prisma.auditLog.create({
 ### 3-Product Architecture
 * **Always** remember there are THREE products sharing the same backend:
   1. **Admin Web App** (web-admin/) - Subscriptions, payments, log exports (BUILT FIRST)
-  2. **Parenting Helper Mobile App** (mobile-main/) - Full features: messaging, calendar, finance (BUILT SECOND)
+  2. **family helper Mobile App** (mobile-main/) - Full features: messaging, calendar, finance (BUILT SECOND)
   3. **PH Messenger Mobile App** (mobile-messenger/) - Messaging only, biometric auth (BUILT THIRD)
 * **IMPORTANT**: Mobile apps have NO payment/subscription UI - they link to web app
   * Subscribe button → Opens parentinghelperapp.com/subscribe in browser
@@ -1126,7 +1126,7 @@ The app works without it. DO NOT try to "fix" this warning.
 | Setting | Value |
 |---------|-------|
 | Domain | https://familyhelperapp.kinde.com |
-| Client ID | bfbf86777e654654b374cf92f5719c74 |
+| Client ID | aa8f22665e164787ac554f97c1138ee0 |
 | Client Secret | NOT APPLICABLE |
 
 **Allowed Callback URLs:**
@@ -1148,7 +1148,7 @@ The app works without it. DO NOT try to "fix" this warning.
 | Setting | Value |
 |---------|-------|
 | Domain | https://familyhelperapp.kinde.com |
-| Client ID | 552e8d9d29f046418a8dfce0b7f0de1b |
+| Client ID | de8522625a2048fd8b38a5307b20090e |
 | Client Secret | NOT APPLICABLE |
 
 **Allowed Callback URLs:**

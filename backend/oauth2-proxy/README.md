@@ -219,7 +219,7 @@ docker-compose --profile oauth2-proxy down
 
    Contents:
    ```env
-   OAUTH2_PROXY_CLIENT_ID=bfbf86777e654654b374cf92f5719c74
+   OAUTH2_PROXY_CLIENT_ID=aa8f22665e164787ac554f97c1138ee0
    OAUTH2_PROXY_CLIENT_SECRET=your-kinde-client-secret
    OAUTH2_PROXY_COOKIE_SECRET=generate-with-openssl-rand-base64-32
    ```

@@ -39,7 +39,7 @@ If you decide to proceed with the architecture change from paid subscriptions to
 ```markdown
 **3 Products, 1 Backend Architecture (KISS Principle):**
 1. **Admin Web App** (parentinghelperapp.com) - Subscription management, payments, storage upgrades, log exports
-2. **Parenting Helper Mobile App** - Full co-parenting features: messaging, calendar, finance (NO payment features)
+2. **family helper Mobile App** - Full co-parenting features: messaging, calendar, finance (NO payment features)
 3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
@@ -52,7 +52,7 @@ If you decide to proceed with the architecture change from paid subscriptions to
 **Change To:**
 ```markdown
 **2 Products, 1 Backend Architecture (KISS Principle):**
-1. **Parenting Helper Mobile App** - Full co-parenting features: messaging, calendar, finance
+1. **family helper Mobile App** - Full co-parenting features: messaging, calendar, finance
 2. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
 **Key Architecture Decisions:**
@@ -413,10 +413,10 @@ Returns:
 ```markdown
 ## Google Drive Storage
 
-Parenting Helper stores your uploaded photos and files in YOUR Google Drive account, not on our servers.
+family helper stores your uploaded photos and files in YOUR Google Drive account, not on our servers.
 
 What we access:
-- Files created by Parenting Helper app only
+- Files created by family helper app only
 - We use the "drive.file" scope (app-created files only)
 - We CANNOT see your personal files, documents, or photos
 - We CANNOT see files from other apps
@@ -437,7 +437,7 @@ Data ownership:
 ```markdown
 ## Google Drive Integration
 
-By using Parenting Helper, you agree to:
+By using family helper, you agree to:
 1. Connect a Google account with Google Drive enabled
 2. Grant the app permission to create files in your Drive
 3. Maintain sufficient storage space in your Google Drive

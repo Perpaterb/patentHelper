@@ -246,7 +246,7 @@ Supervisor (This is a family Supervisor not a child supervisor. A child supervis
 
 **IMPORTANT: 3-Product Architecture**
 This app consists of 3 products sharing 1 backend:
-1. **Admin Web App** (parentinghelperapp.com) - Subscriptions, payments, log exports - BUILT FIRST
+1. **Admin Web App** (familyhelperapp.com) - Subscriptions, payments, log exports - BUILT FIRST
 2. **Parenting Helper Mobile App** - Full features (messaging, calendar, finance) - NO payment features - BUILT SECOND
 3. **PH Messenger Mobile App** - Messaging only - BUILT THIRD
 
@@ -280,10 +280,10 @@ App setting
 My Account (shows storage usage, links to web for billing)
 logout button
 All groups list
-Subscribe button (only if not subscribed) → Opens parentinghelperapp.com/subscribe in browser
+Subscribe button (only if not subscribed) → Opens familyhelperapp.com/subscribe in browser
 
 Subscription Management (Web App ONLY)
-ALL subscription/payment features happen on the web app at parentinghelperapp.com:
+ALL subscription/payment features happen on the web app at familyhelperapp.com:
 - View subscription plans ($3/month for 10GB)
 - Enter payment method (Stripe Elements)
 - Additional storage ($1 per 10GB)
@@ -344,7 +344,7 @@ Add and edit and remove all relationships.
 Allocate role preferences for the group
 Select denomination for finance
 Select date format
-Log Export (Web App ONLY): Admins go to parentinghelperapp.com/logs to request log exports. Admin specifies timeframe. Logs emailed as CSV with password-protected media links (valid 1 week). Mobile app shows link to web for log exports. 
+Log Export (Web App ONLY): Admins go to familyhelperapp.com/logs to request log exports. Admin specifies timeframe. Logs emailed as CSV with password-protected media links (valid 1 week). Mobile app shows link to web for log exports. 
 Assign a new admin (note this needs to be a subscriber)
 Settings Switches
 Parents can create message groups and send invites to members of the group
@@ -654,7 +654,7 @@ Gift Registry
   2. **Link with passcode** - Anyone with link + 6-digit passcode can view
   3. **Group only** - Only accessible via app to members of this group
 - System generates:
-  - Unique shareable web URL (e.g., parentinghelperapp.com/registry/abc123xyz)
+  - Unique shareable web URL (e.g., familyhelperapp.com/registry/abc123xyz)
   - 6-digit passcode (if passcode option selected, e.g., "482915")
 
 **Registry Management** (Creator + Admins only):
@@ -704,7 +704,7 @@ Each gift has:
 - Save/Cancel buttons
 
 **Public Web View** (External visitors):
-- Clean, mobile-responsive web page at parentinghelperapp.com/registry/{id}
+- Clean, mobile-responsive web page at familyhelperapp.com/registry/{id}
 - If passcode required: Show 6-digit input screen first
 - Registry name and creator first name only (privacy)
 - Grid of gift cards showing:
@@ -759,12 +759,12 @@ gift_items table:
 3. Enters name: "Emma's 10th Birthday"
 4. Selects "Public with link"
 5. Taps "Create"
-6. System generates: parentinghelperapp.com/registry/x7k9m2p
+6. System generates: familyhelperapp.com/registry/x7k9m2p
 7. User adds gifts: "Nintendo Switch", "Pokemon Cards", "Art Supplies"
 8. User shares link via text message to grandparents
 
 **Flow 2: Viewing a passcode-protected registry**
-1. Grandma receives link: parentinghelperapp.com/registry/a3b9z1x
+1. Grandma receives link: familyhelperapp.com/registry/a3b9z1x
 2. Opens link in browser
 3. Sees: "Enter passcode to view Emma's registry"
 4. Enters: 482915
