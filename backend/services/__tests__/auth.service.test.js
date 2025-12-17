@@ -160,8 +160,8 @@ describe('Auth Service', () => {
       const token = authService.generateAccessToken(testUser);
       const decoded = authService.verifyToken(token);
 
-      expect(decoded.iss).toBe('parenting-helper-api');
-      expect(decoded.aud).toBe('parenting-helper-app');
+      expect(decoded.iss).toBe('family-helper-api');
+      expect(decoded.aud).toBe('family-helper-app');
     });
 
     test('refresh token should have issuer and audience', () => {
@@ -172,8 +172,8 @@ describe('Auth Service', () => {
       const token = authService.generateRefreshToken(testUser);
       const decoded = authService.verifyToken(token);
 
-      expect(decoded.iss).toBe('parenting-helper-api');
-      expect(decoded.aud).toBe('parenting-helper-app');
+      expect(decoded.iss).toBe('family-helper-api');
+      expect(decoded.aud).toBe('family-helper-app');
     });
 
     test('tokens should have exp claim', () => {

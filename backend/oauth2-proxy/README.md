@@ -30,7 +30,7 @@ Currently oauth2-proxy is configured in "simple blocking" mode. This is a steppi
 └─────────────────────────────────────────────────────────────────────────────┘
 
 Why simple blocking?
-- API uses custom JWTs signed with JWT_SECRET (issuer: parenting-helper-api)
+- API uses custom JWTs signed with JWT_SECRET (issuer: family-helper-api)
 - oauth2-proxy validates Kinde tokens (issuer: https://familyhelperapp.kinde.com)
 - These are DIFFERENT tokens with DIFFERENT issuers
 - oauth2-proxy cannot validate API's custom JWTs

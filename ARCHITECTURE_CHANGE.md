@@ -41,7 +41,7 @@
    Google OAuth consent (allow app to store files)
      ↓
    App creates hidden folder in Google Drive:
-     /Parenting Helper App Data/
+     /Family Helper App Data/
        ├── media/
        │   ├── messages/
        │   ├── calendar/
@@ -399,7 +399,7 @@ CREATE TABLE donations (
 
 **Your Answer:**
 ```
-Parenting Helper stores your uploaded photos and files in YOUR
+Family Helper stores your uploaded photos and files in YOUR
 Google Drive, not on our servers. This means:
 
 ✅ You own your data (it's in YOUR Google account)
@@ -408,14 +408,14 @@ Google Drive, not on our servers. This means:
 ✅ We can keep the app 100% FREE (no storage costs!)
 
 We only access:
-- Files created by Parenting Helper (not your personal files)
+- Files created by Family Helper (not your personal files)
 - We never see your documents, photos, or other apps' data
 
 Think of it like WhatsApp backup to Google Drive!
 ```
 
 **Consent Screen (Google OAuth):**
-- App Name: Parenting Helper
+- App Name: Family Helper
 - Permissions: "See and manage files created by this app"
 - User can revoke anytime
 
@@ -448,7 +448,7 @@ Think of it like WhatsApp backup to Google Drive!
 
 1. **Announcement (30 days notice)**
    ```
-   Big News! Parenting Helper is now 100% FREE!
+   Big News! Family Helper is now 100% FREE!
 
    Changes:
    - No more subscriptions (your current plan will end 2025-12-31)

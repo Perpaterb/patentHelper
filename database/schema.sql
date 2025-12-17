@@ -1,7 +1,7 @@
--- Parenting Helper App - Database Schema
+-- Family Helper App - Database Schema
 -- PostgreSQL 13+
 -- Created: 2025-10-18
--- Description: Complete database schema for parenting/co-parenting coordination app
+-- Description: Complete database schema for family/co-parenting coordination app
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

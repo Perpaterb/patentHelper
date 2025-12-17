@@ -145,7 +145,7 @@ No groups or messages can ever be deleted. They can only be hidden from non grou
 
 Every change message edits,,, everything that happens on a group is logged with a timestamp of the people that did it. groups admins can download this log at any point. The log, images and videos for each group are backed up in each admin's storage and can only be deleted by a user after they have left a group. Eash admin's storage is taken up by everything put into a group. 
 
-**Mobile App Structure** (Parenting Helper):
+**Mobile App Structure** (Family Helper):
 Login screen
 \/
 Home page
@@ -247,7 +247,7 @@ Supervisor (This is a family Supervisor not a child supervisor. A child supervis
 **IMPORTANT: 3-Product Architecture**
 This app consists of 3 products sharing 1 backend:
 1. **Admin Web App** (familyhelperapp.com) - Subscriptions, payments, log exports - BUILT FIRST
-2. **Parenting Helper Mobile App** - Full features (messaging, calendar, finance) - NO payment features - BUILT SECOND
+2. **Family Helper Mobile App** - Full features (messaging, calendar, finance) - NO payment features - BUILT SECOND
 3. **PH Messenger Mobile App** - Messaging only - BUILT THIRD
 
 **Payment/Subscription Management:**
@@ -714,7 +714,7 @@ Each gift has:
   - Cost (if provided)
   - Description (if provided)
 - No edit capabilities (read-only for external viewers)
-- "Powered by Parenting Helper" footer with link to sign up
+- "Powered by Family Helper" footer with link to sign up
 
 **Integration with Secret Santa**:
 - Gift registries will be used in Secret Santa feature
@@ -785,7 +785,7 @@ Key Features:
 - Opens directly to message groups list
 - Only shows message groups the user is a member of
 - Full message functionality: send text, images, videos, @mentions
-- Real-time sync with main Parenting Helper app
+- Real-time sync with main Family Helper app
 - Notification badges for unread messages and @mentions
 - Users can create message groups (if their role allows)
 - Cannot access: Calendar, Finance, Admin settings, Group settings
@@ -829,7 +829,7 @@ membership is me and my ex-wife as the parents both admins. our children, Their 
 
 UC2:
 Parents have locked down the phones of their children so that the children can only use PH Messenger to message people.
-Children without a restricted phone can use either the main Parenting Helper app or PH Messenger.
+Children without a restricted phone can use either the main Family Helper app or PH Messenger.
 Admins can monitor the children's conversations via audit logs in the main app.
 The level of privacy of the children can be discussed and managed by the parents.
 Message groups can be setup for all the individual connections between children or children can have access to create new message groups including anyone in the group.

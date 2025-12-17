@@ -85,7 +85,7 @@ Edit `android/app/build.gradle`:
 
 ```groovy
 defaultConfig {
-    applicationId 'com.parentinghelper.app'
+    applicationId 'com.familyhelper.app'
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 2        // Increment for EVERY release (Google Play requires this)
@@ -129,7 +129,7 @@ ls -la app/build/outputs/apk/release/app-release.apk
 ### Step 5: Copy to Releases Folder
 
 ```bash
-cp app/build/outputs/apk/release/app-release.apk ../releases/parenting-helper-v1.1.0.apk
+cp app/build/outputs/apk/release/app-release.apk ../releases/family-helper-v1.1.0.apk
 ```
 
 ### Step 6: Restore Dev Environment

@@ -32,8 +32,8 @@ function generateAccessToken(user) {
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
-    issuer: 'parenting-helper-api',
-    audience: 'parenting-helper-app',
+    issuer: 'family-helper-api',
+    audience: 'family-helper-app',
   });
 }
 
@@ -50,8 +50,8 @@ function generateRefreshToken(user) {
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_REFRESH_EXPIRES_IN,
-    issuer: 'parenting-helper-api',
-    audience: 'parenting-helper-app',
+    issuer: 'family-helper-api',
+    audience: 'family-helper-app',
   });
 }
 
@@ -64,8 +64,8 @@ function generateRefreshToken(user) {
 function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET, {
-      issuer: 'parenting-helper-api',
-      audience: 'parenting-helper-app',
+      issuer: 'family-helper-api',
+      audience: 'family-helper-app',
     });
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

@@ -1,7 +1,7 @@
 # Photo & Video Upload Implementation Plan
 
 ## Overview
-This document outlines the complete implementation of photo/video upload functionality across the Parenting Helper app, with proper storage tracking for admin billing.
+This document outlines the complete implementation of photo/video upload functionality across the Family Helper app, with proper storage tracking for admin billing.
 
 ## Architecture Summary
 

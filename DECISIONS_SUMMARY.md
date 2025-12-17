@@ -1,6 +1,6 @@
 # Complete Decisions Summary
 
-**Project:** Parenting Helper App
+**Project:** Family Helper App
 **Date:** 2025-10-22
 **Status:** 🎉 Phase 2 Complete - Web Admin App Operational | Ready for Phase 3 (Mobile App)
 
@@ -13,7 +13,7 @@ This document contains every decision made during the planning phase. Use this a
 ### Product Structure
 - [✅] **3 separate products** sharing one backend (KISS principle)
   1. **Admin Web App** (familyhelperapp.com) - React - BUILT FIRST
-  2. **Parenting Helper Mobile** - React Native - BUILT SECOND
+  2. **Family Helper Mobile** - React Native - BUILT SECOND
   3. **PH Messenger Mobile** - React Native - BUILT THIRD
 
 ### Key Architectural Decision
@@ -81,11 +81,11 @@ This document contains every decision made during the planning phase. Use this a
 ## 🎨 DESIGN & UX
 
 ### App Names
-- [✅] **Main App:** "Parenting Helper"
+- [✅] **Main App:** "Family Helper"
 - [✅] **Messenger App:** "PH Messenger"
 
 ### App Icons
-- [✅] **Parenting Helper App:** PHIcon/ folder
+- [✅] **Family Helper App:** PHIcon/ folder
   - iOS: Assets.xcassets/AppIcon.appiconset/ (all required sizes)
   - Android: android/mipmap-* folders (hdpi, mdpi, xhdpi, xxhdpi, xxxhdpi)
   - App Store: appstore.png (1024x1024)

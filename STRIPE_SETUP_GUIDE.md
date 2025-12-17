@@ -18,7 +18,7 @@ This guide will help you configure Stripe for testing the subscription flow.
 ### Product 1: Admin Subscription
 
 - **Name**: Admin Subscription
-- **Description**: Monthly subscription for admin access to Parenting Helper
+- **Description**: Monthly subscription for admin access to Family Helper
 - **Pricing model**: Standard pricing
 - **Price**: $8.00 AUD
 - **Billing period**: Monthly

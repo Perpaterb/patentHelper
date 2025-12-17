@@ -1,6 +1,6 @@
 # Local Development Setup Guide
 
-Complete guide for setting up the Parenting Helper local development environment.
+Complete guide for setting up the Family Helper local development environment.
 
 ## Prerequisites
 
@@ -170,7 +170,7 @@ npm start
 
 You should see:
 ```
-🚀 Parenting Helper API Server
+🚀 Family Helper API Server
 ================================
 Environment: development
 Server: http://localhost:3000
@@ -186,7 +186,7 @@ Health Check: http://localhost:3000/health
 Create `web-admin/.env`:
 
 ```env
-# Parenting Helper - Admin Web App Local Development
+# Family Helper - Admin Web App Local Development
 
 # API Configuration (Local backend)
 EXPO_PUBLIC_API_URL=http://localhost:3000
@@ -202,7 +202,7 @@ EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=http://localhost:8081
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51ISwOGEgo6t5nkunguEjhvUFsRM9PGIhUE8LK1qc4nuhWyshD7ps1v2JDsVRFWusHSEysXGmd8LIcCtFiB4zyaQ600NdPpDKuF
 
 # App Configuration
-EXPO_PUBLIC_APP_NAME=Parenting Helper Admin
+EXPO_PUBLIC_APP_NAME=Family Helper Admin
 EXPO_PUBLIC_APP_VERSION=1.0.0
 EXPO_PUBLIC_APP_ENVIRONMENT=development
 

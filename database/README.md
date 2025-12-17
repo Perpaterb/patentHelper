@@ -44,7 +44,7 @@ psql family_helper_dev -c "\dt"
 ```bash
 # Run PostgreSQL in Docker
 docker run -d \
-  --name parenting-helper-db \
+  --name family-helper-db \
   -e POSTGRES_DB=family_helper_dev \
   -e POSTGRES_USER=dev_user \
   -e POSTGRES_PASSWORD=dev_password \
@@ -52,10 +52,10 @@ docker run -d \
   postgres:15
 
 # Import schema
-docker exec -i parenting-helper-db psql -U dev_user family_helper_dev < database/schema.sql
+docker exec -i family-helper-db psql -U dev_user family_helper_dev < database/schema.sql
 
 # Connect to database
-docker exec -it parenting-helper-db psql -U dev_user family_helper_dev
+docker exec -it family-helper-db psql -U dev_user family_helper_dev
 ```
 
 ## Schema Overview
@@ -165,7 +165,7 @@ npx knex migrate:latest
 DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/family_helper_dev
 
 # Production (AWS RDS)
-DATABASE_URL=postgresql://username:password@rds-endpoint.amazonaws.com:5432/parenting_helper_prod
+DATABASE_URL=postgresql://username:password@rds-endpoint.amazonaws.com:5432/family_helper_prod
 ```
 
 ## Indexes
@@ -252,18 +252,18 @@ ORDER BY ce.start_time;
 ### Manual Backup
 ```bash
 # Full dump
-pg_dump parenting_helper_prod > backup_$(date +%Y%m%d).sql
+pg_dump family_helper_prod > backup_$(date +%Y%m%d).sql
 
 # Schema only
-pg_dump --schema-only parenting_helper_prod > schema_backup.sql
+pg_dump --schema-only family_helper_prod > schema_backup.sql
 
 # Data only
-pg_dump --data-only parenting_helper_prod > data_backup.sql
+pg_dump --data-only family_helper_prod > data_backup.sql
 ```
 
 ### Restore
 ```bash
-psql parenting_helper_prod < backup_20251018.sql
+psql family_helper_prod < backup_20251018.sql
 ```
 
 ## Performance Optimization

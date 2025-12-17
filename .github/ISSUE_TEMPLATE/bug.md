@@ -12,7 +12,7 @@ assignees: ''
 ## Product
 <!-- Where did you find this bug? -->
 - [ ] Web App (Admin Portal)
-- [ ] Mobile Main App (Parenting Helper)
+- [ ] Mobile Main App (Family Helper)
 - [ ] Mobile Messenger (PH Messenger)
 - [ ] Backend (API/Lambda)
 - [ ] Infrastructure (AWS/Terraform)

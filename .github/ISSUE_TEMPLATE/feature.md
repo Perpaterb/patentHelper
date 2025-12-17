@@ -12,7 +12,7 @@ assignees: ''
 ## Product
 <!-- Which product does this affect? -->
 - [ ] Web App (Admin Portal)
-- [ ] Mobile Main App (Parenting Helper)
+- [ ] Mobile Main App (Family Helper)
 - [ ] Mobile Messenger (PH Messenger)
 - [ ] Backend (API/Lambda)
 - [ ] Infrastructure (AWS/Terraform)

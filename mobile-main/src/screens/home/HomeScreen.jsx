@@ -188,7 +188,7 @@ export default function HomeScreen({ navigation, onLogout }) {
             </Button>
 
             <Text style={styles.helperText}>
-              Opens parentinghelperapp.com in your browser
+              Opens familyhelperapp.com in your browser
             </Text>
           </Card.Content>
         </Card>

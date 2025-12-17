@@ -1,6 +1,6 @@
 # Development Environment Setup Guide
 
-Complete guide to setting up your local development environment for Parenting Helper App.
+Complete guide to setting up your local development environment for Family Helper App.
 
 ---
 
@@ -169,7 +169,7 @@ docker-compose logs -f postgres
 
 ```bash
 # Connect to database CLI
-docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
+docker-compose exec postgres psql -U dev_user -d family_helper_dev
 
 # Inside psql:
 \dt              # List tables (should show 23 tables)

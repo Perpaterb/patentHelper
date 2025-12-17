@@ -622,7 +622,7 @@ Event: [Event Name]
 Price Limit: $[Amount] (if provided)
 Exchange Date: [Date] (if provided)
 
-To join, please sign up for Parenting Helper:
+To join, please sign up for Family Helper:
 [Sign Up Link]
 
 After signing up, you'll be able to:

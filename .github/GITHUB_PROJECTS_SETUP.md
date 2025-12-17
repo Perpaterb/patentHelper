@@ -1,6 +1,6 @@
 # GitHub Projects Setup Guide
 
-Complete guide to setting up GitHub Projects for tracking Parenting Helper development.
+Complete guide to setting up GitHub Projects for tracking Family Helper development.
 
 ---
 
@@ -12,7 +12,7 @@ Complete guide to setting up GitHub Projects for tracking Parenting Helper devel
 2. Click **"Projects"** tab at the top
 3. Click **"New project"**
 4. Choose **"Board"** view
-5. Name it: **"Parenting Helper - MVP1 Development"**
+5. Name it: **"Family Helper - MVP1 Development"**
 6. Click **"Create"**
 
 ### Step 2: Configure Columns
@@ -43,7 +43,7 @@ Create these labels:
 | Label | Color | Description |
 |-------|-------|-------------|
 | `web-app` | `#0E8A16` (green) | Admin web app features |
-| `mobile-main` | `#1D76DB` (blue) | Parenting Helper mobile app |
+| `mobile-main` | `#1D76DB` (blue) | Family Helper mobile app |
 | `mobile-messenger` | `#5319E7` (purple) | PH Messenger app |
 | `backend` | `#FBCA04` (yellow) | API/Lambda functions |
 | `infrastructure` | `#D93F0B` (orange) | AWS/Terraform |

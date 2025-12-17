@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document specifies 5 new features to be added to the Parenting Helper app:
+This document specifies 5 new features to be added to the Family Helper app:
 
 1. **Wiki** - Collaborative knowledge base
 2. **To-Do Lists** - Shared task/shopping lists

@@ -1,4 +1,4 @@
-# Next Steps - Parenting Helper Development
+# Next Steps - Family Helper Development
 
 ## Current Status (Updated: 2025-11-04)
 

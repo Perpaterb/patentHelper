@@ -52,11 +52,11 @@ router.get('/app-version', (req, res) => {
   const appStoreUrls = {
     mobileMain: {
       ios: process.env.APP_STORE_URL_MAIN_IOS || 'https://apps.apple.com/app/family-helper/id000000000',
-      android: process.env.APP_STORE_URL_MAIN_ANDROID || 'https://play.google.com/store/apps/details?id=com.parentinghelper.app',
+      android: process.env.APP_STORE_URL_MAIN_ANDROID || 'https://play.google.com/store/apps/details?id=com.familyhelper.app',
     },
     mobileMessenger: {
       ios: process.env.APP_STORE_URL_MESSENGER_IOS || 'https://apps.apple.com/app/ph-messenger/id000000001',
-      android: process.env.APP_STORE_URL_MESSENGER_ANDROID || 'https://play.google.com/store/apps/details?id=com.parentinghelper.messenger',
+      android: process.env.APP_STORE_URL_MESSENGER_ANDROID || 'https://play.google.com/store/apps/details?id=com.familyhelper.messenger',
     },
   };
 

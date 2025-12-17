@@ -66,8 +66,8 @@ Expected response:
   "minVersion": "1.1.0",
   "currentVersion": "1.1.0",
   "updateUrl": {
-    "ios": "https://apps.apple.com/app/parenting-helper/id000000000",
-    "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
+    "ios": "https://apps.apple.com/app/family-helper/id000000000",
+    "android": "https://play.google.com/store/apps/details?id=com.familyhelper.app"
   }
 }
 ```
@@ -199,5 +199,5 @@ When a user opens the app with version 1.0.9 and minVersion is 1.1.0:
 ### "Update Now" not opening store
 
 1. Check Play Store URL is correct in Lambda env vars
-2. Verify URL format: `https://play.google.com/store/apps/details?id=com.parentinghelper.app`
+2. Verify URL format: `https://play.google.com/store/apps/details?id=com.familyhelper.app`
 3. On emulator, Play Store may not be available

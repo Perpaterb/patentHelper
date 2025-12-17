@@ -79,7 +79,7 @@ Returns minimum required app versions for mobile apps. Used to force users to up
     "currentVersion": "1.0.0",
     "updateUrl": {
       "ios": "https://apps.apple.com/app/family-helper/id000000000",
-      "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
+      "android": "https://play.google.com/store/apps/details?id=com.familyhelper.app"
     }
   },
   "mobileMessenger": {
@@ -87,7 +87,7 @@ Returns minimum required app versions for mobile apps. Used to force users to up
     "currentVersion": "1.0.0",
     "updateUrl": {
       "ios": "https://apps.apple.com/app/ph-messenger/id000000001",
-      "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.messenger"
+      "android": "https://play.google.com/store/apps/details?id=com.familyhelper.messenger"
     }
   }
 }
@@ -100,7 +100,7 @@ Returns minimum required app versions for mobile apps. Used to force users to up
   "currentVersion": "1.0.0",
   "updateUrl": {
     "ios": "https://apps.apple.com/app/family-helper/id000000000",
-    "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
+    "android": "https://play.google.com/store/apps/details?id=com.familyhelper.app"
   }
 }
 ```
