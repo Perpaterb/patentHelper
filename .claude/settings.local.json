@@ -147,7 +147,9 @@
       "Bash(~/.local/bin/aws s3 cp:*)",
       "Bash(./scripts/deploy-lightsail.sh:*)",
       "Bash(~/.local/bin/aws s3 ls:*)",
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose logs:*)"
     ],
     "deny": [],
     "ask": []
