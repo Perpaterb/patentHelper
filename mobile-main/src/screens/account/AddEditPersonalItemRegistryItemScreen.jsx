@@ -381,6 +381,7 @@ export default function AddEditPersonalItemRegistryItemScreen({ navigation, rout
                 <MediaPicker
                   onSelect={handlePhotoSelect}
                   mediaType="photo"
+                  maxSize={5 * 1024 * 1024}
                   allowMultiple={false}
                   imageQuality={0.8}
                   label={uploading ? `Uploading... ${uploadProgress}%` : 'Add Photo'}
@@ -395,7 +396,7 @@ export default function AddEditPersonalItemRegistryItemScreen({ navigation, rout
             )}
 
             <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-              Upload an item image
+              Upload an item image (max 5MB)
             </HelperText>
           </View>
 

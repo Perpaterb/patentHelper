@@ -135,9 +135,9 @@ async function uploadFile(req, res) {
       'messages': 200 * 1024 * 1024,       // 200MB for messages (videos)
       'calendar': 200 * 1024 * 1024,       // 200MB for calendar (videos)
       'finance': 100 * 1024 * 1024,        // 100MB for documents
-      'gift-registry': 100 * 1024 * 1024,  // 100MB for images (no strict limit)
+      'gift-registry': 5 * 1024 * 1024,    // 5MB for images (not counted against admin storage)
       'wiki': 100 * 1024 * 1024,           // 100MB for documents
-      'item-registry': 100 * 1024 * 1024,  // 100MB for images (no strict limit)
+      'item-registry': 5 * 1024 * 1024,    // 5MB for images (not counted against admin storage)
       'secure-documents': 100 * 1024 * 1024, // 100MB for secure documents
       'audio': 100 * 1024 * 1024,          // 100MB for audio recordings (10 min high quality)
     };
@@ -447,9 +447,9 @@ async function uploadMultipleFiles(req, res) {
       'messages': 200 * 1024 * 1024,       // 200MB for messages (videos)
       'calendar': 200 * 1024 * 1024,       // 200MB for calendar (videos)
       'finance': 100 * 1024 * 1024,        // 100MB for documents
-      'gift-registry': 100 * 1024 * 1024,  // 100MB for images (no strict limit)
+      'gift-registry': 5 * 1024 * 1024,    // 5MB for images (not counted against admin storage)
       'wiki': 100 * 1024 * 1024,           // 100MB for documents
-      'item-registry': 100 * 1024 * 1024,  // 100MB for images (no strict limit)
+      'item-registry': 5 * 1024 * 1024,    // 5MB for images (not counted against admin storage)
       'secure-documents': 100 * 1024 * 1024, // 100MB for secure documents
       'audio': 100 * 1024 * 1024,          // 100MB for audio recordings (10 min high quality)
     };
