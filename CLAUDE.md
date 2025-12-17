@@ -1126,7 +1126,7 @@ The app works without it. DO NOT try to "fix" this warning.
 | Setting | Value |
 |---------|-------|
 | Domain | https://familyhelperapp.kinde.com |
-| Client ID | aa8f22665e164787ac554f97c1138ee0 |
+| Client ID | bfbf86777e654654b374cf92f5719c74 |
 | Client Secret | NOT APPLICABLE |
 
 **Allowed Callback URLs:**
@@ -1148,7 +1148,7 @@ The app works without it. DO NOT try to "fix" this warning.
 | Setting | Value |
 |---------|-------|
 | Domain | https://familyhelperapp.kinde.com |
-| Client ID | de8522625a2048fd8b38a5307b20090e |
+| Client ID | 552e8d9d29f046418a8dfce0b7f0de1b |
 | Client Secret | NOT APPLICABLE |
 
 **Allowed Callback URLs:**

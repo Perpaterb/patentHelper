@@ -253,7 +253,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
           EXPO_PUBLIC_API_URL: "https://familyhelperapp.com"
           EXPO_PUBLIC_KINDE_DOMAIN: "https://familyhelperapp.kinde.com"
-          EXPO_PUBLIC_KINDE_CLIENT_ID: "aa8f22665e164787ac554f97c1138ee0"
+          EXPO_PUBLIC_KINDE_CLIENT_ID: "bfbf86777e654654b374cf92f5719c74"
           EXPO_PUBLIC_KINDE_REDIRECT_URI: "https://familyhelperapp.com/auth/callback"
           EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI: "https://familyhelperapp.com"
           EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
