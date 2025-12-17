@@ -1,8 +1,8 @@
-# Parenting Helper Mobile App - Navigation Structure
+# Family Helper Mobile App - Navigation Structure
 
 ## CRITICAL: Full App Navigation Hierarchy
 
-**This is the FULL Parenting Helper app, NOT the messaging-only PH Messenger app.**
+**This is the FULL Family Helper app, NOT the messaging-only PH Messenger app.**
 
 ## App Flow
 

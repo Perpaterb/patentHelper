@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Parenting Helper app includes a mechanism to force users to update when critical updates are released. This ensures all users are on a minimum required version before they can use the app.
+The Family Helper app includes a mechanism to force users to update when critical updates are released. This ensures all users are on a minimum required version before they can use the app.
 
 ## How It Works
 

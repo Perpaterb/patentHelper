@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Parenting Helper",
+    "name": "Family Helper",
     "slug": "family-helper",
-    "version": "1.0.0",
-    "scheme": "parentinghelper",
+    "version": "1.0.1",
+    "scheme": "familyhelper",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

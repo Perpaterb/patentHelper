@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers the Android build process for the Parenting Helper mobile app, including local builds, signing, and Google Play deployment.
+This document covers the Android build process for the Family Helper mobile app, including local builds, signing, and Google Play deployment.
 
 ## Prerequisites
 
@@ -45,8 +45,8 @@ Before building for release, ensure `.env` has production values:
 EXPO_PUBLIC_API_URL=https://familyhelperapp.com
 EXPO_PUBLIC_KINDE_DOMAIN=familyhelperapp.kinde.com
 EXPO_PUBLIC_KINDE_CLIENT_ID=bfbf86777e654654b374cf92f5719c74
-EXPO_PUBLIC_KINDE_REDIRECT_URI=parentinghelper://callback
-EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=parentinghelper://
+EXPO_PUBLIC_KINDE_REDIRECT_URI=familyhelper://callback
+EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=familyhelper://
 EXPO_PUBLIC_WEB_URL=https://familyhelperapp.com
 ```
 
@@ -73,8 +73,8 @@ cat > .env << 'EOF'
 EXPO_PUBLIC_API_URL=https://familyhelperapp.com
 EXPO_PUBLIC_KINDE_DOMAIN=familyhelperapp.kinde.com
 EXPO_PUBLIC_KINDE_CLIENT_ID=bfbf86777e654654b374cf92f5719c74
-EXPO_PUBLIC_KINDE_REDIRECT_URI=parentinghelper://callback
-EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=parentinghelper://
+EXPO_PUBLIC_KINDE_REDIRECT_URI=familyhelper://callback
+EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI=familyhelper://
 EXPO_PUBLIC_WEB_URL=https://familyhelperapp.com
 EOF
 ```
@@ -152,7 +152,7 @@ cp .env.dev.backup .env
 1. Create Google Play Developer Account ($25): https://play.google.com/console/signup
 2. Create new app in Play Console
 3. Fill out store listing:
-   - App name: "Parenting Helper"
+   - App name: "Family Helper"
    - Short description (80 chars max)
    - Full description (4000 chars max)
    - Screenshots (phone, tablet)

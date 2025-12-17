@@ -1,4 +1,4 @@
-# Parenting Helper Backend API
+# Family Helper Backend API
 
 Local Express.js API server for development. Converts to AWS Lambda in Phase 6.
 

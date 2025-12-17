@@ -1,4 +1,4 @@
-# Parenting Helper Mobile App - User Stories & Test Planning
+# Family Helper Mobile App - User Stories & Test Planning
 
 **Version**: 1.1
 **Last Updated**: 2025-12-02
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document outlines comprehensive user stories for the Parenting Helper mobile app (mobile-main). Each story includes acceptance criteria, edge cases, error scenarios, and role-based variations.
+This document outlines comprehensive user stories for the Family Helper mobile app (mobile-main). Each story includes acceptance criteria, edge cases, error scenarios, and role-based variations.
 
 **Key Roles**:
 - Admin (A) - Group administrator with subscription requirement

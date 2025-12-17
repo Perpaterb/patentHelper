@@ -1,5 +1,5 @@
 /**
- * Parenting Helper API Server (Local Development)
+ * Family Helper API Server (Local Development)
  *
  * This Express.js server provides the backend API for local development.
  * In Phase 6, controllers/services will be converted to AWS Lambda functions.
@@ -125,7 +125,7 @@ if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 3000;
   const server = app.listen(PORT, () => {
     console.log('');
-    console.log('🚀 Parenting Helper API Server');
+    console.log('🚀 Family Helper API Server');
     console.log('================================');
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Server: http://localhost:${PORT}`);

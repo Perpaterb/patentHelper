@@ -28,7 +28,7 @@ const config = {
 
   // App Configuration
   app: {
-    name: process.env.EXPO_PUBLIC_APP_NAME || 'Parenting Helper Admin',
+    name: process.env.EXPO_PUBLIC_APP_NAME || 'Family Helper Admin',
     version: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
     environment: process.env.EXPO_PUBLIC_APP_ENVIRONMENT || 'development',
   },

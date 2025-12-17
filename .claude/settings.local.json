@@ -146,7 +146,8 @@
       "Bash(~/.local/bin/aws s3 sync:*)",
       "Bash(~/.local/bin/aws s3 cp:*)",
       "Bash(./scripts/deploy-lightsail.sh:*)",
-      "Bash(~/.local/bin/aws s3 ls:*)"
+      "Bash(~/.local/bin/aws s3 ls:*)",
+      "Bash(file:*)"
     ],
     "deny": [],
     "ask": []

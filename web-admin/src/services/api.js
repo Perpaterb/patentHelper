@@ -1,7 +1,7 @@
 /**
  * API Service
  *
- * Axios instance configured for the Parenting Helper API.
+ * Axios instance configured for the Family Helper API.
  * Handles authentication tokens, error handling, and request/response interceptors.
  */
 

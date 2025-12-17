@@ -19,14 +19,14 @@
 function welcome(data) {
   const { userName, loginUrl } = data;
 
-  const subject = 'Welcome to Parenting Helper!';
+  const subject = 'Welcome to Family Helper!';
 
   const text = `
 Hi ${userName},
 
-Welcome to Parenting Helper! We're excited to have you on board.
+Welcome to Family Helper! We're excited to have you on board.
 
-Parenting Helper makes co-parenting easier with:
+Family Helper makes co-parenting easier with:
 - Secure messaging between parents, children, and caregivers
 - Shared calendar for scheduling and responsibilities
 - Financial tracking for child-related expenses
@@ -46,16 +46,16 @@ After the trial, subscribe for just $3 USD/month to continue as an admin.
 Need help? Reply to this email or visit our support page.
 
 Best regards,
-The Parenting Helper Team
+The Family Helper Team
 `.trim();
 
   const html = `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-  <h1 style="color: #2c3e50;">Welcome to Parenting Helper!</h1>
+  <h1 style="color: #2c3e50;">Welcome to Family Helper!</h1>
 
   <p>Hi ${userName},</p>
 
-  <p>We're excited to have you on board! Parenting Helper makes co-parenting easier with:</p>
+  <p>We're excited to have you on board! Family Helper makes co-parenting easier with:</p>
 
   <ul>
     <li>Secure messaging between parents, children, and caregivers</li>
@@ -96,7 +96,7 @@ The Parenting Helper Team
 
   <p style="color: #7f8c8d; font-size: 14px;">
     Best regards,<br>
-    The Parenting Helper Team
+    The Family Helper Team
   </p>
 </div>
 `.trim();
@@ -117,14 +117,14 @@ The Parenting Helper Team
 function trial_reminder(data) {
   const { userName, daysLeft, subscribeUrl } = data;
 
-  const subject = `Your Parenting Helper trial expires in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`;
+  const subject = `Your Family Helper trial expires in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`;
 
   const text = `
 Hi ${userName},
 
-Your 20-day free trial of Parenting Helper will expire in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.
+Your 20-day free trial of Family Helper will expire in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.
 
-To continue using Parenting Helper as a group admin, please subscribe before your trial ends.
+To continue using Family Helper as a group admin, please subscribe before your trial ends.
 
 Subscription Details:
 - Price: $3 USD/month
@@ -142,7 +142,7 @@ What happens if you don't subscribe:
 Questions? Reply to this email and we'll help.
 
 Best regards,
-The Parenting Helper Team
+The Family Helper Team
 `.trim();
 
   const html = `
@@ -153,7 +153,7 @@ The Parenting Helper Team
 
   <p>Your 20-day free trial will expire in <strong>${daysLeft} day${daysLeft > 1 ? 's' : ''}</strong>.</p>
 
-  <p>To continue using Parenting Helper as a group admin, please subscribe before your trial ends.</p>
+  <p>To continue using Family Helper as a group admin, please subscribe before your trial ends.</p>
 
   <div style="background: #ecf0f1; padding: 20px; border-radius: 4px; margin: 20px 0;">
     <h2 style="color: #2c3e50; margin-top: 0;">Subscription Details</h2>
@@ -184,7 +184,7 @@ The Parenting Helper Team
 
   <p style="color: #7f8c8d; font-size: 14px;">
     Best regards,<br>
-    The Parenting Helper Team
+    The Family Helper Team
   </p>
 </div>
 `.trim();
@@ -235,7 +235,7 @@ Important:
 Questions? Reply to this email.
 
 Best regards,
-The Parenting Helper Team
+The Family Helper Team
 `.trim();
 
   const html = `
@@ -287,7 +287,7 @@ The Parenting Helper Team
 
   <p style="color: #7f8c8d; font-size: 14px;">
     Best regards,<br>
-    The Parenting Helper Team
+    The Family Helper Team
   </p>
 </div>
 `.trim();

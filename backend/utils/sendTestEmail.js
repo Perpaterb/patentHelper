@@ -39,7 +39,7 @@ async function sendTrialReminderEmail() {
     const result = await emailService.sendTemplate('trial_reminder', 'test@example.com', {
       userName: 'John Doe',
       daysLeft: 3,
-      subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+      subscribeUrl: 'http://familyhelperapp.com/subscribe',
     });
     console.log('✅ Trial reminder email sent successfully');
     console.log(`   Message ID: ${result.messageId}`);
@@ -72,7 +72,7 @@ async function sendBasicEmail() {
   try {
     const result = await emailService.sendEmail({
       to: 'test@example.com',
-      subject: 'Test Email from Parenting Helper',
+      subject: 'Test Email from Family Helper',
       text: 'This is a plain text test email.',
       html: '<h1>Test Email</h1><p>This is an <strong>HTML</strong> test email.</p>',
     });

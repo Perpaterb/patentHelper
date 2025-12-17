@@ -20,8 +20,8 @@ export const CONFIG = {
   KINDE_LOGOUT_REDIRECT_URI: process.env.EXPO_PUBLIC_KINDE_LOGOUT_REDIRECT_URI || '',
 
   // App Configuration
-  APP_NAME: 'Parenting Helper',
-  APP_VERSION: '1.0.0',
+  APP_NAME: 'Family Helper',
+  APP_VERSION: '1.0.1',
 
   // Storage Keys
   STORAGE_KEYS: {

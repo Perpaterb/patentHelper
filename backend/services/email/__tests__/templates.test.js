@@ -17,7 +17,7 @@ describe('Email Templates', () => {
       const result = welcome(data);
 
       expect(result).toBeDefined();
-      expect(result.subject).toBe('Welcome to Parenting Helper!');
+      expect(result.subject).toBe('Welcome to Family Helper!');
       expect(result.text).toBeDefined();
       expect(result.html).toBeDefined();
     });
@@ -64,7 +64,7 @@ describe('Email Templates', () => {
       const data = {
         userName: 'John Doe',
         daysLeft: 5,
-        subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+        subscribeUrl: 'http://familyhelperapp.com/subscribe',
       };
 
       const result = trial_reminder(data);
@@ -80,7 +80,7 @@ describe('Email Templates', () => {
       const data = {
         userName: 'John Doe',
         daysLeft: 3,
-        subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+        subscribeUrl: 'http://familyhelperapp.com/subscribe',
       };
 
       const result = trial_reminder(data);
@@ -92,7 +92,7 @@ describe('Email Templates', () => {
       const data = {
         userName: 'Jane Smith',
         daysLeft: 5,
-        subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+        subscribeUrl: 'http://familyhelperapp.com/subscribe',
       };
 
       const result = trial_reminder(data);
@@ -105,20 +105,20 @@ describe('Email Templates', () => {
       const data = {
         userName: 'John Doe',
         daysLeft: 5,
-        subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+        subscribeUrl: 'http://familyhelperapp.com/subscribe',
       };
 
       const result = trial_reminder(data);
 
-      expect(result.text).toContain('http://parentinghelperapp.com/subscribe');
-      expect(result.html).toContain('http://parentinghelperapp.com/subscribe');
+      expect(result.text).toContain('http://familyhelperapp.com/subscribe');
+      expect(result.html).toContain('http://familyhelperapp.com/subscribe');
     });
 
     test('trial reminder should handle 1 day left correctly', () => {
       const data = {
         userName: 'John Doe',
         daysLeft: 1,
-        subscribeUrl: 'http://parentinghelperapp.com/subscribe',
+        subscribeUrl: 'http://familyhelperapp.com/subscribe',
       };
 
       const result = trial_reminder(data);

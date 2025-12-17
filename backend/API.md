@@ -1,4 +1,4 @@
-# Parenting Helper API Documentation
+# Family Helper API Documentation
 
 **Version**: 1.0
 **Base URL**: `http://localhost:3000` (development)

@@ -1,7 +1,7 @@
 /**
  * App Configuration
  *
- * Centralized configuration for the Parenting Helper mobile app.
+ * Centralized configuration for the Family Helper mobile app.
  * Environment-specific values are loaded from environment variables.
  */
 

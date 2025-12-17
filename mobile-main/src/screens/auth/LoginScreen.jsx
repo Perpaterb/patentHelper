@@ -183,7 +183,7 @@ export default function LoginScreen({ onLoginSuccess }) {
           resizeMode="contain"
         />
 
-        <Title style={styles.title}>Parenting Helper</Title>
+        <Title style={styles.title}>Family Helper</Title>
 
         <Text style={styles.subtitle}>
           Welcome! Sign in to access your co-parenting tools.

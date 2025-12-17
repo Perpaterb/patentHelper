@@ -1,7 +1,7 @@
 /**
  * Privacy Policy Screen
  *
- * Public page displaying the privacy policy for Parenting Helper app.
+ * Public page displaying the privacy policy for Family Helper app.
  * No authentication required.
  */
 
@@ -23,7 +23,7 @@ const PrivacyPolicyScreen = () => {
 
           <Section title="1. Introduction">
             <Text style={styles.paragraph}>
-              Welcome to Parenting Helper ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and website (collectively, the "Service").
+              Welcome to Family Helper ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and website (collectively, the "Service").
             </Text>
             <Text style={styles.paragraph}>
               Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the Service.
