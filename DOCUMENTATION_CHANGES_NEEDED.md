@@ -38,7 +38,7 @@ If you decide to proceed with the architecture change from paid subscriptions to
 **Current:**
 ```markdown
 **3 Products, 1 Backend Architecture (KISS Principle):**
-1. **Admin Web App** (parentinghelperapp.com) - Subscription management, payments, storage upgrades, log exports
+1. **Admin Web App** (familyhelperapp.com) - Subscription management, payments, storage upgrades, log exports
 2. **family helper Mobile App** - Full co-parenting features: messaging, calendar, finance (NO payment features)
 3. **PH Messenger Mobile App** - Messaging only, biometric auth, for children/restricted devices
 
@@ -78,7 +78,7 @@ If you decide to proceed with the architecture change from paid subscriptions to
 **Storage:**
 - Google Drive (user's own account, via Drive API) ← NEW (replaces S3)
 - 15GB free per user (Google's quota)
-- Files stored in hidden .parentinghelper/ folder
+- Files stored in hidden .familyhelper/ folder
 ```
 
 ### Section 4: Database Schema
@@ -211,7 +211,7 @@ GET /groups/:groupId/message-groups/:messageGroupId/messages/:messageId/media/:m
 5. Google OAuth consent screen (scope: drive.file)
 6. User authorizes
 7. Backend stores encrypted refresh token
-8. Backend creates .parentinghelper/ folder in user's Drive
+8. Backend creates .familyhelper/ folder in user's Drive
 9. User can now use app
 
 ### Disconnection Handling
@@ -423,7 +423,7 @@ What we access:
 
 What you control:
 - You can revoke access anytime in Google Account settings
-- You can delete the .parentinghelper/ folder anytime
+- You can delete the .familyhelper/ folder anytime
 - Deleting files removes them from app (no backup on our servers)
 
 Data ownership:
@@ -486,7 +486,7 @@ Move to `archive/` directory:
 **Google Play Store:**
 - Same changes as iOS
 
-### Website (parentinghelperapp.com)
+### Website (familyhelperapp.com)
 
 **Homepage:**
 - Prominent "100% FREE" messaging

@@ -270,7 +270,7 @@ npm install @reduxjs/toolkit react-redux redux-persist
 ### Third-Party Service Accounts
 
 #### Kinde Account ✅ **CONFIGURED**
-- [✅] **Kinde Domain:** https://parentinghelper.kinde.com
+- [✅] **Kinde Domain:** https://familyhelperapp.kinde.com
 - [✅] **Client ID:** 39fa7698fc83461eb065dfc850f867ee
 - [✅] **Client Secret:** [Stored in AWS Secrets Manager - DO NOT COMMIT TO GIT]
 
@@ -291,15 +291,15 @@ npm install @reduxjs/toolkit react-redux redux-persist
 - Backend Lambda will use Secret Key (server-side)
 
 #### AWS SES Email Configuration ✅ **DECIDED**
-- [✅] **Q1:** System email address: **noreply@parentinghelperapp.com**
+- [✅] **Q1:** System email address: **noreply@familyhelperapp.com**
   - Use for: Subscription confirmations, log exports, approval notifications, storage warnings
 
-- [✅] **Q2:** Support email address: **support@parentinghelperapp.com**
+- [✅] **Q2:** Support email address: **support@familyhelperapp.com**
   - Use for: App store contact, in-app support links, user inquiries
 
 - [✅] **Q3:** AWS SES Setup: **Yes, set up with guidance**
   - **Action Items:**
-    1. Register domain (parentinghelperapp.com) with Porkbun
+    1. Register domain (familyhelperapp.com) with Porkbun
     2. Verify domain in AWS SES (ap-southeast-2 region)
     3. Request production access (move out of sandbox mode)
     4. Configure DKIM/SPF/DMARC records
@@ -330,7 +330,7 @@ npm install @reduxjs/toolkit react-redux redux-persist
   - Can add OneSignal or direct push in MVP2
 
 ### Domain & DNS ✅ **PLANNED**
-- [✅] **Domain:** parentinghelperapp.com (to be registered with Porkbun)
+- [✅] **Domain:** familyhelperapp.com (to be registered with Porkbun)
 - [✅] **Q8:** DNS Records will be provided after domain registration
   - **Action Items (Phase 1):**
     1. Register domain with Porkbun
@@ -724,9 +724,9 @@ Suggested:
 #### iOS App Store (Both Apps)
 - [ ] **Apple Developer Account** - Purchase before Phase 6 ($99/year)
 - [ ] **Check app name availability:** "family helper" and "PH Messenger"
-- [✅] **Privacy Policy URL:** Will host on parentinghelperapp.com
-- [✅] **Terms of Service URL:** Will host on parentinghelperapp.com
-- [✅] **Support email:** support@parentinghelperapp.com
+- [✅] **Privacy Policy URL:** Will host on familyhelperapp.com
+- [✅] **Terms of Service URL:** Will host on familyhelperapp.com
+- [✅] **Support email:** support@familyhelperapp.com
 - [ ] **App review timeline:** Plan for 1-2 weeks review time PER APP
 
 #### Google Play Store (Both Apps)

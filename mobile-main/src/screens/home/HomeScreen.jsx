@@ -78,7 +78,7 @@ export default function HomeScreen({ navigation, onLogout }) {
     } else {
       CustomAlert.alert(
         'Cannot Open Browser',
-        'Please visit parentinghelperapp.com on your browser to manage your subscription.'
+        'Please visit familyhelperapp.com on your browser to manage your subscription.'
       );
     }
   };

@@ -1,7 +1,7 @@
 # Approval Workflow Documentation
 
 ## Overview
-This document describes the complete approval workflow used throughout the Parenting Helper application. This flow applies to ALL actions by ALL users regardless of role.
+This document describes the complete approval workflow used throughout the Family Helper application. This flow applies to ALL actions by ALL users regardless of role.
 
 ---
 

@@ -1093,7 +1093,7 @@ await prisma.auditLog.create({
   2. **family helper Mobile App** (mobile-main/) - Full features: messaging, calendar, finance (BUILT SECOND)
   3. **PH Messenger Mobile App** (mobile-messenger/) - Messaging only, biometric auth (BUILT THIRD)
 * **IMPORTANT**: Mobile apps have NO payment/subscription UI - they link to web app
-  * Subscribe button → Opens parentinghelperapp.com/subscribe in browser
+  * Subscribe button → Opens familyhelperapp.com/subscribe in browser
   * My Account → Shows storage usage, link to web for billing
   * NO Stripe integration in mobile apps
 * **All 3 products** use same Kinde authentication

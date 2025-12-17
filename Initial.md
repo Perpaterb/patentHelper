@@ -1,10 +1,10 @@
-# Parenting Helper App - Initial Feature Documentation
+# Family Helper App - Initial Feature Documentation
 
 ## FEATURE:
 
 A 3-product parenting and co-parenting coordination platform:
 1. **Admin Web App** (React) - Subscription management, payments, log exports
-2. **Parenting Helper Mobile App** (React Native) - Full features: messaging, calendar, finance
+2. **Family Helper Mobile App** (React Native) - Full features: messaging, calendar, finance
 3. **PH Messenger Mobile App** (React Native) - Messaging only
 
 All 3 products share the same backend (AWS Lambda, PostgreSQL, S3) and Kinde authentication.
@@ -192,10 +192,10 @@ if (storedToken) {
 **Location**: `examples/web-app-subscription-flow.md`
 
 **Scenario**: User wants to become a group admin (requires subscription)
-1. User opens Parenting Helper mobile app
+1. User opens Family Helper mobile app
 2. Tries to create a group (admin-only action)
 3. App shows: "Admin access requires subscription"
-4. "Subscribe Now" button opens https://parentinghelperapp.com/subscribe in mobile browser
+4. "Subscribe Now" button opens https://familyhelperapp.com/subscribe in mobile browser
 5. User logs in to web app (same Kinde account)
 6. Sees subscription plans: $8/month for 10GB
 7. Enters payment method via Stripe Elements (PCI-compliant)
@@ -214,7 +214,7 @@ if (storedToken) {
 ```javascript
 // Mobile app - Subscribe button
 const handleSubscribe = () => {
-  Linking.openURL('https://parentinghelperapp.com/subscribe');
+  Linking.openURL('https://familyhelperapp.com/subscribe');
   // When user returns, refresh user data
 };
 
@@ -727,7 +727,7 @@ const handleSubscribe = () => {
 ```
 patentHelper/
 ├── web-admin/          # Admin Web App (React) - PHASE 2
-├── mobile-main/        # Parenting Helper (React Native) - PHASES 3-4
+├── mobile-main/        # Family Helper (React Native) - PHASES 3-4
 ├── mobile-messenger/   # PH Messenger (React Native) - PHASE 5
 ├── backend/            # AWS Lambda (shared by all) - PHASE 1+
 ├── infrastructure/     # Terraform - PHASE 1
@@ -743,7 +743,7 @@ patentHelper/
 - **Total: 24 weeks to all 3 products**
 
 **Deployment Targets**:
-- Web app: parentinghelperapp.com (AWS S3 + CloudFront)
+- Web app: familyhelperapp.com (AWS S3 + CloudFront)
 - Main mobile app: iOS App Store + Google Play Store
 - PH Messenger: iOS App Store + Google Play Store (separate listings)
 

@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Parenting Helper API",
-    "description": "Complete API collection for Parenting Helper local development",
+    "name": "Family Helper API",
+    "description": "Complete API collection for Family Helper local development",
     "version": "1.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },

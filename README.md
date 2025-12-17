@@ -165,7 +165,7 @@ Check: user.googleDriveConnected?
 If false:
     Google Drive Connect Screen
     → Google OAuth Consent
-    → Create .parentinghelper/ folder
+    → Create .familyhelper/ folder
     → Save encrypted refresh token
     ↓
 If true:
@@ -175,7 +175,7 @@ If true:
 **Key Points:**
 - Google Drive connection required for app usage
 - Uses OAuth scope: `drive.file` (app-created files only)
-- Files stored in hidden `.parentinghelper/` folder
+- Files stored in hidden `.familyhelper/` folder
 - User can disconnect anytime (makes their uploads unavailable)
 - Each user gets 15GB free from Google (not from us)
 
@@ -235,7 +235,7 @@ If true:
   - **Justification**: Each user stores files in their own Google Drive (15GB free per user), eliminates S3 costs, better privacy
   - **Development**: Google Drive API locally and in production (same implementation)
   - **Scope**: `drive.file` (app-created files only, cannot see user's personal files)
-  - **Storage**: Hidden `.parentinghelper/` folder in user's Drive
+  - **Storage**: Hidden `.familyhelper/` folder in user's Drive
 
 ### Authentication & Authorization
 - **Kinde** (Identity Provider)
@@ -1203,7 +1203,7 @@ CREATE INDEX idx_pinned_items_user ON pinned_items(user_id, item_type, pin_order
   {
     "success": true,
     "message": "Logged out successfully",
-    "logoutUrl": "https://parentinghelper.kinde.com/logout"
+    "logoutUrl": "https://familyhelperapp.kinde.com/logout"
   }
   ```
 - **Side Effects**: Clears `refreshToken` cookie

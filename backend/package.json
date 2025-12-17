@@ -1,7 +1,7 @@
 {
-  "name": "parenting-helper-backend",
+  "name": "family-helper-backend",
   "version": "1.0.0",
-  "description": "Backend API for Parenting Helper App - Local Express.js server (converts to Lambda in Phase 6)",
+  "description": "Backend API for Family Helper App - Local Express.js server (converts to Lambda in Phase 6)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

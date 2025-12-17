@@ -1,6 +1,6 @@
 # Database Schema
 
-PostgreSQL database schema for Parenting Helper App.
+PostgreSQL database schema for Family Helper App.
 
 ## Files
 
@@ -24,19 +24,19 @@ brew services start postgresql@15
 2. **Create Database**:
 ```bash
 # Create database
-createdb parenting_helper_dev
+createdb family_helper_dev
 
 # Or using psql
-psql postgres -c "CREATE DATABASE parenting_helper_dev;"
+psql postgres -c "CREATE DATABASE family_helper_dev;"
 ```
 
 3. **Import Schema**:
 ```bash
 # Import the schema
-psql parenting_helper_dev < database/schema.sql
+psql family_helper_dev < database/schema.sql
 
 # Verify tables were created
-psql parenting_helper_dev -c "\dt"
+psql family_helper_dev -c "\dt"
 ```
 
 ### Using Docker (Recommended)
@@ -45,17 +45,17 @@ psql parenting_helper_dev -c "\dt"
 # Run PostgreSQL in Docker
 docker run -d \
   --name parenting-helper-db \
-  -e POSTGRES_DB=parenting_helper_dev \
+  -e POSTGRES_DB=family_helper_dev \
   -e POSTGRES_USER=dev_user \
   -e POSTGRES_PASSWORD=dev_password \
   -p 5432:5432 \
   postgres:15
 
 # Import schema
-docker exec -i parenting-helper-db psql -U dev_user parenting_helper_dev < database/schema.sql
+docker exec -i parenting-helper-db psql -U dev_user family_helper_dev < database/schema.sql
 
 # Connect to database
-docker exec -it parenting-helper-db psql -U dev_user parenting_helper_dev
+docker exec -it parenting-helper-db psql -U dev_user family_helper_dev
 ```
 
 ## Schema Overview
@@ -162,7 +162,7 @@ npx knex migrate:latest
 
 ```bash
 # .env
-DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/parenting_helper_dev
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5432/family_helper_dev
 
 # Production (AWS RDS)
 DATABASE_URL=postgresql://username:password@rds-endpoint.amazonaws.com:5432/parenting_helper_prod

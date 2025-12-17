@@ -43,7 +43,7 @@ $ curl http://localhost:3000/health
   "status": "healthy",
   "timestamp": "2025-10-21T05:35:05.805Z",
   "uptime": 15.6772845,
-  "service": "parenting-helper-api",
+  "service": "family-helper-api",
   "version": "1.0.0",
   "environment": "development"
 }
@@ -90,7 +90,7 @@ $ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/auth/verify
   "valid": true,
   "user": {
     "userId": "00000000-0000-0000-0000-000000000001",
-    "email": "test@parentinghelperapp.com",
+    "email": "test@familyhelperapp.com",
     "isSubscribed": true
   }
 }
@@ -111,7 +111,7 @@ $ curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/auth/me
   "success": true,
   "user": {
     "userId": "00000000-0000-0000-0000-000000000001",
-    "email": "test@parentinghelperapp.com",
+    "email": "test@familyhelperapp.com",
     "kindeId": "kinde_test_user_123",
     "isSubscribed": true,
     "createdAt": "2025-10-21T05:14:25.546Z",
@@ -198,11 +198,11 @@ $ node backend/utils/sendTestEmail.js basic
 ✅ MailHog email service connected
 
 📧 Sending Basic Test Email...
-📧 Email sent to test@example.com: Test Email from Parenting Helper
+📧 Email sent to test@example.com: Test Email from Family Helper
    Preview URL: http://localhost:8025
-   Message ID: <2122968d-cabf-739b-946b-002c8a34f57f@parentinghelperapp.com>
+   Message ID: <2122968d-cabf-739b-946b-002c8a34f57f@familyhelperapp.com>
 ✅ Basic email sent successfully
-   Message ID: <2122968d-cabf-739b-946b-002c8a34f57f@parentinghelperapp.com>
+   Message ID: <2122968d-cabf-739b-946b-002c8a34f57f@familyhelperapp.com>
    Preview: http://localhost:8025
 
 ✅ All emails sent!

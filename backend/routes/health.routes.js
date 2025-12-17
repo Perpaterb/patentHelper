@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    service: 'parenting-helper-api',
+    service: 'family-helper-api',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development'
   });
@@ -51,7 +51,7 @@ router.get('/app-version', (req, res) => {
   // App store URLs - replace with actual URLs when published
   const appStoreUrls = {
     mobileMain: {
-      ios: process.env.APP_STORE_URL_MAIN_IOS || 'https://apps.apple.com/app/parenting-helper/id000000000',
+      ios: process.env.APP_STORE_URL_MAIN_IOS || 'https://apps.apple.com/app/family-helper/id000000000',
       android: process.env.APP_STORE_URL_MAIN_ANDROID || 'https://play.google.com/store/apps/details?id=com.parentinghelper.app',
     },
     mobileMessenger: {

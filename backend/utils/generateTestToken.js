@@ -16,7 +16,7 @@ const authService = require('../services/auth.service');
 // Mock user for testing
 const testUser = {
   userId: '00000000-0000-0000-0000-000000000001',
-  email: 'test@parentinghelperapp.com',
+  email: 'test@familyhelperapp.com',
   kindeId: 'kinde_test_user_123',
   isSubscribed: true,
 };

@@ -104,7 +104,7 @@ This document outlines comprehensive user stories for the Family Helper mobile a
 **Acceptance Criteria**:
 - User can create personal registry (name required)
 - Each registry has sharing option:
-  - Public link (e.g., parentinghelperapp.com/registry/abc123)
+  - Public link (e.g., familyhelperapp.com/registry/abc123)
   - Passcode-protected (6-digit PIN)
   - Group-only (only group members can see)
 - User can add unlimited gifts with:

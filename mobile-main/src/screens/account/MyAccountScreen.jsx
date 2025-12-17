@@ -152,7 +152,7 @@ export default function MyAccountScreen({ navigation }) {
    */
   const handleOpenWebAdmin = async () => {
     try {
-      const webAdminUrl = 'https://parentinghelperapp.com/account'; // TODO: Replace with actual URL
+      const webAdminUrl = 'https://familyhelperapp.com/account';
       const supported = await Linking.canOpenURL(webAdminUrl);
 
       if (supported) {

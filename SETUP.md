@@ -183,7 +183,7 @@ docker-compose exec postgres psql -U dev_user -d parenting_helper_dev
 docker-compose --profile tools up -d
 
 # Access at: http://localhost:5050
-# Email: admin@parentinghelper.local
+# Email: admin@familyhelper.local
 # Password: admin
 ```
 

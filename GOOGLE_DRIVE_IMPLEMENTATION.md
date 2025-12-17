@@ -23,7 +23,7 @@
 
 1. Go to https://console.cloud.google.com/
 2. Click "Create Project"
-3. Name: "Parenting Helper"
+3. Name: "Family Helper"
 4. Organization: None (personal project)
 5. Click "Create"
 
@@ -44,17 +44,17 @@
 2. User Type: **External** (unless you have Workspace)
 3. Fill in details:
    ```
-   App name: Parenting Helper
+   App name: Family Helper
    User support email: your-email@example.com
    Developer contact email: your-email@example.com
 
    App domain:
-   - Application home page: https://parentinghelperapp.com
-   - Privacy policy: https://parentinghelperapp.com/privacy
-   - Terms of service: https://parentinghelperapp.com/terms
+   - Application home page: https://familyhelperapp.com
+   - Privacy policy: https://familyhelperapp.com/privacy
+   - Terms of service: https://familyhelperapp.com/terms
 
    Authorized domains:
-   - parentinghelperapp.com
+   - familyhelperapp.com
    - localhost (for testing)
    ```
 
@@ -80,11 +80,11 @@
 1. Go to "APIs & Services" → "Credentials"
 2. Click "Create Credentials" → "OAuth client ID"
 3. Application type: **Web application**
-4. Name: "Parenting Helper Web"
+4. Name: "Family Helper Web"
 5. Authorized redirect URIs:
    ```
    http://localhost:3000/auth/google/callback
-   https://api.parentinghelperapp.com/auth/google/callback
+   https://api.familyhelperapp.com/auth/google/callback
    ```
 6. Click "Create"
 7. **SAVE THESE**:
@@ -97,13 +97,13 @@
 
 1. Create another OAuth client
 2. Application type: **iOS** (for mobile)
-3. Name: "Parenting Helper iOS"
-4. Bundle ID: `com.parentinghelper.app`
+3. Name: "Family Helper iOS"
+4. Bundle ID: `com.familyhelper.app`
 
 5. Create another OAuth client
 6. Application type: **Android** (for mobile)
-7. Name: "Parenting Helper Android"
-8. Package name: `com.parentinghelper.app`
+7. Name: "Family Helper Android"
+8. Package name: `com.familyhelper.app`
 9. SHA-1 certificate fingerprint: (get from Expo)
    ```bash
    cd mobile-main
@@ -351,7 +351,7 @@ async function getOrCreateAppFolder(accessToken) {
   const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
   // Search for existing folder
-  const folderName = '.parentinghelper';
+  const folderName = '.familyhelper';
   const response = await drive.files.list({
     q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id, name)',
@@ -368,7 +368,7 @@ async function getOrCreateAppFolder(accessToken) {
     requestBody: {
       name: folderName,
       mimeType: 'application/vnd.google-apps.folder',
-      description: 'Parenting Helper app data - Do not delete!',
+      description: 'Family Helper app data - Do not delete!',
     },
     fields: 'id',
   });
@@ -906,7 +906,7 @@ export default function GoogleDriveConnectScreen({ navigation }) {
       // Open Google consent screen
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        'parentinghelper://auth/google/callback'
+        'familyhelper://auth/google/callback'
       );
 
       if (result.type === 'success') {
@@ -946,7 +946,7 @@ export default function GoogleDriveConnectScreen({ navigation }) {
         <Text style={styles.icon}>☁️</Text>
         <Text style={styles.title}>Connect Google Drive</Text>
         <Text style={styles.description}>
-          Parenting Helper stores your photos and files in your Google Drive account.
+          Family Helper stores your photos and files in your Google Drive account.
         </Text>
 
         <View style={styles.benefitsContainer}>
@@ -975,7 +975,7 @@ export default function GoogleDriveConnectScreen({ navigation }) {
         </TouchableOpacity>
 
         <Text style={styles.privacyNote}>
-          We only access files created by Parenting Helper.{'\n'}
+          We only access files created by Family Helper.{'\n'}
           Your personal files remain private.
         </Text>
       </View>
@@ -1144,7 +1144,7 @@ export default function MyAccountScreen({ navigation }) {
 
   const handleDonate = () => {
     // Open donation page in browser
-    Linking.openURL('https://parentinghelperapp.com/donate');
+    Linking.openURL('https://familyhelperapp.com/donate');
   };
 
   if (loading) {
@@ -1200,7 +1200,7 @@ export default function MyAccountScreen({ navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Support This App</Text>
         <Text style={styles.donateDescription}>
-          Parenting Helper is 100% FREE with no ads.{'\n'}
+          Family Helper is 100% FREE with no ads.{'\n'}
           Donations help keep the servers running!
         </Text>
         <TouchableOpacity style={styles.donateButton} onPress={handleDonate}>
@@ -1249,7 +1249,7 @@ npm start
 ### Step 5.2: Check Google Drive
 
 1. Go to https://drive.google.com
-2. Look for `.parentinghelper/` folder
+2. Look for `.familyhelper/` folder
 3. Inside: `media/message-{id}.jpg`
 4. Verify file exists
 
@@ -1272,7 +1272,7 @@ npm start
 
 **Solution**:
 1. Go to https://myaccount.google.com/permissions
-2. Remove "Parenting Helper" app
+2. Remove "Family Helper" app
 3. Try again
 4. OR: Use `prompt: 'consent'` in OAuth URL (forces consent screen)
 
@@ -1304,7 +1304,7 @@ npm start
 **Solution**:
 1. This is expected behavior with `drive.file` scope
 2. Files only visible to the app
-3. User can see them by searching Drive for "Parenting Helper"
+3. User can see them by searching Drive for "Family Helper"
 
 ### Issue: "Rate limit exceeded"
 

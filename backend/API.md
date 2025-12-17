@@ -52,7 +52,7 @@ Basic health check endpoint.
   "status": "healthy",
   "timestamp": "2025-12-02T00:00:00.000Z",
   "uptime": 12345,
-  "service": "parenting-helper-api",
+  "service": "family-helper-api",
   "version": "1.0.0",
   "environment": "development"
 }
@@ -78,7 +78,7 @@ Returns minimum required app versions for mobile apps. Used to force users to up
     "minVersion": "1.0.0",
     "currentVersion": "1.0.0",
     "updateUrl": {
-      "ios": "https://apps.apple.com/app/parenting-helper/id000000000",
+      "ios": "https://apps.apple.com/app/family-helper/id000000000",
       "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
     }
   },
@@ -99,7 +99,7 @@ Returns minimum required app versions for mobile apps. Used to force users to up
   "minVersion": "1.0.0",
   "currentVersion": "1.0.0",
   "updateUrl": {
-    "ios": "https://apps.apple.com/app/parenting-helper/id000000000",
+    "ios": "https://apps.apple.com/app/family-helper/id000000000",
     "android": "https://play.google.com/store/apps/details?id=com.parentinghelper.app"
   }
 }
@@ -1242,7 +1242,7 @@ Create a child responsibility event with overlap detection.
 - `/subscriptions/*` (all)
 - `/logs/export`
 
-### Parenting Helper (mobile-main/)
+### Family Helper (mobile-main/)
 - `/auth/exchange`
 - `/subscriptions/current`, `/subscriptions/status`
 - `/groups/*` (all)
