@@ -392,7 +392,6 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
                 <MediaPicker
                   onSelect={handlePhotoSelect}
                   mediaType="photo"
-                  maxSize={10 * 1024 * 1024} // 10MB
                   allowMultiple={false}
                   imageQuality={0.8}
                   label={uploading ? `Uploading... ${uploadProgress}%` : 'Add Photo'}
@@ -407,7 +406,7 @@ export default function AddEditPersonalGiftItemScreen({ navigation, route }) {
             )}
 
             <HelperText type="info" visible={true} style={styles.helperTextInfo}>
-              Upload a product image (max 10MB)
+              Upload a product image
             </HelperText>
           </View>
 

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Linking, Image } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import {
   Text,
   Card,
@@ -202,10 +202,16 @@ export default function ItemRegistryPublicScreen({ route }) {
                     <View style={styles.itemContainer}>
                       {/* Photo */}
                       {item.photoUrl && (
-                        <Image
-                          source={{ uri: getFileUrl(item.photoUrl) }}
-                          style={styles.itemPhoto}
-                          resizeMode="cover"
+                        <img
+                          src={getFileUrl(item.photoUrl)}
+                          alt={item.title}
+                          style={{
+                            width: '100%',
+                            height: 'auto',
+                            borderRadius: 8,
+                            marginBottom: 12,
+                            backgroundColor: '#f0f0f0',
+                          }}
                         />
                       )}
 
@@ -312,13 +318,6 @@ const styles = StyleSheet.create({
   },
   itemContainer: {
     paddingVertical: 16,
-  },
-  itemPhoto: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: '#f0f0f0',
   },
   itemTitle: {
     fontSize: 18,
