@@ -1,13 +1,14 @@
 /**
  * Login Screen
  *
- * Entry point for user authentication via Kinde OAuth.
+ * Automatically initiates Kinde OAuth authentication.
+ * No landing page - goes straight to Kinde login.
  * Uses Expo Auth Session with PKCE for OAuth flow.
  */
 
-import React, { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
-import { Button, Title, Text, ActivityIndicator } from 'react-native-paper';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
@@ -23,37 +24,20 @@ WebBrowser.maybeCompleteAuthSession();
  */
 
 /**
- * LoginScreen component - Kinde OAuth authentication with PKCE
+ * LoginScreen component - Automatically initiates Kinde OAuth with PKCE
+ * No UI shown - immediately redirects to Kinde login
  *
  * @param {LoginScreenProps} props
  * @returns {JSX.Element}
  */
 export default function LoginScreen({ onLoginSuccess }) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Debug: Log config values on mount
-  React.useEffect(() => {
-    console.log('[LoginScreen] ===== CONFIG DEBUG =====');
-    console.log('[LoginScreen] KINDE_DOMAIN:', CONFIG.KINDE_DOMAIN);
-    console.log('[LoginScreen] KINDE_CLIENT_ID:', CONFIG.KINDE_CLIENT_ID);
-    console.log('[LoginScreen] KINDE_REDIRECT_URI:', CONFIG.KINDE_REDIRECT_URI);
-    console.log('[LoginScreen] Discovery URL:', CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null);
-    console.log('[LoginScreen] ============================');
-  }, []);
+  const loginAttempted = useRef(false);
 
   // OAuth discovery configuration
   const discovery = AuthSession.useAutoDiscovery(
     CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null
   );
-
-  // Debug: Log when discovery changes
-  React.useEffect(() => {
-    console.log('[LoginScreen] Discovery loaded:', !!discovery);
-    if (discovery) {
-      console.log('[LoginScreen] Auth endpoint:', discovery.authorizationEndpoint);
-    }
-  }, [discovery]);
 
   // OAuth request configuration with PKCE
   const [request, , promptAsync] = AuthSession.useAuthRequest(
@@ -66,14 +50,6 @@ export default function LoginScreen({ onLoginSuccess }) {
     discovery
   );
 
-  // Debug: Log when request is ready
-  React.useEffect(() => {
-    console.log('[LoginScreen] Request ready:', !!request);
-    if (request) {
-      console.log('[LoginScreen] Request redirectUri:', request.redirectUri);
-    }
-  }, [request]);
-
   /**
    * Handle OAuth login flow with PKCE
    * 1. Trigger OAuth flow
@@ -83,18 +59,14 @@ export default function LoginScreen({ onLoginSuccess }) {
    */
   const handleLogin = async () => {
     try {
-      setLoading(true);
       setError(null);
 
       console.log('[LoginScreen] Starting Kinde OAuth flow...');
-      console.log('[LoginScreen] Calling promptAsync...');
 
       // Trigger OAuth flow
       const result = await promptAsync();
 
-      console.log('[LoginScreen] promptAsync returned!');
       console.log('[LoginScreen] Result type:', result.type);
-      console.log('[LoginScreen] Result:', JSON.stringify(result, null, 2));
 
       if (result.type === 'success') {
         const { code } = result.params;
@@ -102,7 +74,6 @@ export default function LoginScreen({ onLoginSuccess }) {
         console.log('OAuth successful, exchanging code for tokens...');
 
         // Exchange authorization code for Kinde tokens using PKCE
-        // This happens on the mobile device, no client secret needed
         const tokenResult = await AuthSession.exchangeCodeAsync(
           {
             clientId: CONFIG.KINDE_CLIENT_ID,
@@ -164,55 +135,49 @@ export default function LoginScreen({ onLoginSuccess }) {
         }
       } else if (result.type === 'error') {
         setError('Authentication failed. Please try again.');
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        // User cancelled - show error with retry option
+        setError('Login cancelled. Tap to try again.');
       }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to login. Please try again.');
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // Automatically trigger login when request is ready
+  useEffect(() => {
+    if (request && !loginAttempted.current && !error) {
+      loginAttempted.current = true;
+      handleLogin();
+    }
+  }, [request]);
+
+  // Allow retry on tap if there's an error
+  const handleRetry = () => {
+    loginAttempted.current = false;
+    setError(null);
+    if (request) {
+      handleLogin();
     }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {/* App Logo */}
-        <Image
-          source={require('../../../assets/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-
-        <Title style={styles.title}>Family Helper</Title>
-
-        <Text style={styles.subtitle}>
-          Welcome! Sign in to access your co-parenting tools.
-        </Text>
-
-        {/* Error Message */}
-        {error && (
-          <Text style={styles.errorText}>{error}</Text>
+        {error ? (
+          <>
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.retryText} onPress={handleRetry}>
+              Tap to try again
+            </Text>
+          </>
+        ) : (
+          <>
+            <ActivityIndicator size="large" color="#6200ee" />
+            <Text style={styles.loadingText}>Redirecting to login...</Text>
+          </>
         )}
-
-        {/* Login Button */}
-        <Button
-          mode="contained"
-          onPress={handleLogin}
-          disabled={!request || loading}
-          style={styles.loginButton}
-          contentStyle={styles.loginButtonContent}
-        >
-          {loading ? 'Signing in...' : 'Sign In'}
-        </Button>
-
-        {loading && (
-          <ActivityIndicator size="large" style={styles.loader} />
-        )}
-
-        {/* Free Trial Info */}
-        <Text style={styles.trialText}>
-          Start your 20-day free trial today!
-        </Text>
       </View>
     </View>
   );
@@ -229,46 +194,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  subtitle: {
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 16,
-  },
-  loginButton: {
-    width: '100%',
-    marginTop: 16,
-  },
-  loginButtonContent: {
-    paddingVertical: 8,
   },
   errorText: {
     color: '#d32f2f',
+    fontSize: 16,
     marginBottom: 16,
     textAlign: 'center',
   },
-  loader: {
-    marginTop: 16,
-  },
-  trialText: {
-    marginTop: 24,
-    fontSize: 14,
-    color: '#666',
+  retryText: {
+    color: '#6200ee',
+    fontSize: 16,
+    textDecorationLine: 'underline',
     textAlign: 'center',
   },
 });
