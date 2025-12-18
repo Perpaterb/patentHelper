@@ -195,10 +195,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        runOnJS(console.log)('[DayGrid] Detector light activated - probeRow:', current.probeRow, 'probeCol:', current.probeCol);
+        // Update master time continuously as probe changes
+        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       }
     },
-    [cellW]
+    [cellW, onAnimationComplete]
   );
 
   // Animated style for highlight cell
