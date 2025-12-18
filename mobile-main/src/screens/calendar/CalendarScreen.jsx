@@ -255,7 +255,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
     // Use modulo to get the fractional position (0-1) continuously
     const probeDayFrac = ((probeDayExact % 1) + 1) % 1;
-    const offsetX = centerCellCenter - redLineX + (probeDayFrac - 0.5) * headerCellW;
+    const offsetX = centerCellCenter - redLineX + probeDayFrac * headerCellW;
 
     // DEBUG: Log the animated transform values
     runOnJS(console.log)('[DateBarAnim] probeDayExact:', probeDayExact.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
