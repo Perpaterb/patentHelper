@@ -313,7 +313,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
   // Use probeDayState (from probe) for date labels - updates when probe crosses day boundary
-  // DEBUG: Log cell IDs and their text content
+  // DEBUG: Log cell IDs, positions, and their text content
   const cellDebugInfo = [];
   let headerXcells = [];
   for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; ++i) {
@@ -321,7 +321,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     let left = (i + headerNumEachSide) * headerCellW;
     const cellId = `cell_${i + headerNumEachSide}`;
     const cellText = dateLabel(dayIdx);
-    cellDebugInfo.push({ id: cellId, pos: i, dayIdx, text: cellText });
+    cellDebugInfo.push({ id: cellId, pos: i, dayIdx, text: cellText, x: left, y: 0 });
     headerXcells.push(
       <View
         key={`hx${i}`}
@@ -348,8 +348,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       </View>
     );
   }
-  // Log only when probeDayState changes (center cells)
-  console.log('[DateBar] probeDayState:', probeDayState, '| Cells:', cellDebugInfo.slice(headerNumEachSide - 1, headerNumEachSide + 2).map(c => `${c.id}:${c.text}`).join(' | '));
+  // Log center cells with their X positions
+  console.log('[DateBar] probeDayState:', probeDayState, '| Cells:', cellDebugInfo.slice(headerNumEachSide - 1, headerNumEachSide + 2).map(c => `${c.id}(x:${c.x}):${c.text}`).join(' | '));
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
   let cells = [];
