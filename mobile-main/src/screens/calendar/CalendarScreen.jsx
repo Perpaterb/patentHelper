@@ -232,8 +232,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header X (dates) - moves with horizontal scroll
-  // The date bar moves left/right as the grid scrolls horizontally
-  // Day changes are handled by probeDayState from the animated reaction
+  // Positions the date labels so the detected day aligns with probe screen position (redLineX)
   const headerXAnimatedStyle = useAnimatedStyle(() => {
     const { width: wW, headerCellW, padL, padT, gridH } = getSizes();
     const redLineX = HEADER_W + 0.5 * cellW;
@@ -245,20 +244,20 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
     const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
-    // probeDay = floor(probeCol) + floor(probeRow / 24)
-    // Get the fractional part of probeDay for smooth animation
-    const probeColFrac = probeColExact - Math.floor(probeColExact);
-    const probeRowHourFrac = (probeRowExact % 24) / 24; // How far through the day (0-1)
+    // probeDay includes hour overflow: probeCol + floor(probeRow / 24)
+    // For smooth animation, get fractional day position
+    const probeDayOffset = Math.floor(probeRowExact / 24);
+    const probeDayExact = probeColExact + probeDayOffset + (((probeRowExact % 24) + 24) % 24) / 24;
+    const probeDayFrac = probeDayExact - Math.floor(probeDayExact);
 
-    // Combined fractional position within current day
-    const combinedFrac = probeColFrac + probeRowHourFrac;
-
-    // Calculate offset to position center cell at the red line
+    // Header cells: center cell (at index headerNumEachSide) represents probeDayState
+    // We want that cell's center to align with redLineX
     const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
-    const centerCellLeft = headerNumEachSide * headerCellW;
-
-    // Offset moves the bar so center cell aligns with probe position
-    const offsetX = centerCellLeft - redLineX + combinedFrac * headerCellW;
+    // Center cell left edge is at headerNumEachSide * headerCellW
+    // Center of that cell is at headerNumEachSide * headerCellW + headerCellW/2
+    // We want that to be at redLineX, so offset = (center position) - redLineX + fractional movement
+    const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
+    const offsetX = centerCellCenter - redLineX + probeDayFrac * headerCellW;
 
     return {
       transform: [{ translateX: -offsetX }],
@@ -266,12 +265,29 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header Y (hours) - infinite scroll using modulo
-  // Uses scrollYFloat directly (same source as grid) for perfect sync
+  // Positions the hour labels so the detected hour aligns with probe screen position
   const headerYAnimatedStyle = useAnimatedStyle(() => {
-    // Use modulo 24 to create infinite cycling effect
-    // scrollYFloat represents row position, we want to cycle every 24 rows
-    const cyclePosition = ((scrollYFloat.value % 24) + 24) % 24; // Always positive 0-24
-    const offsetY = cyclePosition * CELL_H;
+    const { padT, gridH } = getSizes();
+    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
+    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+
+    // Calculate exact probe row position (same as animated reaction)
+    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
+
+    // The hour label at index (probeRowExact % 24) should be at probeScreenY
+    // Label at index i is at position i * CELL_H in the container
+    // Container is at top: HEADER_H, so label is at screen position HEADER_H + i * CELL_H
+    // We want: HEADER_H + (probeHour * CELL_H) + offsetY = probeScreenY
+    // So: offsetY = probeScreenY - HEADER_H - probeHour * CELL_H
+    // But we use negative transform, and probeHour cycles 0-24
+
+    const probeHourExact = ((probeRowExact % 24) + 24) % 24;
+    // Position in container where probe Y lands (relative to HEADER_H)
+    const probeYInContainer = probeScreenY - HEADER_H;
+    // We want label at probeHourExact to be at probeYInContainer
+    // Label is at probeHourExact * CELL_H, so offset = probeHourExact * CELL_H - probeYInContainer
+    const offsetY = probeHourExact * CELL_H - probeYInContainer + CELL_H / 2;
+
     return {
       transform: [{ translateY: -offsetY }],
     };
