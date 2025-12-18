@@ -248,9 +248,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
 
     // For smooth vertical movement through days, use hour fraction (0-1 through 24 hours)
-    // Subtract 12 hours (0.5) to align with probe detection
     const hourInDay = ((probeRowExact % 24) + 24) % 24;
-    const hourFrac = (hourInDay - 12) / 24;
+    const hourFrac = hourInDay / 24;
 
     // Combined fractional position
     const probeDayFrac = fracX + hourFrac;
@@ -259,10 +258,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     // We want that cell's center to align with redLineX
     const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
     // Center cell left edge is at headerNumEachSide * headerCellW
-    // Center of that cell is at headerNumEachSide * headerCellW + headerCellW/2
-    // We want that to be at redLineX, so offset = (center position) - redLineX + fractional movement
+    // Offset by 0.5 cells (half day) to align 12pm with center instead of 12am
     const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
-    const offsetX = centerCellCenter - redLineX + probeDayFrac * headerCellW;
+    const offsetX = centerCellCenter - redLineX + (probeDayFrac - 0.5) * headerCellW;
 
     return {
       transform: [{ translateX: -offsetX }],
