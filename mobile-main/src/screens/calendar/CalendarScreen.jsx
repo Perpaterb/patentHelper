@@ -129,6 +129,12 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Callback to update React state when animation settles
   const onAnimationComplete = useCallback((x, y) => {
     const newPosition = { scrollXFloat: x, scrollYFloat: y };
+    console.log('[DayGrid] Master time updated by movement:', {
+      scrollXFloat: x.toFixed(2),
+      scrollYFloat: y.toFixed(2),
+      hour: Math.floor(y % 24),
+      minute: Math.floor((y % 1) * 60),
+    });
     setSettledPosition(newPosition);
     onXYFloatChange(newPosition);
   }, [onXYFloatChange]);
@@ -320,7 +326,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           key={`c_${dx}_${dy}`}
           style={[
             styles.cell,
-            { width: cellW, height: CELL_H, left: HEADER_W + left, top: HEADER_H + top },
+            { width: cellW, height: CELL_H, left: HEADER_W + left, top: top },
           ]}
         >
           {/* Cell data (invisible but probe can still read hour24 and cellDayCol) */}
@@ -537,7 +543,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             const eventOffsetX = columnWidth * layout.column;
 
             const eventLeft = HEADER_W + left + (cellW / 2) + eventOffsetX;
-            const eventTop = HEADER_H + top;
+            const eventTop = top;
             const eventHeight = durationHours * CELL_H;
 
             const eventKey = `${event.eventId}_${rowIdx}_${colIdx}`;
@@ -749,7 +755,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             const eventOffsetX = columnWidth * layout.column;
 
             const eventLeft = HEADER_W + left + eventOffsetX;
-            const eventTop = HEADER_H + top;
+            const eventTop = top;
             const eventHeight = durationHours * CELL_H;
 
             // Check if this is the first segment
