@@ -194,6 +194,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
+        runOnJS(console.log)('[DayGrid] Detector light activated - probeRow:', current.probeRow, 'probeCol:', current.probeCol);
       }
     },
     [cellW]
