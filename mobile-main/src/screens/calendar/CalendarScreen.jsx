@@ -244,15 +244,23 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
     const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
-    // Only use horizontal scroll fraction for smooth movement
-    // The date bar should NOT move based on vertical scrolling - only the labels change
+    // For smooth horizontal movement, use fractional scroll position
     const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
+
+    // For smooth vertical movement through days, use hour fraction (0-1 through 24 hours)
+    const hourInDay = ((probeRowExact % 24) + 24) % 24;
+    const hourFrac = hourInDay / 24;
+
+    // Combined fractional position
+    const probeDayFrac = fracX + hourFrac;
 
     // Header cells: center cell (at index headerNumEachSide) represents probeDayState
     // We want that cell's center to align with redLineX
     const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
+    // Center cell left edge is at headerNumEachSide * headerCellW
+    // Offset by 0.5 cells (half day) to align 12pm with center instead of 12am
     const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
-    const offsetX = centerCellCenter - redLineX + fracX * headerCellW;
+    const offsetX = centerCellCenter - redLineX + (probeDayFrac - 0.5) * headerCellW;
 
     return {
       transform: [{ translateX: -offsetX }],
