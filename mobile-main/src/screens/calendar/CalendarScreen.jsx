@@ -245,10 +245,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
     // probeDay includes hour overflow: probeCol + floor(probeRow / 24)
-    // For smooth animation, get fractional day position
+    // Only use horizontal fractional position for smooth animation (not hour fraction)
     const probeDayOffset = Math.floor(probeRowExact / 24);
-    const probeDayExact = probeColExact + probeDayOffset + (((probeRowExact % 24) + 24) % 24) / 24;
-    const probeDayFrac = probeDayExact - Math.floor(probeDayExact);
+    const probeColFrac = probeColExact - Math.floor(probeColExact);
+    // Don't add hour fraction - the date bar should only slide based on horizontal scroll
+    const probeDayFrac = probeColFrac;
 
     // Header cells: center cell (at index headerNumEachSide) represents probeDayState
     // We want that cell's center to align with redLineX
