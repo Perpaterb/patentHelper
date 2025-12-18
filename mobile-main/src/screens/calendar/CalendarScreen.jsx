@@ -156,8 +156,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
     })
     .onEnd((event) => {
-      runOnJS(console.log)('[DayGrid] onEnd fired - starting animations');
-
       // Apply momentum with decay on Y axis
       scrollYFloat.value = withDecay({
         velocity: -event.velocityY / CELL_H,
@@ -172,11 +170,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         damping: 20,
         stiffness: 200,
         velocity: -event.velocityX / cellW,
-      }, () => {
-        // Always update master time when animation ends (finished or interrupted)
-        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       });
-    }), [cellW, onAnimationComplete]);
+    }), [cellW]);
 
   // Watch for probe cell changes and trigger highlight
   useAnimatedReaction(
@@ -195,7 +190,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        runOnJS(console.log)('[DayGrid] Detector light activated - probeRow:', current.probeRow, 'probeCol:', current.probeCol);
+        // Update master time whenever probe changes (continuous update during scroll)
+        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       }
     },
     [cellW]
