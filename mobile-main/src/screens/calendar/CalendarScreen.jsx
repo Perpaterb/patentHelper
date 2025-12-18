@@ -221,24 +221,29 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header X (dates) - moves with horizontal scroll
-  // Positions the center cell (probeDayState) at the probe X position
+  // The date bar moves left/right as the grid scrolls horizontally
+  // Day changes are handled by probeDayState from the animated reaction
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { width: wW, headerCellW, padL, padT: pT, gridH } = getSizes();
-    const redLineX = HEADER_W + 0.5 * cellW;
-    const probeScreenY = HEADER_H + gridH / 2.5;
-    const probeXInGrid = (redLineX - HEADER_W) / cellW;
-    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+    const { width: wW, headerCellW } = getSizes();
 
-    // Calculate fractional position within current day
-    const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - pT / CELL_H);
-    const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
+    // Only use horizontal fractional scroll for smooth movement
+    // This matches how the hour bar only uses vertical fractional scroll
     const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
 
-    // Offset to align center cell with probe position
-    // headerNumEachSide cells are to the left of center
+    // Also account for vertical scroll affecting the day (scrolling past midnight)
+    // When scrolling down, each 24 rows is a new day column
+    const fracYDayEffect = (scrollYFloat.value % 24) / 24;
+
+    // Combined fractional position - how far through the current "day column" we are
+    const combinedFrac = fracX + fracYDayEffect;
+
+    // Calculate offset to position center cell at the red line
     const headerNumEachSide = Math.ceil((wW / headerCellW + 4) / 2);
     const centerCellLeft = headerNumEachSide * headerCellW;
-    const offsetX = centerCellLeft - redLineX + (fracX + masterHourFrac) * headerCellW + headerCellW / 2;
+    const redLineX = HEADER_W + 0.5 * cellW;
+
+    // Offset moves the bar so center cell aligns with probe position
+    const offsetX = centerCellLeft - redLineX + combinedFrac * headerCellW;
 
     return {
       transform: [{ translateX: -offsetX }],
@@ -285,7 +290,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const probeDay = probeCol + probeDayOffset;
 
   const headerW = winW;
-  const headerDaysShown = Math.ceil(headerW / headerCellW) + 4;
+  // Extra buffer (+6) to ensure cells always cover visible area even with combined frac > 1
+  const headerDaysShown = Math.ceil(headerW / headerCellW) + 6;
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
   // Use probeDayState (from probe) for date labels - updates when probe crosses day boundary
