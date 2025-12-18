@@ -269,8 +269,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerYAnimatedStyle = useAnimatedStyle(() => {
     // Use modulo 24 to create infinite cycling effect
     // scrollYFloat represents row position, we want to cycle every 24 rows
-    // Add 1 hour offset to align with probe detection
-    const cyclePosition = (((scrollYFloat.value + 1) % 24) + 24) % 24; // Always positive 0-24
+    // Subtract 1 hour offset to align with probe detection
+    const cyclePosition = (((scrollYFloat.value - 1) % 24) + 24) % 24; // Always positive 0-24
     const offsetY = cyclePosition * CELL_H;
     return {
       transform: [{ translateY: -offsetY }],
