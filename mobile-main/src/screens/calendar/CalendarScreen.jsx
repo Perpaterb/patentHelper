@@ -402,6 +402,23 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     />
   );
 
+  // Red dot at probe detection point
+  const probeDotView = (
+    <View
+      style={{
+        position: 'absolute',
+        left: redLineX - 5,
+        top: probeScreenY - 5,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: 'red',
+        zIndex: 200,
+      }}
+      pointerEvents="none"
+    />
+  );
+
   // Red line
   let redLine = (
     <View
@@ -930,6 +947,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         </Animated.View>
         {/* Highlighted cell - outside transform container for fixed position */}
         {probeHighlightView}
+        {/* Red dot showing probe detection point */}
+        {probeDotView}
       </Animated.View>
     </GestureDetector>
   );
