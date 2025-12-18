@@ -116,10 +116,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const highlightOpacity = useSharedValue(0);
   const [highlightCell, setHighlightCell] = useState({ probeRow: 0, probeCol: 0 });
 
-  // Throttle master time updates to max 3 per second
-  const lastMasterUpdateRef = useRef(0);
-  const THROTTLE_MS = 333; // ~3 updates per second
-
   // Sync external changes to shared values
   useEffect(() => {
     scrollYFloat.value = externalXYFloat.scrollYFloat;
@@ -142,15 +138,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     setSettledPosition(newPosition);
     onXYFloatChange(newPosition);
   }, [onXYFloatChange]);
-
-  // Throttled version - only updates max 3 times per second
-  const throttledMasterUpdate = useCallback((x, y) => {
-    const now = Date.now();
-    if (now - lastMasterUpdateRef.current >= THROTTLE_MS) {
-      lastMasterUpdateRef.current = now;
-      onAnimationComplete(x, y);
-    }
-  }, [onAnimationComplete]);
 
   // Get sizes for calculations
   const sizes = useMemo(() => getSizes(), []);
@@ -208,11 +195,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        // Throttled master time update (max 3/sec to keep animation smooth)
-        runOnJS(throttledMasterUpdate)(scrollXFloat.value, scrollYFloat.value);
+        // Update master time continuously as probe changes
+        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       }
     },
-    [cellW, throttledMasterUpdate]
+    [cellW, onAnimationComplete]
   );
 
   // Animated style for highlight cell
