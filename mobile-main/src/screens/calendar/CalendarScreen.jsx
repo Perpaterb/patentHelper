@@ -156,6 +156,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
     })
     .onEnd((event) => {
+      runOnJS(console.log)('[DayGrid] onEnd fired - starting animations');
+
       // Apply momentum with decay on Y axis
       scrollYFloat.value = withDecay({
         velocity: -event.velocityY / CELL_H,
@@ -171,6 +173,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         stiffness: 200,
         velocity: -event.velocityX / cellW,
       }, (finished) => {
+        runOnJS(console.log)('[DayGrid] X spring callback - finished:', finished);
         if (finished) {
           runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
         }
