@@ -247,7 +247,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const firstCol = Math.floor(renderScrollX - Math.ceil(padL / cellW));
   const firstRow = Math.floor(renderScrollY - Math.ceil(padT / CELL_H));
   const visibleCols = Math.ceil(gridW / cellW) + 4;
-  const visibleRows = Math.ceil(gridH / CELL_H) + 4;
+  const visibleRows = Math.ceil(gridH / CELL_H) + 5; // +5 to eliminate blank space at top
 
   // Precise probe cell calculation (using settled position for React render)
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
