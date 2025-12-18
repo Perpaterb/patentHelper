@@ -244,26 +244,21 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
     const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
-    // For smooth horizontal movement, use fractional scroll position
-    const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
+    // Calculate the continuous day position (not using floor which causes jumps)
+    // probeDay = probeCol + floor(probeRow / 24)
+    // We want a continuous version that doesn't jump when crossing boundaries
+    const probeDayExact = probeColExact + probeRowExact / 24;
 
-    // For smooth vertical movement through days, use hour fraction (0-1 through 24 hours)
-    const hourInDay = ((probeRowExact % 24) + 24) % 24;
-    const hourFrac = hourInDay / 24;
-
-    // Combined fractional position
-    const probeDayFrac = fracX + hourFrac;
-
-    // Header cells: center cell (at index headerNumEachSide) represents probeDayState
-    // We want that cell's center to align with redLineX
+    // The offset moves the bar so the correct day aligns with the probe
     const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
-    // Center cell left edge is at headerNumEachSide * headerCellW
-    // Offset by 0.5 cells (half day) to align 12pm with center instead of 12am
     const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
+
+    // Use modulo to get the fractional position (0-1) continuously
+    const probeDayFrac = ((probeDayExact % 1) + 1) % 1;
     const offsetX = centerCellCenter - redLineX + (probeDayFrac - 0.5) * headerCellW;
 
     // DEBUG: Log the animated transform values
-    runOnJS(console.log)('[DateBarAnim] fracX:', fracX.toFixed(3), 'hourFrac:', hourFrac.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
+    runOnJS(console.log)('[DateBarAnim] probeDayExact:', probeDayExact.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
 
     return {
       transform: [{ translateX: -offsetX }],
