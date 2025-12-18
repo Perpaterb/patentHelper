@@ -193,13 +193,21 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        // Log probe changes
-        runOnJS(console.log)('[Probe] col:', current.probeCol, 'row:', current.probeRow, 'day:', current.probeDay, 'hour:', ((current.probeRow % 24) + 24) % 24);
+        // Log probe changes with actual date
+        const hour = ((current.probeRow % 24) + 24) % 24;
+        const baseDate = new Date(2023, 9, 31);
+        const actualDate = new Date(baseDate);
+        actualDate.setDate(baseDate.getDate() + current.probeDay);
+        const dateStr = actualDate.toLocaleDateString();
+        runOnJS(console.log)('[Probe] date:', dateStr, 'hour:', hour, '| dayIdx:', current.probeDay, 'col:', current.probeCol, 'row:', current.probeRow);
       }
       // Update probeDay state when day changes (for header X)
       if (!previous || current.probeDay !== previous.probeDay) {
         runOnJS(setProbeDayState)(current.probeDay);
-        runOnJS(console.log)('[Probe] DAY CHANGED to:', current.probeDay);
+        const baseDate = new Date(2023, 9, 31);
+        const actualDate = new Date(baseDate);
+        actualDate.setDate(baseDate.getDate() + current.probeDay);
+        runOnJS(console.log)('[Probe] DAY CHANGED to:', actualDate.toLocaleDateString(), '(dayIdx:', current.probeDay, ')');
       }
     },
     [cellW]
@@ -966,21 +974,41 @@ export default function CalendarScreen({ navigation, route }) {
   // View mode: 'month' or 'day'
   const [viewMode, setViewMode] = useState('month');
 
+  // Helper to get day offset from base date for a given date
+  const getDayOffsetForDate = (date) => {
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const dateUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    return Math.round((dateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
+  };
+
+  // Get position for midday of today (used when entering day view)
+  const getMiddayTodayPosition = () => {
+    const now = new Date();
+    const diffDays = getDayOffsetForDate(now);
+    return getXYFloatForProbeTarget(12, diffDays); // 12 = midday
+  };
+
   // Calculate initial position based on current date/time
   const getInitialPosition = () => {
     const now = new Date();
-    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-
-    // Calculate day offset from base date using UTC to avoid timezone issues
-    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-    const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffDays = Math.round((nowUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
-
+    const diffDays = getDayOffsetForDate(now);
     // Get current hour (round to nearest hour)
     const currentHour = now.getHours();
-
     // Use the helper function to get proper scroll position
     return getXYFloatForProbeTarget(currentHour, diffDays);
+  };
+
+  // Handle view mode toggle - reset to midday when entering day view
+  const handleViewModeToggle = () => {
+    if (viewMode === 'month') {
+      // Switching TO day view - reset to midday of today
+      setExternalXYFloat(getMiddayTodayPosition());
+      setViewMode('day');
+    } else {
+      // Switching TO month view
+      setViewMode('month');
+    }
   };
 
   // Day view: External XY float state that drives the grid
@@ -1719,7 +1747,7 @@ export default function CalendarScreen({ navigation, route }) {
         rightButtons={[
           {
             icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
-            onPress: () => setViewMode(viewMode === 'month' ? 'day' : 'month'),
+            onPress: handleViewModeToggle,
           },
         ]}
       />
