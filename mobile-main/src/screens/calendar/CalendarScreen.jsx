@@ -297,7 +297,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   }
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
-  let highlightCellLayout;
   let cells = [];
   for (let dx = 0; dx < visibleCols; ++dx) {
     for (let dy = 0; dy < visibleRows; ++dy) {
@@ -309,10 +308,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       // Fixed positions - container handles the transform offset
       let left = dx * cellW;
       let top = dy * CELL_H;
-
-      if (colIdx === probeCol && rowIdx === probeRow) {
-        highlightCellLayout = { left: HEADER_W + left, top: top, width: cellW, height: CELL_H };
-      }
 
       cells.push(
         <View
@@ -360,28 +355,26 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     return cells;
   }, [gridH]); // Only re-render if screen size changes
 
-  // Probe highlight view using Reanimated
-  let probeHighlightView = null;
-  if (highlightCellLayout) {
-    probeHighlightView = (
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            left: highlightCellLayout.left,
-            top: highlightCellLayout.top,
-            width: highlightCellLayout.width,
-            height: highlightCellLayout.height,
-            backgroundColor: 'rgba(255,206,10,0.13)',
-            borderRadius: 7,
-            zIndex: 150,
-          },
-          highlightStyle,
-        ]}
-        pointerEvents="none"
-      />
-    );
-  }
+  // Probe highlight view using Reanimated - FIXED screen position
+  // The probe stays in one place, the grid moves underneath it
+  const probeHighlightView = (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: redLineX - cellW / 2,  // Center on redLineX
+          top: probeScreenY - CELL_H / 2,  // Center on probeScreenY
+          width: cellW,
+          height: CELL_H,
+          backgroundColor: 'rgba(255,206,10,0.13)',
+          borderRadius: 7,
+          zIndex: 150,
+        },
+        highlightStyle,
+      ]}
+      pointerEvents="none"
+    />
+  );
 
   // Red line
   let redLine = (
