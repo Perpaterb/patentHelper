@@ -164,8 +164,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const snappedX = Math.round(targetX);
 
       scrollXFloat.value = withSpring(snappedX, {
-        damping: 20,
-        stiffness: 200,
+        damping: 50,
+        stiffness: 300,
         velocity: -event.velocityX / cellW,
       }, () => {
         // Always update master time when animation ends (finished or interrupted)
