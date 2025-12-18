@@ -250,7 +250,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
     // Cells are rendered starting at firstVisibleDay = floor(probeDay) - halfVisible
     // We need to position the container so that probeDayExact aligns with redLineX
-    const visibleDays = Math.ceil(wW / headerCellW) + 6;
+    const visibleDays = 5; // DEBUG: Must match the cell rendering
     const halfVisible = Math.ceil(visibleDays / 2);
     const firstVisibleDay = Math.floor(probeDayExact) - halfVisible;
 
@@ -315,7 +315,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Header X cells - rendered based on scroll position (like main grid cells)
   // Calculate first visible day based on renderScrollX (same approach as firstCol for grid)
   // This ensures cells are rendered at absolute day positions, not relative to probeDay
-  const visibleDays = 3; // DEBUG: Reduced to see what's happening
+  const visibleDays = 5; // DEBUG: Reduced to see what's happening
 
   // Calculate the first day that should be visible based on scroll position
   // The probe is at probeDay, and we need to render cells that cover the visible area
