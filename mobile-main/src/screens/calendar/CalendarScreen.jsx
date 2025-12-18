@@ -315,6 +315,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
   // Use probeDayState (from probe) for date labels - updates when probe crosses day boundary
+  // DEBUG: Log when probeDayState changes to detect flickering
+  console.log('[DateBar] probeDayState:', probeDayState, '| probeDay (calculated):', probeDay, '| diff:', probeDayState - probeDay);
+
   let headerXcells = [];
   for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; ++i) {
     let dayIdx = probeDayState + i;
