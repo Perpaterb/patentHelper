@@ -244,21 +244,22 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
     const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
-    // Calculate the continuous day position (not using floor which causes jumps)
-    // probeDay = probeCol + floor(probeRow / 24)
-    // We want a continuous version that doesn't jump when crossing boundaries
+    // Calculate the continuous day position
+    // probeDay = probeCol + probeRow / 24 (continuous, not floored)
     const probeDayExact = probeColExact + probeRowExact / 24;
 
-    // The offset moves the bar so the correct day aligns with the probe
-    const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
-    const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
+    // Cells are rendered starting at day -50, positioned at index 0
+    // So day -50 is at x=0, day -49 is at x=headerCellW, etc.
+    // Day N is at position (N - (-50)) * headerCellW = (N + 50) * headerCellW
+    const startDay = -50;
+    const probeDayPosition = (probeDayExact - startDay) * headerCellW;
 
-    // Use modulo to get the fractional position (0-1) continuously
-    const probeDayFrac = ((probeDayExact % 1) + 1) % 1;
-    const offsetX = centerCellCenter - redLineX + probeDayFrac * headerCellW;
+    // We want probeDayPosition to align with redLineX
+    // So offsetX = probeDayPosition - redLineX
+    const offsetX = probeDayPosition - redLineX + headerCellW / 2;
 
     // DEBUG: Log the animated transform values
-    runOnJS(console.log)('[DateBarAnim] probeDayExact:', probeDayExact.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
+    runOnJS(console.log)('[DateBarAnim] probeDayExact:', probeDayExact.toFixed(3), 'offsetX:', offsetX.toFixed(1));
 
     return {
       transform: [{ translateX: -offsetX }],
@@ -310,44 +311,49 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerDaysShown = Math.ceil(headerW / headerCellW) + 6;
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
-  // Use probeDayState (from probe) for date labels - updates when probe crosses day boundary
-  // DEBUG: Log cell IDs, positions, and their text content
-  const cellDebugInfo = [];
-  let headerXcells = [];
-  for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; ++i) {
-    let dayIdx = probeDayState + i;
-    let left = (i + headerNumEachSide) * headerCellW;
-    const cellId = `cell_${i + headerNumEachSide}`;
-    const cellText = dateLabel(dayIdx);
-    cellDebugInfo.push({ id: cellId, pos: i, dayIdx, text: cellText, x: left, y: 0 });
-    headerXcells.push(
-      <View
-        key={`hx${i}`}
-        style={{
-          position: 'absolute',
-          left: left,
-          width: headerCellW,
-          height: HEADER_H,
-          borderWidth: 1,
-          borderColor: '#ddd',
-          backgroundColor: '#f8f9fa',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}
-      >
-        <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
-          {dateLabel(dayIdx)}
-        </Text>
-        {/* Debug: Show cell ID */}
-        <Text style={{ fontSize: 8, color: '#999', position: 'absolute', bottom: 2 }}>
-          {cellId}
-        </Text>
-      </View>
-    );
-  }
-  // Log center cells with their X positions
-  console.log('[DateBar] probeDayState:', probeDayState, '| Cells:', cellDebugInfo.slice(headerNumEachSide - 1, headerNumEachSide + 2).map(c => `${c.id}(x:${c.x}):${c.text}`).join(' | '));
+  // Header X cells - FIXED day-based cells, rendered once (like the hour bar)
+  // Each cell has a fixed dayIdx and NEVER changes its text
+  // The container transform moves to show the correct cells
+  // We render enough cells to cover a wide range around the current probeDay
+  const headerXcells = useMemo(() => {
+    const cells = [];
+    // Render a large range of days centered around day 0 (we'll offset via transform)
+    // Using a range of ~100 days should be enough for smooth scrolling
+    const totalDays = 100;
+    const startDay = -50;
+    for (let i = 0; i < totalDays; i++) {
+      const dayIdx = startDay + i;
+      cells.push(
+        <View
+          key={`day_${dayIdx}`}
+          style={{
+            position: 'absolute',
+            left: i * headerCellW,
+            width: headerCellW,
+            height: HEADER_H,
+            borderWidth: 1,
+            borderColor: '#ddd',
+            backgroundColor: '#f8f9fa',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
+            {dateLabel(dayIdx)}
+          </Text>
+          {/* Debug: Show day index */}
+          <Text style={{ fontSize: 8, color: '#999', position: 'absolute', bottom: 2 }}>
+            day_{dayIdx}
+          </Text>
+        </View>
+      );
+    }
+    return cells;
+  }, [headerCellW]);
+
+  // DEBUG: Log current probe day
+  console.log('[DateBar] probeDay:', probeDay, 'probeDayState:', probeDayState);
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
   let cells = [];
