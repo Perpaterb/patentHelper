@@ -248,8 +248,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
 
     // For smooth vertical movement through days, use hour fraction (0-1 through 24 hours)
+    // Subtract 12 hours (0.5) to align with probe detection
     const hourInDay = ((probeRowExact % 24) + 24) % 24;
-    const hourFrac = hourInDay / 24;
+    const hourFrac = (hourInDay - 12) / 24;
 
     // Combined fractional position
     const probeDayFrac = fracX + hourFrac;
