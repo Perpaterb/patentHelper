@@ -116,6 +116,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const highlightOpacity = useSharedValue(0);
   const [highlightCell, setHighlightCell] = useState({ probeRow: 0, probeCol: 0 });
 
+  // Probe day for header X - updated by probe, used by date bar
+  const [probeDayState, setProbeDayState] = useState(0);
+
   // Sync external changes to shared values
   useEffect(() => {
     scrollYFloat.value = externalXYFloat.scrollYFloat;
@@ -180,13 +183,20 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
       const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - padL / cellW);
       const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - padT / CELL_H);
-      return { probeCol, probeRow };
+      // Calculate probeDay (col + day offset from hour overflow)
+      const probeDayOffset = Math.floor(probeRow / 24);
+      const probeDay = probeCol + probeDayOffset;
+      return { probeCol, probeRow, probeDay };
     },
     (current, previous) => {
       if (previous && (current.probeCol !== previous.probeCol || current.probeRow !== previous.probeRow)) {
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
+      }
+      // Update probeDay state when day changes (for header X)
+      if (!previous || current.probeDay !== previous.probeDay) {
+        runOnJS(setProbeDayState)(current.probeDay);
       }
     },
     [cellW]
@@ -211,12 +221,25 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header X (dates) - moves with horizontal scroll
+  // Positions the center cell (probeDayState) at the probe X position
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { headerCellW } = getSizes();
-    // Header moves based on the fractional part of scroll and hour within day
-    const probeRow = Math.floor(scrollYFloat.value);
+    const { headerCellW, padL, padT: pT, gridH } = getSizes();
+    const redLineX = HEADER_W + 0.5 * cellW;
+    const probeScreenY = HEADER_H + gridH / 2.5;
+    const probeXInGrid = (redLineX - HEADER_W) / cellW;
+    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+
+    // Calculate fractional position within current day
+    const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - pT / CELL_H);
     const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
-    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * headerCellW + masterHourFrac * headerCellW;
+    const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
+
+    // Offset to align center cell with probe position
+    // headerNumEachSide cells are to the left of center
+    const headerNumEachSide = Math.ceil((winW / headerCellW + 4) / 2);
+    const centerCellLeft = headerNumEachSide * headerCellW;
+    const offsetX = centerCellLeft - redLineX + (fracX + masterHourFrac) * headerCellW + headerCellW / 2;
+
     return {
       transform: [{ translateX: -offsetX }],
     };
@@ -256,23 +279,20 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   // Note: Highlight animation is handled by useAnimatedReaction above (Reanimated)
 
-  // Header X (date) cells
+  // Header X (date) cells - uses probeDayState from probe (updated without full re-render)
   const probeHour24 = ((probeRow % 24) + 24) % 24;
   const probeDayOffset = Math.floor(probeRow / 24);
   const probeDay = probeCol + probeDayOffset;
 
   const headerW = winW;
   const headerDaysShown = Math.ceil(headerW / headerCellW) + 4;
-  const masterDayIdx = probeDay;
-  const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
-  const headerStartX =
-    HEADER_W + 0.5 * cellW - masterHourFrac * headerCellW - headerNumEachSide * headerCellW;
 
+  // Use probeDayState (from probe) for date labels - updates when probe crosses day boundary
   let headerXcells = [];
   for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; ++i) {
-    let dayIdx = masterDayIdx + i;
-    let left = headerStartX + (i + headerNumEachSide) * headerCellW;
+    let dayIdx = probeDayState + i;
+    let left = (i + headerNumEachSide) * headerCellW;
     headerXcells.push(
       <View
         key={`hx${i}`}
@@ -866,7 +886,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             overflow: 'hidden',
           }}
         >
-          {headerXcells}
+          {/* Animated inner container - transforms with horizontal scroll */}
+          <Animated.View style={headerXAnimatedStyle}>
+            {headerXcells}
+          </Animated.View>
           {redLine}
         </View>
         {/* Left header Y col - clip container */}
