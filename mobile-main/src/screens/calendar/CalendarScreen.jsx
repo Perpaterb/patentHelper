@@ -223,7 +223,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Animated style for header X (dates) - moves with horizontal scroll
   // Positions the center cell (probeDayState) at the probe X position
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { headerCellW, padL, padT: pT, gridH } = getSizes();
+    const { width: wW, headerCellW, padL, padT: pT, gridH } = getSizes();
     const redLineX = HEADER_W + 0.5 * cellW;
     const probeScreenY = HEADER_H + gridH / 2.5;
     const probeXInGrid = (redLineX - HEADER_W) / cellW;
@@ -236,7 +236,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
     // Offset to align center cell with probe position
     // headerNumEachSide cells are to the left of center
-    const headerNumEachSide = Math.ceil((winW / headerCellW + 4) / 2);
+    const headerNumEachSide = Math.ceil((wW / headerCellW + 4) / 2);
     const centerCellLeft = headerNumEachSide * headerCellW;
     const offsetX = centerCellLeft - redLineX + (fracX + masterHourFrac) * headerCellW + headerCellW / 2;
 
