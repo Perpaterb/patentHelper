@@ -262,6 +262,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const centerCellCenter = headerNumEachSide * headerCellW + headerCellW / 2;
     const offsetX = centerCellCenter - redLineX + (probeDayFrac - 0.5) * headerCellW;
 
+    // DEBUG: Log the animated transform values
+    runOnJS(console.log)('[DateBarAnim] fracX:', fracX.toFixed(3), 'hourFrac:', hourFrac.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
+
     return {
       transform: [{ translateX: -offsetX }],
     };
