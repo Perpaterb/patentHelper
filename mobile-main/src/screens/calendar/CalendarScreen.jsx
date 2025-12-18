@@ -235,23 +235,27 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // The date bar moves left/right as the grid scrolls horizontally
   // Day changes are handled by probeDayState from the animated reaction
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { width: wW, headerCellW } = getSizes();
+    const { width: wW, headerCellW, padL, padT, gridH } = getSizes();
+    const redLineX = HEADER_W + 0.5 * cellW;
+    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
+    const probeXInGrid = (redLineX - HEADER_W) / cellW;
+    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
 
-    // Only use horizontal fractional scroll for smooth movement
-    // This matches how the hour bar only uses vertical fractional scroll
-    const fracX = scrollXFloat.value - Math.floor(scrollXFloat.value);
+    // Calculate exact probe position (same formula as the animated reaction)
+    const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
+    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
 
-    // Also account for vertical scroll affecting the day (scrolling past midnight)
-    // When scrolling down, each 24 rows is a new day column
-    const fracYDayEffect = (scrollYFloat.value % 24) / 24;
+    // probeDay = floor(probeCol) + floor(probeRow / 24)
+    // Get the fractional part of probeDay for smooth animation
+    const probeColFrac = probeColExact - Math.floor(probeColExact);
+    const probeRowHourFrac = (probeRowExact % 24) / 24; // How far through the day (0-1)
 
-    // Combined fractional position - how far through the current "day column" we are
-    const combinedFrac = fracX + fracYDayEffect;
+    // Combined fractional position within current day
+    const combinedFrac = probeColFrac + probeRowHourFrac;
 
     // Calculate offset to position center cell at the red line
-    const headerNumEachSide = Math.ceil((wW / headerCellW + 4) / 2);
+    const headerNumEachSide = Math.ceil((wW / headerCellW + 6) / 2);
     const centerCellLeft = headerNumEachSide * headerCellW;
-    const redLineX = HEADER_W + 0.5 * cellW;
 
     // Offset moves the bar so center cell aligns with probe position
     const offsetX = centerCellLeft - redLineX + combinedFrac * headerCellW;
@@ -999,11 +1003,12 @@ export default function CalendarScreen({ navigation, route }) {
     return getXYFloatForProbeTarget(currentHour, diffDays);
   };
 
-  // Handle view mode toggle - reset to midday when entering day view
-  const handleViewModeToggle = () => {
+  // Handle view mode toggle - keep current day, go to midday when entering day view
+  const handleViewModeToggle = (currentProbeDay) => {
     if (viewMode === 'month') {
-      // Switching TO day view - reset to midday of today
-      setExternalXYFloat(getMiddayTodayPosition());
+      // Switching TO day view - go to midday of the CURRENT selected day (not today)
+      const newPosition = getXYFloatForProbeTarget(12, currentProbeDay);
+      setExternalXYFloat(newPosition);
       setViewMode('day');
     } else {
       // Switching TO month view
@@ -1747,7 +1752,7 @@ export default function CalendarScreen({ navigation, route }) {
         rightButtons={[
           {
             icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
-            onPress: handleViewModeToggle,
+            onPress: () => handleViewModeToggle(probeDay),
           },
         ]}
       />
