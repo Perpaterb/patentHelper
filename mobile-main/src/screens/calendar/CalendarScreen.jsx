@@ -172,11 +172,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         damping: 20,
         stiffness: 200,
         velocity: -event.velocityX / cellW,
-      }, (finished) => {
-        runOnJS(console.log)('[DayGrid] X spring callback - finished:', finished);
-        if (finished) {
-          runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
-        }
+      }, () => {
+        // Always update master time when animation ends (finished or interrupted)
+        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       });
     }), [cellW, onAnimationComplete]);
 
