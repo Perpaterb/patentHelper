@@ -193,10 +193,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
+        // Log probe changes
+        runOnJS(console.log)('[Probe] col:', current.probeCol, 'row:', current.probeRow, 'day:', current.probeDay, 'hour:', ((current.probeRow % 24) + 24) % 24);
       }
       // Update probeDay state when day changes (for header X)
       if (!previous || current.probeDay !== previous.probeDay) {
         runOnJS(setProbeDayState)(current.probeDay);
+        runOnJS(console.log)('[Probe] DAY CHANGED to:', current.probeDay);
       }
     },
     [cellW]
