@@ -265,11 +265,17 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header Y (hours) - infinite scroll using modulo
-  // Uses scrollYFloat directly (same source as grid) for perfect sync
+  // Uses same probe offset as the animated reaction for correct alignment
   const headerYAnimatedStyle = useAnimatedStyle(() => {
+    const { padT, gridH } = getSizes();
+    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
+    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+
+    // Same offset as probe calculation: scrollYFloat + probeYInGrid - padT/CELL_H
+    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
+
     // Use modulo 24 to create infinite cycling effect
-    // scrollYFloat represents row position, we want to cycle every 24 rows
-    const cyclePosition = ((scrollYFloat.value % 24) + 24) % 24; // Always positive 0-24
+    const cyclePosition = ((probeRowExact % 24) + 24) % 24; // Always positive 0-24
     const offsetY = cyclePosition * CELL_H;
     return {
       transform: [{ translateY: -offsetY }],
