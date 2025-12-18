@@ -310,7 +310,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       let left = dx * cellW;
       let top = dy * CELL_H;
 
-      if (colIdx === probeCol && rowIdx === probeRow) {
+      if (colIdx === highlightCell.probeCol && rowIdx === highlightCell.probeRow) {
         highlightCellLayout = { left: HEADER_W + left, top: top, width: cellW, height: CELL_H };
       }
 
