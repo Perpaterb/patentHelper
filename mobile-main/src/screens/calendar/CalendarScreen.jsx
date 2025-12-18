@@ -248,21 +248,19 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     // probeDay = probeCol + probeRow / 24 (continuous, not floored)
     const probeDayExact = probeColExact + probeRowExact / 24;
 
-    // Cells are rendered starting at startDay (probeDay - half of visible)
-    // The fractional part determines how far to slide within the cell range
-    // Since cells re-render when probeDay changes, we just need fractional offset
-    const probeDayFrac = probeDayExact - Math.floor(probeDayExact);
-
-    // Calculate visible days for positioning
-    const visibleDays = Math.ceil(wW / headerCellW) + 4;
+    // Cells are rendered starting at firstVisibleDay = floor(probeDay) - halfVisible
+    // We need to position the container so that probeDayExact aligns with redLineX
+    const visibleDays = Math.ceil(wW / headerCellW) + 6;
     const halfVisible = Math.ceil(visibleDays / 2);
+    const firstVisibleDay = Math.floor(probeDayExact) - halfVisible;
 
-    // Center cell should be at redLineX, offset by fractional day position
-    const centerCellLeft = halfVisible * headerCellW;
-    const offsetX = centerCellLeft - redLineX + probeDayFrac * headerCellW + headerCellW / 2;
+    // Day N is rendered at position (N - firstVisibleDay) * headerCellW
+    // probeDayExact should appear at redLineX
+    // So: (probeDayExact - firstVisibleDay) * headerCellW - offsetX = redLineX
+    // offsetX = (probeDayExact - firstVisibleDay) * headerCellW - redLineX
+    const probeDayPosition = (probeDayExact - firstVisibleDay) * headerCellW;
+    const offsetX = probeDayPosition - redLineX;
 
-    // DEBUG: Log the animated transform values
-    runOnJS(console.log)('[DateBarAnim] probeDayExact:', probeDayExact.toFixed(3), 'probeDayFrac:', probeDayFrac.toFixed(3), 'offsetX:', offsetX.toFixed(1));
 
     return {
       transform: [{ translateX: -offsetX }],
@@ -314,22 +312,28 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerDaysShown = Math.ceil(headerW / headerCellW) + 6;
   const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
-  // Header X cells - rendered around the current probeDay
-  // Each cell has a fixed dayIdx and NEVER changes its text
-  // The container transform moves to show the correct cells
-  // We render just enough cells to cover visible area + buffer (like hour bar)
-  const visibleDays = Math.ceil(headerW / headerCellW) + 4; // visible + buffer
-  const startDay = probeDay - Math.ceil(visibleDays / 2);
+  // Header X cells - rendered based on scroll position (like main grid cells)
+  // Calculate first visible day based on renderScrollX (same approach as firstCol for grid)
+  // This ensures cells are rendered at absolute day positions, not relative to probeDay
+  const visibleDays = Math.ceil(headerW / headerCellW) + 6; // visible + buffer
+
+  // Calculate the first day that should be visible based on scroll position
+  // The probe is at probeDay, and we need to render cells that cover the visible area
+  // Use floor(probeDay) - buffer to ensure we have cells to the left
+  const firstVisibleDay = Math.floor(probeDay) - Math.ceil(visibleDays / 2);
 
   let headerXcells = [];
   for (let i = 0; i < visibleDays; i++) {
-    const dayIdx = startDay + i;
+    const dayIdx = firstVisibleDay + i;
+    // Position each cell at its absolute day position
+    // Day N should be at position (N - firstVisibleDay) * headerCellW
+    const left = i * headerCellW;
     headerXcells.push(
       <View
         key={`day_${dayIdx}`}
         style={{
           position: 'absolute',
-          left: i * headerCellW,
+          left: left,
           width: headerCellW,
           height: HEADER_H,
           borderWidth: 1,
@@ -351,8 +355,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     );
   }
 
-  // DEBUG: Log current probe day and startDay
-  console.log('[DateBar] probeDay:', probeDay, 'startDay:', startDay, 'visibleDays:', visibleDays);
+  // DEBUG: Log cell rendering
+  console.log('[DateBar] probeDay:', probeDay, 'firstVisibleDay:', firstVisibleDay, 'cells:', firstVisibleDay, 'to', firstVisibleDay + visibleDays - 1);
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
   let cells = [];
