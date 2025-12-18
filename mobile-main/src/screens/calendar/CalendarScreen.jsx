@@ -3,9 +3,11 @@
  *
  * Displays calendar with Month and Day views.
  * Day view implements externally-controlled infinite grid with probe highlight.
+ *
+ * PERFORMANCE: Uses react-native-reanimated for 60fps animations on UI thread.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,11 +15,20 @@ import {
   TouchableOpacity,
   Dimensions,
   Modal,
-  PanResponder,
-  Animated,
   ScrollView,
   Platform,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDecay,
+  withSpring,
+  withTiming,
+  runOnJS,
+  useAnimatedReaction,
+  Easing,
+} from 'react-native-reanimated';
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
@@ -84,157 +95,155 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
 
 /**
  * InfiniteGrid - Externally controlled infinite scrolling grid
+ * PERFORMANCE: Uses react-native-reanimated for 60fps UI thread animations
  */
 function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, groupId }) {
-  const [renderTick, setRenderTick] = useState(0);
-  const scrollYFloat = useRef(externalXYFloat.scrollYFloat);
-  const scrollXFloat = useRef(externalXYFloat.scrollXFloat);
+  // Reanimated shared values for smooth UI thread animations
+  const scrollYFloat = useSharedValue(externalXYFloat.scrollYFloat);
+  const scrollXFloat = useSharedValue(externalXYFloat.scrollXFloat);
 
-  // Animation state
-  const velocity = useRef({ x: 0, y: 0 });
-  const friction = 0.93;
-  const animating = useRef(false);
-  const snapAnim = useRef({
-    active: false,
-    from: 0,
-    to: 0,
-    startT: 0,
-    duration: 220,
-    multiple: 0,
-  }).current;
+  // Context for gesture - stores starting position
+  const scrollStartY = useSharedValue(0);
+  const scrollStartX = useSharedValue(0);
 
-  const dragStartY = useRef(0);
-  const dragStartX = useRef(0);
-  const scrollStartY = useRef(0);
-  const scrollStartX = useRef(0);
-
-  // Highlight state for cell under probe
-  const [highlight, setHighlight] = useState({
-    probeRow: 0,
-    probeCol: 0,
-    fade: new Animated.Value(0),
+  // Track settled position for React state (only updates when animation stops)
+  const [settledPosition, setSettledPosition] = useState({
+    scrollYFloat: externalXYFloat.scrollYFloat,
+    scrollXFloat: externalXYFloat.scrollXFloat,
   });
 
-  // Watch external driver
-  React.useEffect(() => {
-    scrollYFloat.current = externalXYFloat.scrollYFloat;
-    scrollXFloat.current = externalXYFloat.scrollXFloat;
-    setRenderTick((t) => t + 1);
+  // Highlight animation
+  const highlightOpacity = useSharedValue(0);
+  const [highlightCell, setHighlightCell] = useState({ probeRow: 0, probeCol: 0 });
+
+  // Sync external changes to shared values
+  useEffect(() => {
+    scrollYFloat.value = externalXYFloat.scrollYFloat;
+    scrollXFloat.value = externalXYFloat.scrollXFloat;
+    setSettledPosition({
+      scrollYFloat: externalXYFloat.scrollYFloat,
+      scrollXFloat: externalXYFloat.scrollXFloat,
+    });
   }, [externalXYFloat.scrollYFloat, externalXYFloat.scrollXFloat]);
 
-  // PanResponder for grid drag
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !snapAnim.active,
-      onMoveShouldSetPanResponder: () => !snapAnim.active,
-      onPanResponderGrant: (e, gesture) => {
-        animating.current = false;
-        velocity.current.x = 0;
-        velocity.current.y = 0;
-        snapAnim.active = false;
-        dragStartX.current = gesture.x0;
-        dragStartY.current = gesture.y0;
-        scrollStartY.current = scrollYFloat.current;
-        scrollStartX.current = scrollXFloat.current;
-      },
-      onPanResponderMove: (e, gesture) => {
-        const { cellW } = getSizes();
-        let deltaY = gesture.moveY - dragStartY.current;
-        let deltaX = gesture.moveX - dragStartX.current;
-        scrollYFloat.current = scrollStartY.current - deltaY / CELL_H;
-        scrollXFloat.current = scrollStartX.current - deltaX / cellW;
-        setRenderTick((t) => t + 1);
-        onXYFloatChange({
-          scrollYFloat: scrollYFloat.current,
-          scrollXFloat: scrollXFloat.current,
-        });
-      },
-      onPanResponderRelease: (e, gesture) => {
-        velocity.current.x = -gesture.vx * 16;
-        velocity.current.y = -gesture.vy * 16;
-        startSnapToCol();
-        animating.current = true;
-        animateStep();
-      },
-      onPanResponderTerminationRequest: () => false,
+  // Callback to update React state when animation settles
+  const onAnimationComplete = useCallback((x, y) => {
+    const newPosition = { scrollXFloat: x, scrollYFloat: y };
+    setSettledPosition(newPosition);
+    onXYFloatChange(newPosition);
+  }, [onXYFloatChange]);
+
+  // Get sizes for calculations
+  const sizes = useMemo(() => getSizes(), []);
+  const { cellW } = sizes;
+
+  // Gesture handler for grid drag - runs on UI thread
+  const panGesture = useMemo(() => Gesture.Pan()
+    .onStart(() => {
+      // Save current position when gesture starts
+      scrollStartX.value = scrollXFloat.value;
+      scrollStartY.value = scrollYFloat.value;
     })
-  ).current;
-
-  function startSnapToCol() {
-    snapAnim.active = true;
-    snapAnim.from = scrollXFloat.current;
-    snapAnim.multiple = Math.round(scrollXFloat.current) - scrollXFloat.current;
-    snapAnim.to = scrollXFloat.current + snapAnim.multiple;
-    snapAnim.startT = Date.now();
-    snapAnim.duration = 220;
-    velocity.current.x = 0;
-  }
-
-  function animateStep() {
-    let changed = false;
-    if (snapAnim.active) {
-      let t = (Date.now() - snapAnim.startT) / snapAnim.duration;
-      if (t > 1) t = 1;
-      scrollXFloat.current =
-        snapAnim.from + (snapAnim.to - snapAnim.from) * (1 - Math.pow(1 - t, 2));
-      changed = true;
-      if (t >= 1) snapAnim.active = false;
-      velocity.current.x = 0;
-    }
-    if (Math.abs(velocity.current.y) > 0.1) {
-      scrollYFloat.current += velocity.current.y / CELL_H;
-      velocity.current.y *= friction;
-      changed = true;
-    }
-    if (Math.abs(velocity.current.x) > 0.1 && !snapAnim.active) {
-      scrollXFloat.current += velocity.current.x / getSizes().cellW;
-      velocity.current.x *= friction;
-      changed = true;
-    }
-    if (changed) {
-      setRenderTick((tick) => tick + 1);
-      onXYFloatChange({
-        scrollYFloat: scrollYFloat.current,
-        scrollXFloat: scrollXFloat.current,
+    .onUpdate((event) => {
+      // Update scroll position based on drag - runs on UI thread
+      scrollYFloat.value = scrollStartY.value - event.translationY / CELL_H;
+      scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
+    })
+    .onEnd((event) => {
+      // Apply momentum with decay on Y axis
+      scrollYFloat.value = withDecay({
+        velocity: -event.velocityY / CELL_H,
+        deceleration: 0.997,
       });
-    }
-    if (
-      snapAnim.active ||
-      Math.abs(velocity.current.y) > 0.1 ||
-      Math.abs(velocity.current.x) > 0.1
-    ) {
-      requestAnimationFrame(animateStep);
-    }
-  }
 
-  // Rendering calculations
-  const { width: winW, height: winH, cellW, headerCellW, padL, padT, gridW, gridH } = getSizes();
+      // For X axis: apply momentum then snap to column
+      const targetX = scrollXFloat.value + (-event.velocityX / cellW) * 0.3;
+      const snappedX = Math.round(targetX);
+
+      scrollXFloat.value = withSpring(snappedX, {
+        damping: 20,
+        stiffness: 200,
+        velocity: -event.velocityX / cellW,
+      }, (finished) => {
+        if (finished) {
+          runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+        }
+      });
+    }), [cellW, onAnimationComplete]);
+
+  // Watch for probe cell changes and trigger highlight
+  useAnimatedReaction(
+    () => {
+      const { padL, padT, gridW, gridH } = getSizes();
+      const redLineX = HEADER_W + 0.5 * cellW;
+      const probeScreenY = HEADER_H + gridH / 2.5;
+      const probeXInGrid = (redLineX - HEADER_W) / cellW;
+      const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+      const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - padL / cellW);
+      const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - padT / CELL_H);
+      return { probeCol, probeRow };
+    },
+    (current, previous) => {
+      if (previous && (current.probeCol !== previous.probeCol || current.probeRow !== previous.probeRow)) {
+        highlightOpacity.value = 1;
+        highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
+        runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
+      }
+    },
+    [cellW]
+  );
+
+  // Animated style for highlight cell
+  const highlightStyle = useAnimatedStyle(() => ({
+    opacity: highlightOpacity.value,
+  }));
+
+  // Animated style for grid container - transforms entire grid on UI thread
+  const gridAnimatedStyle = useAnimatedStyle(() => {
+    const { cellW: cw } = getSizes();
+    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * cw;
+    const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
+    return {
+      transform: [
+        { translateX: -offsetX },
+        { translateY: -offsetY },
+      ],
+    };
+  });
+
+  // Animated style for header X (dates) - moves with horizontal scroll
+  const headerXAnimatedStyle = useAnimatedStyle(() => {
+    const { headerCellW } = getSizes();
+    // Header moves based on the fractional part of scroll and hour within day
+    const probeRow = Math.floor(scrollYFloat.value);
+    const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
+    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * headerCellW + masterHourFrac * headerCellW;
+    return {
+      transform: [{ translateX: -offsetX }],
+    };
+  });
+
+  // Use settled position for rendering calculations (React state, not shared values)
+  const { width: winW, height: winH, headerCellW, padL, padT, gridW, gridH } = getSizes();
+
+  // Use settledPosition for React render (shared values can't be read synchronously)
+  const renderScrollX = settledPosition.scrollXFloat;
+  const renderScrollY = settledPosition.scrollYFloat;
 
   const redLineX = HEADER_W + 0.5 * cellW;
   const probeScreenY = HEADER_H + gridH / 2.5;
-  const firstCol = Math.floor(scrollXFloat.current - Math.ceil(padL / cellW));
-  const firstRow = Math.floor(scrollYFloat.current - Math.ceil(padT / CELL_H));
+  const firstCol = Math.floor(renderScrollX - Math.ceil(padL / cellW));
+  const firstRow = Math.floor(renderScrollY - Math.ceil(padT / CELL_H));
   const visibleCols = Math.ceil(gridW / cellW) + 4;
   const visibleRows = Math.ceil(gridH / CELL_H) + 4;
 
-  // Precise probe cell calculation
+  // Precise probe cell calculation (using settled position for React render)
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
-  const probeCol = Math.floor(scrollXFloat.current + probeXInGrid - padL / cellW);
-  const probeRow = Math.floor(scrollYFloat.current + probeYInGrid - padT / CELL_H);
+  const probeCol = Math.floor(renderScrollX + probeXInGrid - padL / cellW);
+  const probeRow = Math.floor(renderScrollY + probeYInGrid - padT / CELL_H);
 
-  // Highlight animation for cell under probe
-  React.useEffect(() => {
-    if (probeCol !== highlight.probeCol || probeRow !== highlight.probeRow) {
-      highlight.fade.setValue(1);
-      setHighlight({ probeRow, probeCol, fade: highlight.fade });
-      Animated.timing(highlight.fade, {
-        toValue: 0,
-        duration: HIGHLIGHT_MS,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [probeCol, probeRow]);
+  // Note: Highlight animation is handled by useAnimatedReaction above (Reanimated)
 
   // Header X (date) cells
   const probeHour24 = ((probeRow % 24) + 24) % 24;
@@ -276,7 +285,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     );
   }
 
-  // Main grid cells
+  // Main grid cells - rendered at fixed positions, container transforms for animation
   let highlightCellLayout;
   let cells = [];
   for (let dx = 0; dx < visibleCols; ++dx) {
@@ -286,8 +295,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       let hour24 = ((rowIdx % 24) + 24) % 24;
       let dayShift = Math.floor(rowIdx / 24);
       let cellDayCol = colIdx + dayShift;
-      let left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
-      let top = dy * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+      // Fixed positions - container handles the transform offset
+      let left = dx * cellW;
+      let top = dy * CELL_H;
 
       if (colIdx === probeCol && rowIdx === probeRow) {
         highlightCellLayout = { left: HEADER_W + left, top: HEADER_H + top, width: cellW, height: CELL_H };
@@ -307,12 +317,12 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     }
   }
 
-  // Header Y cells
+  // Header Y cells - fixed positions, container transforms
   let headerYcells = [];
   for (let dy = 0; dy < visibleRows; ++dy) {
     let rowIdx = firstRow + dy;
     let hour24 = ((rowIdx % 24) + 24) % 24;
-    let top = dy * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+    let top = dy * CELL_H; // Fixed position
     headerYcells.push(
       <View
         key={`hy${dy}`}
@@ -336,21 +346,24 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     );
   }
 
+  // Probe highlight view using Reanimated
   let probeHighlightView = null;
-  if (highlightCellLayout && highlight && highlight.fade) {
+  if (highlightCellLayout) {
     probeHighlightView = (
       <Animated.View
-        style={{
-          position: 'absolute',
-          left: highlightCellLayout.left,
-          top: highlightCellLayout.top,
-          width: highlightCellLayout.width,
-          height: highlightCellLayout.height,
-          backgroundColor: 'rgba(255,206,10,0.13)',
-          opacity: highlight.fade,
-          borderRadius: 7,
-          zIndex: 150,
-        }}
+        style={[
+          {
+            position: 'absolute',
+            left: highlightCellLayout.left,
+            top: highlightCellLayout.top,
+            width: highlightCellLayout.width,
+            height: highlightCellLayout.height,
+            backgroundColor: 'rgba(255,206,10,0.13)',
+            borderRadius: 7,
+            zIndex: 150,
+          },
+          highlightStyle,
+        ]}
         pointerEvents="none"
       />
     );
@@ -498,9 +511,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             // Check if this is the first segment
             const isFirstSegment = eventStart >= cellDate && eventStart < cellEndTime;
 
-            // Calculate position
-            const left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
-            const top = (dy + startMinuteFraction) * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+            // Calculate position - fixed, container transforms
+            const left = dx * cellW;
+            const top = (dy + startMinuteFraction) * CELL_H;
 
             // Layout within right half of column
             const availableWidth = cellW / 2;
@@ -710,9 +723,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             const startMinuteFraction = (segmentStart - cellDate) / (1000 * 60 * 60);
             const durationHours = (segmentEnd - segmentStart) / (1000 * 60 * 60);
 
-            // Calculate position
-            const left = dx * cellW - ((scrollXFloat.current - Math.floor(scrollXFloat.current)) * cellW);
-            const top = (dy + startMinuteFraction) * CELL_H - ((scrollYFloat.current - Math.floor(scrollYFloat.current)) * CELL_H);
+            // Calculate position - fixed, container transforms
+            const left = dx * cellW;
+            const top = (dy + startMinuteFraction) * CELL_H;
 
             // Layout within LEFT half of column
             const availableWidth = cellW / 2;
@@ -827,39 +840,54 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   }
 
   return (
-    <View style={styles.gridRoot} {...(!snapAnim.active && panResponder.panHandlers)}>
-      {/* Top bar & header cells */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          width: '100%',
-          height: HEADER_H,
-          zIndex: 16,
-          backgroundColor: '#f8f9fa',
-          borderBottomWidth: 1,
-          borderBottomColor: '#ddd',
-          alignItems: 'flex-start',
-          justifyContent: 'flex-start',
-        }}
-      >
-        {headerXcells}
-        {redLine}
-      </View>
-      {/* Left header Y col */}
-      <View style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: HEADER_W, zIndex: 10 }}>
-        {headerYcells}
-      </View>
-      {/* Highlighted cell */}
-      {probeHighlightView}
-      {/* Main grid */}
-      <View style={{ flex: 1 }}>{cells}</View>
-      {/* Child responsibility lines (left half) */}
-      {childEventViews}
-      {/* Event rectangles (right half) */}
-      {eventViews}
-    </View>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={styles.gridRoot}>
+        {/* Top bar & header cells */}
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: '100%',
+            height: HEADER_H,
+            zIndex: 16,
+            backgroundColor: '#f8f9fa',
+            borderBottomWidth: 1,
+            borderBottomColor: '#ddd',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+            overflow: 'hidden',
+          }}
+        >
+          {headerXcells}
+          {redLine}
+        </View>
+        {/* Left header Y col - transforms with vertical scroll */}
+        <Animated.View
+          style={[
+            { position: 'absolute', top: HEADER_H, left: 0, width: HEADER_W, zIndex: 10 },
+            { transform: [{ translateY: 0 }] }, // Will be animated
+          ]}
+        >
+          {headerYcells}
+        </Animated.View>
+        {/* Main grid container - transforms for smooth animation */}
+        <Animated.View
+          style={[
+            { position: 'absolute', top: HEADER_H, left: 0, right: 0, bottom: 0 },
+            gridAnimatedStyle,
+          ]}
+        >
+          {cells}
+          {/* Child responsibility lines (left half) */}
+          {childEventViews}
+          {/* Event rectangles (right half) */}
+          {eventViews}
+        </Animated.View>
+        {/* Highlighted cell - outside transform container for fixed position */}
+        {probeHighlightView}
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -1037,15 +1065,12 @@ export default function CalendarScreen({ navigation, route }) {
   const COLS = 7;
   const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const CELL_WIDTH = Math.floor((SCREEN_WIDTH - 6) / 7);
-  const CELL_HEIGHT = CELL_WIDTH * 2; // 2x the height
-  const CALENDAR_HEIGHT = 24 + ROWS * CELL_HEIGHT;
+  const CELL_HEIGHT_MONTH = CELL_WIDTH * 2; // 2x the height (renamed to avoid conflict)
+  const CALENDAR_HEIGHT = 24 + ROWS * CELL_HEIGHT_MONTH;
 
-  // Month swipe state
-  const monthDragX = useRef(0);
-  const monthOffsetX = useRef(-MONTH_WIDTH * 1); // Center month at index 1
-  const monthVelocityX = useRef(0);
-  const monthAnimating = useRef(false);
-  const [monthForceUpdate, setMonthForceUpdate] = useState(false);
+  // Month swipe state - using Reanimated shared values for UI thread animation
+  const monthOffsetX = useSharedValue(-MONTH_WIDTH); // Center month at index 1
+  const monthStartX = useSharedValue(0); // Starting offset when gesture begins
 
   // Get month matrix (always 6 rows)
   const getMonthMatrix = (year, month) => {
@@ -1095,100 +1120,78 @@ export default function CalendarScreen({ navigation, route }) {
     return result;
   }, [viewCenterMonth]);
 
-  // Month swipe animation - momentum with friction
-  const monthAnimateStep = () => {
-    if (!monthAnimating.current) return;
-    monthDragX.current += monthVelocityX.current;
-    monthVelocityX.current *= 0.93; // FRICTION
-    if (monthDragX.current > MONTH_WIDTH * 1) monthDragX.current = MONTH_WIDTH * 1;
-    if (monthDragX.current < -MONTH_WIDTH * 1) monthDragX.current = -MONTH_WIDTH * 1;
-    monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
-    setMonthForceUpdate((f) => !f);
+  // Callback for when month swipe animation completes
+  const onMonthSwipeComplete = useCallback((direction) => {
+    if (direction !== 0) {
+      const currentCenter = viewCenterMonthRef.current;
+      const newMonth = getAdjacentMonths(currentCenter.year, currentCenter.month, direction);
 
-    if (Math.abs(monthVelocityX.current) > 0.5) {
-      requestAnimationFrame(monthAnimateStep);
-    } else {
-      let idxFromDrag = Math.round(-monthDragX.current / MONTH_WIDTH);
-      idxFromDrag = Math.max(-1, Math.min(1, idxFromDrag));
-      let snapDragX = -idxFromDrag * MONTH_WIDTH;
-      monthAnimateSnap(snapDragX, () => {
-        if (idxFromDrag !== 0) {
-          // Get current center from ref (to avoid stale closure)
-          const currentCenter = viewCenterMonthRef.current;
-          // Calculate new month directly from current center
-          const newMonth = getAdjacentMonths(currentCenter.year, currentCenter.month, idxFromDrag);
+      setViewCenterMonth({ year: newMonth.year, month: newMonth.month });
 
-          setViewCenterMonth({ year: newMonth.year, month: newMonth.month });
+      // Also update masterDateTime for banner consistency
+      let newDate;
+      if (direction > 0) {
+        newDate = new Date(newMonth.year, newMonth.month, 1);
+      } else {
+        newDate = new Date(newMonth.year, newMonth.month + 1, 0);
+      }
+      newDate.setHours(12, 0, 0, 0);
 
-          // Also update masterDateTime for banner consistency
-          let newDate;
-          if (idxFromDrag > 0) {
-            // Swiped forward (right) - go to 1st day of NEW month at 12pm
-            newDate = new Date(newMonth.year, newMonth.month, 1);
-          } else {
-            // Swiped backward (left) - go to last day of NEW month at 12pm
-            newDate = new Date(newMonth.year, newMonth.month + 1, 0);
-          }
-          newDate.setHours(12, 0, 0, 0);
+      const baseDate = new Date(2023, 9, 31);
+      const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+      const newDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+      const diffDays = Math.round((newDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
 
-          const baseDate = new Date(2023, 9, 31);
-          // Use Date.UTC to avoid timezone issues
-          const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-          const newDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
-          const diffDays = Math.round((newDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
-
-          const newPosition = getXYFloatForProbeTarget(12, diffDays);
-          setExternalXYFloat(newPosition);
-        }
-
-        monthDragX.current = 0;
-        monthOffsetX.current = -MONTH_WIDTH * 1;
-        setMonthForceUpdate((f) => !f);
-        monthAnimating.current = false;
-      });
+      const newPosition = getXYFloatForProbeTarget(12, diffDays);
+      setExternalXYFloat(newPosition);
     }
-  };
 
-  const monthAnimateSnap = (targetDragX, cb) => {
-    const start = monthDragX.current;
-    const diff = targetDragX - start;
-    const duration = 220;
-    let startTime = null;
-    function step(timestamp) {
-      if (!startTime) startTime = timestamp;
-      let t = Math.min((timestamp - startTime) / duration, 1);
-      t = 1 - Math.pow(1 - t, 3);
-      monthDragX.current = start + diff * t;
-      monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
-      setMonthForceUpdate((f) => !f);
-      if (t < 1) {
-        requestAnimationFrame(step);
-      } else if (cb) cb();
-    }
-    requestAnimationFrame(step);
-  };
+    // Reset offset to center after state update
+    monthOffsetX.value = -MONTH_WIDTH;
+  }, []);
 
-  // PanResponder for month swipe
-  const monthPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gesture) => Math.abs(gesture.dx) > 8,
-      onPanResponderGrant: () => {
-        monthAnimating.current = false;
-        monthVelocityX.current = 0;
-      },
-      onPanResponderMove: (evt, gesture) => {
-        monthDragX.current = gesture.dx;
-        monthOffsetX.current = -MONTH_WIDTH * 1 + monthDragX.current;
-        setMonthForceUpdate((f) => !f);
-      },
-      onPanResponderRelease: (evt, gesture) => {
-        monthVelocityX.current = gesture.vx * 18;
-        monthAnimating.current = true;
-        monthAnimateStep();
-      },
+  // Animated style for month container
+  const monthAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: monthOffsetX.value }],
+  }));
+
+  // Gesture handler for month swipe - runs on UI thread
+  const monthPanGesture = useMemo(() => Gesture.Pan()
+    .activeOffsetX([-10, 10]) // Require 10px horizontal movement to activate
+    .onStart(() => {
+      monthStartX.value = monthOffsetX.value;
     })
-  ).current;
+    .onUpdate((event) => {
+      // Clamp to prevent swiping more than one month at a time
+      const newOffset = monthStartX.value + event.translationX;
+      const minOffset = -MONTH_WIDTH * 2; // Can't go past month +1
+      const maxOffset = 0; // Can't go past month -1
+      monthOffsetX.value = Math.max(minOffset, Math.min(maxOffset, newOffset));
+    })
+    .onEnd((event) => {
+      // Determine which month to snap to based on velocity and position
+      const currentDrag = monthOffsetX.value - (-MONTH_WIDTH);
+      const velocity = event.velocityX;
+
+      let targetIndex = 0; // 0 = center month
+      if (velocity > 500 || currentDrag > MONTH_WIDTH / 3) {
+        targetIndex = -1; // Previous month
+      } else if (velocity < -500 || currentDrag < -MONTH_WIDTH / 3) {
+        targetIndex = 1; // Next month
+      }
+
+      const targetOffset = -MONTH_WIDTH + (-targetIndex * MONTH_WIDTH);
+
+      monthOffsetX.value = withSpring(targetOffset, {
+        damping: 20,
+        stiffness: 200,
+        velocity: velocity,
+      }, (finished) => {
+        if (finished) {
+          runOnJS(onMonthSwipeComplete)(targetIndex);
+        }
+      });
+    }), [onMonthSwipeComplete]);
 
   // Handle day cell tap - update banner and highlight the selected day
   const handleDayTap = (date) => {
@@ -1514,10 +1517,10 @@ export default function CalendarScreen({ navigation, route }) {
                       const widthPercent = ((bar.endFraction || 1) - (bar.startFraction || 0)) * 100;
 
                       // Each bar pair takes up equal vertical space within the top 60% of cell (below day number)
-                      // The cell height is 2x the width (see line 1022: CELL_HEIGHT = CELL_WIDTH * 2)
+                      // The cell height is 2x the width (CELL_HEIGHT_MONTH = CELL_WIDTH * 2)
                       // Split: Day number (top), 60% child bars, 40% event indicators (bottom)
                       const dayNumberAndGapHeight = 20; // Reserve space for day number + gap at top
-                      const childBarsHeight = (CELL_HEIGHT - dayNumberAndGapHeight) * 0.6; // 60% for child bars
+                      const childBarsHeight = (CELL_HEIGHT_MONTH - dayNumberAndGapHeight) * 0.6; // 60% for child bars
                       const barPairHeight = maxColumns > 0 ? Math.floor(childBarsHeight / maxColumns) : 0; // Divide space equally
                       const barHeight = Math.floor(barPairHeight / 2); // Child and adult each get half
 
@@ -1599,27 +1602,31 @@ export default function CalendarScreen({ navigation, route }) {
     );
   };
 
-  // Month view rendering
+  // Month view rendering - using Reanimated for smooth 60fps animation
   const renderMonthView = () => {
     return (
-      <View {...monthPanResponder.panHandlers} style={{ width: '100%' }}>
-        <View style={[styles.overflow, { width: '100%', height: CALENDAR_HEIGHT }]}>
-          <View
-            style={{
-              flexDirection: 'row',
-              width: MONTH_WIDTH * months.length,
-              height: CALENDAR_HEIGHT,
-              transform: [{ translateX: monthOffsetX.current }],
-            }}
-          >
-            {months.map((m, i) => (
-              <View key={m.year + '-' + m.month} style={{ width: MONTH_WIDTH }}>
-                {renderSingleMonthView(m.year, m.month)}
-              </View>
-            ))}
+      <GestureDetector gesture={monthPanGesture}>
+        <Animated.View style={{ width: '100%' }}>
+          <View style={[styles.overflow, { width: '100%', height: CALENDAR_HEIGHT }]}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: 'row',
+                  width: MONTH_WIDTH * months.length,
+                  height: CALENDAR_HEIGHT,
+                },
+                monthAnimatedStyle,
+              ]}
+            >
+              {months.map((m, i) => (
+                <View key={m.year + '-' + m.month} style={{ width: MONTH_WIDTH }}>
+                  {renderSingleMonthView(m.year, m.month)}
+                </View>
+              ))}
+            </Animated.View>
           </View>
-        </View>
-      </View>
+        </Animated.View>
+      </GestureDetector>
     );
   };
 
