@@ -77,7 +77,7 @@ function getSizes() {
 function getXYFloatForProbeTarget(targetHour, targetDay) {
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
 
@@ -178,7 +178,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     () => {
       const { padL, padT, gridW, gridH } = getSizes();
       const redLineX = HEADER_W + 0.5 * cellW;
-      const probeScreenY = HEADER_H + gridH / 2.5;
+      const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
       const probeXInGrid = (redLineX - HEADER_W) / cellW;
       const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
       const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - padL / cellW);
@@ -270,7 +270,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const renderScrollY = settledPosition.scrollYFloat;
 
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const firstCol = Math.floor(renderScrollX - Math.ceil(padL / cellW));
   const firstRow = Math.floor(renderScrollY - Math.ceil(padT / CELL_H)) - 1; // Start 1 row higher to eliminate top gap
   const visibleCols = Math.ceil(gridW / cellW) + 4;
@@ -1057,7 +1057,7 @@ export default function CalendarScreen({ navigation, route }) {
   // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeCol = Math.floor(externalXYFloat.scrollXFloat + probeXInGrid - padL / cellW);
