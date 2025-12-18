@@ -223,9 +223,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     };
   });
 
-  // Animated style for header Y (hours) - moves with vertical scroll
+  // Animated style for header Y (hours) - infinite scroll using modulo
+  // Uses scrollYFloat directly (same source as grid) for perfect sync
   const headerYAnimatedStyle = useAnimatedStyle(() => {
-    const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
+    // Use modulo 24 to create infinite cycling effect
+    // scrollYFloat represents row position, we want to cycle every 24 rows
+    const cyclePosition = ((scrollYFloat.value % 24) + 24) % 24; // Always positive 0-24
+    const offsetY = cyclePosition * CELL_H;
     return {
       transform: [{ translateY: -offsetY }],
     };
@@ -325,34 +329,37 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     }
   }
 
-  // Header Y cells - fixed positions, container transforms
-  let headerYcells = [];
-  for (let dy = 0; dy < visibleRows; ++dy) {
-    let rowIdx = firstRow + dy;
-    let hour24 = ((rowIdx % 24) + 24) % 24;
-    let top = dy * CELL_H; // Fixed position
-    headerYcells.push(
-      <View
-        key={`hy${dy}`}
-        style={{
-          position: 'absolute',
-          top: HEADER_H + top,
-          left: 0,
-          width: HEADER_W,
-          height: CELL_H,
-          borderWidth: 1,
-          borderColor: '#ddd',
-          backgroundColor: '#f8f9fa',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: '#495057', fontSize: 12, fontWeight: '500' }}>
-          {hourLabel(hour24)}
-        </Text>
-      </View>
-    );
-  }
+  // Header Y cells - static 24-hour cycle, rendered once (never re-renders)
+  // We render 24 + extra cells to cover visible area + buffer for smooth infinite scroll
+  const headerYcells = useMemo(() => {
+    const cells = [];
+    const totalHours = 24 + Math.ceil(gridH / CELL_H) + 4; // 24 hours + visible + buffer
+    for (let i = 0; i < totalHours; ++i) {
+      const hour24 = i % 24;
+      cells.push(
+        <View
+          key={`hy${i}`}
+          style={{
+            position: 'absolute',
+            top: i * CELL_H,
+            left: 0,
+            width: HEADER_W,
+            height: CELL_H,
+            borderWidth: 1,
+            borderColor: '#ddd',
+            backgroundColor: '#f8f9fa',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#495057', fontSize: 12, fontWeight: '500' }}>
+            {hourLabel(hour24)}
+          </Text>
+        </View>
+      );
+    }
+    return cells;
+  }, [gridH]); // Only re-render if screen size changes
 
   // Probe highlight view using Reanimated
   let probeHighlightView = null;
@@ -870,15 +877,23 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           {headerXcells}
           {redLine}
         </View>
-        {/* Left header Y col - transforms with vertical scroll */}
-        <Animated.View
-          style={[
-            { position: 'absolute', top: HEADER_H, left: 0, width: HEADER_W, zIndex: 10 },
-            headerYAnimatedStyle,
-          ]}
+        {/* Left header Y col - clip container */}
+        <View
+          style={{
+            position: 'absolute',
+            top: HEADER_H,
+            left: 0,
+            width: HEADER_W,
+            bottom: 0,
+            zIndex: 10,
+            overflow: 'hidden',
+          }}
         >
-          {headerYcells}
-        </Animated.View>
+          {/* Animated inner container - transforms with vertical scroll */}
+          <Animated.View style={headerYAnimatedStyle}>
+            {headerYcells}
+          </Animated.View>
+        </View>
         {/* Main grid container - transforms for smooth animation */}
         <Animated.View
           style={[
