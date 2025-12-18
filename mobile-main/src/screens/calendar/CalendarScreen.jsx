@@ -265,29 +265,12 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header Y (hours) - infinite scroll using modulo
-  // Positions the hour labels so the detected hour aligns with probe screen position
+  // Uses scrollYFloat directly (same source as grid) for perfect sync
   const headerYAnimatedStyle = useAnimatedStyle(() => {
-    const { padT, gridH } = getSizes();
-    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
-    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
-
-    // Calculate exact probe row position (same as animated reaction)
-    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
-
-    // The hour label at index (probeRowExact % 24) should be at probeScreenY
-    // Label at index i is at position i * CELL_H in the container
-    // Container is at top: HEADER_H, so label is at screen position HEADER_H + i * CELL_H
-    // We want: HEADER_H + (probeHour * CELL_H) + offsetY = probeScreenY
-    // So: offsetY = probeScreenY - HEADER_H - probeHour * CELL_H
-    // But we use negative transform, and probeHour cycles 0-24
-
-    const probeHourExact = ((probeRowExact % 24) + 24) % 24;
-    // Position in container where probe Y lands (relative to HEADER_H)
-    const probeYInContainer = probeScreenY - HEADER_H;
-    // We want label at probeHourExact to be at probeYInContainer
-    // Label is at probeHourExact * CELL_H, so offset = probeHourExact * CELL_H - probeYInContainer
-    const offsetY = probeHourExact * CELL_H - probeYInContainer + CELL_H / 2;
-
+    // Use modulo 24 to create infinite cycling effect
+    // scrollYFloat represents row position, we want to cycle every 24 rows
+    const cyclePosition = ((scrollYFloat.value % 24) + 24) % 24; // Always positive 0-24
+    const offsetY = cyclePosition * CELL_H;
     return {
       transform: [{ translateY: -offsetY }],
     };
