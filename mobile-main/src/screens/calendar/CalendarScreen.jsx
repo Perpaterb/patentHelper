@@ -223,6 +223,14 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     };
   });
 
+  // Animated style for header Y (hours) - moves with vertical scroll
+  const headerYAnimatedStyle = useAnimatedStyle(() => {
+    const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
+    return {
+      transform: [{ translateY: -offsetY }],
+    };
+  });
+
   // Use settled position for rendering calculations (React state, not shared values)
   const { width: winW, height: winH, headerCellW, padL, padT, gridW, gridH } = getSizes();
 
@@ -866,7 +874,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         <Animated.View
           style={[
             { position: 'absolute', top: HEADER_H, left: 0, width: HEADER_W, zIndex: 10 },
-            { transform: [{ translateY: 0 }] }, // Will be animated
+            headerYAnimatedStyle,
           ]}
         >
           {headerYcells}
