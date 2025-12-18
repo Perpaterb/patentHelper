@@ -129,12 +129,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Callback to update React state when animation settles
   const onAnimationComplete = useCallback((x, y) => {
     const newPosition = { scrollXFloat: x, scrollYFloat: y };
-    console.log('[DayGrid] Master time updated by movement:', {
-      scrollXFloat: x.toFixed(2),
-      scrollYFloat: y.toFixed(2),
-      hour: Math.floor(y % 24),
-      minute: Math.floor((y % 1) * 60),
-    });
     setSettledPosition(newPosition);
     onXYFloatChange(newPosition);
   }, [onXYFloatChange]);
@@ -156,8 +150,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
     })
     .onEnd((event) => {
-      runOnJS(console.log)('[DayGrid] onEnd fired - starting animations');
-
       // Apply momentum with decay on Y axis
       scrollYFloat.value = withDecay({
         velocity: -event.velocityY / CELL_H,
@@ -195,11 +187,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        // Update master time continuously as probe changes
-        runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
       }
     },
-    [cellW, onAnimationComplete]
+    [cellW]
   );
 
   // Animated style for highlight cell
