@@ -156,10 +156,26 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
     })
     .onEnd((event) => {
+      // Track which animations have completed
+      let yFinished = false;
+      let xFinished = false;
+
+      const checkBothFinished = () => {
+        'worklet';
+        if (yFinished && xFinished) {
+          runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+        }
+      };
+
       // Apply momentum with decay on Y axis
       scrollYFloat.value = withDecay({
         velocity: -event.velocityY / CELL_H,
         deceleration: 0.997,
+      }, (finished) => {
+        if (finished) {
+          yFinished = true;
+          checkBothFinished();
+        }
       });
 
       // For X axis: apply momentum then snap to column
@@ -172,7 +188,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         velocity: -event.velocityX / cellW,
       }, (finished) => {
         if (finished) {
-          runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+          xFinished = true;
+          checkBothFinished();
         }
       });
     }), [cellW, onAnimationComplete]);
