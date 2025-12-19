@@ -1001,11 +1001,12 @@ export default function CalendarScreen({ navigation, route }) {
     return getXYFloatForProbeTarget(currentHour, diffDays);
   };
 
-  // Handle view mode toggle - keep current day, go to midday when entering day view
-  const handleViewModeToggle = (currentProbeDay) => {
+  // Handle view mode toggle - preserve current day and hour when switching views
+  const handleViewModeToggle = (currentProbeDay, currentProbeHour) => {
     if (viewMode === 'month') {
-      // Switching TO day view - go to midday of the CURRENT selected day (not today)
-      const newPosition = getXYFloatForProbeTarget(12, currentProbeDay);
+      // Switching TO day view - preserve the current hour (or use 12pm if not set)
+      const targetHour = typeof currentProbeHour === 'number' ? currentProbeHour : 12;
+      const newPosition = getXYFloatForProbeTarget(targetHour, currentProbeDay);
       setExternalXYFloat(newPosition);
       setViewMode('day');
     } else {
@@ -1761,7 +1762,7 @@ export default function CalendarScreen({ navigation, route }) {
         rightButtons={[
           {
             icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
-            onPress: () => handleViewModeToggle(probeDay),
+            onPress: () => handleViewModeToggle(probeDay, probeHour24),
           },
         ]}
       />
