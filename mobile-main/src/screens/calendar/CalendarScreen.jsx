@@ -169,36 +169,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       xAnimDone.value = false;
       yAnimDone.value = false;
 
-      // Apply momentum with decay on Y axis, then snap to cell
-      scrollYFloat.value = withDecay({
-        velocity: -event.velocityY / CELL_H,
-        deceleration: 0.997,
-      }, (finished) => {
-        if (finished) {
-          // Snap Y to nearest integer (cell center)
-          const snappedY = Math.round(scrollYFloat.value);
-          scrollYFloat.value = withSpring(snappedY, {
-            damping: 50,
-            stiffness: 300,
-          }, (springFinished) => {
-            if (springFinished) {
-              yAnimDone.value = true;
-              // Check if both animations are done
-              if (xAnimDone.value) {
-                // Update settled refs for event positioning
-                settledXRef.value = scrollXFloat.value;
-                settledYRef.value = scrollYFloat.value;
-                runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
-              }
-            }
-          });
-        }
-      });
-
-      // For X axis: apply momentum then snap to column
+      // Calculate snap targets with momentum factored in
       const targetX = scrollXFloat.value + (-event.velocityX / cellW) * 0.3;
+      const targetY = scrollYFloat.value + (-event.velocityY / CELL_H) * 0.3;
       const snappedX = Math.round(targetX);
+      const snappedY = Math.round(targetY);
 
+      // Animate X to snapped position
       scrollXFloat.value = withSpring(snappedX, {
         damping: 50,
         stiffness: 300,
@@ -208,6 +185,24 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           xAnimDone.value = true;
           // Check if both animations are done
           if (yAnimDone.value) {
+            // Update settled refs for event positioning
+            settledXRef.value = scrollXFloat.value;
+            settledYRef.value = scrollYFloat.value;
+            runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+          }
+        }
+      });
+
+      // Animate Y to snapped position (same approach as X)
+      scrollYFloat.value = withSpring(snappedY, {
+        damping: 50,
+        stiffness: 300,
+        velocity: -event.velocityY / CELL_H,
+      }, (finished) => {
+        if (finished) {
+          yAnimDone.value = true;
+          // Check if both animations are done
+          if (xAnimDone.value) {
             // Update settled refs for event positioning
             settledXRef.value = scrollXFloat.value;
             settledYRef.value = scrollYFloat.value;
