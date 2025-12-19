@@ -173,7 +173,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const targetX = scrollXFloat.value + (-event.velocityX / cellW) * 0.3;
       const targetY = scrollYFloat.value + (-event.velocityY / CELL_H) * 0.3;
       const snappedX = Math.round(targetX);
-      const snappedY = Math.round(targetY);
+      // Offset Y by -0.125 (5 pixels) so grid cell center aligns with probe dot
+      const snappedY = Math.round(targetY) - 0.125;
 
       // Animate X to snapped position
       scrollXFloat.value = withSpring(snappedX, {
@@ -472,7 +473,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       style={{
         position: 'absolute',
         left: redLineX - 5,
-        top: probeScreenY - 10,  // Shifted up by half dot size to align with cell center
+        top: probeScreenY - 5,
         width: 10,
         height: 10,
         borderRadius: 5,
