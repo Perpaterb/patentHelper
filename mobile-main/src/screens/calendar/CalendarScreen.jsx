@@ -88,9 +88,8 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
   const rawScrollYFloat = targetHour - probeYInGrid + padT / CELL_H + 0.0001;
 
   // Round to nearest integer to ensure cells align properly (snap expects integer values)
-  // Y offset by -0.125 (5 pixels) so grid cell center aligns with probe dot
   const alignedScrollXFloat = Math.round(rawScrollXFloat);
-  const alignedScrollYFloat = Math.round(rawScrollYFloat) - 0.125;
+  const alignedScrollYFloat = Math.round(rawScrollYFloat);
 
   return {
     scrollYFloat: alignedScrollYFloat,
@@ -176,7 +175,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const targetX = scrollXFloat.value + (-event.velocityX / cellW) * 0.3;
       const targetY = scrollYFloat.value + (-event.velocityY / CELL_H) * 0.3;
       const snappedX = Math.round(targetX);
-      const snappedY = Math.round(targetY) - 0.125;
+      const snappedY = Math.round(targetY);
 
       // Animate X to snapped position
       scrollXFloat.value = withSpring(snappedX, {
@@ -257,7 +256,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     return {
       transform: [
         { translateX: -offsetX },
-        { translateY: -offsetY },
+        // +5 pixels to shift grid up so cell center aligns with probe dot
+        { translateY: -offsetY + 5 },
       ],
     };
   });
