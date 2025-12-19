@@ -276,20 +276,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     };
   });
 
-  // Animated style for event container - syncs with grid using fractional scroll
-  // Events are positioned relative to probeDay/probeHour, container transforms with scroll
-  const eventContainerAnimatedStyle = useAnimatedStyle(() => {
-    const { cellW: cw } = getSizes();
-    // Use same fractional offset as grid for perfect sync
-    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * cw;
-    const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
-    return {
-      transform: [
-        { translateX: -offsetX },
-        { translateY: -offsetY },
-      ],
-    };
-  });
 
   // Animated style for header Y (hours) - infinite scroll using modulo
   // Uses scrollYFloat directly (same source as grid) for perfect sync
@@ -481,14 +467,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     />
   );
 
-  // Render events - positioned at ABSOLUTE coordinates (dayCol * cellW, absoluteRow * CELL_H)
-  // Events are in their own animated container with eventContainerAnimatedStyle transform
-  // This allows events to scroll smoothly without re-rendering during animation
-  // Buffer: render events for days within range of probeDay
-  const EVENT_DAYS_BUFFER = 5; // Render events for 5 days in each direction
+  // Render events - positioned exactly like grid cells (same coordinate system)
+  // Events go inside the grid container and move with gridAnimatedStyle transform
+  // Render 2 weeks (14 days) in each direction, only re-render when animation stops
+  const EVENT_DAYS_BUFFER = 14;
   const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
 
-  // Memoize event layouts to avoid recalculating on every render
+  // Memoize event views - only recalculates when settledPosition changes (animation stops)
   const { eventViews, childEventViews } = useMemo(() => {
     const eventViews = [];
     const childEventViews = [];
@@ -573,15 +558,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // STEP 3: Render events at positions RELATIVE to probeCol/probeRow
-    // This matches grid cell positioning - container transform handles smooth scroll
+    // STEP 3: Render events using SAME positioning as grid cells
+    // Grid cells use: left = dx * cellW, top = dy * CELL_H (where dx/dy are relative to firstCol/firstRow)
+    // Events use the same system so they move identically with the grid transform
     const minVisibleDay = probeDay - EVENT_DAYS_BUFFER;
     const maxVisibleDay = probeDay + EVENT_DAYS_BUFFER;
-
-    // Calculate reference position for centering events
-    // Events will be positioned relative to where probeDay/probeHour appears on screen
-    const probeScreenX = redLineX - HEADER_W; // X position of probe in grid (relative to HEADER_W)
-    const probeScreenYPos = probeScreenY - HEADER_H; // Y position of probe in grid
 
     regularEvents.forEach((event) => {
       const eventStart = new Date(event.startTime);
@@ -591,7 +572,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
       const eventEndDay = Math.floor((eventEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-      // Skip events outside visible range
+      // Skip events outside visible range (2 weeks each side)
       if (eventEndDay < minVisibleDay || eventStartDay > maxVisibleDay) {
         return;
       }
@@ -599,24 +580,32 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const layout = eventLayouts.get(event.eventId);
       if (!layout) return;
 
-      // Calculate event position relative to probe
       const eventStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
       const eventDurationHours = (eventEnd - eventStart) / (1000 * 60 * 60);
 
-      // Day difference from probe (for X positioning)
-      const dayDiff = eventStartDay - probeDay;
+      // Calculate rowIdx for this event (same formula as grid cells)
+      // Grid uses: rowIdx = firstRow + dy, hour24 = rowIdx % 24, dayShift = floor(rowIdx/24)
+      // cellDayCol = colIdx + dayShift
+      // So for an event on eventStartDay at eventStartHour:
+      // We need to find the rowIdx where this event appears
+      // rowIdx = (eventStartDay - firstCol) * 24 + eventStartHour (approximately)
+      const eventRowIdx = (eventStartDay - firstCol) * 24 + Math.floor(eventStartHour);
 
-      // Row difference from probe (for Y positioning)
-      // Event's row = eventStartDay * 24 + eventStartHour (in absolute terms)
-      // Probe's row = probeCol * 24 + probeHour24 (where probeCol = probeDay - probeDayOffset)
-      // But simpler: calculate hour difference accounting for day
-      const eventAbsoluteHour = eventStartDay * 24 + eventStartHour;
-      const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = eventAbsoluteHour - probeAbsoluteHour;
+      // Convert to dx/dy (same as grid cells)
+      const dy = eventRowIdx - firstRow;
+      const dx = 0; // Events are positioned within their day column, dayShift handles the X
 
-      // Position relative to probe screen position
-      const relativeLeft = probeScreenX + dayDiff * cellW;
-      const relativeTop = probeScreenYPos + hourDiff * CELL_H;
+      // But we need to account for the day column properly
+      // Actually simpler: calculate which column this event's day appears in
+      // For row eventRowIdx: dayShift = floor(eventRowIdx / 24), so colIdx = eventStartDay - dayShift
+      const dayShift = Math.floor(eventRowIdx / 24);
+      const colIdx = eventStartDay - dayShift;
+      const eventDx = colIdx - firstCol;
+
+      // Position like grid cells: left = dx * cellW, top = dy * CELL_H
+      const baseLeft = eventDx * cellW;
+      const hourFraction = eventStartHour - Math.floor(eventStartHour);
+      const baseTop = (dy + hourFraction) * CELL_H;
 
       // Layout within right half of column
       const availableWidth = cellW / 2;
@@ -624,9 +613,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
 
-      // Final position
-      const eventLeft = relativeLeft + (cellW / 2) + eventOffsetX;
-      const eventTop = relativeTop;
+      // Final position (add HEADER_W like cells do)
+      const eventLeft = HEADER_W + baseLeft + (cellW / 2) + eventOffsetX;
+      const eventTop = baseTop;
       const eventHeight = eventDurationHours * CELL_H;
 
       eventViews.push(
@@ -767,7 +756,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // Render child events at positions RELATIVE to probeCol/probeRow (same as regular events)
+    // Render child events using SAME positioning as grid cells (same as regular events)
     allResponsibilityLines.forEach((line) => {
       const lineStart = new Date(line.startTime);
       const lineEnd = new Date(line.endTime);
@@ -775,7 +764,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
       const lineEndDay = Math.floor((lineEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-      // Skip events outside visible range
+      // Skip events outside visible range (2 weeks each side)
       if (lineEndDay < minVisibleDay || lineStartDay > maxVisibleDay) {
         return;
       }
@@ -786,14 +775,16 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const lineStartHour = lineStart.getHours() + lineStart.getMinutes() / 60;
       const lineDurationHours = (lineEnd - lineStart) / (1000 * 60 * 60);
 
-      // Calculate position relative to probe (same as regular events)
-      const dayDiff = lineStartDay - probeDay;
-      const lineAbsoluteHour = lineStartDay * 24 + lineStartHour;
-      const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = lineAbsoluteHour - probeAbsoluteHour;
+      // Calculate position using same formula as regular events
+      const lineRowIdx = (lineStartDay - firstCol) * 24 + Math.floor(lineStartHour);
+      const dy = lineRowIdx - firstRow;
+      const dayShift = Math.floor(lineRowIdx / 24);
+      const colIdx = lineStartDay - dayShift;
+      const lineDx = colIdx - firstCol;
 
-      const relativeLeft = probeScreenX + dayDiff * cellW;
-      const relativeTop = probeScreenYPos + hourDiff * CELL_H;
+      const baseLeft = lineDx * cellW;
+      const hourFraction = lineStartHour - Math.floor(lineStartHour);
+      const baseTop = (dy + hourFraction) * CELL_H;
 
       // Layout within LEFT half of column
       const availableWidth = cellW / 2;
@@ -801,9 +792,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
 
-      // Final position
-      const eventLeft = relativeLeft + eventOffsetX;
-      const eventTop = relativeTop;
+      // Final position (add HEADER_W, left half of column)
+      const eventLeft = HEADER_W + baseLeft + eventOffsetX;
+      const eventTop = baseTop;
       const eventHeight = lineDurationHours * CELL_H;
 
       const halfWidth = eventWidth / 2;
@@ -888,7 +879,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     });
 
     return { eventViews, childEventViews };
-  }, [events, probeDay, probeHour24, cellW, redLineX, probeScreenY, navigation, groupId]);
+  }, [events, probeDay, firstRow, firstCol, cellW, navigation, groupId]);
 
   return (
     <GestureDetector gesture={panGesture}>
@@ -934,6 +925,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           </Animated.View>
         </View>
         {/* Main grid container - transforms for smooth animation */}
+        {/* Events are inside this container so they move exactly like grid cells */}
         <Animated.View
           style={[
             { position: 'absolute', top: HEADER_H, left: 0, right: 0, bottom: 0 },
@@ -941,26 +933,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           ]}
         >
           {cells}
+          {/* Child responsibility lines (left half of day column) */}
+          {childEventViews}
+          {/* Event rectangles (right half of day column) */}
+          {eventViews}
         </Animated.View>
-        {/* Event container - separate from grid, uses own transform for smooth scrolling */}
-        {/* Events positioned at absolute coordinates, container transform handles alignment */}
-        <View
-          style={{
-            position: 'absolute',
-            top: HEADER_H,
-            left: HEADER_W,
-            right: 0,
-            bottom: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <Animated.View style={eventContainerAnimatedStyle}>
-            {/* Child responsibility lines (left half of day column) */}
-            {childEventViews}
-            {/* Event rectangles (right half of day column) */}
-            {eventViews}
-          </Animated.View>
-        </View>
         {/* Highlighted cell - outside transform container for fixed position */}
         {probeHighlightView}
         {/* Red dot showing probe detection point */}
