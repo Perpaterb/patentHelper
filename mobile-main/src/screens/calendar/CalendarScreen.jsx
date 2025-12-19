@@ -248,17 +248,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     // probeDay = probeCol + probeRow / 24 (continuous, not floored)
     const probeDayExact = probeColExact + probeRowExact / 24;
 
-    // Cells are rendered starting at firstVisibleDay = floor(probeDay) - halfVisible
+    // Cells are positioned at left = dayIdx * headerCellW (absolute position)
     // We need to position the container so that probeDayExact aligns with redLineX
-    const visibleDays = 5; // DEBUG: Must match the cell rendering
-    const halfVisible = Math.ceil(visibleDays / 2);
-    const firstVisibleDay = Math.floor(probeDayExact) - halfVisible;
-
-    // Day N is rendered at position (N - firstVisibleDay) * headerCellW
+    // Day N is at position N * headerCellW
     // probeDayExact should appear at redLineX
-    // So: (probeDayExact - firstVisibleDay) * headerCellW - offsetX = redLineX
-    // offsetX = (probeDayExact - firstVisibleDay) * headerCellW - redLineX
-    const probeDayPosition = (probeDayExact - firstVisibleDay) * headerCellW;
+    // So: probeDayExact * headerCellW - offsetX = redLineX
+    // offsetX = probeDayExact * headerCellW - redLineX
+    const probeDayPosition = probeDayExact * headerCellW;
     const offsetX = probeDayPosition - redLineX;
 
 
@@ -319,15 +315,15 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   // Calculate the first day that should be visible based on scroll position
   // The probe is at probeDay, and we need to render cells that cover the visible area
-  // Use floor(probeDay) - buffer to ensure we have cells to the left
   const firstVisibleDay = Math.floor(probeDay) - Math.ceil(visibleDays / 2);
 
   let headerXcells = [];
   for (let i = 0; i < visibleDays; i++) {
     const dayIdx = firstVisibleDay + i;
-    // Position each cell at its absolute day position
-    // Day N should be at position (N - firstVisibleDay) * headerCellW
-    const left = i * headerCellW;
+    // Position each cell based on its DAY INDEX, not array index
+    // This ensures day_780 is always to the right of day_779
+    // Use dayIdx directly for positioning (will be offset by animation transform)
+    const left = dayIdx * headerCellW;
     headerXcells.push(
       <View
         key={`day_${dayIdx}`}
@@ -347,9 +343,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
           {dateLabel(dayIdx)}
         </Text>
-        {/* Debug: Show cell ID and day index */}
+        {/* Debug: Show day index */}
         <Text style={{ fontSize: 8, color: '#999', position: 'absolute', bottom: 2 }}>
-          cell_{i} | day_{dayIdx}
+          day_{dayIdx}
         </Text>
       </View>
     );
