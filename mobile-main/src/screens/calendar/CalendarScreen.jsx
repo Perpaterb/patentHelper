@@ -49,7 +49,7 @@ function hourLabel(hr24) {
   return `${hour}${ampm}`;
 }
 
-function dateLabel(dayIdx) {
+function dateLabel(dayIdx, includeYear = false) {
   let baseDate = new Date(2023, 9, 31);
   let date = new Date(baseDate);
   date.setDate(baseDate.getDate() + dayIdx);
@@ -59,7 +59,8 @@ function dateLabel(dayIdx) {
     d % 10 === 1 && d !== 11 ? 'st' :
     d % 10 === 2 && d !== 12 ? 'nd' :
     d % 10 === 3 && d !== 13 ? 'rd' : 'th';
-  return `${d}${suffix} ${month}`;
+  let yearSuffix = includeYear ? ` '${String(date.getFullYear()).slice(-2)}` : '';
+  return `${d}${suffix} ${month}${yearSuffix}`;
 }
 
 function getSizes() {
@@ -1154,7 +1155,7 @@ export default function CalendarScreen({ navigation, route }) {
   masterDateTime.setHours(probeHour24, 0, 0, 0);
 
   // Format for banner display
-  const masterDayTimeDate = `${hourLabel(probeHour24)} ${dateLabel(probeDay)}`;
+  const masterDayTimeDate = `${hourLabel(probeHour24)} ${dateLabel(probeDay, true)}`;
 
   // Handle date picker change - apply the selected date at 12pm
   const handleDatePickerChange = (newDate) => {
