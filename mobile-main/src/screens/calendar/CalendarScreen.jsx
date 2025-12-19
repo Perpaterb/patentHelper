@@ -235,7 +235,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
     // Calculate the continuous day position
     // probeDay = probeCol + probeRow / 24 (continuous, not floored)
-    const probeDayExact = probeColExact + probeRowExact / 24;
+    // Add 0.5 (12 hours) offset to align date bar with probe detection
+    const probeDayExact = probeColExact + probeRowExact / 24 + 0.5;
 
     // Cells are positioned at left = dayIdx * headerCellW (absolute position)
     // We need to position the container so that probeDayExact aligns with redLineX
