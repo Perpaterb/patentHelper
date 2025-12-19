@@ -193,21 +193,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
-        // Log probe changes with actual date
-        const hour = ((current.probeRow % 24) + 24) % 24;
-        const baseDate = new Date(2023, 9, 31);
-        const actualDate = new Date(baseDate);
-        actualDate.setDate(baseDate.getDate() + current.probeDay);
-        const dateStr = actualDate.toLocaleDateString();
-        runOnJS(console.log)('[Probe] date:', dateStr, 'hour:', hour, '| dayIdx:', current.probeDay, 'col:', current.probeCol, 'row:', current.probeRow);
       }
       // Update probeDay state when day changes (for header X)
       if (!previous || current.probeDay !== previous.probeDay) {
         runOnJS(setProbeDayState)(current.probeDay);
-        const baseDate = new Date(2023, 9, 31);
-        const actualDate = new Date(baseDate);
-        actualDate.setDate(baseDate.getDate() + current.probeDay);
-        runOnJS(console.log)('[Probe] DAY CHANGED to:', actualDate.toLocaleDateString(), '(dayIdx:', current.probeDay, ')');
       }
     },
     [cellW]
@@ -304,14 +293,12 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const probeDay = probeCol + probeDayOffset;
 
   const headerW = winW;
-  // Extra buffer (+6) to ensure cells always cover visible area even with combined frac > 1
-  const headerDaysShown = Math.ceil(headerW / headerCellW) + 6;
-  const headerNumEachSide = Math.ceil(headerDaysShown / 2);
 
   // Header X cells - rendered based on scroll position (like main grid cells)
   // Calculate first visible day based on renderScrollX (same approach as firstCol for grid)
   // This ensures cells are rendered at absolute day positions, not relative to probeDay
-  const visibleDays = 5; // DEBUG: Reduced to see what's happening
+  // Extra buffer (+6) to ensure cells always cover visible area during fast scrolling
+  const visibleDays = Math.ceil(headerW / headerCellW) + 6;
 
   // Calculate the first day that should be visible based on scroll position
   // The probe is at probeDay, and we need to render cells that cover the visible area
@@ -343,16 +330,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
           {dateLabel(dayIdx)}
         </Text>
-        {/* Debug: Show day index */}
-        <Text style={{ fontSize: 8, color: '#999', position: 'absolute', bottom: 2 }}>
-          day_{dayIdx}
-        </Text>
       </View>
     );
   }
-
-  // DEBUG: Log cell rendering
-  console.log('[DateBar] probeDay:', probeDay, 'firstVisibleDay:', firstVisibleDay, 'cells:', firstVisibleDay, 'to', firstVisibleDay + visibleDays - 1);
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
   let cells = [];
