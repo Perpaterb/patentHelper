@@ -449,43 +449,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     return cells;
   }, [gridH]); // Only re-render if screen size changes
 
-  // Probe highlight view using Reanimated - FIXED screen position
-  // The probe stays in one place, the grid moves underneath it
-  const probeHighlightView = (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          left: redLineX - cellW / 2,  // Center on redLineX
-          top: probeScreenY - CELL_H / 2,  // Center on probeScreenY
-          width: cellW,
-          height: CELL_H,
-          backgroundColor: 'rgba(255,206,10,0.13)',
-          borderRadius: 7,
-          zIndex: 150,
-        },
-        highlightStyle,
-      ]}
-      pointerEvents="none"
-    />
-  );
-
-  // Red dot at probe detection point
-  const probeDotView = (
-    <View
-      style={{
-        position: 'absolute',
-        left: redLineX - 5,
-        top: probeScreenY - 5,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: 'red',
-        zIndex: 200,
-      }}
-      pointerEvents="none"
-    />
-  );
 
   // Red line
   let redLine = (
@@ -989,10 +952,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             {eventViews}
           </Animated.View>
         </View>
-        {/* Highlighted cell - outside transform container for fixed position */}
-        {probeHighlightView}
-        {/* Red dot showing probe detection point */}
-        {probeDotView}
       </Animated.View>
     </GestureDetector>
   );
