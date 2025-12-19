@@ -212,6 +212,9 @@ See `NEW_FEATURES_SPEC.md` for complete specifications.
 6. [ ] Add loading states to all mobile screens
 7. [ ] Optimize images (lazy loading, compression)
 
+### Known Bugs
+1. [ ] **Calendar Day View - Event Flicker on Re-render**: When scrolling stops and events re-render at new positions, there's a brief visual flicker/flash. The issue is timing between when `settledXRef`/`settledYRef` shared values update and when React state updates. Attempted fixes (moving shared value updates to JS callback, double-buffering) did not fully resolve. May need deeper investigation into React Native Reanimated lifecycle.
+
 ### To Address in Phase 4
 1. [ ] Performance profiling (React Native Performance Monitor)
 2. [ ] Memory leak detection
