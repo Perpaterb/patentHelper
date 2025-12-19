@@ -347,9 +347,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         <Text numberOfLines={1} style={{ color: '#495057', fontWeight: '500' }}>
           {dateLabel(dayIdx)}
         </Text>
-        {/* Debug: Show day index */}
+        {/* Debug: Show cell ID and day index */}
         <Text style={{ fontSize: 8, color: '#999', position: 'absolute', bottom: 2 }}>
-          day_{dayIdx}
+          cell_{i} | day_{dayIdx}
         </Text>
       </View>
     );
