@@ -321,7 +321,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const cyclePosition = (((scrollYFloat.value - 1) % 24) + 24) % 24; // Always positive 0-24
     const offsetY = cyclePosition * CELL_H;
     return {
-      transform: [{ translateY: -offsetY }],
+      // +5 pixels to match grid offset and align with probe dot
+      transform: [{ translateY: -offsetY + 5 }],
     };
   });
 
