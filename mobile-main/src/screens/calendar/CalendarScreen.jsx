@@ -112,6 +112,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const xAnimDone = useSharedValue(true);
   const yAnimDone = useSharedValue(true);
 
+  // Track settled position as shared values (for animated event transform)
+  const settledXRef = useSharedValue(externalXYFloat.scrollXFloat);
+  const settledYRef = useSharedValue(externalXYFloat.scrollYFloat);
+
   // Track settled position for React state (only updates when animation stops)
   const [settledPosition, setSettledPosition] = useState({
     scrollYFloat: externalXYFloat.scrollYFloat,
@@ -129,6 +133,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   useEffect(() => {
     scrollYFloat.value = externalXYFloat.scrollYFloat;
     scrollXFloat.value = externalXYFloat.scrollXFloat;
+    settledXRef.value = externalXYFloat.scrollXFloat;
+    settledYRef.value = externalXYFloat.scrollYFloat;
     setSettledPosition({
       scrollYFloat: externalXYFloat.scrollYFloat,
       scrollXFloat: externalXYFloat.scrollXFloat,
@@ -172,6 +178,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           yAnimDone.value = true;
           // Check if both animations are done
           if (xAnimDone.value) {
+            // Update settled refs for event positioning
+            settledXRef.value = scrollXFloat.value;
+            settledYRef.value = scrollYFloat.value;
             runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
           }
         }
@@ -190,6 +199,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           xAnimDone.value = true;
           // Check if both animations are done
           if (yAnimDone.value) {
+            // Update settled refs for event positioning
+            settledXRef.value = scrollXFloat.value;
+            settledYRef.value = scrollYFloat.value;
             runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
           }
         }
@@ -239,6 +251,22 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       transform: [
         { translateX: -offsetX },
         { translateY: -offsetY },
+      ],
+    };
+  });
+
+  // Animated style for event container - moves events with scroll
+  // Events are positioned relative to settledPosition, so we need to animate
+  // the difference between current scroll and settled scroll
+  const eventAnimatedStyle = useAnimatedStyle(() => {
+    const { cellW: cw } = getSizes();
+    // Calculate how far we've scrolled from the settled position
+    const deltaX = (scrollXFloat.value - settledXRef.value) * cw;
+    const deltaY = (scrollYFloat.value - settledYRef.value) * CELL_H;
+    return {
+      transform: [
+        { translateX: -deltaX },
+        { translateY: -deltaY },
       ],
     };
   });
@@ -944,10 +972,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           }}
           pointerEvents="box-none"
         >
-          {/* Child responsibility lines (left half of day column) */}
-          {childEventViews}
-          {/* Event rectangles (right half of day column) */}
-          {eventViews}
+          {/* Animated container - moves events with scroll delta from settled position */}
+          <Animated.View style={eventAnimatedStyle}>
+            {/* Child responsibility lines (left half of day column) */}
+            {childEventViews}
+            {/* Event rectangles (right half of day column) */}
+            {eventViews}
+          </Animated.View>
         </View>
         {/* Highlighted cell - outside transform container for fixed position */}
         {probeHighlightView}
