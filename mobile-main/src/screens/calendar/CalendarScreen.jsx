@@ -59,7 +59,7 @@ function dateLabel(dayIdx, includeYear = false) {
     d % 10 === 1 && d !== 11 ? 'st' :
     d % 10 === 2 && d !== 12 ? 'nd' :
     d % 10 === 3 && d !== 13 ? 'rd' : 'th';
-  let yearSuffix = includeYear ? ` '${String(date.getFullYear()).slice(-2)}` : '';
+  let yearSuffix = includeYear ? ` ${String(date.getFullYear()).slice(-2)}` : '';
   return `${d}${suffix} ${month}${yearSuffix}`;
 }
 
@@ -2036,6 +2036,8 @@ const styles = StyleSheet.create({
   // Header button styles
   headerDateButton: {
     padding: 8,
+    paddingHorizontal: 12,
+    minWidth: 220,
     alignItems: 'center',
     justifyContent: 'center',
   },
