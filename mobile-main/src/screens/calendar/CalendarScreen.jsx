@@ -169,20 +169,29 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       xAnimDone.value = false;
       yAnimDone.value = false;
 
-      // Apply momentum with decay on Y axis
+      // Apply momentum with decay on Y axis, then snap to cell
       scrollYFloat.value = withDecay({
         velocity: -event.velocityY / CELL_H,
         deceleration: 0.997,
       }, (finished) => {
         if (finished) {
-          yAnimDone.value = true;
-          // Check if both animations are done
-          if (xAnimDone.value) {
-            // Update settled refs for event positioning
-            settledXRef.value = scrollXFloat.value;
-            settledYRef.value = scrollYFloat.value;
-            runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
-          }
+          // Snap Y to nearest integer (cell center)
+          const snappedY = Math.round(scrollYFloat.value);
+          scrollYFloat.value = withSpring(snappedY, {
+            damping: 50,
+            stiffness: 300,
+          }, (springFinished) => {
+            if (springFinished) {
+              yAnimDone.value = true;
+              // Check if both animations are done
+              if (xAnimDone.value) {
+                // Update settled refs for event positioning
+                settledXRef.value = scrollXFloat.value;
+                settledYRef.value = scrollYFloat.value;
+                runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+              }
+            }
+          });
         }
       });
 
