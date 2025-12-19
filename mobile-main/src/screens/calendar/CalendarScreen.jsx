@@ -629,9 +629,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
       // Y: hour difference * cell height
       // Need to account for day wrapping in hours
+      // Subtract 1 hour to compensate for snap offset (-0.125 shifts grid, affecting probe detection)
       const eventAbsoluteHour = eventStartDay * 24 + eventStartHour;
       const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = eventAbsoluteHour - probeAbsoluteHour;
+      const hourDiff = eventAbsoluteHour - probeAbsoluteHour - 1;
       const yOffset = hourDiff * CELL_H;
 
       // Position relative to probe day's left edge
@@ -810,9 +811,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const dayDiff = lineStartDay - probeDay;
       const xOffset = dayDiff * cellW;
 
+      // Subtract 1 hour to compensate for snap offset (-0.125 shifts grid, affecting probe detection)
       const lineAbsoluteHour = lineStartDay * 24 + lineStartHour;
       const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = lineAbsoluteHour - probeAbsoluteHour;
+      const hourDiff = lineAbsoluteHour - probeAbsoluteHour - 1;
       const yOffset = hourDiff * CELL_H;
 
       // Position relative to probe day's left edge
