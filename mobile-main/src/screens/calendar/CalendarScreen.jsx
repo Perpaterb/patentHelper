@@ -594,7 +594,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     const maxVisibleDay = probeDay + EVENT_DAYS_BUFFER;
 
     // Probe screen position (relative to event container which starts at HEADER_W)
-    const probeScreenXInContainer = redLineX - HEADER_W;
+    // probeScreenX is at center of probed cell, so subtract 0.5*cellW to get left edge of probeDay column
+    const probeDayLeftEdge = (redLineX - HEADER_W) - 0.5 * cellW;
     const probeScreenYInContainer = probeScreenY - HEADER_H;
 
     regularEvents.forEach((event) => {
@@ -628,8 +629,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const hourDiff = eventAbsoluteHour - probeAbsoluteHour;
       const yOffset = hourDiff * CELL_H;
 
-      // Position relative to probe screen position
-      const baseLeft = probeScreenXInContainer + xOffset;
+      // Position relative to probe day's left edge
+      const baseLeft = probeDayLeftEdge + xOffset;
       const baseTop = probeScreenYInContainer + yOffset;
 
       // Layout within right half of column
@@ -638,7 +639,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
 
-      // Final position (right half of cell)
+      // Final position (right half of cell = baseLeft + cellW/2 + offset within right half)
       const eventLeft = baseLeft + (cellW / 2) + eventOffsetX;
       const eventTop = baseTop;
       const eventHeight = eventDurationHours * CELL_H;
@@ -809,8 +810,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const hourDiff = lineAbsoluteHour - probeAbsoluteHour;
       const yOffset = hourDiff * CELL_H;
 
-      // Position relative to probe screen position
-      const baseLeft = probeScreenXInContainer + xOffset;
+      // Position relative to probe day's left edge
+      const baseLeft = probeDayLeftEdge + xOffset;
       const baseTop = probeScreenYInContainer + yOffset;
 
       // Layout within LEFT half of column
