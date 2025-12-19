@@ -468,8 +468,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   // Render events - positioned exactly like grid cells (same coordinate system)
   // Events go inside the grid container and move with gridAnimatedStyle transform
-  // Render 2 weeks (14 days) in each direction, only re-render when animation stops
-  const EVENT_DAYS_BUFFER = 14;
+  // Render 4 days in each direction, only re-render when animation stops
+  const EVENT_DAYS_BUFFER = 4;
   const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
 
   // Memoize event views - only recalculates when settledPosition changes (animation stops)
@@ -577,7 +577,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
       const eventEndDay = Math.floor((eventEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-      // Skip events outside visible range (2 weeks each side)
+      // Skip events outside visible range (4 days each side)
+      // Render if: masterDateTime < eventEnd + 4 days AND masterDateTime > eventStart - 4 days
       if (eventEndDay < minVisibleDay || eventStartDay > maxVisibleDay) {
         return;
       }
@@ -761,7 +762,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
       const lineEndDay = Math.floor((lineEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-      // Skip events outside visible range (2 weeks each side)
+      // Skip events outside visible range (4 days each side)
       if (lineEndDay < minVisibleDay || lineStartDay > maxVisibleDay) {
         return;
       }
