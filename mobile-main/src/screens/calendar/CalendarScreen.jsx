@@ -586,65 +586,78 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         return;
       }
 
-      // Calculate event's day index (still needed for positioning)
-      const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
-
       const layout = eventLayouts.get(event.eventId);
       if (!layout) return;
 
       const eventStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
       const eventDurationHours = (eventEnd - eventStart) / (1000 * 60 * 60);
 
-      // Calculate offset from probe position
-      // X: day difference * cell width
-      const dayDiff = eventStartDay - probeDay;
-      const xOffset = dayDiff * cellW;
-
-      // Y: hour difference * cell height
-      // Need to account for day wrapping in hours
-      const eventAbsoluteHour = eventStartDay * 24 + eventStartHour;
-      const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = eventAbsoluteHour - probeAbsoluteHour;
-      const yOffset = hourDiff * CELL_H;
-
-      // Position relative to probe day's left edge
-      const baseLeft = probeDayLeftEdge + xOffset;
-      const baseTop = probeScreenYInContainer + yOffset;
-
       // Layout within right half of column
       const availableWidth = cellW / 2;
       const columnWidth = availableWidth / layout.maxColumns;
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
-
-      // Final position (right half of cell = baseLeft + cellW/2 + offset within right half)
-      const eventLeft = baseLeft + (cellW / 2) + eventOffsetX;
-      const eventTop = baseTop;
       const eventHeight = eventDurationHours * CELL_H;
 
-      eventViews.push(
-        <Pressable
-          key={`event_${event.eventId}`}
-          style={{
-            position: 'absolute',
-            left: eventLeft,
-            top: eventTop,
-            width: eventWidth,
-            height: eventHeight,
-            backgroundColor: '#e3f2fd',
-            borderLeftWidth: 3,
-            borderLeftColor: '#2196f3',
-            padding: 2,
-            zIndex: 5,
-          }}
-          onLongPress={() => {
-            navigation.navigate('EditEvent', {
-              groupId: groupId,
-              eventId: event.eventId,
-            });
-          }}
-          delayLongPress={300}
-        >
+      // Render event for each day column in the visible range
+      // Moving right = +24 hours, moving left = -24 hours
+      // So we need to render the event at multiple day column offsets
+      for (let dayOffset = -EVENT_DAYS_BUFFER; dayOffset <= EVENT_DAYS_BUFFER; dayOffset++) {
+        // Calculate where this event instance would appear
+        // dayOffset of 0 = actual event position
+        // dayOffset of +1 = event appears one column to the right (as if viewing 24hrs earlier)
+        // dayOffset of -1 = event appears one column to the left (as if viewing 24hrs later)
+
+        const renderDayCol = probeDay + dayOffset;
+
+        // Calculate the hour offset for this day column
+        // At renderDayCol, what hour would show this event's start?
+        // eventStartHour stays the same, but we're viewing from a different day
+        const hourOffsetFromProbe = eventStartHour - probeHour24 + (dayOffset * 24);
+
+        // Calculate actual day difference between event and render column
+        const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
+        const actualDayDiff = eventStartDay - renderDayCol;
+
+        // The event should render in this column if the hour offset puts it in visible range
+        // Adjust hourOffset by the actual day difference (each day diff = 24 hour shift in Y)
+        const totalHourOffset = eventStartHour - probeHour24 + (actualDayDiff * 24);
+
+        // X position: dayOffset columns from probe
+        const xOffset = dayOffset * cellW;
+        const baseLeft = probeDayLeftEdge + xOffset;
+
+        // Y position: hour difference from probe
+        const yOffset = totalHourOffset * CELL_H;
+        const baseTop = probeScreenYInContainer + yOffset;
+
+        // Final position
+        const eventLeft = baseLeft + (cellW / 2) + eventOffsetX;
+        const eventTop = baseTop;
+
+        eventViews.push(
+          <Pressable
+            key={`event_${event.eventId}_day${dayOffset}`}
+            style={{
+              position: 'absolute',
+              left: eventLeft,
+              top: eventTop,
+              width: eventWidth,
+              height: eventHeight,
+              backgroundColor: '#e3f2fd',
+              borderLeftWidth: 3,
+              borderLeftColor: '#2196f3',
+              padding: 2,
+              zIndex: 5,
+            }}
+            onLongPress={() => {
+              navigation.navigate('EditEvent', {
+                groupId: groupId,
+                eventId: event.eventId,
+              });
+            }}
+            delayLongPress={300}
+          >
           <Text
             numberOfLines={1}
             style={{
@@ -668,7 +681,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             </Text>
           )}
         </Pressable>
-      );
+        );
+      }
     });
 
     // CHILD RESPONSIBILITY EVENTS - same absolute positioning approach
@@ -760,7 +774,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // Render child events at FIXED screen positions (same approach as regular events)
+    // Render child events for each day column (same multi-column approach as regular events)
     allResponsibilityLines.forEach((line) => {
       const lineStart = new Date(line.startTime);
       const lineEnd = new Date(line.endTime);
@@ -775,118 +789,117 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         return;
       }
 
-      // Calculate line's day index (still needed for positioning)
-      const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
-
       const layout = childEventLayouts.get(line.responsibilityEventId);
       if (!layout) return;
 
       const lineStartHour = lineStart.getHours() + lineStart.getMinutes() / 60;
       const lineDurationHours = (lineEnd - lineStart) / (1000 * 60 * 60);
 
-      // Calculate offset from probe position (same as regular events)
-      const dayDiff = lineStartDay - probeDay;
-      const xOffset = dayDiff * cellW;
-
-      const lineAbsoluteHour = lineStartDay * 24 + lineStartHour;
-      const probeAbsoluteHour = probeDay * 24 + probeHour24;
-      const hourDiff = lineAbsoluteHour - probeAbsoluteHour;
-      const yOffset = hourDiff * CELL_H;
-
-      // Position relative to probe day's left edge
-      const baseLeft = probeDayLeftEdge + xOffset;
-      const baseTop = probeScreenYInContainer + yOffset;
-
       // Layout within LEFT half of column
       const availableWidth = cellW / 2;
       const columnWidth = availableWidth / layout.maxColumns;
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
-
-      // Final position (left half of cell)
-      const eventLeft = baseLeft + eventOffsetX;
-      const eventTop = baseTop;
       const eventHeight = lineDurationHours * CELL_H;
-
       const halfWidth = eventWidth / 2;
 
-      // Child half (left)
-      childEventViews.push(
-        <View
-          key={`child_${line.responsibilityEventId}`}
-          style={{
-            position: 'absolute',
-            left: eventLeft,
-            top: eventTop,
-            width: halfWidth,
-            height: eventHeight,
-            backgroundColor: line.childColor,
-            zIndex: 4,
-          }}
-        />
-      );
+      // Render for each day column in the visible range
+      for (let dayOffset = -EVENT_DAYS_BUFFER; dayOffset <= EVENT_DAYS_BUFFER; dayOffset++) {
+        const renderDayCol = probeDay + dayOffset;
+        const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
+        const actualDayDiff = lineStartDay - renderDayCol;
+        const totalHourOffset = lineStartHour - probeHour24 + (actualDayDiff * 24);
 
-      // Adult half (right)
-      childEventViews.push(
-        <View
-          key={`adult_${line.responsibilityEventId}`}
-          style={{
-            position: 'absolute',
-            left: eventLeft + halfWidth,
-            top: eventTop,
-            width: halfWidth,
-            height: eventHeight,
-            backgroundColor: line.startAdultColor,
-            zIndex: 4,
-          }}
-        />
-      );
+        // X position: dayOffset columns from probe
+        const xOffset = dayOffset * cellW;
+        const baseLeft = probeDayLeftEdge + xOffset;
 
-      // Touchable overlay
-      childEventViews.push(
-        <Pressable
-          key={`wrapper_${line.responsibilityEventId}`}
-          style={{
-            position: 'absolute',
-            left: eventLeft,
-            top: eventTop,
-            width: eventWidth,
-            height: eventHeight,
-            zIndex: 7,
-          }}
-          onLongPress={() => {
-            navigation.navigate('EditChildEvent', {
-              groupId: groupId,
-              eventId: line.eventId,
-            });
-          }}
-          delayLongPress={300}
-        >
-          <View style={{ padding: 2, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.childColor, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.childInitials}</Text>
+        // Y position: hour difference from probe
+        const yOffset = totalHourOffset * CELL_H;
+        const baseTop = probeScreenYInContainer + yOffset;
+
+        // Final position (left half of cell)
+        const eventLeft = baseLeft + eventOffsetX;
+        const eventTop = baseTop;
+
+        // Child half (left)
+        childEventViews.push(
+          <View
+            key={`child_${line.responsibilityEventId}_day${dayOffset}`}
+            style={{
+              position: 'absolute',
+              left: eventLeft,
+              top: eventTop,
+              width: halfWidth,
+              height: eventHeight,
+              backgroundColor: line.childColor,
+              zIndex: 4,
+            }}
+          />
+        );
+
+        // Adult half (right)
+        childEventViews.push(
+          <View
+            key={`adult_${line.responsibilityEventId}_day${dayOffset}`}
+            style={{
+              position: 'absolute',
+              left: eventLeft + halfWidth,
+              top: eventTop,
+              width: halfWidth,
+              height: eventHeight,
+              backgroundColor: line.startAdultColor,
+              zIndex: 4,
+            }}
+          />
+        );
+
+        // Touchable overlay
+        childEventViews.push(
+          <Pressable
+            key={`wrapper_${line.responsibilityEventId}_day${dayOffset}`}
+            style={{
+              position: 'absolute',
+              left: eventLeft,
+              top: eventTop,
+              width: eventWidth,
+              height: eventHeight,
+              zIndex: 7,
+            }}
+            onLongPress={() => {
+              navigation.navigate('EditChildEvent', {
+                groupId: groupId,
+                eventId: line.eventId,
+              });
+            }}
+            delayLongPress={300}
+          >
+            <View style={{ padding: 2, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.childColor, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.childInitials}</Text>
+                </View>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.startAdultColor, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.startAdultInitials}</Text>
+                </View>
               </View>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.startAdultColor, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.startAdultInitials}</Text>
-              </View>
+              {line.title && (
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 'bold',
+                    color: '#000',
+                    textAlign: 'center',
+                  }}
+                >
+                  {line.title}
+                </Text>
+              )}
             </View>
-            {line.title && (
-              <Text
-                numberOfLines={2}
-                style={{
-                  fontSize: 9,
-                  fontWeight: 'bold',
-                  color: '#000',
-                  textAlign: 'center',
-                }}
-              >
-                {line.title}
-              </Text>
-            )}
-          </View>
-        </Pressable>
-      );
+          </Pressable>
+        );
+      }
     });
 
     return { eventViews, childEventViews };
