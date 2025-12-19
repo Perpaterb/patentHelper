@@ -77,7 +77,7 @@ function getSizes() {
 function getXYFloatForProbeTarget(targetHour, targetDay) {
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
 
@@ -115,6 +115,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Highlight animation
   const highlightOpacity = useSharedValue(0);
   const [highlightCell, setHighlightCell] = useState({ probeRow: 0, probeCol: 0 });
+
+  // Probe day for header X - updated by probe, used by date bar
+  const [probeDayState, setProbeDayState] = useState(0);
 
   // Sync external changes to shared values
   useEffect(() => {
@@ -177,8 +180,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const snappedX = Math.round(targetX);
 
       scrollXFloat.value = withSpring(snappedX, {
-        damping: 20,
-        stiffness: 200,
+        damping: 50,
+        stiffness: 300,
         velocity: -event.velocityX / cellW,
       }, (finished) => {
         if (finished) {
@@ -193,18 +196,25 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     () => {
       const { padL, padT, gridW, gridH } = getSizes();
       const redLineX = HEADER_W + 0.5 * cellW;
-      const probeScreenY = HEADER_H + gridH / 2.5;
+      const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
       const probeXInGrid = (redLineX - HEADER_W) / cellW;
       const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
       const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - padL / cellW);
       const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - padT / CELL_H);
-      return { probeCol, probeRow };
+      // Calculate probeDay (col + day offset from hour overflow)
+      const probeDayOffset = Math.floor(probeRow / 24);
+      const probeDay = probeCol + probeDayOffset;
+      return { probeCol, probeRow, probeDay };
     },
     (current, previous) => {
       if (previous && (current.probeCol !== previous.probeCol || current.probeRow !== previous.probeRow)) {
         highlightOpacity.value = 1;
         highlightOpacity.value = withTiming(0, { duration: HIGHLIGHT_MS });
         runOnJS(setHighlightCell)({ probeRow: current.probeRow, probeCol: current.probeCol });
+      }
+      // Update probeDay state when day changes (for header X)
+      if (!previous || current.probeDay !== previous.probeDay) {
+        runOnJS(setProbeDayState)(current.probeDay);
       }
     },
     [cellW]
@@ -229,12 +239,33 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   });
 
   // Animated style for header X (dates) - moves with horizontal scroll
+  // Positions the date labels so the detected day aligns with probe screen position (redLineX)
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { headerCellW } = getSizes();
-    // Header moves based on the fractional part of scroll and hour within day
-    const probeRow = Math.floor(scrollYFloat.value);
-    const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
-    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * headerCellW + masterHourFrac * headerCellW;
+    const { width: wW, headerCellW, padL, padT, gridH } = getSizes();
+    const redLineX = HEADER_W + 0.5 * cellW;
+    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
+    const probeXInGrid = (redLineX - HEADER_W) / cellW;
+    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
+
+    // Calculate exact probe position (same formula as the animated reaction)
+    const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
+    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
+
+    // Calculate the continuous day position
+    // probeDay = probeCol + probeRow / 24 (continuous, not floored)
+    // Subtract 0.5 (12 hours) offset to align date bar with probe detection
+    const probeDayExact = probeColExact + probeRowExact / 24 - 0.5;
+
+    // Cells are positioned at left = dayIdx * headerCellW (absolute position)
+    // We need to position the container so that probeDayExact aligns with redLineX
+    // Day N is at position N * headerCellW
+    // probeDayExact should appear at redLineX
+    // So: probeDayExact * headerCellW - offsetX = redLineX
+    // offsetX = probeDayExact * headerCellW - redLineX
+    const probeDayPosition = probeDayExact * headerCellW;
+    const offsetX = probeDayPosition - redLineX;
+
+
     return {
       transform: [{ translateX: -offsetX }],
     };
@@ -245,7 +276,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const headerYAnimatedStyle = useAnimatedStyle(() => {
     // Use modulo 24 to create infinite cycling effect
     // scrollYFloat represents row position, we want to cycle every 24 rows
-    const cyclePosition = ((scrollYFloat.value % 24) + 24) % 24; // Always positive 0-24
+    // Subtract 1 hour offset to align with probe detection
+    const cyclePosition = (((scrollYFloat.value - 1) % 24) + 24) % 24; // Always positive 0-24
     const offsetY = cyclePosition * CELL_H;
     return {
       transform: [{ translateY: -offsetY }],
@@ -260,7 +292,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const renderScrollY = settledPosition.scrollYFloat;
 
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const firstCol = Math.floor(renderScrollX - Math.ceil(padL / cellW));
   const firstRow = Math.floor(renderScrollY - Math.ceil(padT / CELL_H)) - 1; // Start 1 row higher to eliminate top gap
   const visibleCols = Math.ceil(gridW / cellW) + 4;
@@ -274,26 +306,33 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   // Note: Highlight animation is handled by useAnimatedReaction above (Reanimated)
 
-  // Header X (date) cells
+  // Header X (date) cells - uses probeDayState from probe (updated without full re-render)
   const probeHour24 = ((probeRow % 24) + 24) % 24;
   const probeDayOffset = Math.floor(probeRow / 24);
   const probeDay = probeCol + probeDayOffset;
 
   const headerW = winW;
-  const headerDaysShown = Math.ceil(headerW / headerCellW) + 4;
-  const masterDayIdx = probeDay;
-  const masterHourFrac = ((probeRow % 24) + 24) % 24 / 24;
-  const headerNumEachSide = Math.ceil(headerDaysShown / 2);
-  const headerStartX =
-    HEADER_W + 0.5 * cellW - masterHourFrac * headerCellW - headerNumEachSide * headerCellW;
+
+  // Header X cells - rendered based on scroll position (like main grid cells)
+  // Calculate first visible day based on renderScrollX (same approach as firstCol for grid)
+  // This ensures cells are rendered at absolute day positions, not relative to probeDay
+  // Extra buffer (+6) to ensure cells always cover visible area during fast scrolling
+  const visibleDays = Math.ceil(headerW / headerCellW) + 6;
+
+  // Calculate the first day that should be visible based on scroll position
+  // The probe is at probeDay, and we need to render cells that cover the visible area
+  const firstVisibleDay = Math.floor(probeDay) - Math.ceil(visibleDays / 2);
 
   let headerXcells = [];
-  for (let i = -headerNumEachSide; i < headerDaysShown - headerNumEachSide; ++i) {
-    let dayIdx = masterDayIdx + i;
-    let left = headerStartX + (i + headerNumEachSide) * headerCellW;
+  for (let i = 0; i < visibleDays; i++) {
+    const dayIdx = firstVisibleDay + i;
+    // Position each cell based on its DAY INDEX, not array index
+    // This ensures day_780 is always to the right of day_779
+    // Use dayIdx directly for positioning (will be offset by animation transform)
+    const left = dayIdx * headerCellW;
     headerXcells.push(
       <View
-        key={`hx${i}`}
+        key={`day_${dayIdx}`}
         style={{
           position: 'absolute',
           left: left,
@@ -315,7 +354,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   }
 
   // Main grid cells - rendered at fixed positions, container transforms for animation
-  let highlightCellLayout;
   let cells = [];
   for (let dx = 0; dx < visibleCols; ++dx) {
     for (let dy = 0; dy < visibleRows; ++dy) {
@@ -327,10 +365,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       // Fixed positions - container handles the transform offset
       let left = dx * cellW;
       let top = dy * CELL_H;
-
-      if (colIdx === probeCol && rowIdx === probeRow) {
-        highlightCellLayout = { left: HEADER_W + left, top: HEADER_H + top, width: cellW, height: CELL_H };
-      }
 
       cells.push(
         <View
@@ -378,28 +412,43 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     return cells;
   }, [gridH]); // Only re-render if screen size changes
 
-  // Probe highlight view using Reanimated
-  let probeHighlightView = null;
-  if (highlightCellLayout) {
-    probeHighlightView = (
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            left: highlightCellLayout.left,
-            top: highlightCellLayout.top,
-            width: highlightCellLayout.width,
-            height: highlightCellLayout.height,
-            backgroundColor: 'rgba(255,206,10,0.13)',
-            borderRadius: 7,
-            zIndex: 150,
-          },
-          highlightStyle,
-        ]}
-        pointerEvents="none"
-      />
-    );
-  }
+  // Probe highlight view using Reanimated - FIXED screen position
+  // The probe stays in one place, the grid moves underneath it
+  const probeHighlightView = (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: redLineX - cellW / 2,  // Center on redLineX
+          top: probeScreenY - CELL_H / 2,  // Center on probeScreenY
+          width: cellW,
+          height: CELL_H,
+          backgroundColor: 'rgba(255,206,10,0.13)',
+          borderRadius: 7,
+          zIndex: 150,
+        },
+        highlightStyle,
+      ]}
+      pointerEvents="none"
+    />
+  );
+
+  // Red dot at probe detection point
+  const probeDotView = (
+    <View
+      style={{
+        position: 'absolute',
+        left: redLineX - 5,
+        top: probeScreenY - 5,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: 'red',
+        zIndex: 200,
+      }}
+      pointerEvents="none"
+    />
+  );
 
   // Red line
   let redLine = (
@@ -891,7 +940,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             overflow: 'hidden',
           }}
         >
-          {headerXcells}
+          {/* Animated inner container - transforms with horizontal scroll */}
+          <Animated.View style={headerXAnimatedStyle}>
+            {headerXcells}
+          </Animated.View>
           {redLine}
         </View>
         {/* Left header Y col - clip container */}
@@ -926,6 +978,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         </Animated.View>
         {/* Highlighted cell - outside transform container for fixed position */}
         {probeHighlightView}
+        {/* Red dot showing probe detection point */}
+        {probeDotView}
       </Animated.View>
     </GestureDetector>
   );
@@ -940,21 +994,54 @@ export default function CalendarScreen({ navigation, route }) {
   // View mode: 'month' or 'day'
   const [viewMode, setViewMode] = useState('month');
 
+  // Helper to get day offset from base date for a given date
+  const getDayOffsetForDate = (date) => {
+    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const dateUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    return Math.round((dateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
+  };
+
+  // Get position for midday of today (used when entering day view)
+  const getMiddayTodayPosition = () => {
+    const now = new Date();
+    const diffDays = getDayOffsetForDate(now);
+    return getXYFloatForProbeTarget(12, diffDays); // 12 = midday
+  };
+
   // Calculate initial position based on current date/time
   const getInitialPosition = () => {
     const now = new Date();
-    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
-
-    // Calculate day offset from base date using UTC to avoid timezone issues
-    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-    const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffDays = Math.round((nowUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
-
+    const diffDays = getDayOffsetForDate(now);
     // Get current hour (round to nearest hour)
     const currentHour = now.getHours();
-
     // Use the helper function to get proper scroll position
     return getXYFloatForProbeTarget(currentHour, diffDays);
+  };
+
+  // Handle view mode toggle - preserve current day and hour when switching views
+  const handleViewModeToggle = (currentProbeDay, currentProbeHour) => {
+    if (viewMode === 'month') {
+      // Switching TO day view - preserve the current hour (or use 12pm if not set)
+      const targetHour = typeof currentProbeHour === 'number' ? currentProbeHour : 12;
+      const newPosition = getXYFloatForProbeTarget(targetHour, currentProbeDay);
+      setExternalXYFloat(newPosition);
+      setViewMode('day');
+    } else {
+      // Switching TO month view - sync viewCenterMonth to current masterDateTime
+      // Calculate the date from currentProbeDay
+      const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+      const currentDate = new Date(baseDate);
+      currentDate.setDate(baseDate.getDate() + currentProbeDay);
+
+      // Update viewCenterMonth to show the correct month
+      setViewCenterMonth({
+        year: currentDate.getFullYear(),
+        month: currentDate.getMonth()
+      });
+
+      setViewMode('month');
+    }
   };
 
   // Day view: External XY float state that drives the grid
@@ -1053,7 +1140,7 @@ export default function CalendarScreen({ navigation, route }) {
   // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
   const redLineX = HEADER_W + 0.5 * cellW;
-  const probeScreenY = HEADER_H + gridH / 2.5;
+  const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
   const probeXInGrid = (redLineX - HEADER_W) / cellW;
   const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
   const probeCol = Math.floor(externalXYFloat.scrollXFloat + probeXInGrid - padL / cellW);
@@ -1693,7 +1780,7 @@ export default function CalendarScreen({ navigation, route }) {
         rightButtons={[
           {
             icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
-            onPress: () => setViewMode(viewMode === 'month' ? 'day' : 'month'),
+            onPress: () => handleViewModeToggle(probeDay, probeHour24),
           },
         ]}
       />
