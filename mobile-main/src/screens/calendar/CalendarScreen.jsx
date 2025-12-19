@@ -313,22 +313,17 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   const headerW = winW;
 
-  // Header X cells - rendered based on scroll position (like main grid cells)
-  // Calculate first visible day based on renderScrollX (same approach as firstCol for grid)
-  // This ensures cells are rendered at absolute day positions, not relative to probeDay
-  // Extra buffer (+6) to ensure cells always cover visible area during fast scrolling
-  const visibleDays = Math.ceil(headerW / headerCellW) + 6;
-
-  // Calculate the first day that should be visible based on scroll position
-  // The probe is at probeDay, and we need to render cells that cover the visible area
-  const firstVisibleDay = Math.floor(probeDay) - Math.ceil(visibleDays / 2);
+  // Header X cells - render 20 cells in each direction from master time (probeDay)
+  // These cells are positioned absolutely and only re-render when settledPosition changes
+  // (which happens when animation completes via onAnimationComplete callback)
+  const CELLS_EACH_DIRECTION = 20;
+  const totalHeaderCells = CELLS_EACH_DIRECTION * 2 + 1; // 20 left + current + 20 right = 41 cells
 
   let headerXcells = [];
-  for (let i = 0; i < visibleDays; i++) {
-    const dayIdx = firstVisibleDay + i;
-    // Position each cell based on its DAY INDEX, not array index
-    // This ensures day_780 is always to the right of day_779
-    // Use dayIdx directly for positioning (will be offset by animation transform)
+  for (let i = -CELLS_EACH_DIRECTION; i <= CELLS_EACH_DIRECTION; i++) {
+    const dayIdx = probeDay + i;
+    // Position each cell based on its DAY INDEX (absolute position)
+    // The animation transform will shift the container to align with probe
     const left = dayIdx * headerCellW;
     headerXcells.push(
       <View
