@@ -13,6 +13,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Dimensions,
   Modal,
   ScrollView,
@@ -608,7 +609,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             const eventKey = `${event.eventId}_${rowIdx}_${colIdx}`;
 
             eventViews.push(
-              <TouchableOpacity
+              <Pressable
                 key={eventKey}
                 style={{
                   position: 'absolute',
@@ -622,12 +623,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                   padding: 2,
                   zIndex: 5,
                 }}
-                onPress={() => {
+                onLongPress={() => {
                   navigation.navigate('EditEvent', {
                     groupId: groupId,
                     eventId: event.eventId,
                   });
                 }}
+                delayLongPress={300}
               >
                 {isFirstSegment && (
                   <>
@@ -655,7 +657,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                     )}
                   </>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             );
           }
         });
@@ -864,9 +866,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
               />
             );
 
-            // Touchable overlay for the entire bar (makes it tappable)
+            // Touchable overlay for the entire bar (long press to edit)
             childEventViews.push(
-              <TouchableOpacity
+              <Pressable
                 key={wrapperKey}
                 style={{
                   position: 'absolute',
@@ -874,15 +876,15 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                   top: eventTop,
                   width: eventWidth,
                   height: eventHeight,
-                  zIndex: 7, // Above everything to capture taps
+                  zIndex: 7, // Above everything to capture long press
                 }}
-                onPress={() => {
+                onLongPress={() => {
                   navigation.navigate('EditChildEvent', {
                     groupId: groupId,
                     eventId: line.eventId,
                   });
                 }}
-                activeOpacity={0.7}
+                delayLongPress={300}
               >
                 {/* Member initials and title (only on first segment) */}
                 {isFirstSegment && (
@@ -911,7 +913,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
                     )}
                   </View>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             );
           }
         });
