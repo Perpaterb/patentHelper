@@ -1194,7 +1194,8 @@ export default function CalendarScreen({ navigation, route }) {
   const CALENDAR_HEIGHT = 24 + ROWS * CELL_HEIGHT_MONTH;
 
   // Month swipe state - using Reanimated shared values for UI thread animation
-  const monthOffsetX = useSharedValue(-MONTH_WIDTH); // Center month at index 1
+  // Center month is at index 2 (with 2 months on each side: -2, -1, 0, +1, +2)
+  const monthOffsetX = useSharedValue(-MONTH_WIDTH * 2); // Center month at index 2
   const monthStartX = useSharedValue(0); // Starting offset when gesture begins
 
   // Get month matrix (always 6 rows)
@@ -1239,9 +1240,9 @@ export default function CalendarScreen({ navigation, route }) {
     viewCenterMonthRef.current = viewCenterMonth;
   }, [viewCenterMonth]);
 
-  // Get 3 months array centered on viewCenterMonth (reduce lag)
+  // Get 5 months array centered on viewCenterMonth (2 on each side)
   const months = React.useMemo(() => {
-    const result = [-1, 0, 1].map((offset) => getAdjacentMonths(viewCenterMonth.year, viewCenterMonth.month, offset));
+    const result = [-2, -1, 0, 1, 2].map((offset) => getAdjacentMonths(viewCenterMonth.year, viewCenterMonth.month, offset));
     return result;
   }, [viewCenterMonth]);
 
@@ -1271,8 +1272,8 @@ export default function CalendarScreen({ navigation, route }) {
       setExternalXYFloat(newPosition);
     }
 
-    // Reset offset to center after state update
-    monthOffsetX.value = -MONTH_WIDTH;
+    // Reset offset to center after state update (center is at index 2)
+    monthOffsetX.value = -MONTH_WIDTH * 2;
   }, []);
 
   // Animated style for month container
@@ -1288,14 +1289,16 @@ export default function CalendarScreen({ navigation, route }) {
     })
     .onUpdate((event) => {
       // Clamp to prevent swiping more than one month at a time
+      // With 5 months (indices 0-4), center is at index 2
       const newOffset = monthStartX.value + event.translationX;
-      const minOffset = -MONTH_WIDTH * 2; // Can't go past month +1
-      const maxOffset = 0; // Can't go past month -1
+      const minOffset = -MONTH_WIDTH * 3; // Can't go past month +1 (index 3)
+      const maxOffset = -MONTH_WIDTH; // Can't go past month -1 (index 1)
       monthOffsetX.value = Math.max(minOffset, Math.min(maxOffset, newOffset));
     })
     .onEnd((event) => {
       // Determine which month to snap to based on velocity and position
-      const currentDrag = monthOffsetX.value - (-MONTH_WIDTH);
+      // Center is at -MONTH_WIDTH * 2
+      const currentDrag = monthOffsetX.value - (-MONTH_WIDTH * 2);
       const velocity = event.velocityX;
 
       let targetIndex = 0; // 0 = center month
@@ -1305,11 +1308,11 @@ export default function CalendarScreen({ navigation, route }) {
         targetIndex = 1; // Next month
       }
 
-      const targetOffset = -MONTH_WIDTH + (-targetIndex * MONTH_WIDTH);
+      const targetOffset = -MONTH_WIDTH * 2 + (-targetIndex * MONTH_WIDTH);
 
       monthOffsetX.value = withSpring(targetOffset, {
-        damping: 20,
-        stiffness: 200,
+        damping: 50,
+        stiffness: 300,
         velocity: velocity,
       }, (finished) => {
         if (finished) {
