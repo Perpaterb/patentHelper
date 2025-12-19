@@ -472,7 +472,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       style={{
         position: 'absolute',
         left: redLineX - 5,
-        top: probeScreenY - 5,
+        top: probeScreenY - 10,  // Shifted up by half dot size to align with cell center
         width: 10,
         height: 10,
         borderRadius: 5,
