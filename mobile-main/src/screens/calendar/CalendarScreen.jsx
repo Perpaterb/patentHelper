@@ -106,6 +106,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   const scrollStartY = useSharedValue(0);
   const scrollStartX = useSharedValue(0);
 
+  // Track animation completion - using shared values for worklet access
+  const xAnimDone = useSharedValue(true);
+  const yAnimDone = useSharedValue(true);
+
   // Track settled position for React state (only updates when animation stops)
   const [settledPosition, setSettledPosition] = useState({
     scrollYFloat: externalXYFloat.scrollYFloat,
@@ -153,16 +157,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       scrollXFloat.value = scrollStartX.value - event.translationX / cellW;
     })
     .onEnd((event) => {
-      // Track completion of both animations
-      let xDone = false;
-      let yDone = false;
-
-      const maybeUpdateMaster = () => {
-        'worklet';
-        if (xDone && yDone) {
-          runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
-        }
-      };
+      // Reset animation tracking
+      xAnimDone.value = false;
+      yAnimDone.value = false;
 
       // Apply momentum with decay on Y axis
       scrollYFloat.value = withDecay({
@@ -170,8 +167,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         deceleration: 0.997,
       }, (finished) => {
         if (finished) {
-          yDone = true;
-          maybeUpdateMaster();
+          yAnimDone.value = true;
+          // Check if both animations are done
+          if (xAnimDone.value) {
+            runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+          }
         }
       });
 
@@ -185,8 +185,11 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         velocity: -event.velocityX / cellW,
       }, (finished) => {
         if (finished) {
-          xDone = true;
-          maybeUpdateMaster();
+          xAnimDone.value = true;
+          // Check if both animations are done
+          if (yAnimDone.value) {
+            runOnJS(onAnimationComplete)(scrollXFloat.value, scrollYFloat.value);
+          }
         }
       });
     }), [cellW, onAnimationComplete]);
