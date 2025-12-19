@@ -466,17 +466,48 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     />
   );
 
-  // Render events - split into hourly segments with scan-line algorithm for overlap layout
-  let eventViews = [];
-  if (events && events.length > 0) {
-    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+  // Render events - positioned relative to firstRow/firstCol (same as grid cells)
+  // Events only re-render when settledPosition changes (not during animation)
+  // Buffer: render events for days within range of probeDay
+  const EVENT_DAYS_BUFFER = 5; // Render events for 5 days in each direction
+  const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+
+  // Memoize event layouts to avoid recalculating on every render
+  const { eventViews, childEventViews } = useMemo(() => {
+    const eventViews = [];
+    const childEventViews = [];
+
+    if (!events || events.length === 0) {
+      return { eventViews, childEventViews };
+    }
+
+    // Helper to convert (dayIndex, hour) to relative (dx, dy) in the grid
+    // This matches the grid cell coordinate system
+    const getDxDyForEvent = (eventDayCol, eventHour) => {
+      // Find dy such that (firstRow + dy) % 24 = eventHour
+      const firstRowMod24 = ((firstRow % 24) + 24) % 24;
+      let dy;
+      if (eventHour >= firstRowMod24) {
+        dy = eventHour - firstRowMod24;
+      } else {
+        dy = eventHour + 24 - firstRowMod24;
+      }
+
+      // Calculate the dayShift at this row
+      const rowIdx = firstRow + dy;
+      const dayShift = Math.floor(rowIdx / 24);
+
+      // Find dx such that (firstCol + dx) + dayShift = eventDayCol
+      const dx = eventDayCol - firstCol - dayShift;
+
+      return { dx, dy };
+    };
 
     // Filter out child responsibility events (they render as lines, not rectangles)
     const regularEvents = events.filter(event => !event.isResponsibilityEvent);
 
     // STEP 1: Use scan-line algorithm to calculate slot assignments
-    // This processes events at start/end points to find optimal column layout
-    const eventLayouts = new Map(); // eventId -> {column, maxColumns}
+    const eventLayouts = new Map(); // eventId -> {column, maxColumns, columnsToUse}
 
     // Create scan events (start and end points)
     const scanEvents = [];
@@ -496,25 +527,20 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     });
 
     // Track active events and their columns
-    const activeEvents = []; // Array of {event, column}
-    const eventColumns = new Map(); // eventId -> column
+    const activeEvents = [];
+    const eventColumns = new Map();
 
     // Process scan events
     scanEvents.forEach((scanEvent) => {
       if (scanEvent.type === 'start') {
-        // Find the first available column (leftmost)
         const usedColumns = new Set(activeEvents.map(e => e.column));
         let column = 0;
         while (usedColumns.has(column)) {
           column++;
         }
-
-        // Assign this event to the column
         eventColumns.set(scanEvent.event.eventId, column);
         activeEvents.push({ event: scanEvent.event, column });
-
-      } else { // type === 'end'
-        // Remove this event from active events
+      } else {
         const index = activeEvents.findIndex(e => e.event.eventId === scanEvent.event.eventId);
         if (index !== -1) {
           activeEvents.splice(index, 1);
@@ -523,30 +549,26 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     });
 
     // STEP 2: Calculate max columns and expansion for each event
-    // For each event, determine the maximum number of simultaneous events during its duration
     regularEvents.forEach((event) => {
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       const eventColumn = eventColumns.get(event.eventId);
 
-      // Find all events that overlap with this one
       const overlappingEvents = regularEvents.filter((other) => {
         const otherStart = new Date(other.startTime);
         const otherEnd = new Date(other.endTime);
         return otherStart < eventEnd && otherEnd > eventStart;
       });
 
-      // Calculate max columns needed during this event's lifetime
       const maxColumns = Math.max(...overlappingEvents.map(e => eventColumns.get(e.eventId) + 1));
 
-      // Check if columns to the right are free (can this event expand?)
       const overlappingColumns = new Set(overlappingEvents.map(e => eventColumns.get(e.eventId)));
       let columnsToUse = 1;
       for (let col = eventColumn + 1; col < maxColumns; col++) {
         if (!overlappingColumns.has(col)) {
           columnsToUse++;
         } else {
-          break; // Stop at first occupied column
+          break;
         }
       }
 
@@ -557,120 +579,101 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // STEP 3: Render hour segments using pre-calculated layouts
-    for (let dx = 0; dx < visibleCols; ++dx) {
-      for (let dy = 0; dy < visibleRows; ++dy) {
-        const rowIdx = firstRow + dy;
-        const colIdx = firstCol + dx;
-        const hour24 = ((rowIdx % 24) + 24) % 24;
-        const dayShift = Math.floor(rowIdx / 24);
-        const cellDayCol = colIdx + dayShift;
+    // STEP 3: Render events at RELATIVE positions (same coordinate system as grid cells)
+    // Calculate the visible day range
+    const minVisibleDay = probeDay - EVENT_DAYS_BUFFER;
+    const maxVisibleDay = probeDay + EVENT_DAYS_BUFFER;
 
-        // Calculate the actual date/time for this cell (1 hour slot)
-        const cellDate = new Date(baseDate);
-        cellDate.setDate(baseDate.getDate() + cellDayCol);
-        cellDate.setHours(hour24, 0, 0, 0);
-        const cellEndTime = new Date(cellDate.getTime() + 60 * 60 * 1000);
+    regularEvents.forEach((event) => {
+      const eventStart = new Date(event.startTime);
+      const eventEnd = new Date(event.endTime);
 
-        // Find events that overlap with this hour
-        regularEvents.forEach((event) => {
-          const eventStart = new Date(event.startTime);
-          const eventEnd = new Date(event.endTime);
-          const overlaps = eventStart < cellEndTime && eventEnd > cellDate;
+      // Calculate event's day index
+      const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
+      const eventEndDay = Math.floor((eventEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-          if (overlaps) {
-            const layout = eventLayouts.get(event.eventId);
-            if (!layout) return;
-
-            // Calculate the visible portion of the event in this hour slot
-            const segmentStart = eventStart > cellDate ? eventStart : cellDate;
-            const segmentEnd = eventEnd < cellEndTime ? eventEnd : cellEndTime;
-
-            const startMinuteFraction = (segmentStart - cellDate) / (1000 * 60 * 60);
-            const durationHours = (segmentEnd - segmentStart) / (1000 * 60 * 60);
-
-            // Check if this is the first segment
-            const isFirstSegment = eventStart >= cellDate && eventStart < cellEndTime;
-
-            // Calculate position - fixed, container transforms
-            const left = dx * cellW;
-            const top = (dy + startMinuteFraction) * CELL_H;
-
-            // Layout within right half of column
-            const availableWidth = cellW / 2;
-            const columnWidth = availableWidth / layout.maxColumns;
-            const eventWidth = columnWidth * layout.columnsToUse;
-            const eventOffsetX = columnWidth * layout.column;
-
-            const eventLeft = HEADER_W + left + (cellW / 2) + eventOffsetX;
-            const eventTop = top;
-            const eventHeight = durationHours * CELL_H;
-
-            const eventKey = `${event.eventId}_${rowIdx}_${colIdx}`;
-
-            eventViews.push(
-              <Pressable
-                key={eventKey}
-                style={{
-                  position: 'absolute',
-                  left: eventLeft,
-                  top: eventTop,
-                  width: eventWidth,
-                  height: eventHeight,
-                  backgroundColor: '#e3f2fd',
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#2196f3',
-                  padding: 2,
-                  zIndex: 5,
-                }}
-                onLongPress={() => {
-                  navigation.navigate('EditEvent', {
-                    groupId: groupId,
-                    eventId: event.eventId,
-                  });
-                }}
-                delayLongPress={300}
-              >
-                {isFirstSegment && (
-                  <>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 'bold',
-                        color: '#1976d2',
-                      }}
-                    >
-                      {event.title}
-                    </Text>
-                    {layout.columnsToUse > 1 && event.description && (
-                      <Text
-                        numberOfLines={2}
-                        style={{
-                          fontSize: 9,
-                          color: '#555',
-                          marginTop: 1,
-                        }}
-                      >
-                        {event.description}
-                      </Text>
-                    )}
-                  </>
-                )}
-              </Pressable>
-            );
-          }
-        });
+      // Skip events outside visible range
+      if (eventEndDay < minVisibleDay || eventStartDay > maxVisibleDay) {
+        return;
       }
-    }
-  }
 
-  // Render child responsibility event lines (left half of day column)
-  let childEventViews = [];
-  if (events && events.length > 0) {
-    const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+      const layout = eventLayouts.get(event.eventId);
+      if (!layout) return;
 
-    // Flatten responsibility events into a single array with parent event timing
+      // Calculate position using same coordinate system as grid cells
+      const eventStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
+      const eventDurationHours = (eventEnd - eventStart) / (1000 * 60 * 60);
+
+      // Get relative position in grid (same as cell positioning)
+      const { dx, dy } = getDxDyForEvent(eventStartDay, Math.floor(eventStartHour));
+
+      // Calculate position like cells do: left = dx * cellW, top = dy * CELL_H
+      // Add fractional hour offset for precise start time
+      const hourFraction = eventStartHour - Math.floor(eventStartHour);
+      const baseLeft = dx * cellW;
+      const baseTop = (dy + hourFraction) * CELL_H;
+
+      // Layout within right half of column
+      const availableWidth = cellW / 2;
+      const columnWidth = availableWidth / layout.maxColumns;
+      const eventWidth = columnWidth * layout.columnsToUse;
+      const eventOffsetX = columnWidth * layout.column;
+
+      // Add HEADER_W offset like cells do
+      const eventLeft = HEADER_W + baseLeft + (cellW / 2) + eventOffsetX;
+      const eventTop = baseTop;
+      const eventHeight = eventDurationHours * CELL_H;
+
+      eventViews.push(
+        <Pressable
+          key={`event_${event.eventId}`}
+          style={{
+            position: 'absolute',
+            left: eventLeft,
+            top: eventTop,
+            width: eventWidth,
+            height: eventHeight,
+            backgroundColor: '#e3f2fd',
+            borderLeftWidth: 3,
+            borderLeftColor: '#2196f3',
+            padding: 2,
+            zIndex: 5,
+          }}
+          onLongPress={() => {
+            navigation.navigate('EditEvent', {
+              groupId: groupId,
+              eventId: event.eventId,
+            });
+          }}
+          delayLongPress={300}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: 11,
+              fontWeight: 'bold',
+              color: '#1976d2',
+            }}
+          >
+            {event.title}
+          </Text>
+          {layout.columnsToUse > 1 && event.description && (
+            <Text
+              numberOfLines={2}
+              style={{
+                fontSize: 9,
+                color: '#555',
+                marginTop: 1,
+              }}
+            >
+              {event.description}
+            </Text>
+          )}
+        </Pressable>
+      );
+    });
+
+    // CHILD RESPONSIBILITY EVENTS - same absolute positioning approach
     const allResponsibilityLines = [];
     events.forEach((event) => {
       if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
@@ -678,7 +681,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
           allResponsibilityLines.push({
             responsibilityEventId: re.responsibilityEventId,
             eventId: event.eventId,
-            title: event.title, // Event title for display
+            title: event.title,
             startTime: event.startTime,
             endTime: event.endTime,
             childColor: re.child.iconColor,
@@ -692,19 +695,16 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       }
     });
 
-    // STEP 1: Use scan-line algorithm to calculate slot assignments for child events
-    const childEventLayouts = new Map(); // responsibilityEventId -> {column, maxColumns, columnsToUse}
-
-    // Create scan events (start and end points)
+    // Scan-line algorithm for child events
+    const childEventLayouts = new Map();
     const childScanEvents = [];
     allResponsibilityLines.forEach((line) => {
-      const eventStart = new Date(line.startTime);
-      const eventEnd = new Date(line.endTime);
-      childScanEvents.push({ time: eventStart, type: 'start', line });
-      childScanEvents.push({ time: eventEnd, type: 'end', line });
+      const lineStart = new Date(line.startTime);
+      const lineEnd = new Date(line.endTime);
+      childScanEvents.push({ time: lineStart, type: 'start', line });
+      childScanEvents.push({ time: lineEnd, type: 'end', line });
     });
 
-    // Sort scan events by time (start before end if same time)
     childScanEvents.sort((a, b) => {
       if (a.time.getTime() !== b.time.getTime()) {
         return a.time - b.time;
@@ -712,26 +712,19 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       return a.type === 'start' ? -1 : 1;
     });
 
-    // Track active lines and their columns
-    const activeLines = []; // Array of {line, column}
-    const lineColumns = new Map(); // responsibilityEventId -> column
+    const activeLines = [];
+    const lineColumns = new Map();
 
-    // Process scan events
     childScanEvents.forEach((scanEvent) => {
       if (scanEvent.type === 'start') {
-        // Find the first available column (leftmost)
         const usedColumns = new Set(activeLines.map(l => l.column));
         let column = 0;
         while (usedColumns.has(column)) {
           column++;
         }
-
-        // Assign this line to the column
         lineColumns.set(scanEvent.line.responsibilityEventId, column);
         activeLines.push({ line: scanEvent.line, column });
-
-      } else { // type === 'end'
-        // Remove this line from active lines
+      } else {
         const index = activeLines.findIndex(l => l.line.responsibilityEventId === scanEvent.line.responsibilityEventId);
         if (index !== -1) {
           activeLines.splice(index, 1);
@@ -739,30 +732,26 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       }
     });
 
-    // STEP 2: Calculate max columns and expansion for each line
     allResponsibilityLines.forEach((line) => {
       const lineStart = new Date(line.startTime);
       const lineEnd = new Date(line.endTime);
       const lineColumn = lineColumns.get(line.responsibilityEventId);
 
-      // Find all lines that overlap with this one
       const overlappingLines = allResponsibilityLines.filter((other) => {
         const otherStart = new Date(other.startTime);
         const otherEnd = new Date(other.endTime);
         return otherStart < lineEnd && otherEnd > lineStart;
       });
 
-      // Calculate max columns needed during this line's lifetime
       const maxColumns = Math.max(...overlappingLines.map(l => lineColumns.get(l.responsibilityEventId) + 1));
 
-      // Check if columns to the right are free (can this line expand?)
       const overlappingColumns = new Set(overlappingLines.map(l => lineColumns.get(l.responsibilityEventId)));
       let columnsToUse = 1;
       for (let col = lineColumn + 1; col < maxColumns; col++) {
         if (!overlappingColumns.has(col)) {
           columnsToUse++;
         } else {
-          break; // Stop at first occupied column
+          break;
         }
       }
 
@@ -773,153 +762,127 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // STEP 3: Render child event lines using pre-calculated layouts
-    for (let dx = 0; dx < visibleCols; ++dx) {
-      for (let dy = 0; dy < visibleRows; ++dy) {
-        const rowIdx = firstRow + dy;
-        const colIdx = firstCol + dx;
-        const hour24 = ((rowIdx % 24) + 24) % 24;
-        const dayShift = Math.floor(rowIdx / 24);
-        const cellDayCol = colIdx + dayShift;
+    // Render child events at relative positions (same coordinate system as grid cells)
+    allResponsibilityLines.forEach((line) => {
+      const lineStart = new Date(line.startTime);
+      const lineEnd = new Date(line.endTime);
 
-        // Calculate the actual date/time for this cell (1 hour slot)
-        const cellDate = new Date(baseDate);
-        cellDate.setDate(baseDate.getDate() + cellDayCol);
-        cellDate.setHours(hour24, 0, 0, 0);
-        const cellEndTime = new Date(cellDate.getTime() + 60 * 60 * 1000);
+      const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
+      const lineEndDay = Math.floor((lineEnd - baseDate) / (1000 * 60 * 60 * 24));
 
-        // Find child lines that overlap with this hour
-        allResponsibilityLines.forEach((line) => {
-          const lineStart = new Date(line.startTime);
-          const lineEnd = new Date(line.endTime);
-          const overlaps = lineStart < cellEndTime && lineEnd > cellDate;
-
-          if (overlaps) {
-            const layout = childEventLayouts.get(line.responsibilityEventId);
-            if (!layout) return;
-
-            // Calculate the visible portion of the line in this hour slot
-            const segmentStart = lineStart > cellDate ? lineStart : cellDate;
-            const segmentEnd = lineEnd < cellEndTime ? lineEnd : cellEndTime;
-
-            const startMinuteFraction = (segmentStart - cellDate) / (1000 * 60 * 60);
-            const durationHours = (segmentEnd - segmentStart) / (1000 * 60 * 60);
-
-            // Calculate position - fixed, container transforms
-            const left = dx * cellW;
-            const top = (dy + startMinuteFraction) * CELL_H;
-
-            // Layout within LEFT half of column
-            const availableWidth = cellW / 2;
-            const columnWidth = availableWidth / layout.maxColumns;
-            const eventWidth = columnWidth * layout.columnsToUse;
-            const eventOffsetX = columnWidth * layout.column;
-
-            const eventLeft = HEADER_W + left + eventOffsetX;
-            const eventTop = top;
-            const eventHeight = durationHours * CELL_H;
-
-            // Check if this is the first segment
-            const isFirstSegment = lineStart >= cellDate && lineStart < cellEndTime;
-
-            // Each child/adult pair = 2 halves side by side (50/50 split)
-            // Left half: Child color
-            // Right half: Adult color
-            const halfWidth = eventWidth / 2;
-
-            const childLineKey = `${line.responsibilityEventId}_child_${rowIdx}_${colIdx}`;
-            const adultLineKey = `${line.responsibilityEventId}_adult_${rowIdx}_${colIdx}`;
-            const textKey = `${line.responsibilityEventId}_text_${rowIdx}_${colIdx}`;
-
-            // Wrapper key for the entire child event bar (both halves + text)
-            const wrapperKey = `${line.responsibilityEventId}_wrapper_${rowIdx}_${colIdx}`;
-
-            // Child half (left)
-            childEventViews.push(
-              <View
-                key={childLineKey}
-                style={{
-                  position: 'absolute',
-                  left: eventLeft,
-                  top: eventTop,
-                  width: halfWidth,
-                  height: eventHeight,
-                  backgroundColor: line.childColor,
-                  zIndex: 4, // Below normal events (zIndex: 5)
-                }}
-              />
-            );
-
-            // Adult half (right)
-            childEventViews.push(
-              <View
-                key={adultLineKey}
-                style={{
-                  position: 'absolute',
-                  left: eventLeft + halfWidth,
-                  top: eventTop,
-                  width: halfWidth,
-                  height: eventHeight,
-                  backgroundColor: line.startAdultColor,
-                  zIndex: 4,
-                }}
-              />
-            );
-
-            // Touchable overlay for the entire bar (long press to edit)
-            childEventViews.push(
-              <Pressable
-                key={wrapperKey}
-                style={{
-                  position: 'absolute',
-                  left: eventLeft,
-                  top: eventTop,
-                  width: eventWidth,
-                  height: eventHeight,
-                  zIndex: 7, // Above everything to capture long press
-                }}
-                onLongPress={() => {
-                  navigation.navigate('EditChildEvent', {
-                    groupId: groupId,
-                    eventId: line.eventId,
-                  });
-                }}
-                delayLongPress={300}
-              >
-                {/* Member initials and title (only on first segment) */}
-                {isFirstSegment && (
-                  <View style={{ padding: 2, alignItems: 'center' }}>
-                    {/* Member initials row */}
-                    <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
-                      <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.childColor, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.childInitials}</Text>
-                      </View>
-                      <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.startAdultColor, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.startAdultInitials}</Text>
-                      </View>
-                    </View>
-                    {line.title && (
-                      <Text
-                        numberOfLines={2}
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 'bold',
-                          color: '#000',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {line.title}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </Pressable>
-            );
-          }
-        });
+      // Skip events outside visible range
+      if (lineEndDay < minVisibleDay || lineStartDay > maxVisibleDay) {
+        return;
       }
-    }
-  }
+
+      const layout = childEventLayouts.get(line.responsibilityEventId);
+      if (!layout) return;
+
+      const lineStartHour = lineStart.getHours() + lineStart.getMinutes() / 60;
+      const lineDurationHours = (lineEnd - lineStart) / (1000 * 60 * 60);
+
+      // Get relative position in grid (same as cell positioning)
+      const { dx, dy } = getDxDyForEvent(lineStartDay, Math.floor(lineStartHour));
+
+      // Calculate position like cells do
+      const hourFraction = lineStartHour - Math.floor(lineStartHour);
+      const baseLeft = dx * cellW;
+      const baseTop = (dy + hourFraction) * CELL_H;
+
+      // Layout within LEFT half of column
+      const availableWidth = cellW / 2;
+      const columnWidth = availableWidth / layout.maxColumns;
+      const eventWidth = columnWidth * layout.columnsToUse;
+      const eventOffsetX = columnWidth * layout.column;
+
+      // Add HEADER_W offset like cells do
+      const eventLeft = HEADER_W + baseLeft + eventOffsetX;
+      const eventTop = baseTop;
+      const eventHeight = lineDurationHours * CELL_H;
+
+      const halfWidth = eventWidth / 2;
+
+      // Child half (left)
+      childEventViews.push(
+        <View
+          key={`child_${line.responsibilityEventId}`}
+          style={{
+            position: 'absolute',
+            left: eventLeft,
+            top: eventTop,
+            width: halfWidth,
+            height: eventHeight,
+            backgroundColor: line.childColor,
+            zIndex: 4,
+          }}
+        />
+      );
+
+      // Adult half (right)
+      childEventViews.push(
+        <View
+          key={`adult_${line.responsibilityEventId}`}
+          style={{
+            position: 'absolute',
+            left: eventLeft + halfWidth,
+            top: eventTop,
+            width: halfWidth,
+            height: eventHeight,
+            backgroundColor: line.startAdultColor,
+            zIndex: 4,
+          }}
+        />
+      );
+
+      // Touchable overlay
+      childEventViews.push(
+        <Pressable
+          key={`wrapper_${line.responsibilityEventId}`}
+          style={{
+            position: 'absolute',
+            left: eventLeft,
+            top: eventTop,
+            width: eventWidth,
+            height: eventHeight,
+            zIndex: 7,
+          }}
+          onLongPress={() => {
+            navigation.navigate('EditChildEvent', {
+              groupId: groupId,
+              eventId: line.eventId,
+            });
+          }}
+          delayLongPress={300}
+        >
+          <View style={{ padding: 2, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
+              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.childColor, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.childInitials}</Text>
+              </View>
+              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: line.startAdultColor, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontSize: 6, fontWeight: 'bold', color: '#000' }}>{line.startAdultInitials}</Text>
+              </View>
+            </View>
+            {line.title && (
+              <Text
+                numberOfLines={2}
+                style={{
+                  fontSize: 9,
+                  fontWeight: 'bold',
+                  color: '#000',
+                  textAlign: 'center',
+                }}
+              >
+                {line.title}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      );
+    });
+
+    return { eventViews, childEventViews };
+  }, [events, probeDay, cellW, navigation, groupId, firstRow, firstCol]);
 
   return (
     <GestureDetector gesture={panGesture}>
