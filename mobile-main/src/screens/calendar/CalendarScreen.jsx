@@ -561,8 +561,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     // Events positioned based on offset from probeDay/probeHour24
     // Since probe only updates when animation stops, events stay fixed during scroll
     // This matches user perception - grid appears fixed, content scrolls underneath
-    const minVisibleDay = probeDay - EVENT_DAYS_BUFFER;
-    const maxVisibleDay = probeDay + EVENT_DAYS_BUFFER;
+
+    // Calculate master datetime as absolute hours from baseDate for comparison
+    const masterAbsoluteHours = probeDay * 24 + probeHour24;
+    const bufferHours = EVENT_DAYS_BUFFER * 24; // 4 days in hours
 
     // Probe screen position (relative to event container which starts at HEADER_W)
     // probeScreenX is at center of probed cell, so subtract 0.5*cellW to get left edge of probeDay column
@@ -573,15 +575,19 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
 
-      // Calculate event's day index
-      const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
-      const eventEndDay = Math.floor((eventEnd - baseDate) / (1000 * 60 * 60 * 24));
+      // Calculate event's absolute hours from baseDate
+      const eventStartAbsoluteHours = (eventStart - baseDate) / (1000 * 60 * 60);
+      const eventEndAbsoluteHours = (eventEnd - baseDate) / (1000 * 60 * 60);
 
       // Skip events outside visible range (4 days each side)
       // Render if: masterDateTime < eventEnd + 4 days AND masterDateTime > eventStart - 4 days
-      if (eventEndDay < minVisibleDay || eventStartDay > maxVisibleDay) {
+      if (eventEndAbsoluteHours < masterAbsoluteHours - bufferHours ||
+          eventStartAbsoluteHours > masterAbsoluteHours + bufferHours) {
         return;
       }
+
+      // Calculate event's day index (still needed for positioning)
+      const eventStartDay = Math.floor((eventStart - baseDate) / (1000 * 60 * 60 * 24));
 
       const layout = eventLayouts.get(event.eventId);
       if (!layout) return;
@@ -759,13 +765,18 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const lineStart = new Date(line.startTime);
       const lineEnd = new Date(line.endTime);
 
-      const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
-      const lineEndDay = Math.floor((lineEnd - baseDate) / (1000 * 60 * 60 * 24));
+      // Calculate line's absolute hours from baseDate
+      const lineStartAbsoluteHours = (lineStart - baseDate) / (1000 * 60 * 60);
+      const lineEndAbsoluteHours = (lineEnd - baseDate) / (1000 * 60 * 60);
 
       // Skip events outside visible range (4 days each side)
-      if (lineEndDay < minVisibleDay || lineStartDay > maxVisibleDay) {
+      if (lineEndAbsoluteHours < masterAbsoluteHours - bufferHours ||
+          lineStartAbsoluteHours > masterAbsoluteHours + bufferHours) {
         return;
       }
+
+      // Calculate line's day index (still needed for positioning)
+      const lineStartDay = Math.floor((lineStart - baseDate) / (1000 * 60 * 60 * 24));
 
       const layout = childEventLayouts.get(line.responsibilityEventId);
       if (!layout) return;
