@@ -1009,7 +1009,18 @@ export default function CalendarScreen({ navigation, route }) {
       setExternalXYFloat(newPosition);
       setViewMode('day');
     } else {
-      // Switching TO month view
+      // Switching TO month view - sync viewCenterMonth to current masterDateTime
+      // Calculate the date from currentProbeDay
+      const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
+      const currentDate = new Date(baseDate);
+      currentDate.setDate(baseDate.getDate() + currentProbeDay);
+
+      // Update viewCenterMonth to show the correct month
+      setViewCenterMonth({
+        year: currentDate.getFullYear(),
+        month: currentDate.getMonth()
+      });
+
       setViewMode('month');
     }
   };
