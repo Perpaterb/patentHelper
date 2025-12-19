@@ -276,30 +276,13 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     };
   });
 
-  // Animated style for event container - positions events based on full scroll
-  // Events are positioned at absolute coordinates (dayCol * cellW, absoluteRow * CELL_H)
-  // This transform aligns them with the grid using the same math as headerX
+  // Animated style for event container - syncs with grid using fractional scroll
+  // Events are positioned relative to probeDay/probeHour, container transforms with scroll
   const eventContainerAnimatedStyle = useAnimatedStyle(() => {
-    const { cellW: cw, padL, padT, gridH } = getSizes();
-    const redLineX = HEADER_W + 0.5 * cw;
-    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
-    const probeXInGrid = (redLineX - HEADER_W) / cw;
-    const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
-
-    // Calculate exact probe position
-    const probeColExact = scrollXFloat.value + probeXInGrid - padL / cw;
-    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
-
-    // For X: events at dayCol * cellW, need to align probeCol with redLineX
-    // probeCol * cellW - offsetX = redLineX - HEADER_W (grid-relative)
-    const offsetX = probeColExact * cw - (redLineX - HEADER_W);
-
-    // For Y: events at absoluteRow * CELL_H where absoluteRow = dayCol * 24 + hour
-    // The probe is at probeRowExact, which maps to screen position probeScreenY - HEADER_H
-    // absoluteRow for probe = probeCol * 24 + (probeRow % 24)
-    // But simpler: just use probeRowExact directly since it accounts for day wrapping
-    const offsetY = probeRowExact * CELL_H - (probeScreenY - HEADER_H);
-
+    const { cellW: cw } = getSizes();
+    // Use same fractional offset as grid for perfect sync
+    const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * cw;
+    const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
     return {
       transform: [
         { translateX: -offsetX },
@@ -590,11 +573,15 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // STEP 3: Render events at ABSOLUTE positions
-    // Events positioned at (dayCol * cellW, absoluteRow * CELL_H)
-    // Container transform handles alignment with grid
+    // STEP 3: Render events at positions RELATIVE to probeCol/probeRow
+    // This matches grid cell positioning - container transform handles smooth scroll
     const minVisibleDay = probeDay - EVENT_DAYS_BUFFER;
     const maxVisibleDay = probeDay + EVENT_DAYS_BUFFER;
+
+    // Calculate reference position for centering events
+    // Events will be positioned relative to where probeDay/probeHour appears on screen
+    const probeScreenX = redLineX - HEADER_W; // X position of probe in grid (relative to HEADER_W)
+    const probeScreenYPos = probeScreenY - HEADER_H; // Y position of probe in grid
 
     regularEvents.forEach((event) => {
       const eventStart = new Date(event.startTime);
@@ -612,15 +599,24 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const layout = eventLayouts.get(event.eventId);
       if (!layout) return;
 
-      // Calculate ABSOLUTE position based on day and hour
+      // Calculate event position relative to probe
       const eventStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
       const eventDurationHours = (eventEnd - eventStart) / (1000 * 60 * 60);
 
-      // Absolute position: dayCol determines X, row (dayCol*24 + hour) determines Y
-      // This matches how the grid conceptually works with day wrapping
-      const absoluteLeft = eventStartDay * cellW;
-      const absoluteRow = eventStartDay * 24 + eventStartHour;
-      const absoluteTop = absoluteRow * CELL_H;
+      // Day difference from probe (for X positioning)
+      const dayDiff = eventStartDay - probeDay;
+
+      // Row difference from probe (for Y positioning)
+      // Event's row = eventStartDay * 24 + eventStartHour (in absolute terms)
+      // Probe's row = probeCol * 24 + probeHour24 (where probeCol = probeDay - probeDayOffset)
+      // But simpler: calculate hour difference accounting for day
+      const eventAbsoluteHour = eventStartDay * 24 + eventStartHour;
+      const probeAbsoluteHour = probeDay * 24 + probeHour24;
+      const hourDiff = eventAbsoluteHour - probeAbsoluteHour;
+
+      // Position relative to probe screen position
+      const relativeLeft = probeScreenX + dayDiff * cellW;
+      const relativeTop = probeScreenYPos + hourDiff * CELL_H;
 
       // Layout within right half of column
       const availableWidth = cellW / 2;
@@ -628,9 +624,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
 
-      // Position within event container (no HEADER_W - container handles that)
-      const eventLeft = absoluteLeft + (cellW / 2) + eventOffsetX;
-      const eventTop = absoluteTop;
+      // Final position
+      const eventLeft = relativeLeft + (cellW / 2) + eventOffsetX;
+      const eventTop = relativeTop;
       const eventHeight = eventDurationHours * CELL_H;
 
       eventViews.push(
@@ -771,7 +767,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       });
     });
 
-    // Render child events at ABSOLUTE positions (same as regular events)
+    // Render child events at positions RELATIVE to probeCol/probeRow (same as regular events)
     allResponsibilityLines.forEach((line) => {
       const lineStart = new Date(line.startTime);
       const lineEnd = new Date(line.endTime);
@@ -790,10 +786,14 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const lineStartHour = lineStart.getHours() + lineStart.getMinutes() / 60;
       const lineDurationHours = (lineEnd - lineStart) / (1000 * 60 * 60);
 
-      // Absolute position: dayCol determines X, row (dayCol*24 + hour) determines Y
-      const absoluteLeft = lineStartDay * cellW;
-      const absoluteRow = lineStartDay * 24 + lineStartHour;
-      const absoluteTop = absoluteRow * CELL_H;
+      // Calculate position relative to probe (same as regular events)
+      const dayDiff = lineStartDay - probeDay;
+      const lineAbsoluteHour = lineStartDay * 24 + lineStartHour;
+      const probeAbsoluteHour = probeDay * 24 + probeHour24;
+      const hourDiff = lineAbsoluteHour - probeAbsoluteHour;
+
+      const relativeLeft = probeScreenX + dayDiff * cellW;
+      const relativeTop = probeScreenYPos + hourDiff * CELL_H;
 
       // Layout within LEFT half of column
       const availableWidth = cellW / 2;
@@ -801,9 +801,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
       const eventWidth = columnWidth * layout.columnsToUse;
       const eventOffsetX = columnWidth * layout.column;
 
-      // Position within event container (no HEADER_W - container handles that)
-      const eventLeft = absoluteLeft + eventOffsetX;
-      const eventTop = absoluteTop;
+      // Final position
+      const eventLeft = relativeLeft + eventOffsetX;
+      const eventTop = relativeTop;
       const eventHeight = lineDurationHours * CELL_H;
 
       const halfWidth = eventWidth / 2;
@@ -888,7 +888,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     });
 
     return { eventViews, childEventViews };
-  }, [events, probeDay, cellW, navigation, groupId]);
+  }, [events, probeDay, probeHour24, cellW, redLineX, probeScreenY, navigation, groupId]);
 
   return (
     <GestureDetector gesture={panGesture}>
