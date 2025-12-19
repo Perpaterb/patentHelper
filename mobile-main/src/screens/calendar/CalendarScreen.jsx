@@ -1311,8 +1311,8 @@ export default function CalendarScreen({ navigation, route }) {
       const targetOffset = -MONTH_WIDTH * 2 + (-targetIndex * MONTH_WIDTH);
 
       monthOffsetX.value = withSpring(targetOffset, {
-        damping: 50,
-        stiffness: 300,
+        damping: 80,
+        stiffness: 500,
         velocity: velocity,
       }, (finished) => {
         if (finished) {
