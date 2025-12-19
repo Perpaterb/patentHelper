@@ -944,7 +944,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         >
           {cells}
         </Animated.View>
-        {/* Event layer - clipped to grid area, events positioned relative to probe */}
+        {/* Event layer - events positioned relative to probe */}
         <View
           style={{
             position: 'absolute',
@@ -952,7 +952,6 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             left: HEADER_W,
             right: 0,
             bottom: 0,
-            overflow: 'hidden',
           }}
           pointerEvents="box-none"
         >
