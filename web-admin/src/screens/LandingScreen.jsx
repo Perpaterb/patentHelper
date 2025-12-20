@@ -112,6 +112,36 @@ export default function LandingScreen({ navigation }) {
         </Button>
         <Text style={styles.noCreditCard}>No credit card required</Text>
         <Text style={styles.privacyNote}>Completely ad-free and we will never sell or give any data away</Text>
+        <View style={styles.storeButtons}>
+          <a
+            href="https://play.google.com/store"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            <View style={styles.storeButton}>
+              <MaterialCommunityIcons name="google-play" size={24} color="#fff" />
+              <View style={styles.storeButtonTextContainer}>
+                <Text style={styles.storeButtonSmallText}>Get it on</Text>
+                <Text style={styles.storeButtonText}>Google Play</Text>
+              </View>
+            </View>
+          </a>
+          <a
+            href="https://apps.apple.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            <View style={styles.storeButton}>
+              <MaterialCommunityIcons name="apple" size={24} color="#fff" />
+              <View style={styles.storeButtonTextContainer}>
+                <Text style={styles.storeButtonSmallText}>Download on the</Text>
+                <Text style={styles.storeButtonText}>App Store</Text>
+              </View>
+            </View>
+          </a>
+        </View>
       </Surface>
 
       {/* Features Section */}
@@ -307,6 +337,34 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 4,
     fontSize: 12,
+  },
+  storeButtons: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 16,
+  },
+  storeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  storeButtonTextContainer: {
+    marginLeft: 10,
+  },
+  storeButtonSmallText: {
+    color: '#fff',
+    fontSize: 10,
+    opacity: 0.9,
+  },
+  storeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   section: {
     padding: 32,

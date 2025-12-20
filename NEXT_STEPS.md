@@ -1,8 +1,45 @@
 # Next Steps - Family Helper Development
 
-## Current Status (Updated: 2025-12-15)
+## Current Status (Updated: 2025-12-20)
 
 Currently working on: **Production - Live and Stable**
+
+---
+
+## Recent Updates (2025-12-20)
+
+### Admin Permission Restrictions - COMPLETE
+- [x] Fixed all feature screens to respect admin permission settings
+- [x] Admins can now control which roles can create polls, calendars, finances, secret santa, message groups
+- [x] Both backend and frontend properly check `settings.*CreatableBy*` fields
+- [x] Fixed default permissions (now `!== false` to allow creation by default)
+
+### Android Calendar Fixes - COMPLETE
+- [x] Fixed "GestureDetector must be used as a descendant of GestureHandlerRootView" crash
+  - Wrapped CalendarScreen return with GestureHandlerRootView
+- [x] Fixed "Tried to synchronously call non-worklet function getSizes on UI thread" crash
+  - Created shared values (cellWShared, headerCellWShared, padLShared, padTShared, etc.) for all dimension values
+  - Updated all useAnimatedStyle and useAnimatedReaction hooks to use shared values instead of calling getSizes()
+
+### Month View Performance - COMPLETE
+- [x] Fixed re-rendering bug causing visual "jump" when swiping between months
+- [x] Implemented infinite scroll pattern (matching day view implementation)
+  - Added monthScrollFloat shared value for continuous 60fps animation
+  - Added settledMonthScroll state for React renders (only updates when animation completes)
+  - Added baseMonthRef as fixed reference point for offset calculations
+  - Months positioned absolutely with offset * MONTH_WIDTH
+  - Visible months calculated from settled position (center ± 2 months)
+
+### Android Build 1.0.3 - COMPLETE
+- [x] Updated app.json version to 1.0.3
+- [x] Updated build.gradle versionCode to 4, versionName to "1.0.3"
+- [x] Built release bundle for Play Store upload
+- [x] Added android/ folder to git tracking (removed from .gitignore for version management)
+
+### Landing Page App Store Buttons - COMPLETE
+- [x] Added Google Play Store and Apple App Store buttons to LandingScreen.jsx
+- [x] Buttons placed below "Completely ad-free" privacy note
+- [x] Links to store fronts (will update to direct app links when available)
 
 ---
 
