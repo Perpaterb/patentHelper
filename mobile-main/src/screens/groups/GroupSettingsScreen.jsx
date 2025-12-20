@@ -344,7 +344,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
                 {role.name} can create {featureName}
               </Text>
               <Switch
-                value={groupSettings[creatableKey] ?? false}
+                value={groupSettings[creatableKey] ?? true}
                 onValueChange={(value) => handleToggleSetting(creatableKey, value)}
                 disabled={savingSettings || !isVisible}
               />
