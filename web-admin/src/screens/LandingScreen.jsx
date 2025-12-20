@@ -141,6 +141,15 @@ export default function LandingScreen({ navigation }) {
               </View>
             </View>
           </a>
+          <div onClick={() => login()} style={{ cursor: 'pointer' }}>
+            <View style={styles.storeButton}>
+              <MaterialCommunityIcons name="web" size={24} color="#fff" />
+              <View style={styles.storeButtonTextContainer}>
+                <Text style={styles.storeButtonSmallText}>Login for full web app</Text>
+                <Text style={styles.storeButtonText}>Audit Logs, Storage & Subscriptions</Text>
+              </View>
+            </View>
+          </div>
         </View>
       </Surface>
 
