@@ -19,7 +19,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1758,9 +1758,10 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Custom Navigation Header */}
-      <CustomNavigationHeader
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* Custom Navigation Header */}
+        <CustomNavigationHeader
         onBack={() => navigation.goBack()}
         customTitle={
           <TouchableOpacity
@@ -2021,7 +2022,8 @@ export default function CalendarScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
