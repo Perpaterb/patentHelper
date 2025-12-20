@@ -149,7 +149,9 @@
       "Bash(~/.local/bin/aws s3 ls:*)",
       "Bash(file:*)",
       "Bash(docker-compose restart:*)",
-      "Bash(docker-compose logs:*)"
+      "Bash(docker-compose logs:*)",
+      "Bash(./gradlew bundleRelease:*)",
+      "Bash(KEYSTORE_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' KEY_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' ./gradlew bundleRelease)"
     ],
     "deny": [],
     "ask": []

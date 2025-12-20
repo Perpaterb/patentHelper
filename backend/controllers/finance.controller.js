@@ -56,6 +56,7 @@ async function getFinanceMatters(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -64,32 +65,32 @@ async function getFinanceMatters(req, res) {
     });
 
     // Check if user has permission to view finance section at all
-    if (!isAdmin) {
-      let hasAccess = false;
+    let hasAccess = false;
 
-      if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
-        hasAccess = true;
-      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
-        hasAccess = true;
-      } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
-        hasAccess = true;
-      } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
-        hasAccess = true;
-      }
+    if (userRole === 'admin' && groupSettings?.financeVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
+      hasAccess = true;
+    }
 
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to view finance matters',
-        });
-      }
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view finance matters',
+      });
     }
 
     // Build query based on user role
     let whereClause = { groupId: groupId };
 
-    // Non-admins only see finance matters where they are members
-    if (!isAdmin) {
+    // Non-admins with visibility restrictions only see finance matters where they are members
+    if (!isAdmin || !groupSettings?.financeVisibleToAdmins) {
       whereClause = {
         groupId: groupId,
         members: {
@@ -316,10 +317,12 @@ async function createFinanceMatter(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeCreatableByAdmins: true,
         financeCreatableByParents: true,
         financeCreatableByAdults: true,
         financeCreatableByCaregivers: true,
         financeCreatableByChildren: true,
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -330,7 +333,7 @@ async function createFinanceMatter(req, res) {
     // Check if user has permission to create finance matters
     let canCreate = false;
 
-    if (isAdmin) {
+    if (userRole === 'admin' && groupSettings?.financeCreatableByAdmins) {
       canCreate = true;
     } else if (userRole === 'parent' && groupSettings?.financeCreatableByParents) {
       canCreate = true;
@@ -641,6 +644,7 @@ async function getFinanceMatterById(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -649,25 +653,25 @@ async function getFinanceMatterById(req, res) {
     });
 
     // Check if user has permission to view finance section at all
-    if (!isAdmin) {
-      let hasAccess = false;
+    let hasAccess = false;
 
-      if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
-        hasAccess = true;
-      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
-        hasAccess = true;
-      } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
-        hasAccess = true;
-      } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
-        hasAccess = true;
-      }
+    if (userRole === 'admin' && groupSettings?.financeVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
+      hasAccess = true;
+    }
 
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to view finance matters',
-        });
-      }
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view finance matters',
+      });
     }
 
     // Fetch finance matter with members
@@ -1010,6 +1014,7 @@ async function getFinanceMatterMessages(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -1017,33 +1022,33 @@ async function getFinanceMatterMessages(req, res) {
       },
     });
 
-    if (!isAdmin) {
-      let hasAccess = false;
+    let hasAccess = false;
 
-      if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
-        hasAccess = true;
-      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
-        hasAccess = true;
-      } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
-        hasAccess = true;
-      } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
-        hasAccess = true;
-      }
-
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to view finance matter messages',
-        });
-      }
+    if (userRole === 'admin' && groupSettings?.financeVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
+      hasAccess = true;
     }
 
-    // Check if user is a member of this finance matter (or admin)
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view finance matter messages',
+      });
+    }
+
+    // Check if user is a member of this finance matter (or admin with visibility)
     const isMember = financeMatter.members.some(
       (m) => m.groupMemberId === groupMembership.groupMemberId
     );
 
-    if (!isAdmin && !isMember) {
+    if (!(isAdmin && groupSettings?.financeVisibleToAdmins) && !isMember) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view messages for this finance matter',
@@ -1182,6 +1187,7 @@ async function sendFinanceMatterMessage(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -1189,33 +1195,33 @@ async function sendFinanceMatterMessage(req, res) {
       },
     });
 
-    if (!isAdmin) {
-      let hasAccess = false;
+    let hasAccess = false;
 
-      if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
-        hasAccess = true;
-      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
-        hasAccess = true;
-      } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
-        hasAccess = true;
-      } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
-        hasAccess = true;
-      }
-
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to send finance matter messages',
-        });
-      }
+    if (userRole === 'admin' && groupSettings?.financeVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
+      hasAccess = true;
     }
 
-    // Check if user is a member of this finance matter (or admin)
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to send finance matter messages',
+      });
+    }
+
+    // Check if user is a member of this finance matter (or admin with visibility)
     const isMember = financeMatter.members.some(
       (m) => m.groupMemberId === groupMembership.groupMemberId
     );
 
-    if (!isAdmin && !isMember) {
+    if (!(isAdmin && groupSettings?.financeVisibleToAdmins) && !isMember) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to send messages for this finance matter',
@@ -1391,6 +1397,7 @@ async function recordPayment(req, res) {
     const groupSettings = await prisma.groupSettings.findUnique({
       where: { groupId: groupId },
       select: {
+        financeVisibleToAdmins: true,
         financeVisibleToParents: true,
         financeVisibleToAdults: true,
         financeVisibleToCaregivers: true,
@@ -1398,31 +1405,31 @@ async function recordPayment(req, res) {
       },
     });
 
-    if (!isAdmin) {
-      let hasAccess = false;
+    let hasAccess = false;
 
-      if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
-        hasAccess = true;
-      } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
-        hasAccess = true;
-      } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
-        hasAccess = true;
-      } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
-        hasAccess = true;
-      }
-
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to record payments',
-        });
-      }
+    if (userRole === 'admin' && groupSettings?.financeVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.financeVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.financeVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.financeVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.financeVisibleToChildren) {
+      hasAccess = true;
     }
 
-    // Check permission (admins or the member themselves can record)
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to record payments',
+      });
+    }
+
+    // Check permission (admins with visibility or the member themselves can record)
     const isSelf = groupMembership.groupMemberId === groupMemberId;
 
-    if (!isAdmin && !isSelf) {
+    if (!(isAdmin && groupSettings?.financeVisibleToAdmins) && !isSelf) {
       return res.status(403).json({
         success: false,
         message: 'You can only record payments for yourself',

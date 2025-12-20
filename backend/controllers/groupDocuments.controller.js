@@ -43,13 +43,49 @@ async function getDocuments(req, res) {
       });
     }
 
-    const isAdmin = membership.role === 'admin';
+    const userRole = membership.role;
+    const isAdmin = userRole === 'admin';
 
-    // Get documents (non-admins don't see hidden documents)
+    // Get group settings to check documents visibility permissions
+    const groupSettings = await prisma.groupSettings.findUnique({
+      where: { groupId: groupId },
+      select: {
+        documentsVisibleToAdmins: true,
+        documentsVisibleToParents: true,
+        documentsVisibleToAdults: true,
+        documentsVisibleToCaregivers: true,
+        documentsVisibleToChildren: true,
+      },
+    });
+
+    // Check if user has permission to view documents
+    let hasAccess = false;
+
+    if (userRole === 'admin' && groupSettings?.documentsVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.documentsVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.documentsVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.documentsVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.documentsVisibleToChildren) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to view documents',
+      });
+    }
+
+    // Get documents (admins with visibility can see hidden documents)
+    const canSeeHidden = isAdmin && groupSettings?.documentsVisibleToAdmins;
     const documents = await prisma.groupDocument.findMany({
       where: {
         groupId: groupId,
-        ...(isAdmin ? {} : { isHidden: false }),
+        ...(canSeeHidden ? {} : { isHidden: false }),
       },
       include: {
         uploader: {

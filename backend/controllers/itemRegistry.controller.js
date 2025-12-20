@@ -48,6 +48,42 @@ async function getItemRegistries(req, res) {
       });
     }
 
+    const userRole = membership.role;
+
+    // Get group settings to check item registry visibility permissions
+    const groupSettings = await prisma.groupSettings.findUnique({
+      where: { groupId: groupId },
+      select: {
+        itemRegistryVisibleToAdmins: true,
+        itemRegistryVisibleToParents: true,
+        itemRegistryVisibleToAdults: true,
+        itemRegistryVisibleToCaregivers: true,
+        itemRegistryVisibleToChildren: true,
+      },
+    });
+
+    // Check if user has permission to view item registry
+    let hasAccess = false;
+
+    if (userRole === 'admin' && groupSettings?.itemRegistryVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.itemRegistryVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.itemRegistryVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.itemRegistryVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.itemRegistryVisibleToChildren) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You do not have permission to view item registries',
+      });
+    }
+
     // Get group-owned item registries
     const groupRegistries = await prisma.itemRegistry.findMany({
       where: {

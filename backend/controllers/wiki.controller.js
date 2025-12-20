@@ -42,6 +42,42 @@ async function getWikiDocuments(req, res) {
       });
     }
 
+    const userRole = membership.role;
+
+    // Get group settings to check wiki visibility permissions
+    const groupSettings = await prisma.groupSettings.findUnique({
+      where: { groupId: groupId },
+      select: {
+        wikiVisibleToAdmins: true,
+        wikiVisibleToParents: true,
+        wikiVisibleToAdults: true,
+        wikiVisibleToCaregivers: true,
+        wikiVisibleToChildren: true,
+      },
+    });
+
+    // Check if user has permission to view wiki
+    let hasAccess = false;
+
+    if (userRole === 'admin' && groupSettings?.wikiVisibleToAdmins) {
+      hasAccess = true;
+    } else if (userRole === 'parent' && groupSettings?.wikiVisibleToParents) {
+      hasAccess = true;
+    } else if (userRole === 'adult' && groupSettings?.wikiVisibleToAdults) {
+      hasAccess = true;
+    } else if (userRole === 'caregiver' && groupSettings?.wikiVisibleToCaregivers) {
+      hasAccess = true;
+    } else if (userRole === 'child' && groupSettings?.wikiVisibleToChildren) {
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You do not have permission to view wiki',
+      });
+    }
+
     // Build where clause
     const whereClause = {
       groupId,
