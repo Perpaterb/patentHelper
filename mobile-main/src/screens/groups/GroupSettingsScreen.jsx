@@ -182,7 +182,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
     // Pattern: {feature}VisibleTo{Role} -> {feature}CreatableBy{Role} or {feature}UsableBy{Role}
     const features = ['messageGroups', 'calendar', 'finance', 'giftRegistry', 'secretSanta', 'itemRegistry', 'wiki', 'documents'];
     const callFeatures = ['phoneCalls', 'videoCalls']; // These use "usable" instead of "creatable"
-    const roles = ['Parents', 'Adults', 'Caregivers', 'Children'];
+    const roles = ['Admins', 'Parents', 'Adults', 'Caregivers', 'Children'];
 
     features.forEach(feature => {
       roles.forEach(role => {
