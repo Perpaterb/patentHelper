@@ -150,9 +150,18 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     onXYFloatChange(newPosition);
   }, [onXYFloatChange]);
 
-  // Get sizes for calculations
+  // Get sizes for calculations - cached in useMemo for React renders
   const sizes = useMemo(() => getSizes(), []);
-  const { cellW } = sizes;
+  const { cellW, headerCellW, padL, padT, gridW, gridH, width: winW, height: winH } = sizes;
+
+  // Store sizes in shared values for UI thread access (worklets can't call getSizes)
+  const cellWShared = useSharedValue(cellW);
+  const headerCellWShared = useSharedValue(headerCellW);
+  const padLShared = useSharedValue(padL);
+  const padTShared = useSharedValue(padT);
+  const gridWShared = useSharedValue(gridW);
+  const gridHShared = useSharedValue(gridH);
+  const winWShared = useSharedValue(winW);
 
   // Gesture handler for grid drag - runs on UI thread
   const panGesture = useMemo(() => Gesture.Pan()
@@ -217,13 +226,17 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Watch for probe cell changes and trigger highlight
   useAnimatedReaction(
     () => {
-      const { padL, padT, gridW, gridH } = getSizes();
-      const redLineX = HEADER_W + 0.5 * cellW;
-      const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
-      const probeXInGrid = (redLineX - HEADER_W) / cellW;
+      // Use shared values instead of getSizes() - worklets can't call JS functions
+      const cw = cellWShared.value;
+      const pL = padLShared.value;
+      const pT = padTShared.value;
+      const gH = gridHShared.value;
+      const redLineX = HEADER_W + 0.5 * cw;
+      const probeScreenY = HEADER_H + gH / 2.5 + CELL_H / 2;
+      const probeXInGrid = (redLineX - HEADER_W) / cw;
       const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
-      const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - padL / cellW);
-      const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - padT / CELL_H);
+      const probeCol = Math.floor(scrollXFloat.value + probeXInGrid - pL / cw);
+      const probeRow = Math.floor(scrollYFloat.value + probeYInGrid - pT / CELL_H);
       // Calculate probeDay (col + day offset from hour overflow)
       const probeDayOffset = Math.floor(probeRow / 24);
       const probeDay = probeCol + probeDayOffset;
@@ -240,7 +253,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         runOnJS(setProbeDayState)(current.probeDay);
       }
     },
-    [cellW]
+    [cellWShared, padLShared, padTShared, gridHShared]
   );
 
   // Animated style for highlight cell
@@ -250,7 +263,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
 
   // Animated style for grid container - transforms entire grid on UI thread
   const gridAnimatedStyle = useAnimatedStyle(() => {
-    const { cellW: cw } = getSizes();
+    // Use shared value instead of getSizes() - worklets can't call JS functions
+    const cw = cellWShared.value;
     const offsetX = (scrollXFloat.value - Math.floor(scrollXFloat.value)) * cw;
     const offsetY = (scrollYFloat.value - Math.floor(scrollYFloat.value)) * CELL_H;
     return {
@@ -266,7 +280,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Events are positioned relative to settledPosition, so we need to animate
   // the difference between current scroll and settled scroll
   const eventAnimatedStyle = useAnimatedStyle(() => {
-    const { cellW: cw } = getSizes();
+    // Use shared value instead of getSizes() - worklets can't call JS functions
+    const cw = cellWShared.value;
     // Calculate how far we've scrolled from the settled position
     const deltaX = (scrollXFloat.value - settledXRef.value) * cw;
     const deltaY = (scrollYFloat.value - settledYRef.value) * CELL_H;
@@ -281,15 +296,20 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
   // Animated style for header X (dates) - moves with horizontal scroll
   // Positions the date labels so the detected day aligns with probe screen position (redLineX)
   const headerXAnimatedStyle = useAnimatedStyle(() => {
-    const { width: wW, headerCellW, padL, padT, gridH } = getSizes();
-    const redLineX = HEADER_W + 0.5 * cellW;
-    const probeScreenY = HEADER_H + gridH / 2.5 + CELL_H / 2;
-    const probeXInGrid = (redLineX - HEADER_W) / cellW;
+    // Use shared values instead of getSizes() - worklets can't call JS functions
+    const cw = cellWShared.value;
+    const hcw = headerCellWShared.value;
+    const pL = padLShared.value;
+    const pT = padTShared.value;
+    const gH = gridHShared.value;
+    const redLineX = HEADER_W + 0.5 * cw;
+    const probeScreenY = HEADER_H + gH / 2.5 + CELL_H / 2;
+    const probeXInGrid = (redLineX - HEADER_W) / cw;
     const probeYInGrid = (probeScreenY - HEADER_H) / CELL_H;
 
     // Calculate exact probe position (same formula as the animated reaction)
-    const probeColExact = scrollXFloat.value + probeXInGrid - padL / cellW;
-    const probeRowExact = scrollYFloat.value + probeYInGrid - padT / CELL_H;
+    const probeColExact = scrollXFloat.value + probeXInGrid - pL / cw;
+    const probeRowExact = scrollYFloat.value + probeYInGrid - pT / CELL_H;
 
     // Calculate the continuous day position
     // probeDay = probeCol + probeRow / 24 (continuous, not floored)
@@ -302,7 +322,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     // probeDayExact should appear at redLineX
     // So: probeDayExact * headerCellW - offsetX = redLineX
     // offsetX = probeDayExact * headerCellW - redLineX
-    const probeDayPosition = probeDayExact * headerCellW;
+    const probeDayPosition = probeDayExact * hcw;
     const offsetX = probeDayPosition - redLineX;
 
 
@@ -326,8 +346,8 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     };
   });
 
-  // Use settled position for rendering calculations (React state, not shared values)
-  const { width: winW, height: winH, headerCellW, padL, padT, gridW, gridH } = getSizes();
+  // Use sizes from useMemo for rendering calculations (React state, not shared values)
+  // (sizes already extracted above: cellW, headerCellW, padL, padT, gridW, gridH, winW, winH)
 
   // Use settledPosition for React render (shared values can't be read synchronously)
   const renderScrollX = settledPosition.scrollXFloat;
