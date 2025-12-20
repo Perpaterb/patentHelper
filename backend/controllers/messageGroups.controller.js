@@ -42,6 +42,21 @@ async function getMessageGroups(req, res) {
       });
     }
 
+    // Check admin visibility permissions from group settings
+    const userRole = userMembership.role;
+    if (userRole === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { messageGroupsVisibleToAdmins: true },
+      });
+      if (groupSettings && !groupSettings.messageGroupsVisibleToAdmins) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Message groups are not visible to admins in this group',
+        });
+      }
+    }
+
     // Get message groups based on role:
     // - Admins: ALL message groups in the group (even if not a member)
     // - Non-admins: Only message groups they're a member of AND not hidden
@@ -244,11 +259,11 @@ async function createMessageGroup(req, res) {
     });
 
     const canCreateMessageGroup =
-      userMembership.role === 'admin' ||
-      (userMembership.role === 'parent' && groupSettings?.parentsCreateMessageGroups) ||
+      (userMembership.role === 'admin' && groupSettings?.messageGroupsCreatableByAdmins !== false) ||
+      (userMembership.role === 'parent' && groupSettings?.messageGroupsCreatableByParents) ||
       (userMembership.role === 'adult' && groupSettings?.messageGroupsCreatableByAdults) ||
-      (userMembership.role === 'child' && groupSettings?.childrenCreateMessageGroups) ||
-      (userMembership.role === 'caregiver' && groupSettings?.caregiversCreateMessageGroups);
+      (userMembership.role === 'child' && groupSettings?.messageGroupsCreatableByChildren) ||
+      (userMembership.role === 'caregiver' && groupSettings?.messageGroupsCreatableByCaregivers);
 
     if (!canCreateMessageGroup) {
       return res.status(403).json({

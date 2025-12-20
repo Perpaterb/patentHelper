@@ -68,11 +68,10 @@ cleanupOldSignals();
 function canUsePhoneCalls(membership, settings) {
   const role = membership.role;
 
-  // Admins always have access
-  if (role === 'admin') return true;
-
   // Check role-based permissions
   switch (role) {
+    case 'admin':
+      return settings?.phoneCallsUsableByAdmins !== false;
     case 'parent':
       return settings?.phoneCallsUsableByParents !== false;
     case 'adult':
@@ -98,11 +97,10 @@ function canUsePhoneCalls(membership, settings) {
 function canSeePhoneCalls(membership, settings) {
   const role = membership.role;
 
-  // Admins always have access
-  if (role === 'admin') return true;
-
   // Check role-based permissions
   switch (role) {
+    case 'admin':
+      return settings?.phoneCallsVisibleToAdmins !== false;
     case 'parent':
       return settings?.phoneCallsVisibleToParents !== false;
     case 'adult':

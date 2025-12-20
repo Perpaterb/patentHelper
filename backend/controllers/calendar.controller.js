@@ -58,6 +58,20 @@ async function getCalendarEvents(req, res) {
       });
     }
 
+    // Check admin visibility permissions from group settings
+    if (membership.role === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { calendarVisibleToAdmins: true },
+      });
+      if (groupSettings && !groupSettings.calendarVisibleToAdmins) {
+        return res.status(403).json({
+          success: false,
+          message: 'Calendar is not visible to admins in this group',
+        });
+      }
+    }
+
     // Build date filter
     const dateFilter = {};
     if (startDate || endDate) {
@@ -320,7 +334,7 @@ async function createCalendarEvent(req, res) {
       });
     }
 
-    // Supervisors and children cannot create events
+    // Supervisors cannot create events
     if (membership.role === 'supervisor') {
       return res.status(403).json({
         success: false,
@@ -328,18 +342,30 @@ async function createCalendarEvent(req, res) {
       });
     }
 
-    if (membership.role === 'child') {
-      // Check calendar creatable permission for children from settings
-      const settings = await prisma.groupSettings.findUnique({
-        where: { groupId: groupId },
-        select: { calendarCreatableByChildren: true },
+    // Check role-based creatable permissions from settings
+    const settings = await prisma.groupSettings.findUnique({
+      where: { groupId: groupId },
+      select: {
+        calendarCreatableByAdmins: true,
+        calendarCreatableByParents: true,
+        calendarCreatableByAdults: true,
+        calendarCreatableByCaregivers: true,
+        calendarCreatableByChildren: true,
+      },
+    });
+
+    if (membership.role === 'admin' && settings?.calendarCreatableByAdmins === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admins cannot create calendar events in this group',
       });
-      if (!settings?.calendarCreatableByChildren) {
-        return res.status(403).json({
-          success: false,
-          message: 'Children cannot create calendar events',
-        });
-      }
+    }
+
+    if (membership.role === 'child' && !settings?.calendarCreatableByChildren) {
+      return res.status(403).json({
+        success: false,
+        message: 'Children cannot create calendar events',
+      });
     }
 
     // Check if group is in read-only mode (all admins unsubscribed)

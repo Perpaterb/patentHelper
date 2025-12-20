@@ -47,6 +47,20 @@ async function getGiftRegistries(req, res) {
       });
     }
 
+    // Check admin visibility permissions from group settings
+    if (membership.role === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { giftRegistryVisibleToAdmins: true },
+      });
+      if (groupSettings && !groupSettings.giftRegistryVisibleToAdmins) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Gift registries are not visible to admins in this group',
+        });
+      }
+    }
+
     // Get group-owned gift registries
     const groupRegistries = await prisma.giftRegistry.findMany({
       where: {
@@ -389,6 +403,20 @@ async function createGiftRegistry(req, res) {
         error: 'Access denied',
         message: 'You are not a member of this group',
       });
+    }
+
+    // Check admin creatable permissions from group settings
+    if (membership.role === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { giftRegistryCreatableByAdmins: true },
+      });
+      if (groupSettings && !groupSettings.giftRegistryCreatableByAdmins) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Admins cannot create gift registries in this group',
+        });
+      }
     }
 
     // Generate web token and passcode if needed

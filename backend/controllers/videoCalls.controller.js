@@ -59,11 +59,10 @@ cleanupOldSignals();
 function canUseVideoCalls(membership, settings) {
   const role = membership.role;
 
-  // Admins always have access
-  if (role === 'admin') return true;
-
   // Check role-based permissions
   switch (role) {
+    case 'admin':
+      return settings?.videoCallsUsableByAdmins !== false;
     case 'parent':
       return settings?.videoCallsUsableByParents !== false;
     case 'adult':
@@ -89,11 +88,10 @@ function canUseVideoCalls(membership, settings) {
 function canSeeVideoCalls(membership, settings) {
   const role = membership.role;
 
-  // Admins always have access
-  if (role === 'admin') return true;
-
   // Check role-based permissions
   switch (role) {
+    case 'admin':
+      return settings?.videoCallsVisibleToAdmins !== false;
     case 'parent':
       return settings?.videoCallsVisibleToParents !== false;
     case 'adult':

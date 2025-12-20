@@ -156,6 +156,20 @@ async function getKrisKringles(req, res) {
       });
     }
 
+    // Check admin visibility permissions from group settings
+    if (membership.role === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { secretSantaVisibleToAdmins: true },
+      });
+      if (groupSettings && !groupSettings.secretSantaVisibleToAdmins) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Secret Santa is not visible to admins in this group',
+        });
+      }
+    }
+
     // Get all Kris Kringle events for this group
     const krisKringles = await prisma.krisKringle.findMany({
       where: {
@@ -255,6 +269,20 @@ async function createKrisKringle(req, res) {
         error: 'Forbidden',
         message: 'You are not a member of this group',
       });
+    }
+
+    // Check admin creatable permissions from group settings
+    if (membership.role === 'admin') {
+      const groupSettings = await prisma.groupSettings.findUnique({
+        where: { groupId },
+        select: { secretSantaCreatableByAdmins: true },
+      });
+      if (groupSettings && !groupSettings.secretSantaCreatableByAdmins) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Admins cannot create Secret Santa events in this group',
+        });
+      }
     }
 
     // Create Kris Kringle event (status: draft - matches not generated yet)
