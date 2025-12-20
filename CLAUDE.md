@@ -54,12 +54,23 @@ git add -A
 git commit -m "feat: Description of change"
 ```
 
-#### 5. LOCAL TESTING: Manual Verification
-- Test the feature manually in the browser/app
-- Verify it works as expected
-- Check for edge cases
+#### 5. PUSH BRANCH: Push to Remote for Testing
+```bash
+git push -u origin feature/short-description
+```
 
-#### 6. MERGE TO MAIN: Push to Trigger CI/CD
+**STOP HERE** - Do NOT merge to main yet. Inform the user:
+"Changes pushed to branch `feature/short-description`. Ready for testing."
+
+#### 6. USER TESTING: Wait for User Approval
+- **User tests the feature** manually in dev environment
+- User verifies it works as expected
+- User checks for edge cases
+- **Claude waits** for user to confirm testing is complete
+
+**DO NOT proceed to step 7 until user explicitly says testing is done!**
+
+#### 7. MERGE TO MAIN: Push to Trigger CI/CD (ONLY AFTER USER APPROVAL)
 ```bash
 git checkout main
 git pull origin main
@@ -67,7 +78,9 @@ git merge feature/short-description
 git push origin main
 ```
 
-#### 7. CI/CD: Let the Pipeline Deploy
+**User must explicitly request this step.** Never merge to main automatically.
+
+#### 8. CI/CD: Let the Pipeline Deploy
 **DO NOT manually deploy. The CI/CD pipeline will:**
 - Run all tests again
 - Build the applications
@@ -75,7 +88,7 @@ git push origin main
 - Deploy web-admin to S3/CloudFront
 - Invalidate CloudFront cache (ensures latest index.js)
 
-#### 8. VERIFY: Check CI/CD Status
+#### 9. VERIFY: Check CI/CD Status
 - Check GitHub Actions: https://github.com/Perpaterb/patentHelper/actions
 - Wait for green checkmarks
 - If pipeline fails, fix issues and push again
@@ -103,11 +116,11 @@ git push origin main
 
 1. All changes committed to feature branch
 2. `npm test` passes in both backend and web-admin
-3. Branch merged to main
-4. Pushed to origin
-5. CI/CD pipeline is green (or at least running)
+3. Branch pushed to origin (NOT merged to main yet!)
 
-Only THEN ask: "Changes merged and CI/CD deploying. Ready for next task."
+Only THEN ask: "Changes pushed to branch `feature/xyz`. Ready for you to test. Let me know when testing is complete and I'll merge to main."
+
+**NEVER merge to main without explicit user approval after testing!**
 
 ### Emergency Hotfix Process
 
