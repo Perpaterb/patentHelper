@@ -38,7 +38,8 @@ yarn-error.*
 
 # generated native folders
 /ios
-/android
+# Track android folder for version code/name and signing config
+# /android
 
 # Firebase configuration files (sensitive - do not commit)
 google-services.json
