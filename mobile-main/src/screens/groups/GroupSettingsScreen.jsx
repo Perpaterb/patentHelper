@@ -303,6 +303,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const renderFeatureSection = (featureName, featureKey) => {
     const roles = [
+      { name: 'Admins', key: 'Admins' },
       { name: 'Parents', key: 'Parents' },
       { name: 'Adults', key: 'Adults' },
       { name: 'Caregivers', key: 'Caregivers' },
@@ -363,6 +364,7 @@ export default function GroupSettingsScreen({ navigation, route }) {
    */
   const renderCallsFeatureSection = (featureName, featureKey) => {
     const roles = [
+      { name: 'Admins', key: 'Admins' },
       { name: 'Parents', key: 'Parents' },
       { name: 'Adults', key: 'Adults' },
       { name: 'Caregivers', key: 'Caregivers' },
