@@ -152,7 +152,8 @@
       "Bash(docker-compose logs:*)",
       "Bash(./gradlew bundleRelease:*)",
       "Bash(KEYSTORE_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' KEY_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' ./gradlew bundleRelease)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:docs.kinde.com)"
     ],
     "deny": [],
     "ask": []

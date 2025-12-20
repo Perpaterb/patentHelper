@@ -4,11 +4,15 @@
  * Automatically initiates Kinde OAuth authentication.
  * No landing page - goes straight to Kinde login.
  * Uses Expo Auth Session with PKCE for OAuth flow.
+ *
+ * Note: Kinde uses passwordless email verification. Users may need to
+ * leave the app to check their email for a code. We handle this by
+ * not treating "dismiss" as an error - users can tap to continue.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, AppState } from 'react-native';
+import { Text, ActivityIndicator, Button } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
@@ -32,6 +36,8 @@ WebBrowser.maybeCompleteAuthSession();
  */
 export default function LoginScreen({ onLoginSuccess }) {
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showContinue, setShowContinue] = useState(false);
   const loginAttempted = useRef(false);
 
   // OAuth discovery configuration
@@ -60,6 +66,8 @@ export default function LoginScreen({ onLoginSuccess }) {
   const handleLogin = async () => {
     try {
       setError(null);
+      setIsLoading(true);
+      setShowContinue(false);
 
       console.log('[LoginScreen] Starting Kinde OAuth flow...');
 
@@ -135,28 +143,44 @@ export default function LoginScreen({ onLoginSuccess }) {
         }
       } else if (result.type === 'error') {
         setError('Authentication failed. Please try again.');
+        setIsLoading(false);
       } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        // User cancelled - show error with retry option
-        setError('Login cancelled. Tap to try again.');
+        // User left the app (e.g., to check email for verification code)
+        // Don't show as error - show a friendly "Continue Login" button
+        console.log('[LoginScreen] Auth session dismissed - user may have left to check email');
+        setIsLoading(false);
+        setShowContinue(true);
       }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to login. Please try again.');
+      setIsLoading(false);
     }
   };
 
   // Automatically trigger login when request is ready
   useEffect(() => {
-    if (request && !loginAttempted.current && !error) {
+    if (request && !loginAttempted.current && !error && !showContinue) {
       loginAttempted.current = true;
       handleLogin();
     }
   }, [request]);
 
+  // Continue login after user returns from checking email
+  const handleContinueLogin = () => {
+    loginAttempted.current = false;
+    setShowContinue(false);
+    setError(null);
+    if (request) {
+      handleLogin();
+    }
+  };
+
   // Allow retry on tap if there's an error
   const handleRetry = () => {
     loginAttempted.current = false;
     setError(null);
+    setShowContinue(false);
     if (request) {
       handleLogin();
     }
@@ -170,6 +194,25 @@ export default function LoginScreen({ onLoginSuccess }) {
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.retryText} onPress={handleRetry}>
               Tap to try again
+            </Text>
+          </>
+        ) : showContinue ? (
+          <>
+            <Text style={styles.titleText}>Check Your Email</Text>
+            <Text style={styles.instructionText}>
+              If you entered your email, check your inbox for a verification code.
+              Once you have it, tap the button below to continue.
+            </Text>
+            <Button
+              mode="contained"
+              onPress={handleContinueLogin}
+              style={styles.continueButton}
+              buttonColor="#6200ee"
+            >
+              Continue Login
+            </Button>
+            <Text style={styles.restartText} onPress={handleRetry}>
+              Start over
             </Text>
           </>
         ) : (
@@ -198,6 +241,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+  },
+  titleText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  instructionText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+    paddingHorizontal: 16,
+  },
+  continueButton: {
+    marginBottom: 16,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  restartText: {
+    color: '#999',
+    fontSize: 14,
+    textDecorationLine: 'underline',
     textAlign: 'center',
   },
   errorText: {
