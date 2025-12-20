@@ -1011,6 +1011,17 @@ export default function CalendarScreen({ navigation, route }) {
   // View mode: 'month' or 'day'
   const [viewMode, setViewMode] = useState('month');
 
+  // Month scroll state - defined early for use in handleViewModeToggle and handleDatePickerChange
+  // Base month (fixed reference point - the month when component mounted)
+  const baseMonthRef = useRef({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth()
+  });
+
+  // Infinite month scroll - track position as a float (like day view)
+  const monthScrollFloat = useSharedValue(0);
+  const [settledMonthScroll, setSettledMonthScroll] = useState(0);
+
   // Helper to get day offset from base date for a given date
   const getDayOffsetForDate = (date) => {
     const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
@@ -1045,17 +1056,22 @@ export default function CalendarScreen({ navigation, route }) {
       setExternalXYFloat(newPosition);
       setViewMode('day');
     } else {
-      // Switching TO month view - sync viewCenterMonth to current masterDateTime
+      // Switching TO month view - calculate month offset from base month
       // Calculate the date from currentProbeDay
       const baseDate = new Date(2023, 9, 31); // Oct 31, 2023
       const currentDate = new Date(baseDate);
       currentDate.setDate(baseDate.getDate() + currentProbeDay);
 
-      // Update viewCenterMonth to show the correct month
-      setViewCenterMonth({
-        year: currentDate.getFullYear(),
-        month: currentDate.getMonth()
-      });
+      // Calculate month offset from base month
+      const targetYear = currentDate.getFullYear();
+      const targetMonth = currentDate.getMonth();
+      const baseMonthYear = baseMonthRef.current.year;
+      const baseMonthMonth = baseMonthRef.current.month;
+      const monthOffset = (targetYear - baseMonthYear) * 12 + (targetMonth - baseMonthMonth);
+
+      // Update month scroll position
+      monthScrollFloat.value = monthOffset;
+      setSettledMonthScroll(monthOffset);
 
       setViewMode('month');
     }
@@ -1193,17 +1209,22 @@ export default function CalendarScreen({ navigation, route }) {
     const newXYFloat = getXYFloatForProbeTarget(targetHour, daysDiff);
     setExternalXYFloat(newXYFloat);
 
-    // Update viewCenterMonth to match the selected date's month
-    // This ensures the month view scrolls to show the selected month
-    setViewCenterMonth({
-      year: newDate.getFullYear(),
-      month: newDate.getMonth()
-    });
+    // Update month scroll position to match the selected date's month
+    // Calculate month offset from base month
+    const targetYear = newDate.getFullYear();
+    const targetMonth = newDate.getMonth();
+    const baseMonthYear = baseMonthRef.current.year;
+    const baseMonthMonth = baseMonthRef.current.month;
+    const monthOffset = (targetYear - baseMonthYear) * 12 + (targetMonth - baseMonthMonth);
+
+    // Update month scroll position
+    monthScrollFloat.value = monthOffset;
+    setSettledMonthScroll(monthOffset);
   };
 
   // Header will be rendered as CustomNavigationHeader in the return statement
 
-  // Swipeable Month View Implementation
+  // Swipeable Month View Implementation - Infinite Scroll
   const MONTH_WIDTH = SCREEN_WIDTH;
   const ROWS = 6;
   const COLS = 7;
@@ -1212,10 +1233,8 @@ export default function CalendarScreen({ navigation, route }) {
   const CELL_HEIGHT_MONTH = CELL_WIDTH * 2; // 2x the height (renamed to avoid conflict)
   const CALENDAR_HEIGHT = 24 + ROWS * CELL_HEIGHT_MONTH;
 
-  // Month swipe state - using Reanimated shared values for UI thread animation
-  // Center month is at index 2 (with 2 months on each side: -2, -1, 0, +1, +2)
-  const monthOffsetX = useSharedValue(-MONTH_WIDTH * 2); // Center month at index 2
-  const monthStartX = useSharedValue(0); // Starting offset when gesture begins
+  // Additional shared value for gesture start position
+  const monthScrollStart = useSharedValue(0);
 
   // Get month matrix (always 6 rows)
   const getMonthMatrix = (year, month) => {
@@ -1239,7 +1258,7 @@ export default function CalendarScreen({ navigation, route }) {
     return matrix;
   };
 
-  // Get adjacent months
+  // Get adjacent months - helper function
   const getAdjacentMonths = (baseYear, baseMonth, offset) => {
     let m = baseMonth + offset;
     let y = baseYear + Math.floor(m / 12);
@@ -1247,98 +1266,89 @@ export default function CalendarScreen({ navigation, route }) {
     return { year: y, month: m };
   };
 
-  // Independent month state for Month view (not tied to masterDateTime)
-  const [viewCenterMonth, setViewCenterMonth] = useState(() => ({
-    year: masterDateTime.getFullYear(),
-    month: masterDateTime.getMonth()
-  }));
-
-  // Use ref to avoid stale closure in animation callback
-  const viewCenterMonthRef = useRef(viewCenterMonth);
-  React.useEffect(() => {
-    viewCenterMonthRef.current = viewCenterMonth;
-  }, [viewCenterMonth]);
-
-  // Get 5 months array centered on viewCenterMonth (2 on each side)
-  const months = React.useMemo(() => {
-    const result = [-2, -1, 0, 1, 2].map((offset) => getAdjacentMonths(viewCenterMonth.year, viewCenterMonth.month, offset));
-    return result;
-  }, [viewCenterMonth]);
-
-  // Callback for when month swipe animation completes
-  const onMonthSwipeComplete = useCallback((direction) => {
-    if (direction !== 0) {
-      const currentCenter = viewCenterMonthRef.current;
-      const newMonth = getAdjacentMonths(currentCenter.year, currentCenter.month, direction);
-
-      setViewCenterMonth({ year: newMonth.year, month: newMonth.month });
-
-      // Also update masterDateTime for banner consistency
-      let newDate;
-      if (direction > 0) {
-        newDate = new Date(newMonth.year, newMonth.month, 1);
-      } else {
-        newDate = new Date(newMonth.year, newMonth.month + 1, 0);
-      }
-      newDate.setHours(12, 0, 0, 0);
-
-      const baseDate = new Date(2023, 9, 31);
-      const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
-      const newDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
-      const diffDays = Math.round((newDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
-
-      const newPosition = getXYFloatForProbeTarget(12, diffDays);
-      setExternalXYFloat(newPosition);
-    }
-
-    // Reset offset to center after state update (center is at index 2)
-    monthOffsetX.value = -MONTH_WIDTH * 2;
+  // Get month for a given scroll offset from base month
+  const getMonthForOffset = useCallback((offset) => {
+    return getAdjacentMonths(baseMonthRef.current.year, baseMonthRef.current.month, offset);
   }, []);
 
-  // Animated style for month container
-  const monthAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: monthOffsetX.value }],
-  }));
+  // Calculate visible months based on settled scroll position
+  // Render enough months to cover the visible area plus buffer for smooth scrolling
+  const visibleMonths = useMemo(() => {
+    const centerMonth = Math.round(settledMonthScroll);
+    // Render 5 months: 2 before, current, 2 after
+    const result = [];
+    for (let i = centerMonth - 2; i <= centerMonth + 2; i++) {
+      const month = getMonthForOffset(i);
+      result.push({ ...month, offset: i });
+    }
+    return result;
+  }, [settledMonthScroll, getMonthForOffset]);
 
-  // Gesture handler for month swipe - runs on UI thread
+  // Callback for when month animation settles
+  const onMonthAnimationComplete = useCallback((newScrollValue) => {
+    setSettledMonthScroll(newScrollValue);
+
+    // Update masterDateTime for banner
+    const targetMonth = getMonthForOffset(Math.round(newScrollValue));
+    const newDate = new Date(targetMonth.year, targetMonth.month, 15); // Middle of month
+    newDate.setHours(12, 0, 0, 0);
+
+    const baseDate = new Date(2023, 9, 31);
+    const baseDateUTC = Date.UTC(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const newDateUTC = Date.UTC(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+    const diffDays = Math.round((newDateUTC - baseDateUTC) / (1000 * 60 * 60 * 24));
+
+    const newPosition = getXYFloatForProbeTarget(12, diffDays);
+    setExternalXYFloat(newPosition);
+  }, [getMonthForOffset]);
+
+  // Animated style for month container - infinite scroll using translateX
+  const monthAnimatedStyle = useAnimatedStyle(() => {
+    // Calculate offset based on scroll position
+    // Each month is MONTH_WIDTH wide
+    // We translate by the fractional part to create smooth scrolling
+    const offset = monthScrollFloat.value * MONTH_WIDTH;
+    return {
+      transform: [{ translateX: -offset }],
+    };
+  });
+
+  // Gesture handler for month swipe - runs on UI thread (infinite scroll)
   const monthPanGesture = useMemo(() => Gesture.Pan()
     .activeOffsetX([-10, 10]) // Require 10px horizontal movement to activate
     .onStart(() => {
-      monthStartX.value = monthOffsetX.value;
+      monthScrollStart.value = monthScrollFloat.value;
     })
     .onUpdate((event) => {
-      // Clamp to prevent swiping more than one month at a time
-      // With 5 months (indices 0-4), center is at index 2
-      const newOffset = monthStartX.value + event.translationX;
-      const minOffset = -MONTH_WIDTH * 3; // Can't go past month +1 (index 3)
-      const maxOffset = -MONTH_WIDTH; // Can't go past month -1 (index 1)
-      monthOffsetX.value = Math.max(minOffset, Math.min(maxOffset, newOffset));
+      // Update scroll position based on drag
+      // Negative translationX means dragging left = moving to next month = positive scroll
+      monthScrollFloat.value = monthScrollStart.value - event.translationX / MONTH_WIDTH;
     })
     .onEnd((event) => {
-      // Determine which month to snap to based on velocity and position
-      // Center is at -MONTH_WIDTH * 2
-      const currentDrag = monthOffsetX.value - (-MONTH_WIDTH * 2);
-      const velocity = event.velocityX;
+      // Snap to nearest month with spring animation
+      const velocity = -event.velocityX / MONTH_WIDTH;
+      const current = monthScrollFloat.value;
 
-      let targetIndex = 0; // 0 = center month
-      if (velocity > 500 || currentDrag > MONTH_WIDTH / 3) {
-        targetIndex = -1; // Previous month
-      } else if (velocity < -500 || currentDrag < -MONTH_WIDTH / 3) {
-        targetIndex = 1; // Next month
+      // Determine target based on velocity and position
+      let target;
+      if (Math.abs(velocity) > 0.5) {
+        // High velocity - snap in direction of movement
+        target = velocity > 0 ? Math.ceil(current) : Math.floor(current);
+      } else {
+        // Low velocity - snap to nearest
+        target = Math.round(current);
       }
 
-      const targetOffset = -MONTH_WIDTH * 2 + (-targetIndex * MONTH_WIDTH);
-
-      monthOffsetX.value = withSpring(targetOffset, {
+      monthScrollFloat.value = withSpring(target, {
         damping: 80,
         stiffness: 500,
         velocity: velocity,
       }, (finished) => {
         if (finished) {
-          runOnJS(onMonthSwipeComplete)(targetIndex);
+          runOnJS(onMonthAnimationComplete)(target);
         }
       });
-    }), [onMonthSwipeComplete]);
+    }), [onMonthAnimationComplete]);
 
   // Handle day cell tap - update banner and highlight the selected day
   const handleDayTap = (date) => {
@@ -1749,24 +1759,34 @@ export default function CalendarScreen({ navigation, route }) {
     );
   };
 
-  // Month view rendering - using Reanimated for smooth 60fps animation
+  // Month view rendering - using Reanimated for smooth 60fps infinite scroll
   const renderMonthView = () => {
     return (
       <GestureDetector gesture={monthPanGesture}>
         <Animated.View style={{ width: '100%' }}>
           <View style={[styles.overflow, { width: '100%', height: CALENDAR_HEIGHT }]}>
+            {/* Container that translates with scroll - months positioned absolutely */}
             <Animated.View
               style={[
                 {
-                  flexDirection: 'row',
-                  width: MONTH_WIDTH * months.length,
+                  position: 'relative',
+                  width: '100%',
                   height: CALENDAR_HEIGHT,
                 },
                 monthAnimatedStyle,
               ]}
             >
-              {months.map((m, i) => (
-                <View key={m.year + '-' + m.month} style={{ width: MONTH_WIDTH }}>
+              {/* Render each visible month at its absolute position */}
+              {visibleMonths.map((m) => (
+                <View
+                  key={`${m.year}-${m.month}-${m.offset}`}
+                  style={{
+                    position: 'absolute',
+                    left: m.offset * MONTH_WIDTH,
+                    width: MONTH_WIDTH,
+                    height: CALENDAR_HEIGHT,
+                  }}
+                >
                   {renderSingleMonthView(m.year, m.month)}
                 </View>
               ))}
