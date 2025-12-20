@@ -16,6 +16,7 @@ import { View, StyleSheet, BackHandler, Platform, Dimensions, TouchableOpacity }
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Audio } from 'expo-av';
+import { useKeepAwake } from 'expo-keep-awake';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
@@ -46,6 +47,9 @@ const PIP_MARGIN = 16;
  * @returns {JSX.Element}
  */
 export default function ActiveVideoCallScreen({ navigation, route }) {
+  // Keep screen awake during video call
+  useKeepAwake();
+
   const { groupId, callId, call: passedCall, isInitiator } = route.params;
   const [call, setCall] = useState(passedCall || null);
   const [loading, setLoading] = useState(!passedCall);
@@ -59,6 +63,7 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
   const [cameraFacing, setCameraFacing] = useState('front');
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(true); // Default to speaker on for video calls
   const [webCameraGranted, setWebCameraGranted] = useState(false);
   const [noCameraAvailable, setNoCameraAvailable] = useState(false);
 
@@ -202,9 +207,30 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: !isSpeaker,
       });
     } catch (error) {
       console.error('[ActiveVideoCall] Permission error:', error);
+    }
+  };
+
+  /**
+   * Toggle speaker on/off
+   */
+  const handleToggleSpeaker = async () => {
+    const newValue = !isSpeaker;
+    setIsSpeaker(newValue);
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: !newValue,
+      });
+    } catch (err) {
+      console.error('[ActiveVideoCall] Speaker toggle error:', err);
     }
   };
 
@@ -640,6 +666,13 @@ export default function ActiveVideoCallScreen({ navigation, route }) {
             style={[styles.controlButton, !isCameraOn && styles.controlButtonActive]}
             onPress={handleToggleCamera}
           />
+          <IconButton
+            icon={isSpeaker ? 'volume-high' : 'volume-medium'}
+            iconColor="#fff"
+            size={28}
+            style={[styles.controlButton, isSpeaker && styles.controlButtonSpeaker]}
+            onPress={handleToggleSpeaker}
+          />
           {Platform.OS !== 'web' && (
             <IconButton
               icon="camera-flip"
@@ -887,6 +920,9 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: {
     backgroundColor: 'rgba(244, 67, 54, 0.3)',
+  },
+  controlButtonSpeaker: {
+    backgroundColor: 'rgba(76, 175, 80, 0.4)',
   },
   actionButtons: {
     flexDirection: 'row',

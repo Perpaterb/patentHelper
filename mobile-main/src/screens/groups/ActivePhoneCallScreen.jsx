@@ -14,6 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, BackHandler, Platform } from 'react-native';
 import { Text, Avatar, Button, IconButton, ActivityIndicator } from 'react-native-paper';
 import { Audio } from 'expo-av';
+import { useKeepAwake } from 'expo-keep-awake';
 import api from '../../services/api';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import { CustomAlert } from '../../components/CustomAlert';
@@ -43,6 +44,9 @@ const getParticipantStatusColor = (status) => {
  * ActivePhoneCallScreen component
  */
 export default function ActivePhoneCallScreen({ navigation, route }) {
+  // Keep screen awake during phone call
+  useKeepAwake();
+
   const { groupId, callId, call: passedCall, isInitiator } = route.params;
   const [call, setCall] = useState(passedCall || null);
   const [loading, setLoading] = useState(!passedCall);
