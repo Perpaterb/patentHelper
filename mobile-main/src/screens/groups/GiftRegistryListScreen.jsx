@@ -65,17 +65,16 @@ export default function GiftRegistryListScreen({ navigation, route }) {
       setCurrentGroupMemberId(response.data.group?.currentGroupMemberId || null);
 
       // Check if user can create gift registries
-      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
-      if (role === 'admin') {
+      if (role === 'admin' && settings?.giftRegistryCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.giftRegistryCreatableByParents === true || settings?.giftRegistryCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.giftRegistryCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.giftRegistryCreatableByAdults === true || settings?.giftRegistryCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.giftRegistryCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.giftRegistryCreatableByCaregivers === true || settings?.giftRegistryCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.giftRegistryCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.giftRegistryCreatableByChildren === true || settings?.giftRegistryCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.giftRegistryCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

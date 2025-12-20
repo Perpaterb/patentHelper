@@ -86,16 +86,15 @@ export default function WikiScreen({ navigation, route }) {
       const settings = response.data.group?.settings;
 
       // Check if user can create wiki documents
-      // Use === true || === undefined to properly handle explicit false values
-      if (role === 'admin') {
+      if (role === 'admin' && settings?.wikiCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.wikiCreatableByParents === true || settings?.wikiCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.wikiCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.wikiCreatableByAdults === true || settings?.wikiCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.wikiCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.wikiCreatableByCaregivers === true || settings?.wikiCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.wikiCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.wikiCreatableByChildren === true || settings?.wikiCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.wikiCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

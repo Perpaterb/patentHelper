@@ -65,17 +65,16 @@ export default function ItemRegistryListScreen({ navigation, route }) {
       setCurrentGroupMemberId(response.data.group?.currentGroupMemberId || null);
 
       // Check if user can create item registries
-      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
-      if (role === 'admin') {
+      if (role === 'admin' && settings?.itemRegistryCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.itemRegistryCreatableByParents === true || settings?.itemRegistryCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.itemRegistryCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.itemRegistryCreatableByAdults === true || settings?.itemRegistryCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.itemRegistryCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.itemRegistryCreatableByCaregivers === true || settings?.itemRegistryCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.itemRegistryCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.itemRegistryCreatableByChildren === true || settings?.itemRegistryCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.itemRegistryCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

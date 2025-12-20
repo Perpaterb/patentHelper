@@ -1075,16 +1075,16 @@ export default function CalendarScreen({ navigation, route }) {
       const settings = response.data.group?.settings;
 
       // Check if user can create calendar events
-      // Use === true || === undefined to properly handle explicit false values
-      if (role === 'admin') {
+      // Use !== false to properly handle explicit false values (defaults to true if undefined)
+      if (role === 'admin' && settings?.calendarCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.calendarCreatableByParents === true || settings?.calendarCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.calendarCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.calendarCreatableByAdults === true || settings?.calendarCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.calendarCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.calendarCreatableByCaregivers === true || settings?.calendarCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.calendarCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.calendarCreatableByChildren === true || settings?.calendarCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.calendarCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

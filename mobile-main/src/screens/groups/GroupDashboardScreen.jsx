@@ -69,12 +69,12 @@ export default function GroupDashboardScreen({ navigation, route }) {
 
     // Helper to check feature visibility
     const canSeeFeature = (featureKey) => {
-      if (role === 'admin') return true;
+      if (role === 'admin') return settings[`${featureKey}VisibleToAdmins`] !== false;
       if (role === 'supervisor') return settings[`${featureKey}VisibleToSupervisors`] !== false;
-      if (role === 'parent') return settings[`${featureKey}VisibleToParents`] === true || settings[`${featureKey}VisibleToParents`] === undefined;
-      if (role === 'adult') return settings[`${featureKey}VisibleToAdults`] === true || settings[`${featureKey}VisibleToAdults`] === undefined;
-      if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] === true || settings[`${featureKey}VisibleToCaregivers`] === undefined;
-      if (role === 'child') return settings[`${featureKey}VisibleToChildren`] === true || settings[`${featureKey}VisibleToChildren`] === undefined;
+      if (role === 'parent') return settings[`${featureKey}VisibleToParents`] !== false;
+      if (role === 'adult') return settings[`${featureKey}VisibleToAdults`] !== false;
+      if (role === 'caregiver') return settings[`${featureKey}VisibleToCaregivers`] !== false;
+      if (role === 'child') return settings[`${featureKey}VisibleToChildren`] !== false;
       return false;
     };
 
@@ -229,32 +229,25 @@ export default function GroupDashboardScreen({ navigation, route }) {
     const role = groupInfo.userRole;
     const settings = groupInfo.settings;
 
-    // Admins always have view access
-    if (role === 'admin') return true;
-
-    // Supervisors check their own visibility settings
+    // Check role-based visibility permissions
+    // All roles now check their settings (including admin)
+    if (role === 'admin') {
+      return settings[`${featureKey}VisibleToAdmins`] !== false;
+    }
     if (role === 'supervisor') {
       return settings[`${featureKey}VisibleToSupervisors`] !== false;
     }
-
-    // Check role-based permissions - explicitly check for true since false means hidden
     if (role === 'parent') {
-      const key = `${featureKey}VisibleToParents`;
-      // If the setting is explicitly false, hide the feature
-      // If undefined or true, show it (default to visible)
-      return settings[key] === true || settings[key] === undefined;
+      return settings[`${featureKey}VisibleToParents`] !== false;
     }
     if (role === 'adult') {
-      const key = `${featureKey}VisibleToAdults`;
-      return settings[key] === true || settings[key] === undefined;
+      return settings[`${featureKey}VisibleToAdults`] !== false;
     }
     if (role === 'caregiver') {
-      const key = `${featureKey}VisibleToCaregivers`;
-      return settings[key] === true || settings[key] === undefined;
+      return settings[`${featureKey}VisibleToCaregivers`] !== false;
     }
     if (role === 'child') {
-      const key = `${featureKey}VisibleToChildren`;
-      return settings[key] === true || settings[key] === undefined;
+      return settings[`${featureKey}VisibleToChildren`] !== false;
     }
 
     return false;

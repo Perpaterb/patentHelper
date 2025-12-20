@@ -67,15 +67,15 @@ export default function PhoneCallsScreen({ navigation, route }) {
       // Supervisors cannot make calls (read-only role)
       if (role === 'supervisor') {
         setCanMakeCalls(false);
-      } else if (role === 'admin') {
+      } else if (role === 'admin' && settings?.phoneCallsUsableByAdmins !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'parent' && (settings?.phoneCallsUsableByParents !== false)) {
+      } else if (role === 'parent' && settings?.phoneCallsUsableByParents !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'adult' && (settings?.phoneCallsUsableByAdults !== false)) {
+      } else if (role === 'adult' && settings?.phoneCallsUsableByAdults !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'caregiver' && (settings?.phoneCallsUsableByCaregivers !== false)) {
+      } else if (role === 'caregiver' && settings?.phoneCallsUsableByCaregivers !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'child' && (settings?.phoneCallsUsableByChildren !== false)) {
+      } else if (role === 'child' && settings?.phoneCallsUsableByChildren !== false) {
         setCanMakeCalls(true);
       } else {
         setCanMakeCalls(false);

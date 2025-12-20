@@ -64,18 +64,19 @@ export default function VideoCallsScreen({ navigation, route }) {
       const role = group?.userRole;
       const settings = group?.settings;
 
+      // Check if user can make video calls
       // Supervisors cannot make calls (read-only role)
       if (role === 'supervisor') {
         setCanMakeCalls(false);
-      } else if (role === 'admin') {
+      } else if (role === 'admin' && settings?.videoCallsUsableByAdmins !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'parent' && (settings?.videoCallsUsableByParents !== false)) {
+      } else if (role === 'parent' && settings?.videoCallsUsableByParents !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'adult' && (settings?.videoCallsUsableByAdults !== false)) {
+      } else if (role === 'adult' && settings?.videoCallsUsableByAdults !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'caregiver' && (settings?.videoCallsUsableByCaregivers !== false)) {
+      } else if (role === 'caregiver' && settings?.videoCallsUsableByCaregivers !== false) {
         setCanMakeCalls(true);
-      } else if (role === 'child' && (settings?.videoCallsUsableByChildren !== false)) {
+      } else if (role === 'child' && settings?.videoCallsUsableByChildren !== false) {
         setCanMakeCalls(true);
       } else {
         setCanMakeCalls(false);

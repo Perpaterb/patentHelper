@@ -70,17 +70,16 @@ export default function MessageGroupsListScreen({ navigation, route }) {
       setUserRole(role);
 
       // Check if user can create message groups
-      // Use === true || === undefined to properly handle explicit false values
       const settings = response.data.group?.settings;
-      if (role === 'admin') {
+      if (role === 'admin' && settings?.messageGroupsCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.messageGroupsCreatableByParents === true || settings?.messageGroupsCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.messageGroupsCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.messageGroupsCreatableByAdults === true || settings?.messageGroupsCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.messageGroupsCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.messageGroupsCreatableByCaregivers === true || settings?.messageGroupsCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.messageGroupsCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.messageGroupsCreatableByChildren === true || settings?.messageGroupsCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.messageGroupsCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);

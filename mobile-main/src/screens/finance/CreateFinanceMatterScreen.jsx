@@ -69,15 +69,15 @@ export default function CreateFinanceMatterScreen({ navigation, route }) {
       const settings = response.data.group.settings || {};
 
       // Filter members to only those who can view finance
-      // Admins and supervisors always have access
-      // Other roles check their visibility settings
+      // All roles check their visibility settings
       const membersWithFinanceAccess = allMembers.filter((member) => {
         const memberRole = member.role;
-        if (memberRole === 'admin' || memberRole === 'supervisor') return true;
-        if (memberRole === 'parent') return settings.financeVisibleToParents === true;
-        if (memberRole === 'adult') return settings.financeVisibleToAdults === true;
-        if (memberRole === 'caregiver') return settings.financeVisibleToCaregivers === true;
-        if (memberRole === 'child') return settings.financeVisibleToChildren === true;
+        if (memberRole === 'admin') return settings.financeVisibleToAdmins !== false;
+        if (memberRole === 'supervisor') return settings.financeVisibleToSupervisors !== false;
+        if (memberRole === 'parent') return settings.financeVisibleToParents !== false;
+        if (memberRole === 'adult') return settings.financeVisibleToAdults !== false;
+        if (memberRole === 'caregiver') return settings.financeVisibleToCaregivers !== false;
+        if (memberRole === 'child') return settings.financeVisibleToChildren !== false;
         return false;
       });
 

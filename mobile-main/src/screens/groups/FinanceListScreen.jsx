@@ -57,19 +57,18 @@ export default function FinanceListScreen({ navigation, route }) {
       setUserRole(group?.userRole || null);
 
       // Check if user can create finance matters
-      // Use === true || === undefined to properly handle explicit false values
       const role = group?.userRole;
       const settings = group?.settings;
 
-      if (role === 'admin') {
+      if (role === 'admin' && settings?.financeCreatableByAdmins !== false) {
         setCanCreate(true);
-      } else if (role === 'parent' && (settings?.financeCreatableByParents === true || settings?.financeCreatableByParents === undefined)) {
+      } else if (role === 'parent' && settings?.financeCreatableByParents !== false) {
         setCanCreate(true);
-      } else if (role === 'adult' && (settings?.financeCreatableByAdults === true || settings?.financeCreatableByAdults === undefined)) {
+      } else if (role === 'adult' && settings?.financeCreatableByAdults !== false) {
         setCanCreate(true);
-      } else if (role === 'caregiver' && (settings?.financeCreatableByCaregivers === true || settings?.financeCreatableByCaregivers === undefined)) {
+      } else if (role === 'caregiver' && settings?.financeCreatableByCaregivers !== false) {
         setCanCreate(true);
-      } else if (role === 'child' && (settings?.financeCreatableByChildren === true || settings?.financeCreatableByChildren === undefined)) {
+      } else if (role === 'child' && settings?.financeCreatableByChildren !== false) {
         setCanCreate(true);
       } else {
         setCanCreate(false);
