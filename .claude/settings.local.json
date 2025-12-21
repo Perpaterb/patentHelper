@@ -154,8 +154,8 @@
       "Bash(KEYSTORE_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' KEY_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' ./gradlew bundleRelease)",
       "WebSearch",
       "WebFetch(domain:docs.kinde.com)",
-      "Bash(git checkout:*)",
-      "Bash(git pull:*)"
+      "Bash(git merge:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

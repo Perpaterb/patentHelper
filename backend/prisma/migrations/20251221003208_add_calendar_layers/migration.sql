@@ -1,15 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `device_tokens` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE "device_tokens" DROP CONSTRAINT "device_tokens_user_id_fkey";
-
--- DropTable
-DROP TABLE "device_tokens";
-
 -- CreateTable
 CREATE TABLE "calendar_layer_preferences" (
     "preference_id" UUID NOT NULL,
