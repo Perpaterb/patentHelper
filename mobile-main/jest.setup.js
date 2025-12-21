@@ -302,18 +302,7 @@ jest.mock('./src/utils/colorUtils', () => ({
   getContrastTextColor: jest.fn(() => '#000000'),
 }));
 
-// Mock Kinde SDK
-jest.mock('@kinde-oss/react-native-sdk-0-7x', () => ({
-  KindeSDK: jest.fn(),
-  useKindeAuth: jest.fn(() => ({
-    login: jest.fn(),
-    logout: jest.fn(),
-    register: jest.fn(),
-    isAuthenticated: false,
-    getUser: jest.fn(),
-    getToken: jest.fn(),
-  })),
-}));
+// Mock Kinde SDK - uses __mocks__/@kinde-oss/react-native-sdk-0-7x.js
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
