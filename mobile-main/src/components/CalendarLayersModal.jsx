@@ -98,15 +98,21 @@ export default function CalendarLayersModal({
 
       // Fetch member layers
       try {
+        console.log('[CalendarLayersModal] Fetching member layers for group:', groupId);
         const memberResponse = await api.get(`/groups/${groupId}/calendar/layers`);
+        console.log('[CalendarLayersModal] Member layers response:', memberResponse.data);
         if (memberResponse.data.success) {
-          setMemberLayers(memberResponse.data.layers);
+          console.log('[CalendarLayersModal] Got', memberResponse.data.layers?.length || 0, 'member layers');
+          setMemberLayers(memberResponse.data.layers || []);
           if (onLayersChanged) {
-            onLayersChanged(memberResponse.data.layers);
+            onLayersChanged(memberResponse.data.layers || []);
           }
+        } else {
+          console.warn('[CalendarLayersModal] Member layers request failed:', memberResponse.data.message);
         }
       } catch (memberError) {
-        console.error('Error fetching member layers:', memberError);
+        console.error('[CalendarLayersModal] Error fetching member layers:', memberError.message);
+        console.error('[CalendarLayersModal] Full error:', memberError);
       }
 
       // Fetch imported calendars (separate try/catch so member layers still work if this fails)
@@ -527,7 +533,13 @@ export default function CalendarLayersModal({
                 {/* Member Calendars Section */}
                 <View style={styles.section}>
                   <Text style={styles.sectionHeader}>MEMBER CALENDARS</Text>
-                  {memberLayers.map(renderMemberLayer)}
+                  {memberLayers.length > 0 ? (
+                    memberLayers.map(renderMemberLayer)
+                  ) : (
+                    <Text style={styles.emptyText}>
+                      No member calendars found
+                    </Text>
+                  )}
                 </View>
 
                 {/* Imported Calendars Section */}
