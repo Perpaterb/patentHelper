@@ -33,6 +33,7 @@ import Animated, {
 import API from '../../services/api';
 import CustomNavigationHeader from '../../components/CustomNavigationHeader';
 import DateTimeSelector, { formatDateByType } from '../../components/DateTimeSelector';
+import CalendarLayersModal from '../../components/CalendarLayersModal';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -98,10 +99,71 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
 }
 
 /**
+ * Get event color based on layer preferences.
+ * Uses first visible attendee's customColor, or their defaultColor/iconColor.
+ * @param {Object} event - The event object
+ * @param {Array} layerPreferences - User's layer preferences
+ * @returns {string} - Hex color string
+ */
+function getEventColor(event, layerPreferences) {
+  const defaultColor = '#2196f3'; // Blue fallback
+
+  // If no layer preferences, use default
+  if (!layerPreferences || layerPreferences.length === 0) {
+    return defaultColor;
+  }
+
+  // Check attendees for color
+  if (event.attendees && event.attendees.length > 0) {
+    for (const attendee of event.attendees) {
+      const layer = layerPreferences.find(l => l.memberLayerId === attendee.groupMemberId);
+      // If layer is visible (or no preference exists), use its color
+      if (!layer || layer.isVisible) {
+        if (layer?.customColor) {
+          return layer.customColor;
+        }
+        // Use attendee's iconColor if available
+        if (attendee.member?.iconColor) {
+          return attendee.member.iconColor;
+        }
+        if (layer?.defaultColor) {
+          return layer.defaultColor;
+        }
+      }
+    }
+  }
+
+  return defaultColor;
+}
+
+/**
+ * Get lighter version of a color (for event background)
+ * @param {string} hex - Hex color string
+ * @returns {string} - Lighter hex color
+ */
+function getLighterColor(hex) {
+  // Remove # if present
+  hex = hex.replace('#', '');
+
+  // Parse RGB values
+  let r = parseInt(hex.substring(0, 2), 16);
+  let g = parseInt(hex.substring(2, 4), 16);
+  let b = parseInt(hex.substring(4, 6), 16);
+
+  // Lighten by mixing with white (0.85 = 85% lighter)
+  r = Math.round(r + (255 - r) * 0.85);
+  g = Math.round(g + (255 - g) * 0.85);
+  b = Math.round(b + (255 - b) * 0.85);
+
+  // Convert back to hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
  * InfiniteGrid - Externally controlled infinite scrolling grid
  * PERFORMANCE: Uses react-native-reanimated for 60fps UI thread animations
  */
-function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, groupId }) {
+function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, groupId, layerPreferences }) {
   // Reanimated shared values for smooth UI thread animations
   const scrollYFloat = useSharedValue(externalXYFloat.scrollYFloat);
   const scrollXFloat = useSharedValue(externalXYFloat.scrollXFloat);
@@ -655,6 +717,10 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
         const eventLeft = baseLeft + (cellW / 2) + eventOffsetX;
         const eventTop = baseTop;
 
+        // Get color based on layer preferences
+        const eventColor = getEventColor(event, layerPreferences);
+        const eventBgColor = getLighterColor(eventColor);
+
         eventViews.push(
           <Pressable
             key={`event_${event.eventId}_day${dayOffset}`}
@@ -664,9 +730,9 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
               top: eventTop,
               width: eventWidth,
               height: eventHeight,
-              backgroundColor: '#e3f2fd',
+              backgroundColor: eventBgColor,
               borderLeftWidth: 3,
-              borderLeftColor: '#2196f3',
+              borderLeftColor: eventColor,
               padding: 2,
               zIndex: 5,
             }}
@@ -683,7 +749,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
             style={{
               fontSize: 11,
               fontWeight: 'bold',
-              color: '#1976d2',
+              color: eventColor,
             }}
           >
             {event.title}
@@ -923,7 +989,7 @@ function InfiniteGrid({ externalXYFloat, onXYFloatChange, events, navigation, gr
     });
 
     return { eventViews, childEventViews };
-  }, [events, probeDay, probeHour24, redLineX, probeScreenY, cellW, navigation, groupId]);
+  }, [events, probeDay, probeHour24, redLineX, probeScreenY, cellW, navigation, groupId, layerPreferences]);
 
   return (
     <GestureDetector gesture={panGesture}>
@@ -1096,6 +1162,10 @@ export default function CalendarScreen({ navigation, route }) {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
 
+  // Layer preferences state
+  const [showLayersModal, setShowLayersModal] = useState(false);
+  const [layerPreferences, setLayerPreferences] = useState([]);
+
   // Permission state
   const [canCreate, setCanCreate] = useState(false);
   const [groupInfo, setGroupInfo] = useState(null);
@@ -1152,11 +1222,26 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
+   * Fetch layer preferences for the current group
+   */
+  const fetchLayerPreferences = async () => {
+    try {
+      const response = await API.get(`/groups/${groupId}/calendar/layers`);
+      if (response.data.success) {
+        setLayerPreferences(response.data.layers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching layer preferences:', error);
+    }
+  };
+
+  /**
    * Fetch events and group info when component mounts or groupId changes
    */
   useEffect(() => {
     loadGroupInfo();
     fetchEvents();
+    fetchLayerPreferences();
   }, [groupId]);
 
   /**
@@ -1169,6 +1254,67 @@ export default function CalendarScreen({ navigation, route }) {
 
     return unsubscribe;
   }, [navigation]);
+
+  /**
+   * Check if an event should be visible based on layer preferences.
+   * An event is visible if ANY of its attendees' layers are visible.
+   * For child responsibility events, also checks child and responsible adults.
+   */
+  const isEventVisible = useCallback((event) => {
+    // If no layer preferences are set, show all events (default)
+    if (!layerPreferences || layerPreferences.length === 0) {
+      return true;
+    }
+
+    // Helper to check if a member's layer is visible
+    const isMemberLayerVisible = (groupMemberId) => {
+      if (!groupMemberId) return true; // If no ID, show by default
+      const layer = layerPreferences.find(l => l.memberLayerId === groupMemberId);
+      // If no layer preference exists, default to visible
+      return layer ? layer.isVisible : true;
+    };
+
+    // Check attendees
+    if (event.attendees && event.attendees.length > 0) {
+      const hasVisibleAttendee = event.attendees.some(attendee =>
+        isMemberLayerVisible(attendee.groupMemberId)
+      );
+      if (hasVisibleAttendee) return true;
+    }
+
+    // Check responsibility events (child events)
+    if (event.responsibilityEvents && event.responsibilityEvents.length > 0) {
+      for (const re of event.responsibilityEvents) {
+        // Check child layer
+        if (re.child && isMemberLayerVisible(re.child.groupMemberId)) {
+          return true;
+        }
+        // Check start responsible adult layer
+        if (re.startResponsibleMember && isMemberLayerVisible(re.startResponsibleMember.groupMemberId)) {
+          return true;
+        }
+        // Check end responsible adult layer
+        if (re.endResponsibleMember && isMemberLayerVisible(re.endResponsibleMember.groupMemberId)) {
+          return true;
+        }
+      }
+    }
+
+    // If event has no attendees and no responsibility info, show by default
+    if ((!event.attendees || event.attendees.length === 0) &&
+        (!event.responsibilityEvents || event.responsibilityEvents.length === 0)) {
+      return true;
+    }
+
+    return false;
+  }, [layerPreferences]);
+
+  /**
+   * Filter events based on visibility preferences
+   */
+  const visibleEvents = useMemo(() => {
+    return events.filter(isEventVisible);
+  }, [events, isEventVisible]);
 
   // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
@@ -1375,8 +1521,8 @@ export default function CalendarScreen({ navigation, route }) {
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
-    // Filter events that touch this day
-    const dayEvents = events.filter(event => {
+    // Filter events that touch this day (using visibleEvents for layer filtering)
+    const dayEvents = visibleEvents.filter(event => {
       const eventStart = new Date(event.startTime);
       const eventEnd = new Date(event.endTime);
       return eventStart <= dayEnd && eventEnd >= dayStart;
@@ -1457,7 +1603,7 @@ export default function CalendarScreen({ navigation, route }) {
    * Calculate event layout for a single day in month view
    * Returns: { dots, lines, childBars }
    */
-  const getMonthDayEventLayout = (date, allEvents, globalChildColumns) => {
+  const getMonthDayEventLayout = (date, allEvents, globalChildColumns, prefs) => {
     if (!allEvents || allEvents.length === 0) {
       return { dots: [], lines: [], childBars: [] };
     }
@@ -1545,7 +1691,7 @@ export default function CalendarScreen({ navigation, route }) {
       const isEnd = eventEnd >= dayStart && eventEnd <= dayEnd;
 
       return {
-        color: '#2196f3',
+        color: getEventColor(event, prefs),
         row,
         isStart,
         isEnd,
@@ -1555,7 +1701,7 @@ export default function CalendarScreen({ navigation, route }) {
 
     // Build dots for single-day events
     const dots = singleDayEvents.map((event, idx) => ({
-      color: '#2196f3',
+      color: getEventColor(event, prefs),
       row: idx, // Simple stacking for dots
       eventId: event.eventId,
     }));
@@ -1610,7 +1756,7 @@ export default function CalendarScreen({ navigation, route }) {
 
     // Calculate GLOBAL column assignments once for all child responsibility events
     // This ensures the same event gets the same column across all days
-    const globalChildColumns = calculateGlobalChildEventColumns(events);
+    const globalChildColumns = calculateGlobalChildEventColumns(visibleEvents);
 
     // Calculate max columns to determine spacing for all days
     const maxColumns = globalChildColumns.size > 0 ? Math.max(...globalChildColumns.values()) + 1 : 0;
@@ -1637,8 +1783,8 @@ export default function CalendarScreen({ navigation, route }) {
                 day.date.getMonth() === masterDateTime.getMonth() &&
                 day.date.getFullYear() === masterDateTime.getFullYear();
 
-              // Get event indicators for this day (pass global columns)
-              const { dots, lines, childBars } = getMonthDayEventLayout(day.date, events, globalChildColumns);
+              // Get event indicators for this day (pass global columns and layer preferences)
+              const { dots, lines, childBars } = getMonthDayEventLayout(day.date, visibleEvents, globalChildColumns, layerPreferences);
 
               return (
                 <TouchableOpacity
@@ -1820,6 +1966,10 @@ export default function CalendarScreen({ navigation, route }) {
         }
         rightButtons={[
           {
+            icon: 'bell-outline',
+            onPress: () => setShowLayersModal(true),
+          },
+          {
             icon: viewMode === 'day' ? 'calendar-month' : 'calendar-today',
             onPress: () => handleViewModeToggle(probeDay, probeHour24),
           },
@@ -1832,9 +1982,10 @@ export default function CalendarScreen({ navigation, route }) {
         <InfiniteGrid
           externalXYFloat={externalXYFloat}
           onXYFloatChange={setExternalXYFloat}
-          events={events}
+          events={visibleEvents}
           navigation={navigation}
           groupId={groupId}
+          layerPreferences={layerPreferences}
         />
       )}
 
@@ -2062,6 +2213,14 @@ export default function CalendarScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      {/* Calendar Layers Modal */}
+      <CalendarLayersModal
+        visible={showLayersModal}
+        groupId={groupId}
+        onClose={() => setShowLayersModal(false)}
+        onLayersChanged={setLayerPreferences}
+      />
       </View>
     </GestureHandlerRootView>
   );

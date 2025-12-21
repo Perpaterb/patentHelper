@@ -15,6 +15,7 @@ const krisKringleRouter = require('./krisKringle.routes');
 const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
+const calendarLayersController = require('../controllers/calendarLayers.controller');
 const giftRegistryController = require('../controllers/giftRegistry.controller');
 const itemRegistryController = require('../controllers/itemRegistry.controller');
 const itemRegistryRouter = require('./itemRegistry.routes');
@@ -267,6 +268,32 @@ router.delete('/:groupId/calendar/events/:eventId', requireAuth, calendarControl
  * Create a child responsibility event with overlap detection
  */
 router.post('/:groupId/calendar/responsibility-events', requireAuth, calendarController.createResponsibilityEvent);
+
+/**
+ * GET /groups/:groupId/calendar/layers
+ * Get calendar layers for a group (user's visibility/notification preferences)
+ */
+router.get('/:groupId/calendar/layers', requireAuth, calendarLayersController.getLayers);
+
+/**
+ * PUT /groups/:groupId/calendar/layers/:memberLayerId
+ * Update a calendar layer preference (visibility, notifications, color)
+ */
+router.put('/:groupId/calendar/layers/:memberLayerId', requireAuth, calendarLayersController.updateLayerPreference);
+
+/**
+ * GET /groups/:groupId/calendar/check-reminders
+ * Check for upcoming events that need reminders
+ * Query: window (optional, default 30) - Reminder window in minutes
+ */
+router.get('/:groupId/calendar/check-reminders', requireAuth, calendarLayersController.checkCalendarReminders);
+
+/**
+ * POST /groups/:groupId/calendar/mark-reminded
+ * Mark events as reminded
+ * Body: { eventIds: string[] }
+ */
+router.post('/:groupId/calendar/mark-reminded', requireAuth, calendarLayersController.markEventsReminded);
 
 /**
  * GET /groups/:groupId/gift-registries

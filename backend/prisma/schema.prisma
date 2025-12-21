@@ -41,15 +41,17 @@ model User {
   billingFailureCount     Int       @default(0) @map("billing_failure_count")
   lastBillingReminderSent DateTime? @map("last_billing_reminder_sent") @db.Timestamp(6)
 
-  groupMemberships        GroupMember[]
-  createdGroups           Group[]                @relation("GroupCreator")
-  pinnedItems             PinnedItem[]
-  storageUsage            StorageUsage[]
-  personalGiftRegistries  PersonalGiftRegistry[] @relation("PersonalGiftRegistries")
-  personalItemRegistries  PersonalItemRegistry[] @relation("PersonalItemRegistries")
-  billingHistory          BillingHistory[]
-  supportActionsPerformed SupportAuditLog[]      @relation("SupportActionPerformer")
-  supportActionsReceived  SupportAuditLog[]      @relation("SupportActionTarget")
+  groupMemberships         GroupMember[]
+  createdGroups            Group[]                   @relation("GroupCreator")
+  pinnedItems              PinnedItem[]
+  storageUsage             StorageUsage[]
+  personalGiftRegistries   PersonalGiftRegistry[]    @relation("PersonalGiftRegistries")
+  personalItemRegistries   PersonalItemRegistry[]    @relation("PersonalItemRegistries")
+  billingHistory           BillingHistory[]
+  supportActionsPerformed  SupportAuditLog[]         @relation("SupportActionPerformer")
+  supportActionsReceived   SupportAuditLog[]         @relation("SupportActionTarget")
+  calendarLayerPreferences CalendarLayerPreference[]
+  calendarEventReminders   CalendarEventReminder[]
 
   @@index([email])
   @@index([kindeId])
@@ -94,6 +96,7 @@ model Group {
   logExports                LogExport[]
   phoneCalls                PhoneCall[]
   videoCalls                VideoCall[]
+  calendarLayerPreferences  CalendarLayerPreference[]
 
   @@index([createdAt])
   @@map("groups")
@@ -170,6 +173,7 @@ model GroupMember {
   initiatedVideoCalls        VideoCall[]                     @relation("VideoCallInitiator")
   hiddenVideoRecordings      VideoCall[]                     @relation("VideoCallRecordingHider")
   videoCallParticipations    VideoCallParticipant[]
+  layerPreferences           CalendarLayerPreference[]       @relation("LayerMember")
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -497,6 +501,7 @@ model CalendarEvent {
   childEvents           CalendarEvent[]            @relation("RecurringEvents")
   responsibilityEvents  ChildResponsibilityEvent[]
   attendees             EventAttendee[]
+  reminders             CalendarEventReminder[]
 
   @@index([groupId])
   @@index([startTime, endTime])
@@ -1454,4 +1459,51 @@ model WebRTCSignal {
   @@index([callId, toPeerId, isConsumed])
   @@index([createdAt])
   @@map("webrtc_signals")
+}
+
+// ============================================
+// CALENDAR LAYER PREFERENCES
+// Per-user preferences for calendar layer visibility, notifications, and colors
+// Each user can customize how they see each member's events
+// ============================================
+
+model CalendarLayerPreference {
+  preferenceId         String   @id @default(uuid()) @map("preference_id") @db.Uuid
+  groupId              String   @map("group_id") @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  memberLayerId        String   @map("member_layer_id") @db.Uuid // The GroupMember this layer represents
+  isVisible            Boolean  @default(true) @map("is_visible")
+  notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
+  customColor          String?  @map("custom_color") @db.VarChar(7) // Hex color, null = use member's iconColor
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  group       Group       @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  memberLayer GroupMember @relation("LayerMember", fields: [memberLayerId], references: [groupMemberId], onDelete: Cascade)
+
+  @@unique([userId, groupId, memberLayerId])
+  @@index([userId, groupId])
+  @@index([groupId])
+  @@map("calendar_layer_preferences")
+}
+
+// ============================================
+// CALENDAR EVENT REMINDERS
+// Tracks which reminders have been sent to avoid duplicates
+// ============================================
+
+model CalendarEventReminder {
+  reminderId String   @id @default(uuid()) @map("reminder_id") @db.Uuid
+  eventId    String   @map("event_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  remindedAt DateTime @default(now()) @map("reminded_at") @db.Timestamp(6)
+
+  event CalendarEvent @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([eventId])
+  @@map("calendar_event_reminders")
 }
