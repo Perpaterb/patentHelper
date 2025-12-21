@@ -96,27 +96,31 @@ export default function CalendarLayersModal({
     try {
       setLoading(true);
 
-      // Fetch both in parallel
-      const [memberResponse, importedResponse] = await Promise.all([
-        api.get(`/groups/${groupId}/calendar/layers`),
-        api.get(`/groups/${groupId}/calendar/imported`),
-      ]);
-
-      if (memberResponse.data.success) {
-        setMemberLayers(memberResponse.data.layers);
-        if (onLayersChanged) {
-          onLayersChanged(memberResponse.data.layers);
+      // Fetch member layers
+      try {
+        const memberResponse = await api.get(`/groups/${groupId}/calendar/layers`);
+        if (memberResponse.data.success) {
+          setMemberLayers(memberResponse.data.layers);
+          if (onLayersChanged) {
+            onLayersChanged(memberResponse.data.layers);
+          }
         }
+      } catch (memberError) {
+        console.error('Error fetching member layers:', memberError);
       }
 
-      if (importedResponse.data.success) {
-        setImportedCalendars(importedResponse.data.calendars);
-        if (onImportedCalendarsChanged) {
-          onImportedCalendarsChanged(importedResponse.data.calendars);
+      // Fetch imported calendars (separate try/catch so member layers still work if this fails)
+      try {
+        const importedResponse = await api.get(`/groups/${groupId}/calendar/imported`);
+        if (importedResponse.data.success) {
+          setImportedCalendars(importedResponse.data.calendars);
+          if (onImportedCalendarsChanged) {
+            onImportedCalendarsChanged(importedResponse.data.calendars);
+          }
         }
+      } catch (importedError) {
+        console.error('Error fetching imported calendars:', importedError);
       }
-    } catch (error) {
-      console.error('Error fetching calendar layers:', error);
     } finally {
       setLoading(false);
     }
