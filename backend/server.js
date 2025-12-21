@@ -40,6 +40,7 @@ const { validateKindeConfig } = require('./config/auth');
 const { validateStripeConfig } = require('./config/stripe');
 const { emailService } = require('./services/email');
 const mediaProcessor = require('./services/mediaProcessor.service');
+const { initSyncJob } = require('./jobs/syncImportedCalendars');
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
@@ -144,6 +145,9 @@ if (process.env.NODE_ENV !== 'test') {
 
     // Check media processor Docker container
     mediaProcessor.checkAndLogStatus();
+
+    // Initialize background jobs
+    initSyncJob();
 
     console.log('');
     console.log('Press Ctrl+C to stop');

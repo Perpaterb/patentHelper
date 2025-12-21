@@ -41,17 +41,19 @@ model User {
   billingFailureCount     Int       @default(0) @map("billing_failure_count")
   lastBillingReminderSent DateTime? @map("last_billing_reminder_sent") @db.Timestamp(6)
 
-  groupMemberships         GroupMember[]
-  createdGroups            Group[]                   @relation("GroupCreator")
-  pinnedItems              PinnedItem[]
-  storageUsage             StorageUsage[]
-  personalGiftRegistries   PersonalGiftRegistry[]    @relation("PersonalGiftRegistries")
-  personalItemRegistries   PersonalItemRegistry[]    @relation("PersonalItemRegistries")
-  billingHistory           BillingHistory[]
-  supportActionsPerformed  SupportAuditLog[]         @relation("SupportActionPerformer")
-  supportActionsReceived   SupportAuditLog[]         @relation("SupportActionTarget")
-  calendarLayerPreferences CalendarLayerPreference[]
-  calendarEventReminders   CalendarEventReminder[]
+  groupMemberships            GroupMember[]
+  createdGroups               Group[]                      @relation("GroupCreator")
+  pinnedItems                 PinnedItem[]
+  storageUsage                StorageUsage[]
+  personalGiftRegistries      PersonalGiftRegistry[]       @relation("PersonalGiftRegistries")
+  personalItemRegistries      PersonalItemRegistry[]       @relation("PersonalItemRegistries")
+  billingHistory              BillingHistory[]
+  supportActionsPerformed     SupportAuditLog[]            @relation("SupportActionPerformer")
+  supportActionsReceived      SupportAuditLog[]            @relation("SupportActionTarget")
+  calendarLayerPreferences    CalendarLayerPreference[]
+  calendarEventReminders      CalendarEventReminder[]
+  importedCalendars           ImportedCalendar[]
+  importedCalendarPreferences ImportedCalendarPreference[]
 
   @@index([email])
   @@index([kindeId])
@@ -97,6 +99,7 @@ model Group {
   phoneCalls                PhoneCall[]
   videoCalls                VideoCall[]
   calendarLayerPreferences  CalendarLayerPreference[]
+  importedCalendars         ImportedCalendar[]
 
   @@index([createdAt])
   @@map("groups")
@@ -1506,4 +1509,75 @@ model CalendarEventReminder {
   @@index([userId])
   @@index([eventId])
   @@map("calendar_event_reminders")
+}
+
+// ============================================
+// IMPORTED CALENDARS
+// External calendars imported via iCal URL or file
+// ============================================
+
+model ImportedCalendar {
+  importedCalendarId String    @id @default(uuid()) @map("imported_calendar_id") @db.Uuid
+  groupId            String    @map("group_id") @db.Uuid
+  createdBy          String    @map("created_by") @db.Uuid
+  name               String    @db.VarChar(255)
+  sourceType         String    @map("source_type") @db.VarChar(10) // 'url' or 'file'
+  sourceUrl          String?   @map("source_url") @db.Text
+  color              String    @db.VarChar(7) // Hex color for events
+  syncIntervalHours  Int       @default(6) @map("sync_interval_hours")
+  lastSyncAt         DateTime? @map("last_sync_at") @db.Timestamp(6)
+  lastSyncStatus     String?   @map("last_sync_status") @db.VarChar(20) // 'success', 'error', 'pending'
+  lastSyncError      String?   @map("last_sync_error") @db.Text
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  group       Group                        @relation(fields: [groupId], references: [groupId], onDelete: Cascade)
+  creator     User                         @relation(fields: [createdBy], references: [userId], onDelete: Cascade)
+  events      ImportedCalendarEvent[]
+  preferences ImportedCalendarPreference[]
+
+  @@index([groupId])
+  @@index([lastSyncAt])
+  @@map("imported_calendars")
+}
+
+model ImportedCalendarEvent {
+  eventId            String   @id @default(uuid()) @map("event_id") @db.Uuid
+  importedCalendarId String   @map("imported_calendar_id") @db.Uuid
+  externalUid        String   @map("external_uid") @db.VarChar(500) // UID from iCal file
+  title              String   @db.VarChar(500)
+  description        String?  @db.Text
+  location           String?  @db.VarChar(500)
+  startTime          DateTime @map("start_time") @db.Timestamp(6)
+  endTime            DateTime @map("end_time") @db.Timestamp(6)
+  isAllDay           Boolean  @default(false) @map("is_all_day")
+  recurrenceRule     String?  @map("recurrence_rule") @db.Text // RRULE string
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  importedCalendar ImportedCalendar @relation(fields: [importedCalendarId], references: [importedCalendarId], onDelete: Cascade)
+
+  @@unique([importedCalendarId, externalUid])
+  @@index([importedCalendarId])
+  @@index([startTime, endTime])
+  @@map("imported_calendar_events")
+}
+
+model ImportedCalendarPreference {
+  preferenceId         String   @id @default(uuid()) @map("preference_id") @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  importedCalendarId   String   @map("imported_calendar_id") @db.Uuid
+  isVisible            Boolean  @default(true) @map("is_visible")
+  notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
+  customColor          String?  @map("custom_color") @db.VarChar(7)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user             User             @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  importedCalendar ImportedCalendar @relation(fields: [importedCalendarId], references: [importedCalendarId], onDelete: Cascade)
+
+  @@unique([userId, importedCalendarId])
+  @@index([userId])
+  @@map("imported_calendar_preferences")
 }

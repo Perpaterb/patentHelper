@@ -1,7 +1,11 @@
 /**
  * Calendar Layers Modal Component
  *
- * Displays a list of calendar layers (one per group member) with controls for:
+ * Displays calendar layers in two sections:
+ * 1. Member Calendars - One layer per group member
+ * 2. Imported Calendars - External calendars (iCal URL or file)
+ *
+ * Each layer has controls for:
  * - Visibility toggle (eye icon)
  * - Notification toggle (bell icon)
  * - Color picker (color circle)
@@ -14,17 +18,18 @@ import {
   View,
   StyleSheet,
   Modal,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Title, Text, IconButton } from 'react-native-paper';
+import { Title, Text, IconButton, Button } from 'react-native-paper';
 import ColorPickerModal from './ColorPickerModal';
+import ImportCalendarModal from './ImportCalendarModal';
 import api from '../services/api';
 
 /**
- * @typedef {Object} Layer
+ * @typedef {Object} MemberLayer
  * @property {string} memberLayerId - GroupMember ID
  * @property {string} displayName - Member's display name
  * @property {string} iconLetters - Member's icon letters
@@ -36,11 +41,24 @@ import api from '../services/api';
  */
 
 /**
+ * @typedef {Object} ImportedCalendar
+ * @property {string} importedCalendarId - Calendar ID
+ * @property {string} name - Calendar name
+ * @property {string} color - Calendar color
+ * @property {string} sourceType - 'url' or 'file'
+ * @property {string} lastSyncStatus - 'success', 'error', or 'pending'
+ * @property {boolean} isVisible - Whether layer is visible
+ * @property {boolean} notificationsEnabled - Whether notifications are enabled
+ * @property {string|null} customColor - Custom color override
+ */
+
+/**
  * @typedef {Object} CalendarLayersModalProps
  * @property {boolean} visible - Whether modal is visible
  * @property {string} groupId - Group ID
  * @property {function} onClose - Callback when modal is closed
- * @property {function} onLayersChanged - Callback when layers are updated
+ * @property {function} onLayersChanged - Callback when member layers are updated
+ * @property {function} onImportedCalendarsChanged - Callback when imported calendars are updated
  */
 
 /**
@@ -53,31 +71,48 @@ export default function CalendarLayersModal({
   groupId,
   onClose,
   onLayersChanged,
+  onImportedCalendarsChanged,
 }) {
-  const [layers, setLayers] = useState([]);
+  const [memberLayers, setMemberLayers] = useState([]);
+  const [importedCalendars, setImportedCalendars] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(null); // memberLayerId being updated
+  const [updating, setUpdating] = useState(null); // ID being updated
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
-  const [selectedLayer, setSelectedLayer] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemType, setSelectedItemType] = useState(null); // 'member' or 'imported'
+  const [importModalVisible, setImportModalVisible] = useState(false);
 
   // Fetch layers when modal opens
   useEffect(() => {
     if (visible && groupId) {
-      fetchLayers();
+      fetchAllLayers();
     }
   }, [visible, groupId]);
 
   /**
-   * Fetch calendar layers from API
+   * Fetch both member layers and imported calendars
    */
-  const fetchLayers = async () => {
+  const fetchAllLayers = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/groups/${groupId}/calendar/layers`);
-      if (response.data.success) {
-        setLayers(response.data.layers);
+
+      // Fetch both in parallel
+      const [memberResponse, importedResponse] = await Promise.all([
+        api.get(`/groups/${groupId}/calendar/layers`),
+        api.get(`/groups/${groupId}/calendar/imported`),
+      ]);
+
+      if (memberResponse.data.success) {
+        setMemberLayers(memberResponse.data.layers);
         if (onLayersChanged) {
-          onLayersChanged(response.data.layers);
+          onLayersChanged(memberResponse.data.layers);
+        }
+      }
+
+      if (importedResponse.data.success) {
+        setImportedCalendars(importedResponse.data.calendars);
+        if (onImportedCalendarsChanged) {
+          onImportedCalendarsChanged(importedResponse.data.calendars);
         }
       }
     } catch (error) {
@@ -88,11 +123,11 @@ export default function CalendarLayersModal({
   };
 
   /**
-   * Update a layer preference
+   * Update a member layer preference
    * @param {string} memberLayerId
    * @param {Object} updates
    */
-  const updateLayer = async (memberLayerId, updates) => {
+  const updateMemberLayer = async (memberLayerId, updates) => {
     try {
       setUpdating(memberLayerId);
       const response = await api.put(
@@ -100,17 +135,15 @@ export default function CalendarLayersModal({
         updates
       );
       if (response.data.success) {
-        // Update local state
-        setLayers((prev) =>
+        setMemberLayers((prev) =>
           prev.map((layer) =>
             layer.memberLayerId === memberLayerId
               ? { ...layer, ...response.data.preference }
               : layer
           )
         );
-        // Notify parent
         if (onLayersChanged) {
-          const updatedLayers = layers.map((layer) =>
+          const updatedLayers = memberLayers.map((layer) =>
             layer.memberLayerId === memberLayerId
               ? { ...layer, ...response.data.preference }
               : layer
@@ -119,36 +152,131 @@ export default function CalendarLayersModal({
         }
       }
     } catch (error) {
-      console.error('Error updating layer:', error);
+      console.error('Error updating member layer:', error);
     } finally {
       setUpdating(null);
     }
   };
 
   /**
-   * Toggle visibility for a layer
-   * @param {Layer} layer
+   * Update an imported calendar preference
+   * @param {string} calendarId
+   * @param {Object} updates
    */
-  const toggleVisibility = (layer) => {
-    updateLayer(layer.memberLayerId, { isVisible: !layer.isVisible });
+  const updateImportedCalendarPreference = async (calendarId, updates) => {
+    try {
+      setUpdating(calendarId);
+      const response = await api.put(
+        `/groups/${groupId}/calendar/imported/${calendarId}/preference`,
+        updates
+      );
+      if (response.data.success) {
+        setImportedCalendars((prev) =>
+          prev.map((cal) =>
+            cal.importedCalendarId === calendarId
+              ? { ...cal, ...response.data.preference }
+              : cal
+          )
+        );
+        if (onImportedCalendarsChanged) {
+          const updatedCalendars = importedCalendars.map((cal) =>
+            cal.importedCalendarId === calendarId
+              ? { ...cal, ...response.data.preference }
+              : cal
+          );
+          onImportedCalendarsChanged(updatedCalendars);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating imported calendar preference:', error);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   /**
-   * Toggle notifications for a layer
-   * @param {Layer} layer
+   * Delete an imported calendar
+   * @param {string} calendarId
    */
-  const toggleNotifications = (layer) => {
-    updateLayer(layer.memberLayerId, {
+  const deleteImportedCalendar = async (calendarId) => {
+    try {
+      setUpdating(calendarId);
+      const response = await api.delete(
+        `/groups/${groupId}/calendar/imported/${calendarId}`
+      );
+      if (response.data.success) {
+        setImportedCalendars((prev) =>
+          prev.filter((cal) => cal.importedCalendarId !== calendarId)
+        );
+        if (onImportedCalendarsChanged) {
+          const updatedCalendars = importedCalendars.filter(
+            (cal) => cal.importedCalendarId !== calendarId
+          );
+          onImportedCalendarsChanged(updatedCalendars);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting imported calendar:', error);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  /**
+   * Toggle visibility for a member layer
+   * @param {MemberLayer} layer
+   */
+  const toggleMemberVisibility = (layer) => {
+    updateMemberLayer(layer.memberLayerId, { isVisible: !layer.isVisible });
+  };
+
+  /**
+   * Toggle notifications for a member layer
+   * @param {MemberLayer} layer
+   */
+  const toggleMemberNotifications = (layer) => {
+    updateMemberLayer(layer.memberLayerId, {
       notificationsEnabled: !layer.notificationsEnabled,
     });
   };
 
   /**
-   * Open color picker for a layer
-   * @param {Layer} layer
+   * Toggle visibility for an imported calendar
+   * @param {ImportedCalendar} calendar
    */
-  const openColorPicker = (layer) => {
-    setSelectedLayer(layer);
+  const toggleImportedVisibility = (calendar) => {
+    updateImportedCalendarPreference(calendar.importedCalendarId, {
+      isVisible: !calendar.isVisible,
+    });
+  };
+
+  /**
+   * Toggle notifications for an imported calendar
+   * @param {ImportedCalendar} calendar
+   */
+  const toggleImportedNotifications = (calendar) => {
+    updateImportedCalendarPreference(calendar.importedCalendarId, {
+      notificationsEnabled: !calendar.notificationsEnabled,
+    });
+  };
+
+  /**
+   * Open color picker for a member layer
+   * @param {MemberLayer} layer
+   */
+  const openMemberColorPicker = (layer) => {
+    setSelectedItem(layer);
+    setSelectedItemType('member');
+    setColorPickerVisible(true);
+  };
+
+  /**
+   * Open color picker for an imported calendar
+   * @param {ImportedCalendar} calendar
+   */
+  const openImportedColorPicker = (calendar) => {
+    setSelectedItem(calendar);
+    setSelectedItemType('imported');
     setColorPickerVisible(true);
   };
 
@@ -157,20 +285,34 @@ export default function CalendarLayersModal({
    * @param {string} color - Hex color
    */
   const handleColorSelected = (color) => {
-    if (selectedLayer) {
-      updateLayer(selectedLayer.memberLayerId, { customColor: color });
+    if (selectedItem && selectedItemType === 'member') {
+      updateMemberLayer(selectedItem.memberLayerId, { customColor: color });
+    } else if (selectedItem && selectedItemType === 'imported') {
+      updateImportedCalendarPreference(selectedItem.importedCalendarId, {
+        customColor: color,
+      });
     }
     setColorPickerVisible(false);
-    setSelectedLayer(null);
+    setSelectedItem(null);
+    setSelectedItemType(null);
   };
 
   /**
-   * Get the effective color for a layer
-   * @param {Layer} layer
+   * Get the effective color for a member layer
+   * @param {MemberLayer} layer
    * @returns {string}
    */
-  const getEffectiveColor = (layer) => {
+  const getMemberEffectiveColor = (layer) => {
     return layer.customColor || layer.defaultColor || '#6200ee';
+  };
+
+  /**
+   * Get the effective color for an imported calendar
+   * @param {ImportedCalendar} calendar
+   * @returns {string}
+   */
+  const getImportedEffectiveColor = (calendar) => {
+    return calendar.customColor || calendar.color || '#6200ee';
   };
 
   /**
@@ -190,22 +332,33 @@ export default function CalendarLayersModal({
   };
 
   /**
-   * Render a single layer row
-   * @param {Object} param0
+   * Handle calendar import success
+   * @param {Object} newCalendar
+   */
+  const handleCalendarImported = (newCalendar) => {
+    setImportedCalendars((prev) => [...prev, newCalendar]);
+    if (onImportedCalendarsChanged) {
+      onImportedCalendarsChanged([...importedCalendars, newCalendar]);
+    }
+  };
+
+  /**
+   * Render a member layer row
+   * @param {MemberLayer} layer
    * @returns {JSX.Element}
    */
-  const renderLayer = ({ item: layer }) => {
+  const renderMemberLayer = (layer) => {
     const isUpdating = updating === layer.memberLayerId;
-    const effectiveColor = getEffectiveColor(layer);
+    const effectiveColor = getMemberEffectiveColor(layer);
 
     return (
-      <View style={styles.layerRow}>
+      <View key={layer.memberLayerId} style={styles.layerRow}>
         {/* Visibility Toggle */}
         <IconButton
           icon={layer.isVisible ? 'eye' : 'eye-off'}
           iconColor={layer.isVisible ? '#6200ee' : '#999'}
           size={24}
-          onPress={() => toggleVisibility(layer)}
+          onPress={() => toggleMemberVisibility(layer)}
           disabled={isUpdating}
           style={styles.iconButton}
         />
@@ -215,14 +368,14 @@ export default function CalendarLayersModal({
           icon={layer.notificationsEnabled ? 'bell' : 'bell-off'}
           iconColor={layer.notificationsEnabled ? '#6200ee' : '#999'}
           size={24}
-          onPress={() => toggleNotifications(layer)}
+          onPress={() => toggleMemberNotifications(layer)}
           disabled={isUpdating}
           style={styles.iconButton}
         />
 
         {/* Color Circle */}
         <TouchableOpacity
-          onPress={() => openColorPicker(layer)}
+          onPress={() => openMemberColorPicker(layer)}
           disabled={isUpdating}
           style={styles.colorButton}
         >
@@ -235,10 +388,86 @@ export default function CalendarLayersModal({
         </TouchableOpacity>
 
         {/* Member Info */}
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{layer.displayName}</Text>
-          <Text style={styles.memberRole}>{getRoleLabel(layer.role)}</Text>
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName}>{layer.displayName}</Text>
+          <Text style={styles.itemSubtitle}>{getRoleLabel(layer.role)}</Text>
         </View>
+
+        {/* Loading indicator */}
+        {isUpdating && (
+          <ActivityIndicator
+            size="small"
+            color="#6200ee"
+            style={styles.loadingIndicator}
+          />
+        )}
+      </View>
+    );
+  };
+
+  /**
+   * Render an imported calendar row
+   * @param {ImportedCalendar} calendar
+   * @returns {JSX.Element}
+   */
+  const renderImportedCalendar = (calendar) => {
+    const isUpdating = updating === calendar.importedCalendarId;
+    const effectiveColor = getImportedEffectiveColor(calendar);
+
+    return (
+      <View key={calendar.importedCalendarId} style={styles.layerRow}>
+        {/* Visibility Toggle */}
+        <IconButton
+          icon={calendar.isVisible ? 'eye' : 'eye-off'}
+          iconColor={calendar.isVisible ? '#6200ee' : '#999'}
+          size={24}
+          onPress={() => toggleImportedVisibility(calendar)}
+          disabled={isUpdating}
+          style={styles.iconButton}
+        />
+
+        {/* Notification Toggle */}
+        <IconButton
+          icon={calendar.notificationsEnabled ? 'bell' : 'bell-off'}
+          iconColor={calendar.notificationsEnabled ? '#6200ee' : '#999'}
+          size={24}
+          onPress={() => toggleImportedNotifications(calendar)}
+          disabled={isUpdating}
+          style={styles.iconButton}
+        />
+
+        {/* Color Circle */}
+        <TouchableOpacity
+          onPress={() => openImportedColorPicker(calendar)}
+          disabled={isUpdating}
+          style={styles.colorButton}
+        >
+          <View
+            style={[
+              styles.colorCircle,
+              { backgroundColor: effectiveColor },
+            ]}
+          />
+        </TouchableOpacity>
+
+        {/* Calendar Info */}
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName}>{calendar.name}</Text>
+          <Text style={styles.itemSubtitle}>
+            {calendar.sourceType === 'url' ? 'URL' : 'File'}
+            {calendar.lastSyncStatus === 'error' && ' - Sync Error'}
+          </Text>
+        </View>
+
+        {/* Delete Button */}
+        <IconButton
+          icon="delete-outline"
+          iconColor="#d32f2f"
+          size={20}
+          onPress={() => deleteImportedCalendar(calendar.importedCalendarId)}
+          disabled={isUpdating}
+          style={styles.deleteButton}
+        />
 
         {/* Loading indicator */}
         {isUpdating && (
@@ -286,15 +515,38 @@ export default function CalendarLayersModal({
                 </View>
               </View>
 
-              {/* Layer List */}
-              <FlatList
-                data={layers}
-                keyExtractor={(item) => item.memberLayerId}
-                renderItem={renderLayer}
-                style={styles.list}
-                contentContainerStyle={styles.listContent}
+              <ScrollView
+                style={styles.scrollContent}
+                contentContainerStyle={styles.scrollContentContainer}
                 showsVerticalScrollIndicator={true}
-              />
+              >
+                {/* Member Calendars Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionHeader}>MEMBER CALENDARS</Text>
+                  {memberLayers.map(renderMemberLayer)}
+                </View>
+
+                {/* Imported Calendars Section */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionHeader}>IMPORTED CALENDARS</Text>
+                  {importedCalendars.length > 0 ? (
+                    importedCalendars.map(renderImportedCalendar)
+                  ) : (
+                    <Text style={styles.emptyText}>
+                      No imported calendars yet
+                    </Text>
+                  )}
+
+                  {/* Import Button */}
+                  <TouchableOpacity
+                    style={styles.importButton}
+                    onPress={() => setImportModalVisible(true)}
+                  >
+                    <IconButton icon="plus" size={20} iconColor="#6200ee" />
+                    <Text style={styles.importButtonText}>Import Calendar</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </>
           )}
 
@@ -308,12 +560,27 @@ export default function CalendarLayersModal({
       {/* Color Picker Modal */}
       <ColorPickerModal
         visible={colorPickerVisible}
-        initialColor={selectedLayer ? getEffectiveColor(selectedLayer) : '#6200ee'}
+        initialColor={
+          selectedItem
+            ? selectedItemType === 'member'
+              ? getMemberEffectiveColor(selectedItem)
+              : getImportedEffectiveColor(selectedItem)
+            : '#6200ee'
+        }
         onConfirm={handleColorSelected}
         onCancel={() => {
           setColorPickerVisible(false);
-          setSelectedLayer(null);
+          setSelectedItem(null);
+          setSelectedItemType(null);
         }}
+      />
+
+      {/* Import Calendar Modal */}
+      <ImportCalendarModal
+        visible={importModalVisible}
+        groupId={groupId}
+        onClose={() => setImportModalVisible(false)}
+        onImported={handleCalendarImported}
       />
     </Modal>
   );
@@ -332,7 +599,7 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxWidth: 400,
-    maxHeight: '80%',
+    maxHeight: '85%',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -367,11 +634,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#6200ee',
     marginRight: 4,
   },
-  list: {
-    maxHeight: 300,
+  scrollContent: {
+    maxHeight: 400,
   },
-  listContent: {
+  scrollContentContainer: {
     paddingVertical: 8,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#888',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
   layerRow: {
     flexDirection: 'row',
@@ -394,18 +673,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ddd',
   },
-  memberInfo: {
+  itemInfo: {
     flex: 1,
     marginLeft: 8,
   },
-  memberName: {
+  itemName: {
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
   },
-  memberRole: {
+  itemSubtitle: {
     fontSize: 12,
     color: '#666',
+  },
+  deleteButton: {
+    margin: 0,
   },
   loadingIndicator: {
     marginLeft: 8,
@@ -417,6 +699,29 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: '#666',
+  },
+  emptyText: {
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#6200ee',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: '#f9f6ff',
+  },
+  importButtonText: {
+    color: '#6200ee',
+    fontSize: 14,
+    fontWeight: '600',
   },
   closeButton: {
     marginTop: 16,

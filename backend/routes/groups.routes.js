@@ -16,6 +16,7 @@ const approvalsController = require('../controllers/approvals.controller');
 const financeController = require('../controllers/finance.controller');
 const calendarController = require('../controllers/calendar.controller');
 const calendarLayersController = require('../controllers/calendarLayers.controller');
+const importedCalendarsController = require('../controllers/importedCalendars.controller');
 const giftRegistryController = require('../controllers/giftRegistry.controller');
 const itemRegistryController = require('../controllers/itemRegistry.controller');
 const itemRegistryRouter = require('./itemRegistry.routes');
@@ -294,6 +295,58 @@ router.get('/:groupId/calendar/check-reminders', requireAuth, calendarLayersCont
  * Body: { eventIds: string[] }
  */
 router.post('/:groupId/calendar/mark-reminded', requireAuth, calendarLayersController.markEventsReminded);
+
+// ============================================
+// IMPORTED CALENDARS ROUTES
+// ============================================
+
+/**
+ * GET /groups/:groupId/calendar/imported
+ * Get all imported calendars for a group
+ */
+router.get('/:groupId/calendar/imported', requireAuth, importedCalendarsController.getImportedCalendars);
+
+/**
+ * POST /groups/:groupId/calendar/imported
+ * Import a new calendar (URL or file)
+ */
+router.post('/:groupId/calendar/imported', requireAuth, importedCalendarsController.importCalendar);
+
+/**
+ * GET /groups/:groupId/calendar/imported-events
+ * Get all imported calendar events for calendar view
+ */
+router.get('/:groupId/calendar/imported-events', requireAuth, importedCalendarsController.getAllImportedEvents);
+
+/**
+ * PUT /groups/:groupId/calendar/imported/:calendarId
+ * Update calendar settings (name, color, sync interval)
+ */
+router.put('/:groupId/calendar/imported/:calendarId', requireAuth, importedCalendarsController.updateCalendar);
+
+/**
+ * DELETE /groups/:groupId/calendar/imported/:calendarId
+ * Delete an imported calendar
+ */
+router.delete('/:groupId/calendar/imported/:calendarId', requireAuth, importedCalendarsController.deleteCalendar);
+
+/**
+ * POST /groups/:groupId/calendar/imported/:calendarId/sync
+ * Trigger manual sync for a URL calendar
+ */
+router.post('/:groupId/calendar/imported/:calendarId/sync', requireAuth, importedCalendarsController.syncCalendar);
+
+/**
+ * PUT /groups/:groupId/calendar/imported/:calendarId/preference
+ * Update user preference (visibility, notifications, color)
+ */
+router.put('/:groupId/calendar/imported/:calendarId/preference', requireAuth, importedCalendarsController.updatePreference);
+
+/**
+ * GET /groups/:groupId/calendar/imported/:calendarId/events
+ * Get events from a specific imported calendar
+ */
+router.get('/:groupId/calendar/imported/:calendarId/events', requireAuth, importedCalendarsController.getCalendarEvents);
 
 /**
  * GET /groups/:groupId/gift-registries

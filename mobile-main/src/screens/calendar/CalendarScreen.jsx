@@ -101,12 +101,18 @@ function getXYFloatForProbeTarget(targetHour, targetDay) {
 /**
  * Get event color based on layer preferences.
  * Uses first visible attendee's customColor, or their defaultColor/iconColor.
+ * For imported events, uses the calendar's color.
  * @param {Object} event - The event object
  * @param {Array} layerPreferences - User's layer preferences
  * @returns {string} - Hex color string
  */
 function getEventColor(event, layerPreferences) {
   const defaultColor = '#2196f3'; // Blue fallback
+
+  // If this is an imported event, use its pre-calculated color
+  if (event.isImported && event._importedColor) {
+    return event._importedColor;
+  }
 
   // If no layer preferences, use default
   if (!layerPreferences || layerPreferences.length === 0) {
@@ -1166,6 +1172,10 @@ export default function CalendarScreen({ navigation, route }) {
   const [showLayersModal, setShowLayersModal] = useState(false);
   const [layerPreferences, setLayerPreferences] = useState([]);
 
+  // Imported calendars state
+  const [importedCalendars, setImportedCalendars] = useState([]);
+  const [importedEvents, setImportedEvents] = useState([]);
+
   // Permission state
   const [canCreate, setCanCreate] = useState(false);
   const [groupInfo, setGroupInfo] = useState(null);
@@ -1236,12 +1246,34 @@ export default function CalendarScreen({ navigation, route }) {
   };
 
   /**
+   * Fetch imported calendars and their events
+   */
+  const fetchImportedCalendars = async () => {
+    try {
+      // Fetch imported calendars
+      const calendarsResponse = await API.get(`/groups/${groupId}/calendar/imported`);
+      if (calendarsResponse.data.success) {
+        setImportedCalendars(calendarsResponse.data.calendars || []);
+      }
+
+      // Fetch all imported events
+      const eventsResponse = await API.get(`/groups/${groupId}/calendar/imported-events`);
+      if (eventsResponse.data.success) {
+        setImportedEvents(eventsResponse.data.events || []);
+      }
+    } catch (error) {
+      console.error('Error fetching imported calendars:', error);
+    }
+  };
+
+  /**
    * Fetch events and group info when component mounts or groupId changes
    */
   useEffect(() => {
     loadGroupInfo();
     fetchEvents();
     fetchLayerPreferences();
+    fetchImportedCalendars();
   }, [groupId]);
 
   /**
@@ -1310,11 +1342,66 @@ export default function CalendarScreen({ navigation, route }) {
   }, [layerPreferences]);
 
   /**
+   * Check if an imported calendar event should be visible
+   * based on user's preference for that calendar
+   */
+  const isImportedEventVisible = useCallback((importedEvent) => {
+    // Find the calendar this event belongs to
+    const calendar = importedCalendars.find(
+      cal => cal.importedCalendarId === importedEvent.importedCalendarId
+    );
+
+    // If calendar not found or explicitly hidden, don't show
+    if (!calendar) return false;
+
+    // Check if the calendar layer is visible (defaults to true)
+    return calendar.isVisible !== false;
+  }, [importedCalendars]);
+
+  /**
+   * Get color for an imported event based on its calendar's color
+   */
+  const getImportedEventColor = useCallback((importedEvent) => {
+    const calendar = importedCalendars.find(
+      cal => cal.importedCalendarId === importedEvent.importedCalendarId
+    );
+    return calendar?.customColor || calendar?.color || '#6200ee';
+  }, [importedCalendars]);
+
+  /**
    * Filter events based on visibility preferences
+   * Merges regular calendar events with imported calendar events
    */
   const visibleEvents = useMemo(() => {
-    return events.filter(isEventVisible);
-  }, [events, isEventVisible]);
+    // Filter regular events
+    const filteredEvents = events.filter(isEventVisible);
+
+    // Filter and transform imported events to match event structure
+    const filteredImportedEvents = importedEvents
+      .filter(isImportedEventVisible)
+      .map(importedEvent => ({
+        // Map imported event to match regular event structure
+        eventId: `imported-${importedEvent.eventId}`,
+        title: importedEvent.title,
+        description: importedEvent.description,
+        location: importedEvent.location,
+        startTime: importedEvent.startTime,
+        endTime: importedEvent.endTime,
+        isAllDay: importedEvent.isAllDay,
+        // Mark as imported for special handling
+        isImported: true,
+        importedCalendarId: importedEvent.importedCalendarId,
+        importedCalendarName: importedEvent.calendarName,
+        // Use calendar color for this event
+        _importedColor: getImportedEventColor(importedEvent),
+        // Empty arrays for fields not applicable to imported events
+        attendees: [],
+        responsibilityEvents: [],
+      }));
+
+    // Merge and return all visible events
+    return [...filteredEvents, ...filteredImportedEvents];
+  }, [events, isEventVisible, importedEvents, isImportedEventVisible, getImportedEventColor]);
 
   // Calculate masterDateTime from current probe position
   const { cellW, padL, padT, gridW, gridH } = getSizes();
@@ -2220,6 +2307,11 @@ export default function CalendarScreen({ navigation, route }) {
         groupId={groupId}
         onClose={() => setShowLayersModal(false)}
         onLayersChanged={setLayerPreferences}
+        onImportedCalendarsChanged={(calendars) => {
+          setImportedCalendars(calendars);
+          // Refetch imported events when calendars change
+          fetchImportedCalendars();
+        }}
       />
       </View>
     </GestureHandlerRootView>
