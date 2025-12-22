@@ -38,6 +38,7 @@ on:
 env:
   NODE_VERSION: '20'
   LIGHTSAIL_IP: '52.65.37.116'
+  LIGHTSAIL_SSH_PORT: '2847'
   APP_DIR: '/home/ubuntu/family-helper'
   WEB_DIR: '/home/ubuntu/web-admin'
 
@@ -154,7 +155,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
           chmod 600 ~/.ssh/lightsail.pem
-          ssh-keyscan -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ env.LIGHTSAIL_SSH_PORT }} -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
 
       - name: Deploy backend files
         run: |
@@ -168,13 +169,13 @@ jobs:
             --exclude 'coverage' \
             --exclude '__tests__' \
             --exclude '.git' \
-            -e "ssh -i ~/.ssh/lightsail.pem" \
+            -e "ssh -i ~/.ssh/lightsail.pem -p ${{ env.LIGHTSAIL_SSH_PORT }}" \
             ./backend/ ubuntu@${{ env.LIGHTSAIL_IP }}:${{ env.APP_DIR }}/
 
       - name: Install dependencies and restart
         run: |
           echo "🔧 Installing dependencies and restarting..."
-          ssh -i ~/.ssh/lightsail.pem ubuntu@${{ env.LIGHTSAIL_IP }} << 'EOF'
+          ssh -i ~/.ssh/lightsail.pem -p ${{ env.LIGHTSAIL_SSH_PORT }} ubuntu@${{ env.LIGHTSAIL_IP }} << 'EOF'
           cd /home/ubuntu/family-helper
 
           # Install production dependencies
@@ -240,7 +241,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail.pem
           chmod 600 ~/.ssh/lightsail.pem
-          ssh-keyscan -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ env.LIGHTSAIL_SSH_PORT }} -H ${{ env.LIGHTSAIL_IP }} >> ~/.ssh/known_hosts
 
       - name: Install dependencies
         working-directory: web-admin
@@ -263,7 +264,7 @@ jobs:
         run: |
           echo "📦 Syncing web app to Lightsail..."
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/lightsail.pem" \
+            -e "ssh -i ~/.ssh/lightsail.pem -p ${{ env.LIGHTSAIL_SSH_PORT }}" \
             ./dist/ ubuntu@${{ env.LIGHTSAIL_IP }}:${{ env.WEB_DIR }}/
 
       - name: Verify web deployment
@@ -282,7 +283,7 @@ jobs:
       - name: Get deployed bundle version
         run: |
           echo "📦 Checking deployed bundle version..."
-          DEPLOYED_BUNDLE=$(ssh -i ~/.ssh/lightsail.pem ubuntu@${{ env.LIGHTSAIL_IP }} \
+          DEPLOYED_BUNDLE=$(ssh -i ~/.ssh/lightsail.pem -p ${{ env.LIGHTSAIL_SSH_PORT }} ubuntu@${{ env.LIGHTSAIL_IP }} \
             "grep -o 'index-[a-f0-9]*\.js' /home/ubuntu/web-admin/index.html | head -1")
           echo "✅ Deployed bundle: $DEPLOYED_BUNDLE"
           echo "DEPLOYED_BUNDLE=$DEPLOYED_BUNDLE" >> $GITHUB_OUTPUT

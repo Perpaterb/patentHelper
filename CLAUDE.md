@@ -1366,16 +1366,18 @@ The app works without it. DO NOT try to "fix" this warning.
 
 ### Manual Deployment Commands
 
+**NOTE: SSH uses non-standard port 2847 for security.**
+
 **Deploy Backend Only:**
 ```bash
 # From project root
 rsync -avz --delete \
   --exclude 'node_modules' --exclude 'uploads' --exclude '.env*' \
-  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847" \
   ./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/
 
 # On server: install deps and restart
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 << 'EOF'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 << 'EOF'
 cd /home/ubuntu/family-helper
 npm ci --omit=dev
 npx prisma generate
@@ -1391,7 +1393,7 @@ npm install --legacy-peer-deps
 npx expo export --platform web
 
 rsync -avz --delete \
-  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847" \
   ./dist/ ubuntu@52.65.37.116:/home/ubuntu/web-admin/
 
 # Verify deployment
@@ -1408,18 +1410,20 @@ curl -s "https://familyhelperapp.com/index.html" | grep -o 'index-[a-f0-9]*\.js'
 
 ### Server Access
 
+**NOTE: SSH uses non-standard port 2847 for security.**
+
 ```bash
 # SSH to Lightsail
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116
 
 # View PM2 logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-helper --lines 50"
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 "pm2 logs family-helper --lines 50"
 
 # Restart backend
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 restart family-helper"
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 "pm2 restart family-helper"
 
 # Check PM2 status
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 status"
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 "pm2 status"
 ```
 
 ### AWS Resources
@@ -1441,7 +1445,7 @@ curl https://familyhelperapp.com/health
 curl -s "https://familyhelperapp.com/index.html" | grep -o 'index-[a-f0-9]*\.js'
 
 # View PM2 logs (live)
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 "pm2 logs family-helper"
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 "pm2 logs family-helper"
 ```
 
 ### Rollback Procedure

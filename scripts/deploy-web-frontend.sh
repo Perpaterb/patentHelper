@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 LIGHTSAIL_IP="52.65.37.116"
+SSH_PORT="2847"
 SSH_KEY="$HOME/.ssh/lightsail-family-helper.pem"
 WEB_DIR="/home/ubuntu/web-admin"
 
@@ -41,13 +42,13 @@ echo "Built bundle: $BUNDLE_HASH"
 echo ""
 echo "Step 2: Syncing to Lightsail..."
 rsync -avz --delete \
-    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+    -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=no" \
     "$PROJECT_ROOT/web-admin/dist/" ubuntu@$LIGHTSAIL_IP:$WEB_DIR/
 
 # Verify deployment
 echo ""
 echo "Step 3: Verifying deployment..."
-DEPLOYED_BUNDLE=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "grep -o 'index-[a-f0-9]*\.js' $WEB_DIR/index.html | head -1")
+DEPLOYED_BUNDLE=$(ssh -i "$SSH_KEY" -p $SSH_PORT -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "grep -o 'index-[a-f0-9]*\.js' $WEB_DIR/index.html | head -1")
 
 if [ "$BUNDLE_HASH" = "$DEPLOYED_BUNDLE" ]; then
     echo "SUCCESS: Deployment verified!"

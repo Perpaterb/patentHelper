@@ -5,6 +5,7 @@
 set -e
 
 LIGHTSAIL_IP="52.65.37.116"
+SSH_PORT="2847"
 SSH_KEY="$HOME/.ssh/lightsail-family-helper.pem"
 APP_DIR="/home/ubuntu/family-helper"
 
@@ -15,7 +16,7 @@ chmod 600 "$SSH_KEY"
 
 # Create app directory on server
 echo "Creating app directory..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "mkdir -p $APP_DIR"
+ssh -i "$SSH_KEY" -p $SSH_PORT -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "mkdir -p $APP_DIR"
 
 # Sync backend files (excluding node_modules, uploads, etc.)
 echo "Syncing backend files..."
@@ -29,12 +30,12 @@ rsync -avz --delete \
   --exclude '__tests__' \
   --exclude 'worker-service' \
   --exclude '.git' \
-  -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+  -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=no" \
   ./backend/ ubuntu@$LIGHTSAIL_IP:$APP_DIR/
 
 # Install dependencies and run migrations
 echo "Installing dependencies and running migrations..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP << 'EOF'
+ssh -i "$SSH_KEY" -p $SSH_PORT -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP << 'EOF'
 cd /home/ubuntu/family-helper
 
 # Install production dependencies
@@ -78,17 +79,17 @@ cd ..
 
 echo "Syncing web-admin files..."
 rsync -avz --delete \
-  -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
+  -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=no" \
   ./web-admin/dist/ ubuntu@$LIGHTSAIL_IP:/home/ubuntu/web-admin/
 
 # Verify deployment
 echo "Verifying deployment..."
-DEPLOYED_BUNDLE=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "grep -o 'index-[a-f0-9]*\.js' /home/ubuntu/web-admin/index.html | head -1")
+DEPLOYED_BUNDLE=$(ssh -i "$SSH_KEY" -p $SSH_PORT -o StrictHostKeyChecking=no ubuntu@$LIGHTSAIL_IP "grep -o 'index-[a-f0-9]*\.js' /home/ubuntu/web-admin/index.html | head -1")
 echo "Deployed bundle: $DEPLOYED_BUNDLE"
 
 echo "=== Deployment complete ==="
-echo "Check status: ssh -i $SSH_KEY ubuntu@$LIGHTSAIL_IP 'pm2 status'"
-echo "View logs: ssh -i $SSH_KEY ubuntu@$LIGHTSAIL_IP 'pm2 logs family-helper'"
+echo "Check status: ssh -i $SSH_KEY -p $SSH_PORT ubuntu@$LIGHTSAIL_IP 'pm2 status'"
+echo "View logs: ssh -i $SSH_KEY -p $SSH_PORT ubuntu@$LIGHTSAIL_IP 'pm2 logs family-helper'"
 echo ""
 echo "Web App: https://familyhelperapp.com"
 echo "API: https://familyhelperapp.com/health"

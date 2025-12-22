@@ -175,9 +175,9 @@ When the bastion EC2 is stopped and restarted, it gets a NEW public IP address.
      --region ap-southeast-2 --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
    ```
 
-2. SSH to Lightsail and update the .env:
+2. SSH to Lightsail and update the .env (port 2847):
    ```bash
-   ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116
+   ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116
    nano /home/ubuntu/family-helper/.env
    # Update BASTION_HOST=<new-ip>
    ```

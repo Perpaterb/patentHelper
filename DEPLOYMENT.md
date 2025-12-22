@@ -46,6 +46,7 @@ Family Helper uses a **Lightsail-based architecture** for production:
 |----------|-------|
 | Instance Name | `family-helper-prod` |
 | IP Address | `52.65.37.116` |
+| SSH Port | `2847` (non-standard for security) |
 | Region | ap-southeast-2 (Sydney) |
 | OS | Ubuntu 22.04 LTS |
 | Node.js | v20 |
@@ -179,10 +180,10 @@ curl https://familyhelperapp.com/health
 ```bash
 # Backend only (emergency)
 rsync -avz --exclude 'node_modules' --exclude '.env*' \
-  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847" \
   ./backend/ ubuntu@52.65.37.116:/home/ubuntu/family-helper/
 
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 \
   "cd /home/ubuntu/family-helper && npm ci --omit=dev && npx prisma migrate deploy && pm2 restart family-helper"
 
 # Web app only (emergency)
@@ -191,7 +192,7 @@ npm install --legacy-peer-deps
 npx expo export --platform web
 
 rsync -avz --delete \
-  -e "ssh -i ~/.ssh/lightsail-family-helper.pem" \
+  -e "ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847" \
   ./dist/ ubuntu@52.65.37.116:/home/ubuntu/web-admin/
 ```
 
@@ -205,12 +206,12 @@ rsync -avz --delete \
 
 ```bash
 # Option 1: Via SSH
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 \
   "cd /home/ubuntu/family-helper && npx prisma migrate deploy"
 
 # Option 2: Via SSH tunnel (for direct access)
 # Terminal 1: Create tunnel
-ssh -i ~/.ssh/lightsail-family-helper.pem -L 5433:family-helper-db-prod.c3uu4gkmcwnq.ap-southeast-2.rds.amazonaws.com:5432 ubuntu@52.65.37.116 -N
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 -L 5433:family-helper-db-prod.c3uu4gkmcwnq.ap-southeast-2.rds.amazonaws.com:5432 ubuntu@52.65.37.116 -N
 
 # Terminal 2: Run migrations
 cd backend
@@ -232,16 +233,16 @@ npx prisma migrate dev
 
 ```bash
 # PM2 application logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 logs family-helper'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 logs family-helper'
 
 # PM2 status
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 status'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 status'
 
 # Nginx access logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo tail -f /var/log/nginx/access.log'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo tail -f /var/log/nginx/access.log'
 
 # Nginx error logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo tail -f /var/log/nginx/error.log'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo tail -f /var/log/nginx/error.log'
 ```
 
 ### Health Check
@@ -257,8 +258,8 @@ curl http://localhost:3000/health
 ### Server Resources
 
 ```bash
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'htop'
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'df -h'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'htop'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'df -h'
 ```
 
 ---
@@ -376,20 +377,20 @@ npx prisma migrate resolve --rolled-back "migration_name"
 
 ```bash
 # Check PM2 status
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 status'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 status'
 
 # Restart application
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 restart family-helper'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 restart family-helper'
 
 # Check logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 logs family-helper --lines 100'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 logs family-helper --lines 100'
 ```
 
 ### Database Connection Issues
 
 ```bash
 # Test from server
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 \
   "PGPASSWORD=PASSWORD psql -h family-helper-db-prod.c3uu4gkmcwnq.ap-southeast-2.rds.amazonaws.com -U familyhelper_admin -d familyhelper -c 'SELECT 1'"
 ```
 
@@ -397,26 +398,26 @@ ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 \
 
 ```bash
 # Check certificate status
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo certbot certificates'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo certbot certificates'
 
 # Force renewal
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo certbot renew --force-renewal'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo certbot renew --force-renewal'
 
 # Reload Nginx
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo systemctl reload nginx'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo systemctl reload nginx'
 ```
 
 ### Disk Full
 
 ```bash
 # Check disk usage
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'df -h'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'df -h'
 
 # Find large files
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'sudo du -sh /home/ubuntu/* | sort -hr | head -10'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'sudo du -sh /home/ubuntu/* | sort -hr | head -10'
 
 # Clear PM2 logs
-ssh -i ~/.ssh/lightsail-family-helper.pem ubuntu@52.65.37.116 'pm2 flush'
+ssh -i ~/.ssh/lightsail-family-helper.pem -p 2847 ubuntu@52.65.37.116 'pm2 flush'
 ```
 
 ---

@@ -8,6 +8,24 @@ Currently working on: **Production - Live and Stable**
 
 ## Recent Updates (2025-12-22)
 
+### SSH Port Security Hardening - COMPLETE
+Changed SSH port from 22 to 2847 to reduce bot scanning attacks.
+
+**Changes:**
+- Server SSH port changed from 22 to 2847
+- Lightsail firewall updated (port 22 closed, port 2847 opened)
+- CI/CD workflow updated with `LIGHTSAIL_SSH_PORT: '2847'`
+- All deploy scripts updated with `-p 2847` flag
+- All documentation updated with new port
+
+**Files Updated:**
+- `.github/workflows/ci-cd.yml` - CI/CD uses new port
+- `scripts/deploy-lightsail.sh` - Manual deploy uses new port
+- `scripts/deploy-web-frontend.sh` - Web deploy uses new port
+- `DEPLOYMENT.md` - All SSH commands updated
+- `CLAUDE.md` - Server access documentation updated
+- `infrastructure/AWS_RESOURCES.md` - Bastion tunnel docs updated
+
 ### Support User Subscription Fix - COMPLETE
 Fixed 400 error on subscription page for support users (permanent subscriptions).
 
