@@ -34,13 +34,24 @@ async function main() {
       process.exit(1);
     }
 
+    // Calculate a date 100 years in the future for permanent subscription
+    const farFutureDate = new Date();
+    farFutureDate.setFullYear(farFutureDate.getFullYear() + 100);
+
+    // Update user with support access and permanent subscription
+    await prisma.user.update({
+      where: { email: DEFAULT_SUPPORT_USER.toLowerCase() },
+      data: {
+        isSupportUser: true,
+        isSubscribed: true,
+        subscriptionEndDate: farFutureDate,
+        renewalDate: farFutureDate,
+      },
+    });
+
     if (user.isSupportUser) {
-      console.log(`✅ ${DEFAULT_SUPPORT_USER} is already a support user.`);
+      console.log(`✅ ${DEFAULT_SUPPORT_USER} was already a support user - refreshed subscription data.`);
     } else {
-      await prisma.user.update({
-        where: { email: DEFAULT_SUPPORT_USER.toLowerCase() },
-        data: { isSupportUser: true },
-      });
       console.log(`✅ Granted support access to: ${DEFAULT_SUPPORT_USER}`);
     }
 

@@ -663,10 +663,16 @@ async function getInvoice(req, res) {
     // Check for permanent subscription (support users, etc.)
     const isPermanent = isPermanentSubscription(user);
 
-    // Calculate due date - for permanent users, use their subscriptionEndDate
+    // Calculate due date - for permanent users, use their subscriptionEndDate or far-future default
     let dueDate;
-    if (isPermanent && user.subscriptionEndDate) {
-      dueDate = new Date(user.subscriptionEndDate);
+    if (isPermanent) {
+      if (user.subscriptionEndDate) {
+        dueDate = new Date(user.subscriptionEndDate);
+      } else {
+        // Permanent users without subscriptionEndDate get a far-future date (100 years)
+        dueDate = new Date();
+        dueDate.setFullYear(dueDate.getFullYear() + 100);
+      }
     } else {
       dueDate = calculateDueDate(user);
     }
