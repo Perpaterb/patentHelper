@@ -629,6 +629,23 @@ const handleSubscribe = () => {
   ```
 - **Local Dev**: Still serves files directly (no redirect needed for Express)
 
+#### 35. **Support Users Have Permanent Subscriptions - Handle Gracefully**
+- ❌ **WRONG**: Assuming all subscribed users have `subscriptionEndDate` set
+- ✅ **CORRECT**: Support users (`isSupportUser: true`) may have permanent subscriptions without explicit dates
+- **Definition**: A user is "permanent subscription" if:
+  - `isSupportUser === true`, OR
+  - `subscriptionEndDate` is 50+ years in the future
+- **Invoice Endpoint Fix** (`subscriptions.controller.js`):
+  - For permanent users, don't require `subscriptionEndDate`
+  - Use far-future default (100 years) if no date exists
+  - Return `isPermanentSubscription: true` in response
+- **Seed Script** (`scripts/seed-support-user.js`):
+  - Must set `isSupportUser: true`, `isSubscribed: true`
+  - Also set `subscriptionEndDate` and `renewalDate` to 100 years future
+  - Prevents "No billing date" errors on subscription page
+- **Files**: `backend/controllers/subscriptions.controller.js`, `backend/scripts/seed-support-user.js`
+- **CRITICAL**: Always check `isPermanentSubscription()` before calculating billing dates
+
 ---
 
 ### 🏗️ Architecture Decisions to Remember:

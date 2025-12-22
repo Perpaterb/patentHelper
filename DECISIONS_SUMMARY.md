@@ -294,6 +294,35 @@ This document contains every decision made during the planning phase. Use this a
 
 ---
 
+## 🔐 SECURITY & SUPPORT ACCESS
+
+### Support User System
+- [✅] **Support Users**: Special accounts with elevated access (`isSupportUser: true`)
+- [✅] **Default Support User**: `zcarss@gmail.com`
+- [✅] **Seed Script**: `backend/scripts/seed-support-user.js`
+- [✅] **Capabilities**:
+  - Access Support section in web-admin
+  - View all users, toggle subscriptions, lock accounts
+  - Immutable audit logging of all support actions
+- [✅] **Permanent Subscription**: Support users get 100-year subscription
+  - No billing prompts or payment required
+  - Subscription page displays correctly (no "No billing date" error)
+
+### Permanent Subscription Detection
+- [✅] **Logic**: `isPermanentSubscription(user)` returns true if:
+  - `isSupportUser === true`, OR
+  - `subscriptionEndDate` is 50+ years in the future
+- [✅] **Files**: `backend/controllers/subscriptions.controller.js`
+- [✅] **Usage**: Invoice endpoint, billing reminders, subscription display
+
+### Edge Authentication (Future)
+- [✅] **Current State**: Authentication in Express middleware
+- [✅] **Planned**: oauth2-proxy sidecar for edge authentication
+- [✅] **Benefit**: Block unauthorized traffic before it reaches the app
+- [✅] **Status**: Documented in NEXT_STEPS.md, implement when app gets traction
+
+---
+
 ## 📋 LEGAL & COMPLIANCE
 
 ### Privacy & Terms

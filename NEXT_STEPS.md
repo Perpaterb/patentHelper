@@ -1,8 +1,36 @@
 # Next Steps - Family Helper Development
 
-## Current Status (Updated: 2025-12-20)
+## Current Status (Updated: 2025-12-22)
 
 Currently working on: **Production - Live and Stable**
+
+---
+
+## Recent Updates (2025-12-22)
+
+### Support User Subscription Fix - COMPLETE
+Fixed 400 error on subscription page for support users (permanent subscriptions).
+
+**Problem:**
+- Support users (`isSupportUser: true`) don't have traditional billing dates
+- Invoice endpoint was failing with "No billing date" error
+- Subscription page showed subscription end date as "—"
+
+**Solution:**
+- Updated `subscriptions.controller.js` to handle permanent subscriptions gracefully
+- For permanent users without `subscriptionEndDate`, use a 100-year future default
+- Updated `seed-support-user.js` to properly set subscription fields:
+  - `isSupportUser: true`
+  - `isSubscribed: true`
+  - `subscriptionEndDate: 100 years future`
+  - `renewalDate: 100 years future`
+
+**Files Changed:**
+- `backend/controllers/subscriptions.controller.js` - Handle permanent subscriptions
+- `backend/scripts/seed-support-user.js` - Set proper subscription fields
+
+**Documentation:**
+- Added Gotcha #35 to `Initial.md` about support user subscription handling
 
 ---
 
