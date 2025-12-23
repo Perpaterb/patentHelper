@@ -1,5 +1,131 @@
 # Work Log
 
+## December 23, 2024
+
+### Android Login Flow & UX Improvements (v1.0.74, versionCode 20)
+
+**Issues Fixed:**
+
+#### 1. Browser Closing During Kinde Email Verification
+
+**Symptom:** When user enters email in Kinde login and switches to email app to get verification code, the browser window closes. User cannot complete login.
+
+**Root Cause:** expo-auth-session uses Chrome Custom Tabs which close when the app is backgrounded.
+
+**Solution:** Complete rewrite of LoginScreen.jsx to use system browser via `Linking.openURL()` instead of Custom Tabs.
+
+**Files Changed:**
+- `mobile-main/src/screens/auth/LoginScreen.jsx` - Complete rewrite
+  - Uses `Linking.openURL()` for OAuth flow
+  - Manual PKCE implementation (code verifier, code challenge)
+  - Listens for deep link callbacks via `Linking.addEventListener()`
+  - System browser stays open when app is backgrounded
+
+- `mobile-main/android/app/src/main/java/com/familyhelper/app/LaunchActivity.kt` - NEW
+  - Entry point activity that manages activity lifecycle
+  - Prevents duplicate MainActivity instances
+
+- `mobile-main/android/app/src/main/java/com/familyhelper/app/MainActivity.kt`
+  - Changed launchMode from singleTask to standard
+  - Added activity stack tracking
+  - Added edge-to-edge disable code
+
+- `mobile-main/android/app/src/main/java/com/familyhelper/app/MainApplication.kt`
+  - Added activity stack tracking methods (addActivityToStack, removeActivityFromStack, isActivityInBackStack)
+
+- `mobile-main/android/app/src/main/AndroidManifest.xml`
+  - LaunchActivity as MAIN/LAUNCHER
+  - MainActivity handles deep links only
+
+**Reference:** Stargazer wallet fix - https://github.com/StardustCollective/stargazer-wallet-ext/commit/a0cdb76
+
+---
+
+#### 2. Navigation Bar Overlap (Android SDK 35+)
+
+**Symptom:** Content was rendering behind the Android navigation bar.
+
+**Solution:**
+- Disabled edge-to-edge mode programmatically in MainActivity.kt
+- Added SafeAreaProvider wrapper in App.js
+- Updated CustomNavigationHeader to use useSafeAreaInsets hook
+
+**Files Changed:**
+- `mobile-main/android/app/src/main/java/com/familyhelper/app/MainActivity.kt`
+  - `WindowCompat.setDecorFitsSystemWindows(window, true)`
+  - Set navigation bar color to white
+  - Set light navigation bar icons
+
+- `mobile-main/App.js`
+  - Added SafeAreaProvider wrapper around entire app
+
+- `mobile-main/src/components/CustomNavigationHeader.jsx`
+  - Now uses `useSafeAreaInsets()` hook
+  - Removed manual STATUS_BAR_HEIGHT calculation
+
+---
+
+#### 3. Token Error Handling & Auto-Retry
+
+**Symptom:** Users saw scary red error messages about "authorization grant invalid/expired/revoked" when reopening the app.
+
+**Solution:**
+- Auto-retry on token errors (4 retries = 5 total attempts)
+- User only sees loading screen during retries
+- After max retries, show support-friendly error with error code and timestamp
+
+**Files Changed:**
+- `mobile-main/src/screens/auth/LoginScreen.jsx`
+  - Added `isTokenError()` function to detect auth errors
+  - Added `MAX_AUTO_RETRIES = 4`
+  - Auto-retry silently shows "Refreshing session..." instead of error
+  - Final error: "Unable to complete login after multiple attempts. Error Code: AUTH-XXXXX, Time: YYYY-MM-DD HH:MM:SS"
+
+---
+
+#### 4. Skip Login for Valid Sessions
+
+**Symptom:** App was clearing tokens on every startup, forcing users to login even when their session was still valid. This caused unnecessary login screens and errors.
+
+**Solution:** Validate existing tokens on startup instead of clearing them.
+
+**Files Changed:**
+- `mobile-main/App.js` - Updated `checkAuthStatus()`:
+  - Check if token exists in SecureStore
+  - If exists, validate by calling `api.get('/auth/me')`
+  - If valid → go straight to Groups (no login needed)
+  - If invalid → clear tokens and show login
+
+**New Flow for Returning Users:**
+```
+Before: Splash → Login flow → Browser → Errors → Groups
+After:  Splash → Groups (if token valid)
+```
+
+---
+
+#### 5. Updated App Icons
+
+**Issue:** App launcher icons were too large, getting cropped on Android adaptive icon masks.
+
+**Solution:** Updated icons with proper padding (icon at ~1/9 of canvas size).
+
+**Files Changed:**
+- `mobile-main/assets/icon.png`
+- `mobile-main/assets/adaptive-icon.png`
+- All mipmap icons regenerated via `npx expo prebuild`
+
+---
+
+### Kinde Token Settings Recommendation
+
+For 30-day sessions, update Kinde dashboard:
+- ID token: 3,600 seconds (1 hour) - keep as is
+- Access token: 86,400 seconds (1 day) - keep as is
+- Refresh token: 2,592,000 seconds (30 days) - change from 15 days
+
+---
+
 ## December 13, 2024
 
 ### AWS Cleanup - Old Project Resources Deleted
