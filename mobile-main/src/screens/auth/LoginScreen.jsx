@@ -1,190 +1,313 @@
 /**
  * Login Screen
  *
- * Automatically initiates Kinde OAuth authentication.
- * No landing page - goes straight to Kinde login.
- * Uses Expo Auth Session with PKCE for OAuth flow.
+ * Uses system browser for OAuth to prevent browser closing when user
+ * switches to email app to get verification code.
  *
- * Note: Kinde uses passwordless email verification. Users may need to
- * leave the app to check their email for a code. We handle this by
- * not treating "dismiss" as an error - users can tap to continue.
+ * Auto-retries on token/auth errors to provide seamless UX.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, AppState } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { Text, ActivityIndicator, Button } from 'react-native-paper';
-import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
 import { CONFIG } from '../../constants/config';
 import api from '../../services/api';
 
-// Required for OAuth redirect handling
-WebBrowser.maybeCompleteAuthSession();
+// Store PKCE values globally so they persist across app backgrounding
+let globalCodeVerifier = null;
+let globalState = null;
+
+// Maximum auto-retry attempts before showing error (user sees loading during retries)
+const MAX_AUTO_RETRIES = 4;
 
 /**
- * @typedef {Object} LoginScreenProps
- * @property {Function} onLoginSuccess - Callback when login succeeds
+ * Check if an error is a token/auth error that should trigger auto-retry
  */
+function isTokenError(errorMessage) {
+  if (!errorMessage) return false;
+  const tokenErrors = [
+    'authorization grant',
+    'invalid',
+    'expired',
+    'revoked',
+    'refresh token',
+    'authorization code',
+    'code_verifier',
+    'PKCE',
+    'state mismatch',
+  ];
+  const lowerMessage = errorMessage.toLowerCase();
+  return tokenErrors.some(err => lowerMessage.includes(err.toLowerCase()));
+}
 
 /**
- * LoginScreen component - Automatically initiates Kinde OAuth with PKCE
- * No UI shown - immediately redirects to Kinde login
- *
- * @param {LoginScreenProps} props
- * @returns {JSX.Element}
+ * Generate a random string for PKCE
  */
+function generateRandomString(length = 64) {
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let text = '';
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+/**
+ * Generate code challenge from verifier (S256)
+ */
+async function generateCodeChallenge(verifier) {
+  const digest = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    verifier,
+    { encoding: Crypto.CryptoEncoding.BASE64 }
+  );
+  // Convert to URL-safe base64
+  return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 export default function LoginScreen({ onLoginSuccess }) {
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showContinue, setShowContinue] = useState(false);
-  const loginAttempted = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [waitingForCallback, setWaitingForCallback] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const hasStartedAuth = useRef(false);
+  const autoRetryCount = useRef(0);
 
-  // OAuth discovery configuration
+  // OAuth discovery
   const discovery = AuthSession.useAutoDiscovery(
     CONFIG.KINDE_DOMAIN ? `https://${CONFIG.KINDE_DOMAIN}` : null
   );
 
-  // OAuth request configuration with PKCE
-  const [request, , promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: CONFIG.KINDE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email', 'offline'],
-      redirectUri: CONFIG.KINDE_REDIRECT_URI,
-      usePKCE: true, // Enable PKCE (no client secret needed)
-    },
-    discovery
-  );
+  /**
+   * Handle the OAuth callback deep link
+   */
+  const handleDeepLink = async (event) => {
+    const url = event.url || event;
+    console.log('[LoginScreen] Deep link received:', url);
+
+    if (!url.includes('callback') && !url.includes('code=')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setWaitingForCallback(false);
+      setStatusMessage('Completing login...');
+
+      // Parse the callback URL
+      const urlObj = new URL(url);
+      const code = urlObj.searchParams.get('code');
+      const state = urlObj.searchParams.get('state');
+      const errorParam = urlObj.searchParams.get('error');
+
+      if (errorParam) {
+        throw new Error(urlObj.searchParams.get('error_description') || errorParam);
+      }
+
+      if (!code) {
+        throw new Error('No authorization code received');
+      }
+
+      // Verify state matches
+      if (state !== globalState) {
+        console.warn('[LoginScreen] State mismatch - PKCE values may be stale');
+        // This is a common cause of token errors - throw to trigger retry
+        throw new Error('State mismatch - session expired');
+      }
+
+      console.log('[LoginScreen] Got auth code, exchanging for tokens...');
+      setStatusMessage('Verifying credentials...');
+
+      // Exchange code for tokens
+      const tokenResult = await AuthSession.exchangeCodeAsync(
+        {
+          clientId: CONFIG.KINDE_CLIENT_ID,
+          code,
+          redirectUri: CONFIG.KINDE_REDIRECT_URI,
+          extraParams: {
+            code_verifier: globalCodeVerifier,
+          },
+        },
+        discovery
+      );
+
+      const { accessToken: kindeToken, idToken } = tokenResult;
+
+      if (!kindeToken) {
+        throw new Error('No access token received from Kinde');
+      }
+
+      // Decode ID token
+      const base64Url = idToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const kindeUser = JSON.parse(jsonPayload);
+
+      console.log('[LoginScreen] User:', kindeUser.email);
+      setStatusMessage('Signing in...');
+
+      // Exchange with our backend
+      const response = await api.post('/auth/exchange', {
+        kindeToken,
+        kindeUser: {
+          id: kindeUser.sub,
+          email: kindeUser.email,
+          given_name: kindeUser.given_name,
+          family_name: kindeUser.family_name,
+        },
+      });
+
+      const { accessToken, user } = response.data;
+
+      // Store tokens
+      await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+
+      console.log('[LoginScreen] Login successful!');
+
+      // Reset retry counter on success
+      autoRetryCount.current = 0;
+
+      if (onLoginSuccess) {
+        onLoginSuccess(user);
+      }
+    } catch (err) {
+      console.error('[LoginScreen] Callback error:', err);
+
+      const errorMessage = err.message || 'Login failed';
+
+      // Check if this is a token/auth error that should auto-retry
+      if (isTokenError(errorMessage) && autoRetryCount.current < MAX_AUTO_RETRIES) {
+        autoRetryCount.current += 1;
+        console.log(`[LoginScreen] Token error detected, auto-retrying (${autoRetryCount.current}/${MAX_AUTO_RETRIES})...`);
+
+        // Clear stale PKCE values and restart login
+        globalCodeVerifier = null;
+        globalState = null;
+        hasStartedAuth.current = false;
+
+        setIsLoading(true);
+        setWaitingForCallback(false);
+        setStatusMessage('Refreshing session...');
+
+        // Small delay before retry to let things settle
+        setTimeout(() => {
+          startLogin();
+        }, 500);
+        return;
+      }
+
+      // If max retries reached or non-token error, show support-friendly error
+      const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const errorCode = `AUTH-${Date.now().toString(36).toUpperCase()}`;
+      setError(`Unable to complete login after multiple attempts.\n\nIf this continues, please contact support with:\nError Code: ${errorCode}\nTime: ${timestamp}`);
+      setIsLoading(false);
+      setStatusMessage('');
+
+      // Log detailed error for debugging
+      console.error(`[LoginScreen] Login failed after ${MAX_AUTO_RETRIES} retries. Code: ${errorCode}, Original error: ${errorMessage}`);
+    }
+  };
+
+  // Listen for deep links
+  useEffect(() => {
+    // Handle deep link if app was opened with one
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes('callback')) {
+        handleDeepLink(url);
+      }
+    });
+
+    // Listen for deep links while app is open
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [discovery]);
 
   /**
-   * Handle OAuth login flow with PKCE
-   * 1. Trigger OAuth flow
-   * 2. Exchange auth code for Kinde tokens (using PKCE)
-   * 3. Send Kinde token to our backend
-   * 4. Get our JWT tokens and store them
+   * Start OAuth flow using system browser
    */
-  const handleLogin = async () => {
+  const startLogin = async () => {
+    if (!discovery?.authorizationEndpoint) {
+      // Don't show error, just wait for discovery
+      console.log('[LoginScreen] Waiting for OAuth discovery...');
+      return;
+    }
+
     try {
       setError(null);
       setIsLoading(true);
-      setShowContinue(false);
+      setStatusMessage('Preparing login...');
 
-      console.log('[LoginScreen] Starting Kinde OAuth flow...');
+      // Generate fresh PKCE values
+      globalCodeVerifier = generateRandomString(64);
+      globalState = generateRandomString(32);
+      const codeChallenge = await generateCodeChallenge(globalCodeVerifier);
 
-      // Trigger OAuth flow
-      const result = await promptAsync();
+      // Build authorization URL
+      const params = new URLSearchParams({
+        client_id: CONFIG.KINDE_CLIENT_ID,
+        redirect_uri: CONFIG.KINDE_REDIRECT_URI,
+        response_type: 'code',
+        scope: 'openid profile email offline',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        state: globalState,
+      });
 
-      console.log('[LoginScreen] Result type:', result.type);
+      const authUrl = `${discovery.authorizationEndpoint}?${params.toString()}`;
 
-      if (result.type === 'success') {
-        const { code } = result.params;
+      console.log('[LoginScreen] Opening system browser for auth...');
 
-        console.log('OAuth successful, exchanging code for tokens...');
-
-        // Exchange authorization code for Kinde tokens using PKCE
-        const tokenResult = await AuthSession.exchangeCodeAsync(
-          {
-            clientId: CONFIG.KINDE_CLIENT_ID,
-            code,
-            redirectUri: CONFIG.KINDE_REDIRECT_URI,
-            extraParams: {
-              code_verifier: request.codeVerifier, // PKCE verifier
-            },
-          },
-          discovery
-        );
-
-        const { accessToken: kindeToken, idToken } = tokenResult;
-
-        console.log('Kinde tokens received');
-
-        if (!kindeToken) {
-          throw new Error('No access token received from Kinde');
-        }
-
-        // Decode ID token to get user info (simple JWT decode, no verification needed)
-        const base64Url = idToken.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split('')
-            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-            .join('')
-        );
-        const kindeUser = JSON.parse(jsonPayload);
-
-        console.log('User info decoded from ID token:', kindeUser.email);
-        console.log('Exchanging Kinde token with backend...');
-
-        // Exchange Kinde token for our backend JWT tokens
-        const response = await api.post('/auth/exchange', {
-          kindeToken,
-          kindeUser: {
-            id: kindeUser.sub,
-            email: kindeUser.email,
-            given_name: kindeUser.given_name,
-            family_name: kindeUser.family_name,
-          },
-        });
-
-        const { accessToken, user } = response.data;
-
-        console.log('Backend JWT received, storing tokens...');
-
-        // Store tokens securely
-        await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-        await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(user));
-
-        console.log('Login successful!');
-
-        // Notify parent component of successful login
-        if (onLoginSuccess) {
-          onLoginSuccess(user);
-        }
-      } else if (result.type === 'error') {
-        setError('Authentication failed. Please try again.');
-        setIsLoading(false);
-      } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        // User left the app (e.g., to check email for verification code)
-        // Don't show as error - show a friendly "Continue Login" button
-        console.log('[LoginScreen] Auth session dismissed - user may have left to check email');
-        setIsLoading(false);
-        setShowContinue(true);
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to login. Please try again.');
+      setWaitingForCallback(true);
       setIsLoading(false);
+      setStatusMessage('');
+
+      // Open in system browser (not Custom Tabs) - stays open when app backgrounded
+      await Linking.openURL(authUrl);
+
+    } catch (err) {
+      console.error('[LoginScreen] Login error:', err);
+
+      // Auto-retry on startup errors too
+      if (autoRetryCount.current < MAX_AUTO_RETRIES) {
+        autoRetryCount.current += 1;
+        console.log(`[LoginScreen] Startup error, auto-retrying (${autoRetryCount.current}/${MAX_AUTO_RETRIES})...`);
+        setTimeout(() => {
+          startLogin();
+        }, 1000);
+        return;
+      }
+
+      // Show support-friendly error after max retries
+      const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const errorCode = `START-${Date.now().toString(36).toUpperCase()}`;
+      setError(`Unable to start login after multiple attempts.\n\nIf this continues, please contact support with:\nError Code: ${errorCode}\nTime: ${timestamp}`);
+      setIsLoading(false);
+      setWaitingForCallback(false);
+      setStatusMessage('');
+
+      console.error(`[LoginScreen] Startup failed after ${MAX_AUTO_RETRIES} retries. Code: ${errorCode}, Original error: ${err.message}`);
     }
   };
 
-  // Automatically trigger login when request is ready
+  // Auto-start login on mount
   useEffect(() => {
-    if (request && !loginAttempted.current && !error && !showContinue) {
-      loginAttempted.current = true;
-      handleLogin();
+    if (discovery && !hasStartedAuth.current && !waitingForCallback && !error) {
+      hasStartedAuth.current = true;
+      startLogin();
     }
-  }, [request]);
-
-  // Continue login after user returns from checking email
-  const handleContinueLogin = () => {
-    loginAttempted.current = false;
-    setShowContinue(false);
-    setError(null);
-    if (request) {
-      handleLogin();
-    }
-  };
-
-  // Allow retry on tap if there's an error
-  const handleRetry = () => {
-    loginAttempted.current = false;
-    setError(null);
-    setShowContinue(false);
-    if (request) {
-      handleLogin();
-    }
-  };
+  }, [discovery]);
 
   return (
     <View style={styles.container}>
@@ -192,33 +315,43 @@ export default function LoginScreen({ onLoginSuccess }) {
         {error ? (
           <>
             <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText} onPress={handleRetry}>
-              Tap to try again
-            </Text>
-          </>
-        ) : showContinue ? (
-          <>
-            <Text style={styles.titleText}>Check Your Email</Text>
-            <Text style={styles.instructionText}>
-              If you entered your email, check your inbox for a verification code.
-              Once you have it, tap the button below to continue.
-            </Text>
             <Button
               mode="contained"
-              onPress={handleContinueLogin}
-              style={styles.continueButton}
+              onPress={() => {
+                hasStartedAuth.current = false;
+                autoRetryCount.current = 0;
+                setError(null);
+                startLogin();
+              }}
+              style={styles.button}
               buttonColor="#6200ee"
             >
-              Continue Login
+              Try Again
             </Button>
-            <Text style={styles.restartText} onPress={handleRetry}>
-              Start over
+          </>
+        ) : waitingForCallback ? (
+          <>
+            <Text style={styles.titleText}>Complete Login in Browser</Text>
+            <Text style={styles.instructionText}>
+              1. Enter your email in the browser{'\n'}
+              2. Check your email for the code{'\n'}
+              3. Enter the code in the browser{'\n'}
+              4. You'll be redirected back here
             </Text>
+            <Button
+              mode="outlined"
+              onPress={startLogin}
+              style={styles.button}
+            >
+              Reopen Browser
+            </Button>
           </>
         ) : (
           <>
             <ActivityIndicator size="large" color="#6200ee" />
-            <Text style={styles.loadingText}>Redirecting to login...</Text>
+            <Text style={styles.loadingText}>
+              {statusMessage || (discovery ? 'Processing...' : 'Connecting...')}
+            </Text>
           </>
         )}
       </View>
@@ -255,30 +388,18 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 24,
-    lineHeight: 24,
+    lineHeight: 28,
     paddingHorizontal: 16,
   },
-  continueButton: {
-    marginBottom: 16,
+  button: {
+    marginTop: 16,
     paddingHorizontal: 24,
     borderRadius: 8,
-  },
-  restartText: {
-    color: '#999',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-    textAlign: 'center',
   },
   errorText: {
     color: '#d32f2f',
     fontSize: 16,
     marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryText: {
-    color: '#6200ee',
-    fontSize: 16,
-    textDecorationLine: 'underline',
     textAlign: 'center',
   },
 });

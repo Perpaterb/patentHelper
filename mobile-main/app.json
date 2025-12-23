@@ -2,7 +2,7 @@
   "expo": {
     "name": "Family Helper",
     "slug": "family-helper",
-    "version": "1.0.6",
+    "version": "1.0.74",
     "scheme": "familyhelper",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

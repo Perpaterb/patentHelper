@@ -10,7 +10,8 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from 'react-native-paper';
 
 /**
@@ -42,11 +43,10 @@ export default function CustomNavigationHeader({
   rightButtons = [],
   customTitle,
 }) {
-  return (
-    <View style={styles.container}>
-      {/* Status bar background */}
-      <View style={styles.statusBarBackground} />
+  const insets = useSafeAreaInsets();
 
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header content */}
       <View style={styles.header}>
         {/* Left side: Back button + custom left buttons */}
@@ -120,14 +120,9 @@ export default function CustomNavigationHeader({
 }
 
 const HEADER_HEIGHT = 60;
-const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 0;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#6200ee',
-  },
-  statusBarBackground: {
-    height: STATUS_BAR_HEIGHT,
     backgroundColor: '#6200ee',
   },
   header: {
