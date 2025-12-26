@@ -2,7 +2,9 @@
  * Authentication Middleware
  *
  * Middleware to protect routes requiring authentication.
- * Verifies JWT tokens and attaches user to request object.
+ * Supports both:
+ * - Kinde tokens (Phase 2) - validated via JWKS
+ * - Custom JWTs (legacy) - validated via JWT_SECRET
  *
  * @module middleware/auth
  */
@@ -11,7 +13,7 @@ const authService = require('../services/auth.service');
 
 /**
  * Middleware to require authentication
- * Verifies JWT token and attaches user to req.user
+ * Verifies JWT token (Kinde or custom) and attaches user to req.user
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -30,27 +32,58 @@ async function requireAuth(req, res, next) {
       });
     }
 
-    // Verify token
-    let decoded;
-    try {
-      decoded = authService.verifyToken(token);
-    } catch (error) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: error.message,
-      });
-    }
+    let user;
 
-    // Check if refresh token (shouldn't be used for API access)
-    if (decoded.type === 'refresh') {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Cannot use refresh token for API access',
-      });
-    }
+    // Check if this is a Kinde token or our custom JWT
+    if (authService.isKindeToken(token)) {
+      // Kinde token - validate via JWKS
+      let kindePayload;
+      try {
+        kindePayload = await authService.verifyKindeToken(token);
+      } catch (error) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: error.message,
+        });
+      }
 
-    // Get user from database
-    const user = await authService.getUserById(decoded.userId);
+      // Get or create user by Kinde ID (sub claim)
+      const kindeId = kindePayload.sub;
+      user = await authService.getUserByKindeId(kindeId);
+
+      if (!user) {
+        // User doesn't exist yet - create them
+        // This handles the case where someone uses Kinde token without going through /auth/exchange
+        user = await authService.findOrCreateUser({
+          id: kindeId,
+          email: kindePayload.email,
+          given_name: kindePayload.given_name,
+          family_name: kindePayload.family_name,
+        });
+      }
+    } else {
+      // Custom JWT (legacy) - validate with our secret
+      let decoded;
+      try {
+        decoded = authService.verifyToken(token);
+      } catch (error) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: error.message,
+        });
+      }
+
+      // Check if refresh token (shouldn't be used for API access)
+      if (decoded.type === 'refresh') {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Cannot use refresh token for API access',
+        });
+      }
+
+      // Get user from database by userId
+      user = await authService.getUserById(decoded.userId);
+    }
 
     if (!user) {
       return res.status(401).json({
@@ -102,6 +135,7 @@ function requireSubscription(req, res, next) {
 /**
  * Optional authentication middleware
  * Attaches user to request if valid token provided, but doesn't require it
+ * Supports both Kinde tokens and custom JWTs
  *
  * @param {Object} req - Express request
  * @param {Object} res - Express response
@@ -114,8 +148,26 @@ async function optionalAuth(req, res, next) {
 
     if (token) {
       try {
-        const decoded = authService.verifyToken(token);
-        const user = await authService.getUserById(decoded.userId);
+        let user;
+
+        if (authService.isKindeToken(token)) {
+          // Kinde token
+          const kindePayload = await authService.verifyKindeToken(token);
+          user = await authService.getUserByKindeId(kindePayload.sub);
+
+          if (!user) {
+            user = await authService.findOrCreateUser({
+              id: kindePayload.sub,
+              email: kindePayload.email,
+              given_name: kindePayload.given_name,
+              family_name: kindePayload.family_name,
+            });
+          }
+        } else {
+          // Custom JWT (legacy)
+          const decoded = authService.verifyToken(token);
+          user = await authService.getUserById(decoded.userId);
+        }
 
         if (user) {
           req.user = user;

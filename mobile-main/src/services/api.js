@@ -5,7 +5,8 @@
  * Handles authentication tokens, request/response interceptors, and error handling.
  *
  * Features:
- * - Automatic token refresh with request queuing
+ * - Uses Kinde tokens directly (Phase 2 - no custom JWT)
+ * - Automatic token refresh via Kinde's token endpoint
  * - Prevents race conditions during simultaneous refreshes
  * - Silent error handling - never shows technical errors to users
  */
@@ -16,6 +17,10 @@ import authEvents from './authEvents';
 
 // API Base URL - uses environment variable with fallback to localhost
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+// Kinde configuration for token refresh
+const KINDE_DOMAIN = process.env.EXPO_PUBLIC_KINDE_DOMAIN || 'familyhelperapp.kinde.com';
+const KINDE_CLIENT_ID = process.env.EXPO_PUBLIC_KINDE_CLIENT_ID || '';
 
 /**
  * Create Axios instance with base configuration
@@ -106,7 +111,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Attempt to refresh token
+        // Attempt to refresh token using Kinde's token endpoint
         const refreshToken = await SecureStore.getItemAsync('refreshToken');
 
         if (!refreshToken) {
@@ -123,18 +128,28 @@ api.interceptors.response.use(
           return Promise.reject(authError);
         }
 
-        // Send refresh token in request body (not as cookie)
+        // Refresh using Kinde's token endpoint (Phase 2)
         const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
+          `https://${KINDE_DOMAIN}/oauth2/token`,
+          new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: KINDE_CLIENT_ID,
+          }).toString(),
           {
-            refreshToken: refreshToken,
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
           }
         );
 
-        const { accessToken: newAccessToken } = response.data;
+        const { access_token: newAccessToken, refresh_token: newRefreshToken } = response.data;
 
-        // Store new access token
+        // Store new tokens
         await SecureStore.setItemAsync('accessToken', newAccessToken);
+        if (newRefreshToken) {
+          await SecureStore.setItemAsync('refreshToken', newRefreshToken);
+        }
 
         // Update default header for future requests
         api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
@@ -152,7 +167,7 @@ api.interceptors.response.use(
         processQueue(refreshError);
         isRefreshing = false;
 
-        console.log('[API] Token refresh failed - triggering logout');
+        console.log('[API] Kinde token refresh failed - triggering logout');
 
         // Clear stored tokens
         await SecureStore.deleteItemAsync('accessToken');

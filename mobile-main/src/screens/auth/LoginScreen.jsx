@@ -134,13 +134,13 @@ export default function LoginScreen({ onLoginSuccess }) {
         discovery
       );
 
-      const { accessToken: kindeToken, idToken } = tokenResult;
+      const { accessToken: kindeAccessToken, idToken, refreshToken: kindeRefreshToken } = tokenResult;
 
-      if (!kindeToken) {
+      if (!kindeAccessToken) {
         throw new Error('No access token received from Kinde');
       }
 
-      // Decode ID token
+      // Decode ID token to get user info
       const base64Url = idToken.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(
@@ -154,21 +154,23 @@ export default function LoginScreen({ onLoginSuccess }) {
       console.log('[LoginScreen] User:', kindeUser.email);
       setStatusMessage('Signing in...');
 
-      // Exchange with our backend
-      const response = await api.post('/auth/exchange', {
-        kindeToken,
-        kindeUser: {
-          id: kindeUser.sub,
-          email: kindeUser.email,
-          given_name: kindeUser.given_name,
-          family_name: kindeUser.family_name,
-        },
-      });
+      // Phase 2: Use Kinde token directly (no /auth/exchange)
+      // Store Kinde access token - API will validate via JWKS
+      await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, kindeAccessToken);
 
-      const { accessToken, user } = response.data;
+      // Store Kinde refresh token for token refresh
+      if (kindeRefreshToken) {
+        await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, kindeRefreshToken);
+      }
 
-      // Store tokens
-      await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      // Build user object from Kinde ID token
+      const user = {
+        kindeId: kindeUser.sub,
+        email: kindeUser.email,
+        given_name: kindeUser.given_name,
+        family_name: kindeUser.family_name,
+      };
+
       await SecureStore.setItemAsync(CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
       console.log('[LoginScreen] Login successful!');

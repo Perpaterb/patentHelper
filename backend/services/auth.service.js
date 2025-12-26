@@ -2,13 +2,29 @@
  * Authentication Service
  *
  * Handles JWT token generation, verification, and user session management.
- * Integrates with Kinde OAuth for user authentication.
+ * Supports both:
+ * - Custom JWTs (legacy - issuer: family-helper-api)
+ * - Kinde tokens (Phase 2 - issuer: https://*.kinde.com)
  *
  * @module services/auth
  */
 
 const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
 const { prisma } = require('../config/database');
+
+/**
+ * Kinde JWKS client for validating Kinde tokens
+ * Caches keys for 10 minutes to reduce calls to Kinde
+ */
+const kindeDomain = process.env.KINDE_DOMAIN || 'familyhelperapp.kinde.com';
+const kindeJwksClient = jwksClient({
+  jwksUri: `https://${kindeDomain}/.well-known/jwks`,
+  cache: true,
+  cacheMaxAge: 600000, // 10 minutes
+  rateLimit: true,
+  jwksRequestsPerMinute: 10,
+});
 
 /**
  * JWT configuration from environment
@@ -56,7 +72,7 @@ function generateRefreshToken(user) {
 }
 
 /**
- * Verify JWT token
+ * Verify custom JWT token (legacy - issuer: family-helper-api)
  * @param {string} token - JWT token to verify
  * @returns {Object} Decoded token payload
  * @throws {Error} If token is invalid or expired
@@ -75,6 +91,76 @@ function verifyToken(token) {
       throw new Error('Invalid token');
     }
     throw error;
+  }
+}
+
+/**
+ * Get signing key from Kinde JWKS
+ * @param {Object} header - JWT header with kid
+ * @returns {Promise<string>} Public key for verification
+ */
+function getKindeSigningKey(header) {
+  return new Promise((resolve, reject) => {
+    kindeJwksClient.getSigningKey(header.kid, (err, key) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      const signingKey = key.getPublicKey();
+      resolve(signingKey);
+    });
+  });
+}
+
+/**
+ * Verify Kinde token using JWKS
+ * @param {string} token - Kinde JWT token
+ * @returns {Promise<Object>} Decoded token payload with user info
+ * @throws {Error} If token is invalid or expired
+ */
+async function verifyKindeToken(token) {
+  try {
+    // First decode without verification to get the header
+    const decoded = jwt.decode(token, { complete: true });
+
+    if (!decoded || !decoded.header || !decoded.header.kid) {
+      throw new Error('Invalid token format - missing kid');
+    }
+
+    // Get the signing key from Kinde JWKS
+    const signingKey = await getKindeSigningKey(decoded.header);
+
+    // Verify the token
+    const payload = jwt.verify(token, signingKey, {
+      algorithms: ['RS256'],
+      issuer: `https://${kindeDomain}`,
+    });
+
+    return payload;
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Kinde token expired');
+    }
+    if (error.name === 'JsonWebTokenError') {
+      throw new Error('Invalid Kinde token');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Check if a token is a Kinde token (vs our custom JWT)
+ * Kinde tokens have issuer https://*.kinde.com
+ * @param {string} token - JWT token to check
+ * @returns {boolean} True if Kinde token
+ */
+function isKindeToken(token) {
+  try {
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.iss) return false;
+    return decoded.iss.includes('kinde.com');
+  } catch {
+    return false;
   }
 }
 
@@ -185,6 +271,8 @@ module.exports = {
   generateAccessToken,
   generateRefreshToken,
   verifyToken,
+  verifyKindeToken,
+  isKindeToken,
   findOrCreateUser,
   getUserById,
   getUserByKindeId,

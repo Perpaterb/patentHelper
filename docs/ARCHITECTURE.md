@@ -92,33 +92,30 @@ Start with: `docker-compose up -d`
 
 ## Authentication
 
-### Current State (BROKEN - causes browser popups)
+### Current State (Phase 2 - Kinde tokens directly)
 
 ```
-Mobile App → Kinde Login → Get Kinde Token
-          → POST /auth/exchange → Get Custom JWT (15 min expiry!)
-          → Use Custom JWT for API calls
-          → Token expires → Refresh fails → Browser popup!
-```
-
-**Problem:** Custom JWTs expire every 15 minutes. The refresh token flow wasn't storing tokens properly, and oauth2-proxy can't validate custom JWTs.
-
-### Target State (TODO - Phase 2)
-
-```
-Mobile App → Kinde Login → Get Kinde Token
+Mobile App → Kinde Login → Get Kinde Token + Refresh Token
           → Use Kinde Token DIRECTLY for API calls
-          → oauth2-proxy validates at edge
-          → Kinde handles refresh automatically
+          → API validates via Kinde JWKS
+          → Token expires → Refresh via Kinde token endpoint
           → No browser popups!
 ```
 
-**Migration required:**
-1. Mobile apps use Kinde tokens directly (skip /auth/exchange)
-2. API validates Kinde tokens via JWKS (not custom JWT)
-3. Enable oauth2-proxy validation (remove SKIP_AUTH_ROUTES)
+**How it works:**
+- Mobile apps store Kinde access token and refresh token
+- API middleware validates Kinde tokens via JWKS (jwks-rsa package)
+- When token expires, mobile app refreshes directly with Kinde
+- No custom JWT layer - simpler and more reliable
 
-See: `backend/oauth2-proxy/README.md` for full migration plan.
+### Backward Compatibility
+
+The API still supports legacy custom JWTs for any old sessions:
+- Checks token issuer to determine type
+- Kinde tokens (issuer: `https://*.kinde.com`) → JWKS validation
+- Custom JWTs (issuer: `family-helper-api`) → JWT_SECRET validation
+
+See: `backend/oauth2-proxy/README.md` for oauth2-proxy edge validation.
 
 ## Database
 

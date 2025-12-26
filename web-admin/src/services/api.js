@@ -3,10 +3,16 @@
  *
  * Axios instance configured for the Family Helper API.
  * Handles authentication tokens, error handling, and request/response interceptors.
+ *
+ * Phase 2: Uses Kinde tokens directly (no custom JWT)
  */
 
 import axios from 'axios';
 import config from '../config/env';
+
+// Kinde configuration for token refresh
+const KINDE_DOMAIN = config.kinde.domain.replace('https://', '');
+const KINDE_CLIENT_ID = config.kinde.clientId;
 
 /**
  * Create axios instance with base configuration
@@ -67,17 +73,37 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Try to refresh the access token
+        // Try to refresh using Kinde's token endpoint (Phase 2)
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        if (!refreshToken) {
+          // No refresh token - clear and let auth state handle it
+          localStorage.removeItem('accessToken');
+          console.warn('[API] No refresh token - user will be redirected by auth state change');
+          return Promise.reject(new Error('No refresh token'));
+        }
+
         const response = await axios.post(
-          `${config.api.url}/auth/refresh`,
-          {},
-          { withCredentials: true }
+          `https://${KINDE_DOMAIN}/oauth2/token`,
+          new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            client_id: KINDE_CLIENT_ID,
+          }).toString(),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
         );
 
-        const { accessToken } = response.data;
+        const { access_token: accessToken, refresh_token: newRefreshToken } = response.data;
 
-        // Store new access token
+        // Store new tokens
         localStorage.setItem('accessToken', accessToken);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
 
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -87,7 +113,8 @@ api.interceptors.response.use(
         // DO NOT redirect here! Let Kinde's isAuthenticated state handle navigation.
         // Redirecting here causes infinite loops when combined with React Navigation.
         localStorage.removeItem('accessToken');
-        console.warn('[API] Token refresh failed - user will be redirected by auth state change');
+        localStorage.removeItem('refreshToken');
+        console.warn('[API] Kinde token refresh failed - user will be redirected by auth state change');
         return Promise.reject(refreshError);
       }
     }

@@ -263,9 +263,10 @@ function AppNavigator() {
   const [tokenExchangeError, setTokenExchangeError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Handle token exchange when Kinde authentication completes
+  // Phase 2: Store Kinde tokens directly (no /auth/exchange)
+  // The Kinde React SDK handles token refresh automatically
   useEffect(() => {
-    async function exchangeToken() {
+    async function storeKindeTokens() {
       if (isLoading) {
         return;
       }
@@ -278,48 +279,28 @@ function AppNavigator() {
       }
 
       try {
+        // Get Kinde access token - SDK handles refresh automatically
         const kindeToken = await getToken();
         if (!kindeToken || !user || !user.email) {
           return;
         }
 
-        const exchangePayload = {
-          kindeToken,
-          kindeUser: {
-            id: user.id,
-            email: user.email,
-            given_name: user.givenName,
-            family_name: user.familyName,
-          },
-        };
+        // Store Kinde token directly - API validates via JWKS
+        await SecureStore.setItemAsync('accessToken', kindeToken);
 
-        const response = await fetch(`${config.api.url}/auth/exchange`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(exchangePayload),
-        });
+        // Note: Kinde React SDK manages refresh internally via silent auth
+        // We don't need to store refresh token separately for web-admin
+        // The SDK will provide a fresh token when we call getToken()
 
-        if (!response.ok) {
-          throw new Error('Token exchange failed');
-        }
-
-        const data = await response.json();
-        if (data.accessToken) {
-          await SecureStore.setItemAsync('accessToken', data.accessToken);
-          // Also store refresh token for imported mobile screens that use localStorage-based token storage
-          if (data.refreshToken) {
-            await SecureStore.setItemAsync('refreshToken', data.refreshToken);
-          }
-          setTokenExchanged(true);
-        }
+        setTokenExchanged(true);
+        console.log('[App] Kinde token stored for API calls');
       } catch (error) {
-        console.error('Token exchange failed:', error.message);
+        console.error('Failed to get Kinde token:', error.message);
         setTokenExchangeError(error.message);
       }
     }
 
-    exchangeToken();
+    storeKindeTokens();
   }, [isAuthenticated, isLoading, getToken, user, tokenExchanged]);
 
   // Show loading until Kinde has finished checking auth state

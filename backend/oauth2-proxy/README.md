@@ -4,51 +4,16 @@ This directory contains configuration for oauth2-proxy, which provides edge auth
 
 ## Overview
 
-### Current Mode: Simple Blocking (Phase 1)
+### Current Mode: Full Edge Validation (Phase 2)
 
-**STATUS: Implemented but deferred for full validation**
+**STATUS: Implemented - Mobile and Web use Kinde tokens directly**
 
-Currently oauth2-proxy is configured in "simple blocking" mode. This is a stepping stone to full edge authentication.
+oauth2-proxy is configured for full edge validation. Mobile apps and web admin use Kinde tokens directly (no custom JWT exchange).
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        CURRENT ARCHITECTURE                                  │
-│                        (Simple Blocking Mode)                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│    ┌──────────┐     ┌───────────────┐     ┌─────────────┐     ┌──────────┐ │
-│    │          │     │               │     │             │     │          │ │
-│    │ Internet │────▶│ oauth2-proxy  │────▶│  Express    │────▶│ Database │ │
-│    │          │     │ (passthrough) │     │    API      │     │          │ │
-│    └──────────┘     └───────────────┘     └─────────────┘     └──────────┘ │
-│                            │                     │                          │
-│                            │                     │                          │
-│                     Currently skips        API validates its                │
-│                     all routes (can't      own custom JWTs                  │
-│                     validate API JWTs)     (JWT_SECRET)                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-Why simple blocking?
-- API uses custom JWTs signed with JWT_SECRET (issuer: family-helper-api)
-- oauth2-proxy validates Kinde tokens (issuer: https://familyhelperapp.kinde.com)
-- These are DIFFERENT tokens with DIFFERENT issuers
-- oauth2-proxy cannot validate API's custom JWTs
-
-Current behavior:
-- All routes are skipped (SKIP_AUTH_ROUTES: "^/.*")
-- oauth2-proxy acts as a passthrough proxy
-- API handles all authentication internally
-```
-
-### Future Architecture (Full Edge Validation - Phase 2)
-
-**TODO: Implement when adding load balancer or migrating to Kinde tokens**
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         TARGET ARCHITECTURE                                  │
-│                     (Full Edge Validation Mode)                              │
+│                        (Full Edge Validation)                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │    ┌──────────┐     ┌───────────────┐     ┌─────────────┐     ┌──────────┐ │
@@ -57,30 +22,20 @@ Current behavior:
 │    │          │     │ (validates!)  │     │    API      │     │          │ │
 │    └──────────┘     └───────┬───────┘     └─────────────┘     └──────────┘ │
 │                             │                    │                          │
-│                      ┌──────┴──────┐             │                          │
-│                      │             │             │                          │
-│                      ▼             ▼             │                          │
-│               ┌──────────┐  ┌──────────┐   API trusts                       │
-│               │ No Token │  │ Invalid  │   oauth2-proxy                     │
-│               │          │  │  Token   │   completely                       │
-│               └────┬─────┘  └────┬─────┘                                    │
-│                    │             │                                          │
-│                    ▼             ▼                                          │
-│               ┌─────────────────────┐                                       │
-│               │   Public Pages      │                                       │
-│               │   (Landing Page)    │                                       │
-│               └─────────────────────┘                                       │
-│                                                                              │
-│  Requirements for full validation:                                          │
-│  1. Mobile apps send Kinde tokens directly (not custom JWTs)                │
-│  2. API validates Kinde tokens (not custom JWTs)                            │
-│  3. Remove JWT_SECRET-based auth from API                                   │
-│  4. Update all auth middleware to use Kinde validation                      │
+│                      Validates Kinde       API also validates               │
+│                      tokens via JWKS       Kinde tokens (JWKS)              │
+│                                            for defense-in-depth             │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
+
+How it works:
+- Mobile apps get Kinde tokens directly (no /auth/exchange)
+- API validates Kinde tokens via JWKS (not custom JWTs)
+- oauth2-proxy validates at edge (optional layer)
+- Token refresh handled by Kinde SDK/endpoints
 ```
 
-### Legacy Architecture (Without oauth2-proxy)
+### Legacy Architecture (Phase 1 - Without Kinde token validation)
 ```
 User → Nginx → Express (handles auth internally)
                   ↓

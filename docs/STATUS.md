@@ -23,10 +23,7 @@ The app is deployed and functional. Users can:
 ## Known Issues
 
 ### High Priority
-| Issue | Description | Status |
-|-------|-------------|--------|
-| Auth token refresh | Browser popup every ~15 min on mobile due to short JWT expiry | Branch: `fix/token-refresh-auth` - partial fix |
-| Auth architecture | Need to migrate from custom JWT to Kinde tokens directly | Not started - see `docs/ARCHITECTURE.md` |
+None currently tracked.
 
 ### Medium Priority
 | Issue | Description | Status |
@@ -41,13 +38,18 @@ None currently tracked.
 | Branch | Purpose | Status |
 |--------|---------|--------|
 | `main` | Production | Stable |
-| `fix/token-refresh-auth` | Store refresh tokens properly | Ready for testing |
+| `feature/phase2-kinde-token-auth` | Phase 2: Use Kinde tokens directly | Ready for testing |
 | `fix/android-custom-alert-modal` | Fix role change popup on Android | Ready for testing |
+
+## Recently Completed
+
+- **Auth Phase 2 Migration** - Mobile/web now use Kinde tokens directly (no custom JWT)
+- **Documentation Overhaul** - Clean structure in `/docs/`
 
 ## What's Next
 
-1. **Fix auth token refresh** - Migrate to Kinde tokens (Phase 2 in oauth2-proxy docs)
-2. **Complete documentation overhaul** - This is in progress
+1. **Test Phase 2 auth** - Verify token refresh works without browser popups
+2. **Merge Phase 2 to main** - After testing confirmed
 
 ---
 
