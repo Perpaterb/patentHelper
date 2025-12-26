@@ -18,6 +18,8 @@
 
 **All changes go through branches. Never push directly to main.**
 
+**Why:** Every change is tracked in git. If something breaks, we can easily revert to any previous commit. This is critical for a production app.
+
 ```
 1. Create branch    → git checkout -b feature/short-description
 2. Make changes     → Code, test locally
@@ -36,7 +38,18 @@
 - Skip running tests
 - Merge without user approval
 
-### 2. Update Documentation
+### 2. Dev Must Match Prod
+
+**Local development environment must mirror production as closely as possible.**
+
+- Use Docker Compose locally (same services as prod)
+- Same database schema (Prisma migrations)
+- Same environment variable names
+- Test locally before pushing
+
+If it works in dev but fails in prod, the environments have drifted. Fix the drift.
+
+### 3. Update Documentation
 
 **After completing work, update relevant docs:**
 
@@ -53,7 +66,7 @@
 3. Update docs if needed
 4. Tell user: "Changes committed. Docs updated. Ready for next task."
 
-### 3. KISS - Keep It Simple
+### 4. KISS - Keep It Simple
 
 - Build the simplest solution that works
 - No premature optimization
