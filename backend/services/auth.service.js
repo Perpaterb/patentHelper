@@ -17,7 +17,9 @@ const { prisma } = require('../config/database');
  * Kinde JWKS client for validating Kinde tokens
  * Caches keys for 10 minutes to reduce calls to Kinde
  */
-const kindeDomain = process.env.KINDE_DOMAIN || 'familyhelperapp.kinde.com';
+// Normalize domain - strip protocol if present (env var might include https://)
+const rawKindeDomain = process.env.KINDE_DOMAIN || 'familyhelperapp.kinde.com';
+const kindeDomain = rawKindeDomain.replace(/^https?:\/\//, '');
 const kindeJwksClient = jwksClient({
   jwksUri: `https://${kindeDomain}/.well-known/jwks`,
   cache: true,
