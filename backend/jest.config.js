@@ -16,4 +16,7 @@ module.exports = {
     'node_modules/(?!(uuid)/)',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // Force exit after tests complete to handle libraries with open handles
+  // (e.g., jwks-rsa JWKS client caching, database connections)
+  forceExit: true,
 };
