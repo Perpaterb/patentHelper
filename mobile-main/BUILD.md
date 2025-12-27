@@ -44,28 +44,38 @@ git commit -m "chore: Bump version to 1.0.79 (versionCode 25)"
 git push
 ```
 
-### Step 3: Run EAS Build
+### Step 3: Build (Choose One)
+
+#### Option A: Local Build (Recommended - Fast, ~5 min)
+
+```bash
+cd mobile-main/android
+KEYSTORE_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' KEY_PASSWORD='NFWFurn6N82k19ymlZQDB3AQp9web0Ai' ./gradlew bundleRelease
+```
+
+AAB output: `android/app/build/outputs/bundle/release/app-release.aab`
+
+Copy to releases:
+```bash
+cp android/app/build/outputs/bundle/release/app-release.aab releases/family-helper-v1.0.XX.aab
+```
+
+#### Option B: EAS Build (Cloud - Slower, ~15-30 min)
 
 ```bash
 cd mobile-main
 npx eas build --platform android --profile production
 ```
 
-- Build takes ~10-15 minutes (longer in free tier queue)
+- Has queue wait time (free tier)
 - Build logs: https://expo.dev/accounts/zcarss/projects/family-helper/builds
+- Download AAB from link shown when complete
 
-### Step 4: Download AAB
-
-Once build completes, download from the link shown in terminal:
-```bash
-curl -L -o releases/family-helper-v1.0.79.aab "https://expo.dev/artifacts/eas/XXXXX.aab"
-```
-
-### Step 5: Update This File
+### Step 4: Update This File
 
 **After successful build, update the "Current Version" section at the top of this file!**
 
-### Step 6: Upload to Play Store
+### Step 5: Upload to Play Store
 
 1. Go to [Google Play Console](https://play.google.com/console)
 2. Select Family Helper > Production > Create new release
