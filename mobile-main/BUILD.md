@@ -6,14 +6,14 @@
 
 ### Current Version (update after each release):
 ```
-versionCode: 24
-versionName: 1.0.78
+versionCode: 25
+versionName: 1.0.79
 ```
 
 ### Next Build Must Use:
 ```
-versionCode: 25
-versionName: 1.0.79
+versionCode: 26
+versionName: 1.0.80
 ```
 
 ---
@@ -109,6 +109,7 @@ Ensure file exists at `android/app/google-services.json` and is committed.
 
 | Version | Code | Date | Notes |
 |---------|------|------|-------|
+| 1.0.79 | 25 | Dec 27, 2024 | Calendar date fix, notification reminders |
 | 1.0.78 | 24 | Dec 27, 2024 | Calendar reminders, FCM push |
 | 1.0.77 | 23 | Dec 27, 2024 | FCM configuration |
 | 1.0.76 | 22 | Dec 23, 2024 | Login flow improvements |
