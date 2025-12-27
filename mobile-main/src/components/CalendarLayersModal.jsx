@@ -7,7 +7,7 @@
  *
  * Each layer has controls for:
  * - Visibility toggle (eye icon)
- * - Notification toggle (bell icon)
+ * - Notification toggle (ear icon - matches group/message muting)
  * - Color picker (color circle)
  *
  * Each user has their own layer preferences that only affect their view.
@@ -375,7 +375,7 @@ export default function CalendarLayersModal({
 
         {/* Notification Toggle */}
         <IconButton
-          icon={layer.notificationsEnabled ? 'bell' : 'bell-off'}
+          icon={layer.notificationsEnabled ? 'ear-hearing' : 'ear-hearing-off'}
           iconColor={layer.notificationsEnabled ? '#6200ee' : '#999'}
           size={24}
           onPress={() => toggleMemberNotifications(layer)}
@@ -438,7 +438,7 @@ export default function CalendarLayersModal({
 
         {/* Notification Toggle */}
         <IconButton
-          icon={calendar.notificationsEnabled ? 'bell' : 'bell-off'}
+          icon={calendar.notificationsEnabled ? 'ear-hearing' : 'ear-hearing-off'}
           iconColor={calendar.notificationsEnabled ? '#6200ee' : '#999'}
           size={24}
           onPress={() => toggleImportedNotifications(calendar)}
@@ -516,7 +516,7 @@ export default function CalendarLayersModal({
                   <Text style={styles.legendText}>Visibility</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <IconButton icon="bell" size={16} iconColor="#666" />
+                  <IconButton icon="ear-hearing" size={16} iconColor="#666" />
                   <Text style={styles.legendText}>Notifications</Text>
                 </View>
                 <View style={styles.legendItem}>

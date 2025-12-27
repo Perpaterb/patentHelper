@@ -2058,7 +2058,7 @@ export default function CalendarScreen({ navigation, route }) {
         }
         rightButtons={[
           {
-            icon: 'bell-outline',
+            icon: 'ear-hearing',
             onPress: () => setShowLayersModal(true),
           },
           {
