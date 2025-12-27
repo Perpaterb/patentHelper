@@ -127,14 +127,16 @@ describe('GroupsListScreen', () => {
       expect(await findByText('Extended Family')).toBeTruthy();
     });
 
-    it('should display group roles correctly', async () => {
-      const { findByText } = renderWithProvider(
+    it('should display role badge only for admin role', async () => {
+      const { findByText, queryByText } = renderWithProvider(
         <GroupsListScreen navigation={mockNavigation} />
       );
 
+      // Only ADMIN role should show a badge (per business rule)
       expect(await findByText('ADMIN')).toBeTruthy();
-      expect(await findByText('PARENT')).toBeTruthy();
-      expect(await findByText('CAREGIVER')).toBeTruthy();
+      // Non-admin roles (parent, caregiver, etc.) should NOT show role badges
+      expect(queryByText('PARENT')).toBeNull();
+      expect(queryByText('CAREGIVER')).toBeNull();
     });
 
     it('should display unread badges for groups with unread messages', async () => {

@@ -51,6 +51,12 @@ None currently tracked.
 1. **Test Phase 2 auth** - Verify token refresh works without browser popups
 2. **Merge Phase 2 to main** - After testing confirmed
 
+## Future Features
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Web Push Notifications | Add browser push notifications for web-admin (requires Service Worker, VAPID keys, Web Push API) | Medium |
+
 ---
 
 **Note:** Keep this file concise. Move completed items to archive, not here.
