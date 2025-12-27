@@ -52,3 +52,6 @@ GoogleService-Info.plist
 # google-services.json is committed (needed for EAS builds)
 GoogleService-Info.plist
 *-firebase-adminsdk-*.json
+
+# Release builds (large AAB files - don't commit)
+releases/
