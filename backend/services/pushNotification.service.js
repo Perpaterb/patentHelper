@@ -213,6 +213,7 @@ async function sendToUsers(userIds, title, body, data = {}) {
 
 /**
  * Send notification to all members of a group (except sender)
+ * Respects group mute setting - muted members won't receive notifications
  *
  * @param {string} groupId - Group ID
  * @param {string} excludeUserId - User ID to exclude (usually the sender)
@@ -223,11 +224,13 @@ async function sendToUsers(userIds, title, body, data = {}) {
  */
 async function sendToGroupMembers(groupId, excludeUserId, title, body, data = {}) {
   // Get all registered group members with their user IDs
+  // Exclude muted members - they don't want notifications from this group
   const members = await prisma.groupMember.findMany({
     where: {
       groupId,
       isRegistered: true,
       isHidden: false,
+      isMuted: false, // Respect mute setting
       userId: {
         not: null,
       },
@@ -251,7 +254,7 @@ async function sendToGroupMembers(groupId, excludeUserId, title, body, data = {}
 
 /**
  * Send notification to specific group members by their groupMemberIds
- * Respects notification preferences
+ * Respects notification preferences and mute settings
  *
  * @param {Array<string>} groupMemberIds - Array of group member IDs
  * @param {string} notificationType - Type: 'message', 'mention', 'calendar', 'finance', 'request'
@@ -294,12 +297,13 @@ async function sendToGroupMembersWithPreferences(groupMemberIds, notificationTyp
       break;
   }
 
-  // Get members who have the notification preference enabled
+  // Get members who have the notification preference enabled AND are not muted
   const members = await prisma.groupMember.findMany({
     where: {
       groupMemberId: { in: groupMemberIds },
       isRegistered: true,
       userId: { not: null },
+      isMuted: false, // Respect mute setting
       ...preferenceFilter,
     },
     select: {
@@ -404,6 +408,7 @@ async function getUserTokens(userId) {
 
 /**
  * Send notification to admins about a pending approval request
+ * Respects mute settings
  *
  * @param {string} groupId - Group ID
  * @param {string} excludeAdminId - Admin ID to exclude (the requester)
@@ -414,13 +419,14 @@ async function getUserTokens(userId) {
  */
 async function sendApprovalNotification(groupId, excludeAdminId, approvalType, description, approvalId) {
   try {
-    // Get all admins in the group except the requester
+    // Get all admins in the group except the requester, excluding muted members
     const admins = await prisma.groupMember.findMany({
       where: {
         groupId: groupId,
         role: 'admin',
         isRegistered: true,
         isHidden: false,
+        isMuted: false, // Respect mute setting
         groupMemberId: { not: excludeAdminId },
         userId: { not: null },
       },
