@@ -695,11 +695,41 @@ async function getGroupById(req, res) {
     // 2. Their actual role in this group is admin
     const effectiveRole = (isOnTrial && userCreatedThisGroup) ? 'admin' : membership.role;
 
-    // Calculate pending calendar count (only if calendar notifications are enabled and group not muted)
+    // Calculate pending calendar count using per-layer notification preferences
+    // Each member can enable/disable notifications for each other member's "layer"
     let pendingCalendarCount = 0;
     let upcomingRemindersCount = 0;
-    if (!membership.isMuted && membership.notifyAllCalendar) {
-      pendingCalendarCount = await prisma.calendarEvent.count({
+
+    if (!membership.isMuted) {
+      // Get the user's calendar layer preferences for this group
+      const layerPreferences = await prisma.calendarLayerPreference.findMany({
+        where: {
+          userId: userId,
+          groupId: groupId,
+        },
+        select: {
+          memberLayerId: true,
+          notificationsEnabled: true,
+        },
+      });
+
+      // Build a map of memberLayerId -> notificationsEnabled
+      // Default is true if no preference exists
+      const notificationPrefs = new Map();
+      for (const pref of layerPreferences) {
+        notificationPrefs.set(pref.memberLayerId, pref.notificationsEnabled);
+      }
+
+      // Helper to check if notifications are enabled for a member layer
+      const isNotificationEnabled = (memberLayerId) => {
+        if (notificationPrefs.has(memberLayerId)) {
+          return notificationPrefs.get(memberLayerId);
+        }
+        return true; // Default to enabled if no preference exists
+      };
+
+      // Get events created by others since last viewed
+      const newEvents = await prisma.calendarEvent.findMany({
         where: {
           groupId: groupId,
           createdBy: { not: membership.groupMemberId },
@@ -707,10 +737,28 @@ async function getGroupById(req, res) {
             gt: membership.lastCalendarViewedAt || new Date(0),
           },
         },
+        select: {
+          eventId: true,
+          createdBy: true,
+          attendees: {
+            select: {
+              groupMemberId: true,
+            },
+          },
+        },
       });
 
+      // Count events where at least one attendee (or creator if no attendees) has notifications enabled
+      pendingCalendarCount = newEvents.filter(event => {
+        // If event has attendees, check if any attendee's layer has notifications enabled
+        if (event.attendees && event.attendees.length > 0) {
+          return event.attendees.some(att => isNotificationEnabled(att.groupMemberId));
+        }
+        // If no attendees, check if the creator's layer has notifications enabled
+        return isNotificationEnabled(event.createdBy);
+      }).length;
+
       // Calculate upcoming event reminders count
-      // For ALL events in the group within their notification window
       const now = new Date();
       const upcomingEvents = await prisma.calendarEvent.findMany({
         where: {
@@ -721,6 +769,12 @@ async function getGroupById(req, res) {
           eventId: true,
           startTime: true,
           notificationMinutes: true,
+          createdBy: true,
+          attendees: {
+            select: {
+              groupMemberId: true,
+            },
+          },
         },
       });
 
@@ -735,6 +789,16 @@ async function getGroupById(req, res) {
 
       upcomingRemindersCount = upcomingEvents.filter(event => {
         if (remindedEventIds.has(event.eventId)) return false;
+
+        // Check if any attendee (or creator) has notifications enabled
+        let hasEnabledLayer = false;
+        if (event.attendees && event.attendees.length > 0) {
+          hasEnabledLayer = event.attendees.some(att => isNotificationEnabled(att.groupMemberId));
+        } else {
+          hasEnabledLayer = isNotificationEnabled(event.createdBy);
+        }
+        if (!hasEnabledLayer) return false;
+
         const notifyMinutes = event.notificationMinutes || 15;
         const notifyTime = new Date(event.startTime.getTime() - notifyMinutes * 60 * 1000);
         return now >= notifyTime;

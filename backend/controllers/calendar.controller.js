@@ -1396,8 +1396,34 @@ async function markCalendarViewed(req, res) {
       },
     });
 
+    // Get the user's calendar layer preferences for this group
+    const layerPreferences = await prisma.calendarLayerPreference.findMany({
+      where: {
+        userId: userId,
+        groupId: groupId,
+      },
+      select: {
+        memberLayerId: true,
+        notificationsEnabled: true,
+      },
+    });
+
+    // Build a map of memberLayerId -> notificationsEnabled
+    const notificationPrefs = new Map();
+    for (const pref of layerPreferences) {
+      notificationPrefs.set(pref.memberLayerId, pref.notificationsEnabled);
+    }
+
+    // Helper to check if notifications are enabled for a member layer
+    const isNotificationEnabled = (memberLayerId) => {
+      if (notificationPrefs.has(memberLayerId)) {
+        return notificationPrefs.get(memberLayerId);
+      }
+      return true; // Default to enabled if no preference exists
+    };
+
     // Also mark as "reminded" any events in the notification window
-    // This clears the dark green badge
+    // This clears the dark green badge - only for events with notifications enabled
     const upcomingEvents = await prisma.calendarEvent.findMany({
       where: {
         groupId: groupId,
@@ -1407,14 +1433,26 @@ async function markCalendarViewed(req, res) {
         eventId: true,
         startTime: true,
         notificationMinutes: true,
+        createdBy: true,
+        attendees: {
+          select: {
+            groupMemberId: true,
+          },
+        },
       },
     });
 
-    // Filter to events within their notification window
+    // Filter to events within their notification window AND with notifications enabled
     const eventsInNotificationWindow = upcomingEvents.filter(event => {
       const notifyMinutes = event.notificationMinutes || 15;
       const notifyTime = new Date(event.startTime.getTime() - notifyMinutes * 60 * 1000);
-      return now >= notifyTime;
+      if (now < notifyTime) return false;
+
+      // Check if any attendee (or creator) has notifications enabled
+      if (event.attendees && event.attendees.length > 0) {
+        return event.attendees.some(att => isNotificationEnabled(att.groupMemberId));
+      }
+      return isNotificationEnabled(event.createdBy);
     });
 
     // Create reminder records for these events (upsert to avoid duplicates)
