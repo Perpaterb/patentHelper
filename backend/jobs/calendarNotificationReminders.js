@@ -130,12 +130,12 @@ async function runReminderJob() {
     // Find events that:
     // 1. Start in the future (haven't happened yet)
     // 2. Have a notification time that has passed
-    // 3. Are not hidden/deleted
+    // 3. Are in an active (non-hidden) group
     const events = await prisma.calendarEvent.findMany({
       where: {
         startTime: { gt: now }, // Event hasn't started yet
-        isHidden: false,
         notificationMinutes: { not: null, gt: 0 }, // Has reminder set
+        group: { isHidden: false }, // Group is active
       },
       include: {
         group: {
