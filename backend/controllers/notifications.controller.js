@@ -254,6 +254,153 @@ async function getPreferences(req, res) {
 }
 
 /**
+ * Get total badge count across all groups for app icon badge
+ * GET /notifications/badge-count
+ *
+ * Returns the sum of all notification counts across all non-muted groups.
+ * This is used to set the app icon badge number.
+ */
+async function getTotalBadgeCount(req, res) {
+  try {
+    const userId = req.user.userId;
+
+    // Get all groups user is a member of (non-hidden, registered)
+    const memberships = await prisma.groupMember.findMany({
+      where: {
+        userId: userId,
+        isHidden: false,
+        isRegistered: true,
+      },
+      select: {
+        groupMemberId: true,
+        groupId: true,
+        role: true,
+        isMuted: true,
+        notifyAllCalendar: true,
+        lastCalendarViewedAt: true,
+        group: {
+          select: {
+            groupId: true,
+            createdByUserId: true,
+          },
+        },
+      },
+    });
+
+    // Get user subscription status for trial check
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      select: { isSubscribed: true, createdAt: true },
+    });
+    const daysSinceCreation = user ? (Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+    const isOnTrial = user && !user.isSubscribed && daysSinceCreation <= 20;
+
+    let totalBadgeCount = 0;
+
+    for (const membership of memberships) {
+      // Skip muted groups
+      if (membership.isMuted) continue;
+
+      const groupId = membership.groupId;
+      const userCreatedThisGroup = membership.group.createdByUserId === userId;
+      const effectiveRole = (isOnTrial && userCreatedThisGroup) ? 'admin' : membership.role;
+
+      // Count unread messages from message groups
+      const messageGroups = await prisma.messageGroup.findMany({
+        where: {
+          groupId: groupId,
+          isHidden: false,
+        },
+        include: {
+          members: {
+            where: { groupMemberId: membership.groupMemberId },
+            select: { isMuted: true, lastReadAt: true },
+          },
+        },
+      });
+
+      for (const messageGroup of messageGroups) {
+        const userMembership = messageGroup.members[0];
+        if (!userMembership || userMembership.isMuted) continue;
+
+        const unreadCount = await prisma.message.count({
+          where: {
+            messageGroupId: messageGroup.messageGroupId,
+            isHidden: false,
+            senderId: { not: membership.groupMemberId },
+            createdAt: { gt: userMembership.lastReadAt || new Date(0) },
+          },
+        });
+        totalBadgeCount += unreadCount;
+      }
+
+      // Count pending approvals (admins only)
+      if (effectiveRole === 'admin') {
+        const approvals = await prisma.approval.findMany({
+          where: {
+            groupId: groupId,
+            status: 'pending',
+          },
+          include: {
+            votes: {
+              where: { adminId: membership.groupMemberId },
+            },
+          },
+        });
+        totalBadgeCount += approvals.filter(a => a.votes.length === 0).length;
+      }
+
+      // Count pending finance matters
+      const financeMatters = await prisma.financeMatter.findMany({
+        where: {
+          groupId: groupId,
+          isSettled: false,
+          isCanceled: false,
+        },
+        include: {
+          members: {
+            where: { groupMemberId: membership.groupMemberId },
+            select: { paidAmount: true, expectedAmount: true },
+          },
+        },
+      });
+
+      for (const fm of financeMatters) {
+        const userMember = fm.members[0];
+        if (userMember) {
+          const paidAmount = parseFloat(userMember.paidAmount) || 0;
+          const expectedAmount = parseFloat(userMember.expectedAmount) || 0;
+          if (paidAmount < expectedAmount) totalBadgeCount++;
+        }
+      }
+
+      // Count pending calendar events (if notifications enabled)
+      if (membership.notifyAllCalendar) {
+        const calendarCount = await prisma.calendarEvent.count({
+          where: {
+            groupId: groupId,
+            createdBy: { not: membership.groupMemberId },
+            createdAt: { gt: membership.lastCalendarViewedAt || new Date(0) },
+          },
+        });
+        totalBadgeCount += calendarCount;
+      }
+    }
+
+    res.json({
+      success: true,
+      badgeCount: totalBadgeCount,
+    });
+  } catch (error) {
+    console.error('[Notifications] Get total badge count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get badge count',
+    });
+  }
+}
+
+/**
  * Send a test notification to the current user
  * POST /notifications/test
  */
@@ -296,5 +443,6 @@ module.exports = {
   getDevices,
   updatePreferences,
   getPreferences,
+  getTotalBadgeCount,
   sendTestNotification,
 };

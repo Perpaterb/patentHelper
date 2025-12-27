@@ -239,6 +239,63 @@ async function sendTestNotification() {
   }
 }
 
+/**
+ * Fetch the total badge count from the backend
+ * This aggregates all notification counts across all non-muted groups.
+ *
+ * @returns {Promise<number>} Total badge count
+ */
+async function fetchBadgeCount() {
+  try {
+    const response = await api.get('/notifications/badge-count');
+    if (response.data.success) {
+      return response.data.badgeCount || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error('[PushNotification] Failed to fetch badge count:', error.message);
+    return 0;
+  }
+}
+
+/**
+ * Set the app icon badge count
+ *
+ * @param {number} count - Badge count to display (0 to clear)
+ * @returns {Promise<boolean>} True if successful
+ */
+async function setBadgeCount(count) {
+  try {
+    await Notifications.setBadgeCountAsync(count);
+    console.log('[PushNotification] Badge count set to:', count);
+    return true;
+  } catch (error) {
+    console.error('[PushNotification] Failed to set badge count:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Update the app icon badge from the backend
+ * Call this when app comes to foreground or periodically.
+ *
+ * @returns {Promise<number>} The badge count that was set
+ */
+async function updateAppBadge() {
+  const count = await fetchBadgeCount();
+  await setBadgeCount(count);
+  return count;
+}
+
+/**
+ * Clear the app icon badge
+ *
+ * @returns {Promise<boolean>} True if successful
+ */
+async function clearBadge() {
+  return setBadgeCount(0);
+}
+
 export default {
   registerForPushNotifications,
   registerTokenWithBackend,
@@ -248,4 +305,8 @@ export default {
   addNotificationResponseListener,
   getCurrentPushToken,
   sendTestNotification,
+  fetchBadgeCount,
+  setBadgeCount,
+  updateAppBadge,
+  clearBadge,
 };

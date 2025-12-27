@@ -8,7 +8,7 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import * as SecureStore from 'expo-secure-store';
@@ -111,6 +111,26 @@ export default function App() {
   }, []);
 
   /**
+   * Update app icon badge when app comes to foreground
+   */
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isAuthenticated) {
+        // App came to foreground - update badge count
+        pushNotificationService.updateAppBadge().then((count) => {
+          console.log('[App] Badge count updated on foreground:', count);
+        }).catch((error) => {
+          console.error('[App] Failed to update badge on foreground:', error);
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated]);
+
+  /**
    * Check if user is already authenticated
    *
    * Validates existing tokens by making an API call.
@@ -166,6 +186,10 @@ export default function App() {
       if (pushToken) {
         console.log('[App] Push notifications initialized');
       }
+
+      // Update app icon badge after login
+      const badgeCount = await pushNotificationService.updateAppBadge();
+      console.log('[App] Initial badge count:', badgeCount);
     } catch (error) {
       console.error('[App] Failed to initialize push notifications:', error);
       // Don't block login on push notification failure
@@ -177,6 +201,13 @@ export default function App() {
    */
   const handleLogout = async () => {
     console.log('[App] Logging out user');
+
+    // Clear app icon badge
+    try {
+      await pushNotificationService.clearBadge();
+    } catch (error) {
+      console.error('[App] Error clearing badge:', error);
+    }
 
     // Unregister push token before logout
     if (pushTokenRef.current) {

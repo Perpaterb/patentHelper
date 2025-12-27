@@ -24,6 +24,9 @@ router.get('/devices', notificationsController.getDevices);
 router.get('/preferences/:groupId', notificationsController.getPreferences);
 router.put('/preferences/:groupId', notificationsController.updatePreferences);
 
+// App icon badge count (total across all groups)
+router.get('/badge-count', notificationsController.getTotalBadgeCount);
+
 // Test notification
 router.post('/test', notificationsController.sendTestNotification);
 
