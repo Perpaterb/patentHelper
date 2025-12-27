@@ -164,8 +164,8 @@ export default function EditEventScreen({ navigation, route }) {
    */
   const handleStartDateChange = (newDate) => {
     setStartDate(newDate);
-    // Auto-adjust end date if it's before start date
-    if (endDate < newDate) {
+    // Auto-adjust end date if it's before or equal to start date
+    if (endDate <= newDate) {
       const newEndDate = new Date(newDate.getTime() + 60 * 60 * 1000); // +1 hour
       setEndDate(newEndDate);
     }
@@ -175,7 +175,7 @@ export default function EditEventScreen({ navigation, route }) {
    * Handle end date change
    */
   const handleEndDateChange = (newDate) => {
-    if (newDate < startDate) {
+    if (newDate <= startDate) {
       CustomAlert.alert('Invalid Date', 'End date must be after start date');
       return;
     }

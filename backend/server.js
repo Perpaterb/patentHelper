@@ -41,6 +41,7 @@ const { validateStripeConfig } = require('./config/stripe');
 const { emailService } = require('./services/email');
 const mediaProcessor = require('./services/mediaProcessor.service');
 const { initSyncJob } = require('./jobs/syncImportedCalendars');
+const { initCalendarReminderJob } = require('./jobs/calendarNotificationReminders');
 
 // Import routes
 const healthRoutes = require('./routes/health.routes');
@@ -151,6 +152,7 @@ if (process.env.NODE_ENV !== 'test') {
 
     // Initialize background jobs
     initSyncJob();
+    initCalendarReminderJob();
 
     console.log('');
     console.log('Press Ctrl+C to stop');
