@@ -54,11 +54,31 @@ async function requireAuth(req, res, next) {
       if (!user) {
         // User doesn't exist yet - create them
         // This handles the case where someone uses Kinde token without going through /auth/exchange
+        let email = kindePayload.email;
+        let givenName = kindePayload.given_name;
+        let familyName = kindePayload.family_name;
+
+        // If email is missing from token, fetch from Kinde userinfo endpoint
+        if (!email) {
+          try {
+            const userInfo = await authService.fetchKindeUserInfo(token);
+            email = userInfo.email;
+            givenName = givenName || userInfo.given_name;
+            familyName = familyName || userInfo.family_name;
+          } catch (fetchError) {
+            console.error('Failed to fetch user info from Kinde:', fetchError.message);
+            return res.status(401).json({
+              error: 'Unauthorized',
+              message: 'Could not retrieve user email from Kinde',
+            });
+          }
+        }
+
         user = await authService.findOrCreateUser({
           id: kindeId,
-          email: kindePayload.email,
-          given_name: kindePayload.given_name,
-          family_name: kindePayload.family_name,
+          email: email,
+          given_name: givenName,
+          family_name: familyName,
         });
       }
     } else {
@@ -156,11 +176,23 @@ async function optionalAuth(req, res, next) {
           user = await authService.getUserByKindeId(kindePayload.sub);
 
           if (!user) {
+            let email = kindePayload.email;
+            let givenName = kindePayload.given_name;
+            let familyName = kindePayload.family_name;
+
+            // If email is missing from token, fetch from Kinde userinfo endpoint
+            if (!email) {
+              const userInfo = await authService.fetchKindeUserInfo(token);
+              email = userInfo.email;
+              givenName = givenName || userInfo.given_name;
+              familyName = familyName || userInfo.family_name;
+            }
+
             user = await authService.findOrCreateUser({
               id: kindePayload.sub,
-              email: kindePayload.email,
-              given_name: kindePayload.given_name,
-              family_name: kindePayload.family_name,
+              email: email,
+              given_name: givenName,
+              family_name: familyName,
             });
           }
         } else {

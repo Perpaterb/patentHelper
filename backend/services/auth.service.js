@@ -11,6 +11,7 @@
 
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
+const axios = require('axios');
 const { prisma } = require('../config/database');
 
 /**
@@ -151,6 +152,26 @@ async function verifyKindeToken(token) {
 }
 
 /**
+ * Fetch user info from Kinde's userinfo endpoint
+ * Used when email is not included in the access token
+ * @param {string} accessToken - Kinde access token
+ * @returns {Promise<Object>} User info from Kinde
+ */
+async function fetchKindeUserInfo(accessToken) {
+  try {
+    const response = await axios.get(`https://${kindeDomain}/oauth2/v2/user_profile`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching Kinde user info:', error.message);
+    throw new Error('Failed to fetch user info from Kinde');
+  }
+}
+
+/**
  * Check if a token is a Kinde token (vs our custom JWT)
  * Kinde tokens have issuer https://*.kinde.com
  * @param {string} token - JWT token to check
@@ -275,6 +296,7 @@ module.exports = {
   verifyToken,
   verifyKindeToken,
   isKindeToken,
+  fetchKindeUserInfo,
   findOrCreateUser,
   getUserById,
   getUserByKindeId,
