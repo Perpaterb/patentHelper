@@ -1,116 +1,114 @@
 # Android Build Process
 
-This document describes how to build and release the Family Helper Android app.
+## ⚠️ CRITICAL: Version Numbers
+
+**EVERY build requires incrementing version numbers. Play Store rejects duplicate versionCodes.**
+
+### Current Version (update after each release):
+```
+versionCode: 24
+versionName: 1.0.78
+```
+
+### Next Build Must Use:
+```
+versionCode: 25
+versionName: 1.0.79
+```
+
+---
+
+## Build Steps
+
+### Step 1: BUMP VERSION (MANDATORY)
+
+**Before ANY build, update these two files:**
+
+**android/app/build.gradle** (lines 95-96):
+```gradle
+versionCode 25        // INCREMENT THIS (was 24)
+versionName "1.0.79"  // INCREMENT THIS (was 1.0.78)
+```
+
+**app.json** (line 5):
+```json
+"version": "1.0.79"   // MUST MATCH versionName
+```
+
+### Step 2: Commit Version Bump
+
+```bash
+cd mobile-main
+git add app.json android/app/build.gradle
+git commit -m "chore: Bump version to 1.0.79 (versionCode 25)"
+git push
+```
+
+### Step 3: Run EAS Build
+
+```bash
+cd mobile-main
+npx eas build --platform android --profile production
+```
+
+- Build takes ~10-15 minutes (longer in free tier queue)
+- Build logs: https://expo.dev/accounts/zcarss/projects/family-helper/builds
+
+### Step 4: Download AAB
+
+Once build completes, download from the link shown in terminal:
+```bash
+curl -L -o releases/family-helper-v1.0.79.aab "https://expo.dev/artifacts/eas/XXXXX.aab"
+```
+
+### Step 5: Update This File
+
+**After successful build, update the "Current Version" section at the top of this file!**
+
+### Step 6: Upload to Play Store
+
+1. Go to [Google Play Console](https://play.google.com/console)
+2. Select Family Helper > Production > Create new release
+3. Upload the AAB file
+4. Add release notes
+5. Submit for review
+
+---
 
 ## Prerequisites
 
 - Node.js v20+
-- Expo CLI: `npm install -g eas-cli`
-- Expo account logged in: `eas login`
-
-## Build Steps
-
-### 1. Bump Version Numbers
-
-Update version in **two files**:
-
-**app.json** (line 5):
-```json
-"version": "1.0.XX"
-```
-
-**android/app/build.gradle** (lines 95-96):
-```gradle
-versionCode XX        // Increment by 1 each release (Play Store requires unique)
-versionName "1.0.XX"  // Display version
-```
-
-### 2. Commit and Push
-
-```bash
-git add app.json android/app/build.gradle
-git commit -m "chore: Bump version to 1.0.XX (versionCode XX)"
-git push
-```
-
-### 3. Run EAS Build
-
-```bash
-npx eas build --platform android --profile production
-```
-
-- Build takes ~10-15 minutes
-- Free tier has a queue (can take longer)
-- Build logs: https://expo.dev/accounts/zcarss/projects/family-helper/builds
-
-### 4. Download AAB
-
-Once complete, download the AAB file:
-- From the terminal link provided, OR
-- From Expo dashboard: https://expo.dev/accounts/zcarss/projects/family-helper/builds
-
-Save to `releases/` folder:
-```bash
-curl -L -o releases/family-helper-v1.0.XX.aab "https://expo.dev/artifacts/eas/XXXXX.aab"
-```
-
-### 5. Upload to Play Store
-
-1. Go to [Google Play Console](https://play.google.com/console)
-2. Select Family Helper app
-3. Go to Production > Create new release
-4. Upload the AAB file
-5. Add release notes
-6. Submit for review
+- EAS CLI: `npm install -g eas-cli`
+- Logged in: `eas login`
 
 ## Configuration Files
 
 | File | Purpose |
 |------|---------|
 | `eas.json` | EAS Build configuration |
-| `app.json` | Expo app configuration |
-| `android/app/build.gradle` | Android-specific config (version, signing) |
-| `google-services.json` | Firebase/FCM configuration (committed) |
-| `.easignore` | Files to exclude from EAS builds |
-
-## Firebase Cloud Messaging (FCM)
-
-Push notifications require FCM configuration:
-
-1. **google-services.json** - Already in repo at:
-   - `mobile-main/google-services.json`
-   - `mobile-main/android/app/google-services.json`
-
-2. **Firebase Service Account** - Uploaded to Expo:
-   - Expo Dashboard > Credentials > Android > Service Account Key
-   - Generate from Firebase Console > Project Settings > Service Accounts
-
-## Signing Keys
-
-Signing is managed by EAS:
-- Keystore stored securely on Expo servers
-- Credentials: https://expo.dev/accounts/zcarss/projects/family-helper/credentials
+| `app.json` | Expo app config (version here) |
+| `android/app/build.gradle` | Android config (versionCode here) |
+| `google-services.json` | Firebase/FCM (committed to repo) |
 
 ## Troubleshooting
 
-### Build fails with "google-services.json missing"
-- Ensure file exists at `android/app/google-services.json`
-- Ensure NOT in `.gitignore`
-- Commit and push before building
+### "Version code already used"
+You forgot to increment versionCode. Check current version at top of this file.
+
+### "google-services.json missing"
+Ensure file exists at `android/app/google-services.json` and is committed.
 
 ### Push notifications not working
-1. Verify device token registered (check backend logs)
+1. Check device token registered (backend logs)
 2. Verify Firebase service account uploaded to Expo
-3. Test with: `POST /notifications/test` endpoint
+3. Test: `POST /notifications/test`
 
-### Version code already used
-- Play Store requires unique versionCode for each upload
-- Always increment versionCode in build.gradle
+---
 
 ## Version History
 
-| Version | versionCode | Date | Notes |
-|---------|-------------|------|-------|
-| 1.0.78 | 24 | Dec 27, 2024 | FCM push notifications |
-| 1.0.77 | 23 | Dec 27, 2024 | FCM configuration added |
+| Version | Code | Date | Notes |
+|---------|------|------|-------|
+| 1.0.78 | 24 | Dec 27, 2024 | Calendar reminders, FCM push |
+| 1.0.77 | 23 | Dec 27, 2024 | FCM configuration |
 | 1.0.76 | 22 | Dec 23, 2024 | Login flow improvements |
