@@ -217,6 +217,7 @@ async function getGroups(req, res) {
           let pendingApprovalsCount = 0;
           let pendingFinanceCount = 0;
           let pendingCalendarCount = 0;
+          let upcomingRemindersCount = 0;
 
           // Only calculate badge counts if group is NOT muted
           if (!membership.isMuted) {
@@ -346,6 +347,42 @@ async function getGroups(req, res) {
                 },
               });
             }
+
+            // Calculate upcoming event reminders count
+            // Events within their notification window that user hasn't been reminded about
+            if (membership.notifyAllCalendar) {
+              const now = new Date();
+              // Get upcoming events with their notification settings
+              const upcomingEvents = await prisma.calendarEvent.findMany({
+                where: {
+                  groupId: membership.group.groupId,
+                  startTime: { gt: now }, // Event hasn't started yet
+                },
+                select: {
+                  eventId: true,
+                  startTime: true,
+                  notificationMinutes: true,
+                },
+              });
+
+              // Get events user has already been reminded about
+              const remindedEvents = await prisma.calendarEventReminder.findMany({
+                where: {
+                  userId: userId,
+                  eventId: { in: upcomingEvents.map(e => e.eventId) },
+                },
+                select: { eventId: true },
+              });
+              const remindedEventIds = new Set(remindedEvents.map(r => r.eventId));
+
+              // Count events within their notification window that haven't been reminded
+              upcomingRemindersCount = upcomingEvents.filter(event => {
+                if (remindedEventIds.has(event.eventId)) return false;
+                const notifyMinutes = event.notificationMinutes || 15;
+                const notifyTime = new Date(event.startTime.getTime() - notifyMinutes * 60 * 1000);
+                return now >= notifyTime;
+              }).length;
+            }
           }
 
           return {
@@ -366,6 +403,7 @@ async function getGroups(req, res) {
             pendingApprovalsCount,
             pendingFinanceCount,
             pendingCalendarCount,
+            upcomingRemindersCount,
           };
         })
     );
@@ -659,6 +697,7 @@ async function getGroupById(req, res) {
 
     // Calculate pending calendar count (only if calendar notifications are enabled and group not muted)
     let pendingCalendarCount = 0;
+    let upcomingRemindersCount = 0;
     if (!membership.isMuted && membership.notifyAllCalendar) {
       pendingCalendarCount = await prisma.calendarEvent.count({
         where: {
@@ -669,6 +708,36 @@ async function getGroupById(req, res) {
           },
         },
       });
+
+      // Calculate upcoming event reminders count
+      const now = new Date();
+      const upcomingEvents = await prisma.calendarEvent.findMany({
+        where: {
+          groupId: groupId,
+          startTime: { gt: now },
+        },
+        select: {
+          eventId: true,
+          startTime: true,
+          notificationMinutes: true,
+        },
+      });
+
+      const remindedEvents = await prisma.calendarEventReminder.findMany({
+        where: {
+          userId: userId,
+          eventId: { in: upcomingEvents.map(e => e.eventId) },
+        },
+        select: { eventId: true },
+      });
+      const remindedEventIds = new Set(remindedEvents.map(r => r.eventId));
+
+      upcomingRemindersCount = upcomingEvents.filter(event => {
+        if (remindedEventIds.has(event.eventId)) return false;
+        const notifyMinutes = event.notificationMinutes || 15;
+        const notifyTime = new Date(event.startTime.getTime() - notifyMinutes * 60 * 1000);
+        return now >= notifyTime;
+      }).length;
     }
 
     res.status(200).json({
@@ -685,6 +754,7 @@ async function getGroupById(req, res) {
           displayName: membership.displayName,
         },
         pendingCalendarCount, // Calendar notification badge count
+        upcomingRemindersCount, // Upcoming event reminders badge count
       },
     });
   } catch (error) {

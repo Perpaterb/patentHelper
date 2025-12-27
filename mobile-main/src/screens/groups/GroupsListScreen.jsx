@@ -370,7 +370,7 @@ export default function GroupsListScreen({ navigation }) {
               </Chip>
             )}
             {/* Badge counts */}
-            {(item.unreadMentionsCount > 0 || item.unreadMessagesCount > 0 || item.pendingApprovalsCount > 0 || item.pendingFinanceCount > 0 || item.pendingCalendarCount > 0) && (
+            {(item.unreadMentionsCount > 0 || item.unreadMessagesCount > 0 || item.pendingApprovalsCount > 0 || item.pendingFinanceCount > 0 || item.pendingCalendarCount > 0 || item.upcomingRemindersCount > 0) && (
               <View style={styles.badgesRow}>
                 {item.unreadMentionsCount > 0 && (
                   <Badge size={20} style={styles.mentionBadge}>
@@ -395,6 +395,11 @@ export default function GroupsListScreen({ navigation }) {
                 {item.pendingCalendarCount > 0 && (
                   <Badge size={20} style={styles.calendarBadge}>
                     {item.pendingCalendarCount}
+                  </Badge>
+                )}
+                {item.upcomingRemindersCount > 0 && (
+                  <Badge size={20} style={styles.reminderBadge}>
+                    {item.upcomingRemindersCount}
                   </Badge>
                 )}
               </View>
@@ -712,7 +717,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#d32f2f',
   },
   calendarBadge: {
-    backgroundColor: '#4caf50', // Green for calendar
+    backgroundColor: '#4caf50', // Green for new calendar events
+  },
+  reminderBadge: {
+    backgroundColor: '#2e7d32', // Dark green for upcoming reminders
   },
   emptyState: {
     flex: 1,

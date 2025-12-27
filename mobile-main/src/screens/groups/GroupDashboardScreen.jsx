@@ -489,21 +489,29 @@ export default function GroupDashboardScreen({ navigation, route }) {
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
                 <Text style={styles.navCardEmoji}>📅</Text>
-                {groupInfo?.pendingCalendarCount > 0 && (
-                  <Badge
-                    size={20}
-                    style={styles.calendarBadge}
-                  >
-                    {groupInfo.pendingCalendarCount}
-                  </Badge>
+                {(groupInfo?.pendingCalendarCount > 0 || groupInfo?.upcomingRemindersCount > 0) && (
+                  <View style={styles.badgesContainer}>
+                    {groupInfo?.upcomingRemindersCount > 0 && (
+                      <Badge size={20} style={styles.reminderBadge}>
+                        {groupInfo.upcomingRemindersCount}
+                      </Badge>
+                    )}
+                    {groupInfo?.pendingCalendarCount > 0 && (
+                      <Badge size={20} style={styles.calendarBadge}>
+                        {groupInfo.pendingCalendarCount}
+                      </Badge>
+                    )}
+                  </View>
                 )}
               </View>
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Calendar</Text>
                 <Text style={styles.navCardDescription}>
-                  {groupInfo?.pendingCalendarCount > 0
-                    ? `${groupInfo.pendingCalendarCount} new event${groupInfo.pendingCalendarCount !== 1 ? 's' : ''}`
-                    : 'Shared events and schedules'}
+                  {groupInfo?.upcomingRemindersCount > 0
+                    ? `${groupInfo.upcomingRemindersCount} upcoming reminder${groupInfo.upcomingRemindersCount !== 1 ? 's' : ''}`
+                    : groupInfo?.pendingCalendarCount > 0
+                      ? `${groupInfo.pendingCalendarCount} new event${groupInfo.pendingCalendarCount !== 1 ? 's' : ''}`
+                      : 'Shared events and schedules'}
                 </Text>
               </View>
             </Card.Content>
@@ -819,10 +827,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#d32f2f',
   },
   calendarBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#4caf50', // Green for calendar
+    backgroundColor: '#4caf50', // Green for new calendar events
+  },
+  reminderBadge: {
+    backgroundColor: '#2e7d32', // Dark green for upcoming reminders
   },
   badgesContainer: {
     position: 'absolute',
