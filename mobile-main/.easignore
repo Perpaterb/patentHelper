@@ -1,0 +1,39 @@
+# EAS Build ignore file
+# This REPLACES .gitignore for EAS builds
+
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Logs
+*.log
+*.tsbuildinfo
+
+# Local env files
+.env
+.env.local
+.env.development
+
+# Test files
+coverage/
+__tests__/
+
+# IDE
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Releases (large AAB files)
+releases/
+
+# IMPORTANT: Do NOT ignore these (needed for build):
+# - google-services.json (FCM for Android)
+# - android/app/google-services.json
+# - .env.production (has build-time env vars)

@@ -34,8 +34,9 @@ yarn-error.*
 .env*.local
 .env
 
-# Firebase config (contains sensitive data)
-google-services.json
+# Firebase config
+# Note: google-services.json is safe to commit (public config) and needed for EAS builds
+# google-services.json
 GoogleService-Info.plist
 *-firebase-adminsdk-*.json
 
@@ -47,7 +48,7 @@ GoogleService-Info.plist
 # Track android folder for version code/name and signing config
 # /android
 
-# Firebase configuration files (sensitive - do not commit)
-google-services.json
+# Firebase configuration files (admin SDK keys are sensitive - do not commit)
+# google-services.json is committed (needed for EAS builds)
 GoogleService-Info.plist
 *-firebase-adminsdk-*.json

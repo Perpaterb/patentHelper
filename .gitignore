@@ -68,6 +68,6 @@ Thumbs.db
 # Recovery credentials - NEVER COMMIT
 RECOVERY_CREDENTIALS.txt
 
-# Firebase credentials
-mobile-main/google-services.json
-mobile-main/*firebase*.json
+# Firebase credentials (admin SDK keys are sensitive - do not commit)
+# Note: google-services.json is safe to commit (public config) and needed for EAS builds
+mobile-main/*firebase-adminsdk*.json

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387511535326",
+    "project_id": "family-helper-e1bf0",
+    "storage_bucket": "family-helper-e1bf0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387511535326:android:8408b6deb93dab4e4f244f",
+        "android_client_info": {
+          "package_name": "com.parentinghelper.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWdrE6wX0XxlhgZKuPDXYMxrVfscTnc50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
