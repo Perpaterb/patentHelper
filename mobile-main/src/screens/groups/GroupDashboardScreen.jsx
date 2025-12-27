@@ -426,13 +426,15 @@ export default function GroupDashboardScreen({ navigation, route }) {
             <Text style={styles.memberCount}>
               {groupInfo.memberCount || 0} member{groupInfo.memberCount !== 1 ? 's' : ''}
             </Text>
-            <Chip
-              mode="outlined"
-              style={styles.roleChip}
-              textStyle={styles.roleText}
-            >
-              {groupInfo.userRole || 'Member'}
-            </Chip>
+            {groupInfo.userRole === 'admin' && (
+              <Chip
+                mode="outlined"
+                style={styles.roleChip}
+                textStyle={styles.roleText}
+              >
+                ADMIN
+              </Chip>
+            )}
           </View>
           {/* Settings Cog Icon - Only for admins */}
           {groupInfo.userRole === 'admin' && (

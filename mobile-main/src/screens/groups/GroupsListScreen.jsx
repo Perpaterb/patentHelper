@@ -352,13 +352,15 @@ export default function GroupsListScreen({ navigation }) {
 
         <View style={styles.groupFooter}>
           <View style={styles.groupFooterLeft}>
-            <Chip
-              mode="outlined"
-              style={{ backgroundColor: getRoleBadgeColor(item.role) }}
-              textStyle={{ color: '#fff', fontSize: 12 }}
-            >
-              {item.role.toUpperCase()}
-            </Chip>
+            {item.role === 'admin' && (
+              <Chip
+                mode="outlined"
+                style={{ backgroundColor: getRoleBadgeColor(item.role) }}
+                textStyle={{ color: '#fff', fontSize: 12 }}
+              >
+                ADMIN
+              </Chip>
+            )}
             {item.isMuted && (
               <Chip
                 mode="outlined"

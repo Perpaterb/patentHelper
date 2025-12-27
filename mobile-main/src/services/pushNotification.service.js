@@ -15,14 +15,32 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import api from './api';
+import activeScreenService from './activeScreen.service';
 
 // Configure notification behavior when app is in foreground
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data || {};
+
+    // Suppress notification if user is currently viewing this message group
+    if (data.type === 'new_message' && data.messageGroupId) {
+      const activeMessageGroupId = activeScreenService.getActiveMessageGroup();
+      if (activeMessageGroupId && data.messageGroupId === activeMessageGroupId) {
+        console.log('[PushNotification] Suppressing notification for active message group');
+        return {
+          shouldShowAlert: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+    }
+
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 /**

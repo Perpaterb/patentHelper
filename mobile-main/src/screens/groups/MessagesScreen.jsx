@@ -33,6 +33,7 @@ if (Platform.OS === 'web') {
 // Unified flag to check if any emoji picker is available
 const hasEmojiPicker = Platform.OS === 'web' ? WebEmojiPicker !== null : NativeEmojiPicker !== null;
 import api from '../../services/api';
+import activeScreenService from '../../services/activeScreen.service';
 import { getContrastTextColor } from '../../utils/colorUtils';
 import MediaPicker from '../../components/shared/MediaPicker';
 import ImageViewer from '../../components/shared/ImageViewer';
@@ -215,6 +216,19 @@ export default function MessagesScreen({ navigation, route }) {
 
       return () => clearInterval(pollInterval);
     }, [loadMessages])
+  );
+
+  // Track active message group for notification suppression
+  useFocusEffect(
+    useCallback(() => {
+      // Set active message group when screen is focused
+      activeScreenService.setActiveMessageGroup(messageGroupId);
+
+      return () => {
+        // Clear active message group when screen loses focus
+        activeScreenService.clearActiveMessageGroup();
+      };
+    }, [messageGroupId])
   );
 
   // Scroll to bottom when messages load
