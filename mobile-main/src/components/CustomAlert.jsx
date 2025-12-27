@@ -4,6 +4,9 @@
  * Cross-platform alert dialog that works on both web and mobile.
  * Replaces React Native's Alert.alert which doesn't work properly on web.
  *
+ * On Android, native Alert only supports up to 3 buttons. When more than 3
+ * buttons are needed, this component uses a custom Modal dialog instead.
+ *
  * Usage:
  *   import { CustomAlert } from '../components/CustomAlert';
  *
@@ -23,9 +26,11 @@
  */
 
 import React, { createContext, useContext, useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Portal, Dialog, Button, Text } from 'react-native-paper';
 import { Alert as RNAlert } from 'react-native';
+
+const MAX_NATIVE_BUTTONS = 3; // Android native Alert only supports up to 3 buttons
 
 const CustomAlertContext = createContext(null);
 
@@ -39,13 +44,15 @@ export function CustomAlertProvider({ children }) {
   const [buttons, setButtons] = useState([]);
 
   const showAlert = (alertTitle, alertMessage, alertButtons = [{ text: 'OK' }]) => {
-    // On native mobile, use the built-in Alert
-    if (Platform.OS !== 'web') {
+    // On native mobile with 3 or fewer buttons, use the built-in Alert
+    // Android's native Alert only supports up to 3 buttons
+    const buttonCount = alertButtons?.length || 1;
+    if (Platform.OS !== 'web' && buttonCount <= MAX_NATIVE_BUTTONS) {
       RNAlert.alert(alertTitle, alertMessage, alertButtons);
       return;
     }
 
-    // On web, use our custom dialog
+    // On web, or when more than 3 buttons, use our custom dialog
     setTitle(alertTitle);
     setMessage(alertMessage);
     setButtons(alertButtons);
@@ -66,6 +73,9 @@ export function CustomAlertProvider({ children }) {
     }
   };
 
+  // Determine if we need scrollable buttons (more than 4 buttons)
+  const needsScroll = buttons.length > 4;
+
   return (
     <CustomAlertContext.Provider value={{ showAlert }}>
       {children}
@@ -75,8 +85,8 @@ export function CustomAlertProvider({ children }) {
           onDismiss={hideAlert}
           style={[
             styles.dialog,
-            // Ensure proper centering on web
-            Platform.OS === 'web' && { alignSelf: 'center', marginLeft: 'auto', marginRight: 'auto' }
+            // Ensure proper centering
+            { alignSelf: 'center', marginLeft: 'auto', marginRight: 'auto' }
           ]}
         >
           {title && (
@@ -85,30 +95,57 @@ export function CustomAlertProvider({ children }) {
           <Dialog.Content style={styles.content}>
             <Text style={styles.message}>{message}</Text>
           </Dialog.Content>
-          <View style={styles.actions}>
-            {buttons.map((button, index) => {
-              const isCancelButton = button.style === 'cancel';
-              const isDestructiveButton = button.style === 'destructive';
+          {needsScroll ? (
+            <ScrollView style={styles.scrollableActions} contentContainerStyle={styles.scrollableActionsContent}>
+              {buttons.map((button, index) => {
+                const isCancelButton = button.style === 'cancel';
+                const isDestructiveButton = button.style === 'destructive';
 
-              return (
-                <Button
-                  key={index}
-                  mode="text"
-                  onPress={() => handleButtonPress(button)}
-                  style={styles.button}
-                  contentStyle={styles.buttonContent}
-                  labelStyle={[
-                    styles.buttonLabel,
-                    isCancelButton && styles.cancelButtonLabel,
-                    isDestructiveButton && styles.destructiveButtonLabel,
-                  ]}
-                  uppercase={false}
-                >
-                  {button.text}
-                </Button>
-              );
-            })}
-          </View>
+                return (
+                  <Button
+                    key={index}
+                    mode="text"
+                    onPress={() => handleButtonPress(button)}
+                    style={styles.button}
+                    contentStyle={styles.buttonContent}
+                    labelStyle={[
+                      styles.buttonLabel,
+                      isCancelButton && styles.cancelButtonLabel,
+                      isDestructiveButton && styles.destructiveButtonLabel,
+                    ]}
+                    uppercase={false}
+                  >
+                    {button.text}
+                  </Button>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={styles.actions}>
+              {buttons.map((button, index) => {
+                const isCancelButton = button.style === 'cancel';
+                const isDestructiveButton = button.style === 'destructive';
+
+                return (
+                  <Button
+                    key={index}
+                    mode="text"
+                    onPress={() => handleButtonPress(button)}
+                    style={styles.button}
+                    contentStyle={styles.buttonContent}
+                    labelStyle={[
+                      styles.buttonLabel,
+                      isCancelButton && styles.cancelButtonLabel,
+                      isDestructiveButton && styles.destructiveButtonLabel,
+                    ]}
+                    uppercase={false}
+                  >
+                    {button.text}
+                  </Button>
+                );
+              })}
+            </View>
+          )}
         </Dialog>
       </Portal>
     </CustomAlertContext.Provider>
@@ -140,8 +177,11 @@ export const CustomAlert = {
     if (globalShowAlert) {
       globalShowAlert(title, message, buttons);
     } else {
-      // Fallback to native alert on mobile or window.alert on web
+      // Fallback when CustomAlertProvider is not available
+      const buttonCount = buttons?.length || 1;
+
       if (Platform.OS === 'web') {
+        // Web fallback using confirm dialog
         const buttonText = buttons && buttons.length > 0 ? buttons.map(b => b.text).join(' / ') : 'OK';
         if (window.confirm(`${title}\n\n${message}\n\n[${buttonText}]`)) {
           // Find the non-cancel button and call its onPress
@@ -156,8 +196,14 @@ export const CustomAlert = {
             cancelButton.onPress();
           }
         }
-      } else {
+      } else if (buttonCount <= MAX_NATIVE_BUTTONS) {
+        // Native alert works for 3 or fewer buttons
         RNAlert.alert(title, message, buttons);
+      } else {
+        // More than 3 buttons on native - warn and show truncated alert
+        // This shouldn't happen if CustomAlertProvider is properly set up
+        console.warn('CustomAlert: More than 3 buttons provided without CustomAlertProvider. Some buttons may not appear.');
+        RNAlert.alert(title, message, buttons?.slice(0, MAX_NATIVE_BUTTONS));
       }
     }
   },
@@ -198,6 +244,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     marginTop: 8,
+  },
+  scrollableActions: {
+    maxHeight: 300,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 8,
+  },
+  scrollableActionsContent: {
+    flexDirection: 'column',
   },
   button: {
     borderRadius: 0,
