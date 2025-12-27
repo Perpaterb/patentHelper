@@ -1278,14 +1278,19 @@ export default function CalendarScreen({ navigation, route }) {
 
   /**
    * Refresh events when returning from CreateEvent or EditEvent screens
+   * Also marks calendar as viewed to clear the notification badge
    */
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchEvents();
+      // Mark calendar as viewed to clear notification badge
+      API.post(`/groups/${groupId}/calendar/mark-viewed`).catch(err => {
+        console.error('Failed to mark calendar as viewed:', err);
+      });
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, groupId]);
 
   /**
    * Check if an event should be visible based on layer preferences.

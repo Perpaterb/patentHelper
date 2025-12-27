@@ -127,6 +127,7 @@ model GroupMember {
   notifyMentionFinance       Boolean                         @default(true) @map("notify_mention_finance")
   isPinned                   Boolean                         @default(false) @map("is_pinned")
   pinnedOrder                Int?                            @map("pinned_order")
+  lastCalendarViewedAt       DateTime?                       @map("last_calendar_viewed_at") @db.Timestamp(6)
   grantedPermissions         AdminPermission[]               @relation("GrantingAdmin")
   receivedPermissions        AdminPermission[]               @relation("ReceivingAdmin")
   approvalVotes              ApprovalVote[]

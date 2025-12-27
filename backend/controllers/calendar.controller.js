@@ -1345,6 +1345,69 @@ async function createResponsibilityEvent(req, res) {
   }
 }
 
+/**
+ * Mark calendar as viewed (clears calendar notification badge)
+ * POST /groups/:groupId/calendar/mark-viewed
+ *
+ * Updates lastCalendarViewedAt timestamp for the user's group membership
+ * This clears the pending calendar events count in the group badge
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response
+ */
+async function markCalendarViewed(req, res) {
+  try {
+    const userId = req.user?.userId;
+    const { groupId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+
+    // Check if user is a member of this group
+    const membership = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: groupId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!membership || !membership.isRegistered) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not a member of this group',
+      });
+    }
+
+    // Update lastCalendarViewedAt timestamp
+    await prisma.groupMember.update({
+      where: {
+        groupMemberId: membership.groupMemberId,
+      },
+      data: {
+        lastCalendarViewedAt: new Date(),
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Calendar marked as viewed',
+    });
+  } catch (err) {
+    console.error('Error marking calendar as viewed:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to mark calendar as viewed',
+      error: err.message,
+    });
+  }
+}
+
 module.exports = {
   getCalendarEvents,
   createCalendarEvent,
@@ -1352,5 +1415,6 @@ module.exports = {
   updateCalendarEvent,
   deleteCalendarEvent,
   createResponsibilityEvent,
+  markCalendarViewed,
   detectResponsibilityOverlaps, // Export for testing
 };

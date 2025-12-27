@@ -370,7 +370,7 @@ export default function GroupsListScreen({ navigation }) {
               </Chip>
             )}
             {/* Badge counts */}
-            {(item.unreadMentionsCount > 0 || item.unreadMessagesCount > 0 || item.pendingApprovalsCount > 0 || item.pendingFinanceCount > 0) && (
+            {(item.unreadMentionsCount > 0 || item.unreadMessagesCount > 0 || item.pendingApprovalsCount > 0 || item.pendingFinanceCount > 0 || item.pendingCalendarCount > 0) && (
               <View style={styles.badgesRow}>
                 {item.unreadMentionsCount > 0 && (
                   <Badge size={20} style={styles.mentionBadge}>
@@ -390,6 +390,11 @@ export default function GroupsListScreen({ navigation }) {
                 {item.pendingFinanceCount > 0 && (
                   <Badge size={20} style={styles.financeBadge}>
                     {item.pendingFinanceCount}
+                  </Badge>
+                )}
+                {item.pendingCalendarCount > 0 && (
+                  <Badge size={20} style={styles.calendarBadge}>
+                    {item.pendingCalendarCount}
                   </Badge>
                 )}
               </View>
@@ -707,7 +712,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d32f2f',
   },
   calendarBadge: {
-    backgroundColor: '#9c27b0',
+    backgroundColor: '#4caf50', // Green for calendar
   },
   emptyState: {
     flex: 1,

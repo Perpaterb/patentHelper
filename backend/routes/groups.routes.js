@@ -271,6 +271,12 @@ router.delete('/:groupId/calendar/events/:eventId', requireAuth, calendarControl
 router.post('/:groupId/calendar/responsibility-events', requireAuth, calendarController.createResponsibilityEvent);
 
 /**
+ * POST /groups/:groupId/calendar/mark-viewed
+ * Mark calendar as viewed (clears calendar notification badge)
+ */
+router.post('/:groupId/calendar/mark-viewed', requireAuth, calendarController.markCalendarViewed);
+
+/**
  * GET /groups/:groupId/calendar/layers
  * Get calendar layers for a group (user's visibility/notification preferences)
  */

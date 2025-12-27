@@ -216,6 +216,7 @@ async function getGroups(req, res) {
           let unreadMentionsCount = 0;
           let pendingApprovalsCount = 0;
           let pendingFinanceCount = 0;
+          let pendingCalendarCount = 0;
 
           // Only calculate badge counts if group is NOT muted
           if (!membership.isMuted) {
@@ -331,6 +332,20 @@ async function getGroups(req, res) {
 
               return paidAmount < expectedAmount;
             }).length;
+
+            // Calculate pending calendar events count
+            // Only show if user has calendar notifications enabled (notifyAllCalendar)
+            if (membership.notifyAllCalendar) {
+              pendingCalendarCount = await prisma.calendarEvent.count({
+                where: {
+                  groupId: membership.group.groupId,
+                  createdBy: { not: membership.groupMemberId }, // Exclude events user created
+                  createdAt: {
+                    gt: membership.lastCalendarViewedAt || new Date(0),
+                  },
+                },
+              });
+            }
           }
 
           return {
@@ -350,6 +365,7 @@ async function getGroups(req, res) {
             unreadMentionsCount,
             pendingApprovalsCount,
             pendingFinanceCount,
+            pendingCalendarCount,
           };
         })
     );
@@ -641,6 +657,20 @@ async function getGroupById(req, res) {
     // 2. Their actual role in this group is admin
     const effectiveRole = (isOnTrial && userCreatedThisGroup) ? 'admin' : membership.role;
 
+    // Calculate pending calendar count (only if calendar notifications are enabled and group not muted)
+    let pendingCalendarCount = 0;
+    if (!membership.isMuted && membership.notifyAllCalendar) {
+      pendingCalendarCount = await prisma.calendarEvent.count({
+        where: {
+          groupId: groupId,
+          createdBy: { not: membership.groupMemberId },
+          createdAt: {
+            gt: membership.lastCalendarViewedAt || new Date(0),
+          },
+        },
+      });
+    }
+
     res.status(200).json({
       success: true,
       group: {
@@ -654,6 +684,7 @@ async function getGroupById(req, res) {
           role: effectiveRole,
           displayName: membership.displayName,
         },
+        pendingCalendarCount, // Calendar notification badge count
       },
     });
   } catch (error) {

@@ -489,11 +489,21 @@ export default function GroupDashboardScreen({ navigation, route }) {
             <Card.Content style={styles.navCardContent}>
               <View style={styles.navCardIcon}>
                 <Text style={styles.navCardEmoji}>📅</Text>
+                {groupInfo?.pendingCalendarCount > 0 && (
+                  <Badge
+                    size={20}
+                    style={styles.calendarBadge}
+                  >
+                    {groupInfo.pendingCalendarCount}
+                  </Badge>
+                )}
               </View>
               <View style={styles.navCardInfo}>
                 <Text style={styles.navCardTitle}>Calendar</Text>
                 <Text style={styles.navCardDescription}>
-                  Shared events and schedules
+                  {groupInfo?.pendingCalendarCount > 0
+                    ? `${groupInfo.pendingCalendarCount} new event${groupInfo.pendingCalendarCount !== 1 ? 's' : ''}`
+                    : 'Shared events and schedules'}
                 </Text>
               </View>
             </Card.Content>
@@ -807,6 +817,12 @@ const styles = StyleSheet.create({
     top: -4,
     right: -4,
     backgroundColor: '#d32f2f',
+  },
+  calendarBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#4caf50', // Green for calendar
   },
   badgesContainer: {
     position: 'absolute',
