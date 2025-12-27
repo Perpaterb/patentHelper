@@ -349,10 +349,10 @@ async function getGroups(req, res) {
             }
 
             // Calculate upcoming event reminders count
-            // Events within their notification window that user hasn't been reminded about
+            // For ALL events in the group within their notification window (not just attendees)
             if (membership.notifyAllCalendar) {
               const now = new Date();
-              // Get upcoming events with their notification settings
+              // Get ALL upcoming events in the group
               const upcomingEvents = await prisma.calendarEvent.findMany({
                 where: {
                   groupId: membership.group.groupId,
@@ -710,6 +710,7 @@ async function getGroupById(req, res) {
       });
 
       // Calculate upcoming event reminders count
+      // For ALL events in the group within their notification window
       const now = new Date();
       const upcomingEvents = await prisma.calendarEvent.findMany({
         where: {

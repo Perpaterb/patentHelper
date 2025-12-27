@@ -1384,15 +1384,58 @@ async function markCalendarViewed(req, res) {
       });
     }
 
+    const now = new Date();
+
     // Update lastCalendarViewedAt timestamp
     await prisma.groupMember.update({
       where: {
         groupMemberId: membership.groupMemberId,
       },
       data: {
-        lastCalendarViewedAt: new Date(),
+        lastCalendarViewedAt: now,
       },
     });
+
+    // Also mark as "reminded" any events in the notification window
+    // This clears the dark green badge
+    const upcomingEvents = await prisma.calendarEvent.findMany({
+      where: {
+        groupId: groupId,
+        startTime: { gt: now },
+      },
+      select: {
+        eventId: true,
+        startTime: true,
+        notificationMinutes: true,
+      },
+    });
+
+    // Filter to events within their notification window
+    const eventsInNotificationWindow = upcomingEvents.filter(event => {
+      const notifyMinutes = event.notificationMinutes || 15;
+      const notifyTime = new Date(event.startTime.getTime() - notifyMinutes * 60 * 1000);
+      return now >= notifyTime;
+    });
+
+    // Create reminder records for these events (upsert to avoid duplicates)
+    for (const event of eventsInNotificationWindow) {
+      await prisma.calendarEventReminder.upsert({
+        where: {
+          eventId_userId: {
+            eventId: event.eventId,
+            userId: userId,
+          },
+        },
+        create: {
+          eventId: event.eventId,
+          userId: userId,
+          remindedAt: now,
+        },
+        update: {
+          remindedAt: now,
+        },
+      });
+    }
 
     return res.status(200).json({
       success: true,

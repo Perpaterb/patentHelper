@@ -94,6 +94,9 @@ export default function GroupDashboardScreen({ navigation, route }) {
       if (canSeeFeature('messageGroups')) {
         loadMessageBadgeCounts();
       }
+
+      // Refresh group info to update calendar badge counts
+      loadGroupInfo();
     };
 
     loadCounts();
