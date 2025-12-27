@@ -264,12 +264,14 @@ async function getTotalBadgeCount(req, res) {
   try {
     const userId = req.user.userId;
 
-    // Get all groups user is a member of (non-hidden, registered)
+    // Get all groups user is a member of (non-hidden group, registered member)
     const memberships = await prisma.groupMember.findMany({
       where: {
         userId: userId,
-        isHidden: false,
         isRegistered: true,
+        group: {
+          isHidden: false,
+        },
       },
       select: {
         groupMemberId: true,
