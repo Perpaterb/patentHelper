@@ -20,7 +20,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function UpdatesScreen({ navigation }) {
-  const APP_VERSION = '1.0.77';
+  const APP_VERSION = '1.0.78';
   const LAST_UPDATED = 'December 27, 2024';
 
   const comingSoon = [
