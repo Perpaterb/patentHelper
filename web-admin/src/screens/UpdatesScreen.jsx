@@ -20,8 +20,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function UpdatesScreen({ navigation }) {
-  const APP_VERSION = '1.0.0';
-  const LAST_UPDATED = 'December 14, 2024';
+  const APP_VERSION = '1.0.77';
+  const LAST_UPDATED = 'December 27, 2024';
 
   const comingSoon = [
     {
@@ -45,15 +45,24 @@ export default function UpdatesScreen({ navigation }) {
       description: 'Some users experience issues with dragging events in the calendar day view.',
       severity: 'medium',
     },
-    {
-      id: 'BUG-002',
-      title: 'Push Notifications Setup',
-      description: 'Push notifications are not yet fully configured. In-app notifications work correctly.',
-      severity: 'low',
-    },
   ];
 
   const recentFixes = [
+    {
+      date: 'Dec 27, 2024',
+      title: 'App Icon Badge Notifications',
+      description: 'Added app icon badge showing total unread notifications across all groups. Badge respects group mute settings.',
+    },
+    {
+      date: 'Dec 27, 2024',
+      title: 'Push Notifications',
+      description: 'Push notifications now fully configured for messages, calendar events, finance, and approval requests.',
+    },
+    {
+      date: 'Dec 23, 2024',
+      title: 'Login Flow Improvements',
+      description: 'Improved login and registration flow with better error handling and navigation.',
+    },
     {
       date: 'Dec 13, 2024',
       title: 'Registry Passcode Reset',
