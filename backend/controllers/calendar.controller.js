@@ -12,6 +12,7 @@
 
 const { prisma } = require('../config/database');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
+const pushNotificationService = require('../services/pushNotification.service');
 
 /**
  * Get calendar events for a group
@@ -437,6 +438,39 @@ async function createCalendarEvent(req, res) {
         messageContent: `Created event "${title}" from ${startTime} to ${endTime}`,
       },
     });
+
+    // Send push notifications to attendees only (excluding creator)
+    // Fire and forget - don't block the response
+    (async () => {
+      try {
+        // Only notify attendees, not all group members
+        const notifyAttendeeIds = attendeeIds.filter(id => id !== membership.groupMemberId);
+
+        if (notifyAttendeeIds.length > 0) {
+          const startDate = new Date(startTime);
+          const formattedDate = startDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+
+          await pushNotificationService.sendToGroupMembersWithPreferences(
+            notifyAttendeeIds,
+            'calendar',
+            `New Event: ${title}`,
+            `${membership.displayName} invited you to an event on ${formattedDate}`,
+            {
+              type: 'new_calendar_event',
+              groupId: groupId,
+              eventId: event.eventId,
+            }
+          );
+        }
+      } catch (notificationError) {
+        console.error('[Calendar] Failed to send push notifications:', notificationError);
+      }
+    })();
 
     return res.status(201).json({
       success: true,

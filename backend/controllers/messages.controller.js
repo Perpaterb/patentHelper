@@ -9,6 +9,7 @@ const { prisma } = require('../config/database');
 const encryptionService = require('../services/encryption.service');
 const storageService = require('../services/storage');
 const { isGroupReadOnly, getReadOnlyErrorResponse } = require('../utils/permissions');
+const pushNotificationService = require('../services/pushNotification.service');
 
 /**
  * Get messages for a group
@@ -653,6 +654,53 @@ async function sendMessageGroupMessage(req, res) {
         messageContent: auditLogContent,
       },
     });
+
+    // Send push notifications to other message group members
+    // Fire and forget - don't block the response
+    (async () => {
+      try {
+        // Get all members of this message group except the sender
+        const messageGroupMembers = await prisma.messageGroupMember.findMany({
+          where: {
+            messageGroupId: messageGroupId,
+            groupMemberId: { not: groupMembership.groupMemberId },
+          },
+          select: {
+            groupMemberId: true,
+          },
+        });
+
+        const memberIds = messageGroupMembers.map(m => m.groupMemberId);
+
+        if (memberIds.length > 0) {
+          // Get sender display name
+          const senderName = messageWithLatestProfile.sender.displayName;
+          const truncatedContent = messageContent.length > 100
+            ? messageContent.substring(0, 100) + '...'
+            : messageContent;
+
+          // Determine notification type based on mentions
+          const notificationType = validMentions.length > 0 ? 'mention' : 'message';
+
+          // Send to members who have notifications enabled for this type
+          await pushNotificationService.sendToGroupMembersWithPreferences(
+            memberIds,
+            notificationType,
+            `${senderName} in ${messageGroup.name}`,
+            truncatedContent,
+            {
+              type: 'new_message',
+              groupId: groupId,
+              messageGroupId: messageGroupId,
+              messageId: message.messageId,
+            }
+          );
+        }
+      } catch (notificationError) {
+        console.error('[Messages] Failed to send push notifications:', notificationError);
+        // Don't fail the request if notifications fail
+      }
+    })();
 
     res.status(201).json({
       success: true,

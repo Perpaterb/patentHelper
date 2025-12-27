@@ -54,6 +54,7 @@ model User {
   calendarEventReminders      CalendarEventReminder[]
   importedCalendars           ImportedCalendar[]
   importedCalendarPreferences ImportedCalendarPreference[]
+  deviceTokens                DeviceToken[]
 
   @@index([email])
   @@index([kindeId])
@@ -1580,4 +1581,29 @@ model ImportedCalendarPreference {
   @@unique([userId, importedCalendarId])
   @@index([userId])
   @@map("imported_calendar_preferences")
+}
+
+// ============================================
+// PUSH NOTIFICATION DEVICE TOKENS
+// Stores Expo Push Tokens for each user's devices
+// A user can have multiple devices (phone, tablet)
+// ============================================
+
+model DeviceToken {
+  tokenId       String   @id @default(uuid()) @map("token_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  expoPushToken String   @map("expo_push_token") @db.VarChar(255)
+  deviceName    String?  @map("device_name") @db.VarChar(100)
+  platform      String   @map("platform") @db.VarChar(10)
+  isActive      Boolean  @default(true) @map("is_active")
+  lastUsedAt    DateTime @default(now()) @map("last_used_at") @db.Timestamp(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, expoPushToken])
+  @@index([userId])
+  @@index([isActive])
+  @@map("device_tokens")
 }
