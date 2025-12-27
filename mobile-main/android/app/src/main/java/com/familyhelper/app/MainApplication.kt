@@ -1,6 +1,5 @@
 package com.familyhelper.app
 
-import android.app.Activity
 import android.app.Application
 import android.content.res.Configuration
 
@@ -18,9 +17,6 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 
 class MainApplication : Application(), ReactApplication {
-
-  // Activity stack tracking - prevents browser session loss when app is backgrounded
-  private val runningActivities = ArrayList<Class<out Activity>>()
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
       this,
@@ -56,28 +52,5 @@ class MainApplication : Application(), ReactApplication {
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
-  }
-
-  /**
-   * Add an activity to the back stack tracking
-   */
-  fun addActivityToStack(activityClass: Class<out Activity>) {
-    if (!runningActivities.contains(activityClass)) {
-      runningActivities.add(activityClass)
-    }
-  }
-
-  /**
-   * Remove an activity from the back stack tracking
-   */
-  fun removeActivityFromStack(activityClass: Class<out Activity>) {
-    runningActivities.remove(activityClass)
-  }
-
-  /**
-   * Check if an activity is in the back stack
-   */
-  fun isActivityInBackStack(activityClass: Class<out Activity>): Boolean {
-    return runningActivities.contains(activityClass)
   }
 }
